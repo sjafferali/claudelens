@@ -3,6 +3,8 @@ name = "claudelens-cli"
 version = "0.1.0"
 description = "ClaudeLens CLI tool for syncing Claude conversations"
 authors = ["Your Name <email@example.com>"]
+readme = "README.md"
+packages = [{include = "claudelens_cli"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
