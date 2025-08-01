@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "claudelens-cli"
+version = "0.1.0"
+description = "ClaudeLens CLI tool for syncing Claude conversations"
+authors = ["Your Name <email@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+claudelens = "claudelens_cli.__main__:main"
