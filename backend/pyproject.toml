@@ -6,8 +6,29 @@ authors = ["Your Name <email@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
+fastapi = "^0.104.0"
+uvicorn = {extras = ["standard"], version = "^0.24.0"}
+motor = "^3.3.0"
+pydantic = "^2.4.0"
+pydantic-settings = "^2.0.0"
+python-multipart = "^0.0.6"
+httpx = "^0.25.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+redis = "^5.0.0"
+aiofiles = "^23.2.0"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+pytest-cov = "^4.1.0"
+pytest-xdist = "^3.3.0"
+testcontainers = {extras = ["mongodb", "redis"], version = "^3.7.0"}
+ruff = "^0.1.0"
+mypy = "^1.6.0"
+black = "^23.10.0"
+isort = "^5.12.0"
+pre-commit = "^3.5.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -15,7 +36,12 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 88
-select = ["E", "F", "B", "I"]
+select = ["E", "F", "B", "I", "N", "UP", "YTT", "ASYNC", "S", "A", "C4", "DTZ", "ICN", "PIE", "PT", "RSE", "RET", "SIM", "TID", "TCH", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "RUF"]
+ignore = ["E501", "B008", "B904"]
+target-version = "py311"
+
+[tool.ruff.per-file-ignores]
+"tests/*" = ["S101", "PLR2004"]
 
 [tool.mypy]
 python_version = "3.11"

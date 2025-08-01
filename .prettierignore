@@ -1,0 +1,20 @@
+# Ignore backend and cli directories (Python code)
+backend/
+cli/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+node_modules/
+coverage/
+htmlcov/
+
+# Poetry files
+poetry.lock
+
+# Other
+*.pyc
+__pycache__/
+.venv/
+.pytest_cache/
