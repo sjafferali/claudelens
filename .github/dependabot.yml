@@ -5,7 +5,7 @@ updates:
     directory: "/backend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0  # Temporarily disabled
     assignees:
       - "sjafferali"
     labels:
@@ -17,7 +17,7 @@ updates:
     directory: "/cli"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0  # Temporarily disabled
     assignees:
       - "sjafferali"
     labels:
@@ -29,7 +29,7 @@ updates:
     directory: "/frontend"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0  # Temporarily disabled
     assignees:
       - "sjafferali"
     labels:
@@ -41,6 +41,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0  # Temporarily disabled
     assignees:
       - "sjafferali"
     labels:
