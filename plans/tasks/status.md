@@ -96,6 +96,12 @@ Focus on these tasks first:
   - Task 07: Added support for JSONL, SQLite, todos, config files with specific parsers
   - Task 09: Updated schemas to handle all Claude message types and data formats
 
+## Current Status
+- Project is planned but implementation has begun
+- Project directory already renamed to `claudelens`
+- All 24 tasks are currently TODO
+- Next task to implement: Task 01 - Project Setup and Initial Structure
+
 ## Quick Commands
 
 ```bash

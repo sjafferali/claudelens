@@ -9,25 +9,21 @@
 Initialize the ClaudeLens project with the proper directory structure, development environment configuration, and base tooling setup. This task establishes the foundation for all subsequent development work.
 
 ## Current State
-- Project exists as `claudehistoryarchive` directory
-- Contains Claude conversation data samples
-- No application code structure
+- Project exists as `claudelens` directory
+- Git repository already initialized with remote origin
+- README.md and LICENSE files already created
+- Plans directory with task specifications
+- No application code structure yet
 
 ## Target State
-- Renamed to `claudelens` directory
 - Complete project structure as defined in implementation plan
 - All configuration files in place
 - Development tools configured
+- README.md expanded with full project information
 
 ## Implementation Details
 
-### 1. Rename Project Directory
-```bash
-mv claudehistoryarchive claudelens
-cd claudelens
-```
-
-### 2. Create Directory Structure
+### 1. Create Directory Structure
 ```bash
 # Create all necessary directories
 mkdir -p backend/{app/{api/routes,core,models,services},tests,scripts}
@@ -36,15 +32,9 @@ mkdir -p cli/{claudelens_cli/{commands,core,utils},tests}
 mkdir -p docker scripts docs .github/workflows
 ```
 
-### 3. Initialize Git Repository
-```bash
-git init
-git remote add origin https://github.com/sjafferali/claudelens.git
-```
+### 2. Create Root Configuration Files
 
-### 4. Create Root Configuration Files
-
-**`.gitignore`**
+**`.gitignore`** (create new file)
 ```
 # Python
 __pycache__/
@@ -86,11 +76,11 @@ coverage/
 docker/data/
 ```
 
-**`README.md`**
+**`README.md`** (update existing file)
 ```markdown
 # ClaudeLens
 
-Transform your Claude conversations into a searchable, visual archive.
+Archive, search, and visualize your Claude conversation history. Transform your scattered Claude conversations into a searchable, visual archive.
 
 ## Features
 - 🔍 Full-text search across all conversations
@@ -98,15 +88,27 @@ Transform your Claude conversations into a searchable, visual archive.
 - 🔄 Automatic sync from local Claude directory
 - 🎨 Beautiful conversation viewer with syntax highlighting
 - 📈 Activity heatmaps and insights
+- 🏷️ Project-based organization
+- 💾 Support for Claude.ai, Claude Code CLI, and API conversations
 
 ## Quick Start
-[Installation and usage instructions]
+[Installation and usage instructions - to be added]
+
+## Components
+- **Web Application**: React-based frontend for browsing and analyzing conversations
+- **REST API**: FastAPI backend for data access and search
+- **CLI Tool**: Automatic syncing from your local Claude directory
+
+## Technology Stack
+- Backend: Python, FastAPI, MongoDB
+- Frontend: React, TypeScript, Vite
+- Infrastructure: Docker, Docker Compose
 
 ## Documentation
 See the [docs](./docs) directory for detailed documentation.
 
 ## License
-MIT
+MIT License - see [LICENSE](./LICENSE) file for details.
 ```
 
 **`.editorconfig`**
@@ -131,7 +133,7 @@ indent_size = 2
 indent_style = tab
 ```
 
-### 5. Create Development Scripts
+### 3. Create Development Scripts
 
 **`scripts/dev.sh`**
 ```bash
@@ -182,7 +184,7 @@ Make executable:
 chmod +x scripts/dev.sh
 ```
 
-### 6. Create Docker Configuration
+### 4. Create Docker Configuration
 
 **`docker/.dockerignore`**
 ```
@@ -199,7 +201,7 @@ chmod +x scripts/dev.sh
 **/venv
 ```
 
-### 7. Initialize Backend (Python/Poetry)
+### 5. Initialize Backend (Python/Poetry)
 
 ```bash
 cd backend
@@ -234,7 +236,7 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 ```
 
-### 8. Initialize Frontend (Vite/React)
+### 6. Initialize Frontend (Vite/React)
 
 ```bash
 cd frontend
@@ -259,14 +261,14 @@ npm init -y
 }
 ```
 
-### 9. Initialize CLI Tool
+### 7. Initialize CLI Tool
 
 ```bash
 cd cli
 poetry init --name claudelens-cli --python "^3.11"
 ```
 
-### 10. Create Initial Documentation
+### 8. Create Initial Documentation
 
 **`docs/README.md`**
 ```markdown
@@ -289,14 +291,15 @@ poetry init --name claudelens-cli --python "^3.11"
 - Git
 
 ## Success Criteria
-- [ ] Project renamed to `claudelens`
 - [ ] Complete directory structure created
-- [ ] All base configuration files in place
-- [ ] Git repository initialized
+- [ ] .gitignore file created
+- [ ] .editorconfig file created
+- [ ] README.md updated with full project information
 - [ ] Backend Poetry project initialized
 - [ ] Frontend npm project initialized
 - [ ] CLI Poetry project initialized
 - [ ] Development scripts created
+- [ ] Docker configuration files created
 - [ ] Initial documentation structure
 
 ## Notes
