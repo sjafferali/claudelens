@@ -63,7 +63,6 @@ coverage/
 .env.*.local
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo

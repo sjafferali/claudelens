@@ -351,29 +351,16 @@ CLAUDELENS_API_URL=http://localhost:8000
 CLAUDELENS_API_KEY=your-api-key-here
 ```
 
-### 10. VS Code Configuration
+### 10. PyCharm Configuration
 
-**`.vscode/settings.json`:**
-```json
-{
-  "editor.formatOnSave": true,
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
-  },
-  "python.linting.enabled": true,
-  "python.linting.ruffEnabled": true,
-  "python.formatting.provider": "black",
-  "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter"
-  },
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
-}
-```
+**PyCharm Settings:**
+- Enable Ruff as external tool for Python linting
+- Configure Black as the Python formatter
+- Set up Prettier for JavaScript/TypeScript formatting
+- Configure ESLint integration for frontend code
+- Enable EditorConfig support (built-in)
+
+**Note:** PyCharm automatically detects most project settings from configuration files like `.editorconfig`, `pyproject.toml`, `.eslintrc.json`, and `.prettierrc`.
 
 ## Required Technologies
 - Poetry (Python package manager)
@@ -395,5 +382,5 @@ CLAUDELENS_API_KEY=your-api-key-here
 ## Notes
 - Use `poetry install` and `npm install` to install dependencies
 - Run `pre-commit install` to set up git hooks
-- All tools should work with VS Code out of the box
+- All tools should work with PyCharm out of the box
 - Keep development dependencies separate from production

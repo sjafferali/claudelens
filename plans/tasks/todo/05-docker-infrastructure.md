@@ -548,7 +548,6 @@ chmod +x scripts/build.sh
 **/coverage
 
 # IDE
-.vscode
 .idea
 **/*.swp
 **/*.swo
