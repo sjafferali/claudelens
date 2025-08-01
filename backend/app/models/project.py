@@ -31,8 +31,14 @@ class ProjectCreate(ProjectBase):
     pass
 
 
+class ProjectStats(BaseModel):
+    message_count: int = 0
+    session_count: int = 0
+
+
 class ProjectInDB(ProjectBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    stats: ProjectStats = Field(default_factory=ProjectStats)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
