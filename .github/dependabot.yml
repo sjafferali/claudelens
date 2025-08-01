@@ -1,0 +1,48 @@
+version: 2
+updates:
+  # Python dependencies - Backend
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    assignees:
+      - "sjafferali"
+    labels:
+      - "dependencies"
+      - "backend"
+      
+  # Python dependencies - CLI
+  - package-ecosystem: "pip"
+    directory: "/cli"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    assignees:
+      - "sjafferali"
+    labels:
+      - "dependencies"
+      - "cli"
+      
+  # JavaScript dependencies
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    assignees:
+      - "sjafferali"
+    labels:
+      - "dependencies"
+      - "frontend"
+      
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "sjafferali"
+    labels:
+      - "dependencies"
+      - "github-actions"

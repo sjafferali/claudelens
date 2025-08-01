@@ -1,0 +1,395 @@
+name: Main Branch CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Backend Tests
+  backend-tests:
+    runs-on: ubuntu-latest
+    name: Backend Tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: 1.6.1
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          backend/.venv
+          ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ hashFiles('backend/poetry.lock') }}
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        poetry install --with dev
+        
+    - name: Run tests with coverage
+      run: |
+        cd backend
+        poetry run pytest --cov=app --cov-report=xml --cov-report=term
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+  # CLI Tests
+  cli-tests:
+    runs-on: ubuntu-latest
+    name: CLI Tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: 1.6.1
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          cli/.venv
+          ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-cli-${{ hashFiles('cli/poetry.lock') }}
+        
+    - name: Install dependencies
+      run: |
+        cd cli
+        poetry install --with dev
+        
+    - name: Run tests with coverage
+      run: |
+        cd cli
+        poetry run pytest --cov=claudelens_cli --cov-report=xml --cov-report=term
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./cli/coverage.xml
+        flags: cli
+        name: cli-coverage
+
+  # Frontend Tests
+  frontend-tests:
+    runs-on: ubuntu-latest
+    name: Frontend Tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+        
+    - name: Run tests with coverage
+      run: |
+        cd frontend
+        npm run test:coverage -- --reporter=junit --outputFile=test-results.xml
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: frontend-test-results
+        path: frontend/test-results.xml
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+  # Linting - Python
+  python-lint:
+    runs-on: ubuntu-latest
+    name: Python Linting
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install Ruff
+      run: pip install ruff mypy
+        
+    - name: Run Ruff on Backend
+      run: |
+        cd backend
+        ruff check . --output-format=github
+        
+    - name: Run Ruff on CLI
+      run: |
+        cd cli
+        ruff check . --output-format=github
+        
+    - name: Install Poetry for MyPy
+      uses: snok/install-poetry@v1
+      with:
+        version: 1.6.1
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+        
+    - name: Run MyPy on Backend
+      run: |
+        cd backend
+        poetry install --with dev
+        poetry run mypy app/ --ignore-missing-imports
+        
+    - name: Run MyPy on CLI
+      run: |
+        cd cli
+        poetry install --with dev
+        poetry run mypy claudelens_cli/ --ignore-missing-imports
+
+  # Linting - Frontend
+  frontend-lint:
+    runs-on: ubuntu-latest
+    name: Frontend Linting
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+        
+    - name: Run ESLint
+      run: |
+        cd frontend
+        npm run lint
+        
+    - name: Check Prettier formatting
+      run: |
+        cd frontend
+        npm run format:check
+        
+    - name: Run TypeScript check
+      run: |
+        cd frontend
+        npm run type-check
+
+  # Security Scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scanning
+    permissions:
+      security-events: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Dependency Security Check
+  dependency-check:
+    runs-on: ubuntu-latest
+    name: Dependency Security Check
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Check Python dependencies
+      run: |
+        pip install safety
+        cd backend && safety check || true
+        cd ../cli && safety check || true
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Audit npm dependencies
+      run: |
+        cd frontend
+        npm audit --json > npm-audit.json || true
+        if [ -s npm-audit.json ]; then
+          echo "::warning::npm audit found vulnerabilities"
+          cat npm-audit.json | jq '.vulnerabilities'
+        fi
+
+  # Docker Build & Push
+  docker-build:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    needs: [backend-tests, cli-tests, frontend-tests, python-lint, frontend-lint, security-scan]
+    name: Docker Build & Push
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=tag
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=sha,prefix={{branch}}-,format=short
+          type=raw,value=latest,enable={{is_default_branch}}
+        
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./docker/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+        
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+        format: cyclonedx-json
+        output-file: sbom.json
+        
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom
+        path: sbom.json
+
+  # Build CLI binaries
+  build-cli:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.os }}
+    needs: [cli-tests, python-lint]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.11']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      
+    - name: Build CLI
+      run: |
+        cd cli
+        poetry install
+        poetry build
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: cli-${{ matrix.os }}
+        path: cli/dist/*
+
+  # All checks passed
+  ci-success:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, cli-tests, frontend-tests, python-lint, frontend-lint, security-scan, dependency-check]
+    name: CI Success
+    steps:
+    - name: Success
+      run: echo "All CI checks passed!"

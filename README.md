@@ -1,5 +1,9 @@
 # ClaudeLens
 
+[![CI/CD](https://github.com/sjafferali/claudelens/actions/workflows/main.yml/badge.svg)](https://github.com/sjafferali/claudelens/actions/workflows/main.yml)
+[![codecov](https://codecov.io/gh/sjafferali/claudelens/branch/main/graph/badge.svg)](https://codecov.io/gh/sjafferali/claudelens)
+[![Security](https://github.com/sjafferali/claudelens/actions/workflows/security.yml/badge.svg)](https://github.com/sjafferali/claudelens/actions/workflows/security.yml)
+
 Archive, search, and visualize your Claude conversation history. Transform your scattered Claude conversations into a searchable, visual archive.
 
 ## Features
