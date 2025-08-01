@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  claudelens:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ./backend:/app/backend:ro
+      - ./frontend/dist:/app/frontend/dist:ro
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+
+  mongodb:
+    ports:
+      - "27017:27017"
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: claudelens_mongo_express_dev
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGODB_ROOT_USER:-admin}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_ROOT_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_ROOT_USER:-admin}:${MONGODB_ROOT_PASSWORD}@mongodb:27017/
+    depends_on:
+      - mongodb
+    networks:
+      - claudelens-network

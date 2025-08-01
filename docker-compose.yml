@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  claudelens:
+    image: ghcr.io/sjafferali/claudelens:latest
+    container_name: claudelens
+    restart: unless-stopped
+    ports:
+      - "${CLAUDELENS_PORT:-3000}:80"
+    environment:
+      - MONGODB_URL=mongodb://claudelens_app:${MONGODB_PASSWORD}@mongodb:27017/claudelens?authSource=claudelens
+      - REDIS_URL=redis://redis:6379
+      - API_KEY=${API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:3000}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - claudelens-network
+
+  mongodb:
+    image: mongo:7.0
+    container_name: claudelens_mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: claudelens
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    command: mongod --auth --wiredTigerCacheSizeGB 1
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/claudelens --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - claudelens-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: claudelens_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - claudelens-network
+
+  # Optional: Backup service
+  backup:
+    image: mongo:7.0
+    container_name: claudelens_backup
+    profiles: ["backup"]
+    environment:
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_DATABASE: claudelens
+      MONGO_USERNAME: ${MONGODB_ROOT_USER:-admin}
+      MONGO_PASSWORD: ${MONGODB_ROOT_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    command: |
+      sh -c 'mongodump --host=$${MONGO_HOST}:$${MONGO_PORT} --username=$${MONGO_USERNAME} --password=$${MONGO_PASSWORD} --authenticationDatabase=admin --db=$${MONGO_DATABASE} --out=/backups/backup-$$(date +%Y%m%d-%H%M%S)'
+    networks:
+      - claudelens-network
+
+volumes:
+  mongodb_data:
+    name: claudelens_mongodb_data
+  redis_data:
+    name: claudelens_redis_data
+
+networks:
+  claudelens-network:
+    name: claudelens_network
+    driver: bridge
