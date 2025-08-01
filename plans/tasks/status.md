@@ -34,7 +34,7 @@ This document tracks the implementation status of all ClaudeLens tasks. Each tas
 | 08 | Backend API Structure | COMPLETED | High | 3 hours | [08-backend-api-structure.md](todo/08-backend-api-structure.md) | FastAPI application setup |
 | 09 | Backend Ingestion API | COMPLETED | High | 3 hours | [09-backend-ingest-api.md](todo/09-backend-ingest-api.md) | Data ingestion endpoints |
 | 10 | Backend Query APIs | COMPLETED | High | 4 hours | [10-backend-query-apis.md](todo/10-backend-query-apis.md) | CRUD operations for data |
-| 11 | Backend Search API | TODO | High | 3 hours | [11-backend-search-api.md](todo/11-backend-search-api.md) | Full-text search implementation |
+| 11 | Backend Search API | COMPLETED | High | 3 hours | [11-backend-search-api.md](todo/11-backend-search-api.md) | Full-text search implementation |
 | 12 | Backend Analytics API | TODO | Medium | 3 hours | - | Usage statistics and insights |
 | 13 | Frontend Project Setup | TODO | High | 2 hours | - | React/Vite initialization |
 | 14 | Frontend Component Library | TODO | High | 3 hours | - | Base UI components |
@@ -52,9 +52,9 @@ This document tracks the implementation status of all ClaudeLens tasks. Each tas
 ## Progress Summary
 
 - **Total Tasks**: 24
-- **Completed**: 10 (41.7%)
+- **Completed**: 11 (45.8%)
 - **In Progress**: 0 (0%)
-- **TODO**: 14 (58.3%)
+- **TODO**: 13 (54.2%)
 - **Blocked**: 0 (0%)
 
 ## Dependencies
@@ -192,10 +192,22 @@ Focus on these tasks first:
   - All 25 API endpoints properly registered and tested
   - Fixed import issues with PyObjectId
   - FastAPI server starts successfully (MongoDB connection not required for test)
+- 2025-08-01 - Task 11 - COMPLETED - Backend Search API implemented
+  - Created comprehensive search schemas supporting filters, highlighting, and suggestions
+  - Implemented search service with full-text search using MongoDB text indexes
+  - Built search pipeline with aggregation for relevance scoring and joins
+  - Added search filtering by project, date range, message type, model, and cost
+  - Implemented code-specific search with language filtering
+  - Created search suggestions endpoint with autocomplete from recent searches
+  - Added search history tracking and analytics
+  - Built search result highlighting with context preview
+  - Implemented search statistics endpoint for monitoring
+  - All 5 search endpoints properly registered and tested
+  - Search results include relevance scoring and context
 
 ## Current Status
 - Project implementation progressing
-- Tasks 01-10 completed (41.7% complete)
+- Tasks 01-11 completed (45.8% complete)
 - MongoDB database infrastructure ready
 - GitHub Actions CI/CD pipeline configured
 - Docker infrastructure setup complete
@@ -203,7 +215,8 @@ Focus on these tasks first:
 - FastAPI backend structure complete with middleware and routing
 - Backend ingestion API complete with deduplication and batch processing
 - Backend query APIs complete with full CRUD operations for projects, sessions, and messages
-- Next task to implement: Task 11 - Backend Search API
+- Backend search API complete with full-text search, filtering, and analytics
+- Next task to implement: Task 12 - Backend Analytics API
 
 ## Quick Commands
 
