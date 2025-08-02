@@ -63,10 +63,15 @@ class SyncEngine:
     async def _get_http_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
         if not self.http_client:
+            # Check if we're using a local/development URL
+            is_local = any(x in self.config.config.api_url.lower() for x in ['localhost', '127.0.0.1', '.local', 'host.docker.internal'])
+            
             self.http_client = httpx.AsyncClient(
                 base_url=self.config.config.api_url,
                 headers=self.config.get_headers(),
-                timeout=30.0
+                timeout=30.0,
+                follow_redirects=False,  # Don't follow redirects to avoid nginx issues
+                verify=not is_local  # Disable SSL verification for local URLs
             )
         return self.http_client
     
@@ -171,8 +176,8 @@ class SyncEngine:
         
         # Process each file
         for jsonl_file in jsonl_files:
-            # Skip if file hasn't been modified since last sync
-            if project_state and project_state.last_file == jsonl_file.name:
+            # Skip if file hasn't been modified since last sync (only in non-dry-run mode)
+            if not dry_run and project_state and project_state.last_file == jsonl_file.name:
                 file_mtime = datetime.fromtimestamp(jsonl_file.stat().st_mtime)
                 if file_mtime <= project_state.last_sync:
                     continue
@@ -201,9 +206,9 @@ class SyncEngine:
         batch_hashes = set()
         line_number = 0
         
-        # Determine starting line
+        # Determine starting line (only use saved state in non-dry-run mode)
         start_line = 0
-        if project_state and project_state.last_file == file_path.name:
+        if not dry_run and project_state and project_state.last_file == file_path.name:
             start_line = project_state.last_line or 0
         
         async for message, line_num in self._read_jsonl_messages(file_path, start_line):
@@ -212,8 +217,8 @@ class SyncEngine:
             # Generate hash
             message_hash = self.state.hash_message(message)
             
-            # Skip if already synced
-            if self.state.is_message_synced(project_key, message_hash):
+            # Skip if already synced (only in non-dry-run mode)
+            if not dry_run and self.state.is_message_synced(project_key, message_hash):
                 stats.messages_skipped += 1
                 continue
             
@@ -225,15 +230,14 @@ class SyncEngine:
             if len(batch) >= self.config.config.batch_size:
                 if not dry_run:
                     await self._upload_batch(batch)
+                    # Update state only when actually syncing
+                    self.state.update_project_state(
+                        project_key,
+                        last_file=file_path.name,
+                        last_line=line_number,
+                        new_messages=batch_hashes
+                    )
                 stats.messages_synced += len(batch)
-                
-                # Update state
-                self.state.update_project_state(
-                    project_key,
-                    last_file=file_path.name,
-                    last_line=line_number,
-                    new_messages=batch_hashes
-                )
                 
                 # Clear batch
                 batch = []
@@ -246,14 +250,14 @@ class SyncEngine:
         if batch:
             if not dry_run:
                 await self._upload_batch(batch)
+                # Update state only when actually syncing
+                self.state.update_project_state(
+                    project_key,
+                    last_file=file_path.name,
+                    last_line=line_number,
+                    new_messages=batch_hashes
+                )
             stats.messages_synced += len(batch)
-            
-            self.state.update_project_state(
-                project_key,
-                last_file=file_path.name,
-                last_line=line_number,
-                new_messages=batch_hashes
-            )
     
     async def _read_jsonl_messages(
         self,
@@ -295,9 +299,17 @@ class SyncEngine:
         }
         
         try:
-            response = await client.post("/api/v1/projects", json=project_data)
+            response = await client.post("/projects", json=project_data)
             if response.status_code not in (200, 201, 409):  # 409 = already exists
-                console.print(f"[red]Failed to create project: {response.text}[/red]")
+                error_msg = response.text.strip() if response.text else f"HTTP {response.status_code}"
+                console.print(f"[red]Failed to create project ({response.status_code}): {error_msg}[/red]")
+                # Try to parse JSON error response
+                try:
+                    error_data = response.json()
+                    if "detail" in error_data:
+                        console.print(f"[red]  Details: {error_data['detail']}[/red]")
+                except (ValueError, KeyError):
+                    pass
         except Exception as e:
             console.print(f"[red]Error creating project: {e}[/red]")
     
@@ -308,10 +320,24 @@ class SyncEngine:
         for attempt in range(retry_count):
             try:
                 response = await client.post(
-                    "/api/v1/ingest/batch",
+                    "/ingest/batch",  # Remove trailing slash - nginx adds it
                     json={"messages": messages},
                     timeout=60.0
                 )
+                
+                # Handle redirects manually for nginx issues
+                if response.status_code in (301, 302, 307, 308):
+                    location = response.headers.get("location")
+                    if location:
+                        # Extract path from redirect and retry with same base URL
+                        from urllib.parse import urlparse
+                        parsed = urlparse(location)
+                        new_path = parsed.path
+                        response = await client.post(
+                            new_path,
+                            json={"messages": messages},
+                            timeout=60.0
+                        )
                 
                 if response.status_code == 200:
                     return
@@ -321,6 +347,9 @@ class SyncEngine:
                     await asyncio.sleep(wait_time)
                 else:
                     console.print(f"[red]Upload failed ({response.status_code}): {response.text}[/red]")
+                    # Log request details for debugging
+                    console.print(f"[dim]Request URL: {response.request.url}[/dim]")
+                    console.print(f"[dim]Request method: {response.request.method}[/dim]")
                     
             except httpx.TimeoutException:
                 console.print(f"[yellow]Upload timeout, retrying... ({attempt + 1}/{retry_count})[/yellow]")
@@ -363,7 +392,7 @@ class SyncEngine:
         
         # Start watching
         self._observer.start()
-        console.print(f"\n[green]Watching for changes...[/green]")
+        console.print("\n[green]Watching for changes...[/green]")
         
         try:
             while True:

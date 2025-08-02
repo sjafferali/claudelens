@@ -12,7 +12,7 @@ export function useProjects(params: ProjectsParams = {}) {
 export function useProject(projectId: string | undefined) {
   return useQuery({
     queryKey: ['project', projectId],
-    queryFn: () => projectId ? projectsApi.getProject(projectId) : null,
+    queryFn: () => (projectId ? projectsApi.getProject(projectId) : null),
     enabled: !!projectId,
     staleTime: 30000,
   });

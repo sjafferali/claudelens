@@ -34,22 +34,31 @@ export interface MessageThread {
 }
 
 export const sessionsApi = {
-  async listSessions(params: SessionsParams = {}): Promise<PaginatedResponse<Session>> {
+  async listSessions(
+    params: SessionsParams = {}
+  ): Promise<PaginatedResponse<Session>> {
     const queryParams = new URLSearchParams();
-    
+
     if (params.projectId) queryParams.append('project_id', params.projectId);
-    if (params.skip !== undefined) queryParams.append('skip', params.skip.toString());
-    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params.skip !== undefined)
+      queryParams.append('skip', params.skip.toString());
+    if (params.limit !== undefined)
+      queryParams.append('limit', params.limit.toString());
     if (params.search) queryParams.append('search', params.search);
     if (params.startDate) queryParams.append('start_date', params.startDate);
     if (params.endDate) queryParams.append('end_date', params.endDate);
     if (params.sortBy) queryParams.append('sort_by', params.sortBy);
     if (params.sortOrder) queryParams.append('sort_order', params.sortOrder);
-    
-    return apiClient.get<PaginatedResponse<Session>>(`/sessions?${queryParams.toString()}`);
+
+    return apiClient.get<PaginatedResponse<Session>>(
+      `/sessions?${queryParams.toString()}`
+    );
   },
 
-  async getSession(sessionId: string, includeMessages = false): Promise<SessionDetail> {
+  async getSession(
+    sessionId: string,
+    includeMessages = false
+  ): Promise<SessionDetail> {
     const params = includeMessages ? '?include_messages=true' : '';
     return apiClient.get<SessionDetail>(`/sessions/${sessionId}${params}`);
   },
@@ -74,10 +83,13 @@ export const sessionsApi = {
     );
   },
 
-  async generateSessionSummary(sessionId: string): Promise<{ summary: string }> {
-    const response = await apiClient.post<{ session_id: string; summary: string }>(
-      `/sessions/${sessionId}/generate-summary`
-    );
+  async generateSessionSummary(
+    sessionId: string
+  ): Promise<{ summary: string }> {
+    const response = await apiClient.post<{
+      session_id: string;
+      summary: string;
+    }>(`/sessions/${sessionId}/generate-summary`);
     return { summary: response.summary };
   },
 };

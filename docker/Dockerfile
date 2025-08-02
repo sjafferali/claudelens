@@ -60,7 +60,10 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 WORKDIR /app
 COPY --from=backend-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=backend-builder /usr/local/bin /usr/local/bin
-COPY --from=backend-builder /app/backend /app/backend
+# Copy backend but exclude scripts directory
+COPY --from=backend-builder /app/backend/app /app/backend/app
+COPY --from=backend-builder /app/backend/pyproject.toml /app/backend/pyproject.toml
+COPY --from=backend-builder /app/backend/poetry.lock /app/backend/poetry.lock
 
 # Copy frontend from builder
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist

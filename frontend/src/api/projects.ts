@@ -16,16 +16,22 @@ export interface ProjectDetail extends Project {
 }
 
 export const projectsApi = {
-  async listProjects(params: ProjectsParams = {}): Promise<PaginatedResponse<Project>> {
+  async listProjects(
+    params: ProjectsParams = {}
+  ): Promise<PaginatedResponse<Project>> {
     const queryParams = new URLSearchParams();
-    
-    if (params.skip !== undefined) queryParams.append('skip', params.skip.toString());
-    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+
+    if (params.skip !== undefined)
+      queryParams.append('skip', params.skip.toString());
+    if (params.limit !== undefined)
+      queryParams.append('limit', params.limit.toString());
     if (params.search) queryParams.append('search', params.search);
     if (params.sortBy) queryParams.append('sort_by', params.sortBy);
     if (params.sortOrder) queryParams.append('sort_order', params.sortOrder);
-    
-    return apiClient.get<PaginatedResponse<Project>>(`/projects?${queryParams.toString()}`);
+
+    return apiClient.get<PaginatedResponse<Project>>(
+      `/projects?${queryParams.toString()}`
+    );
   },
 
   async getProject(projectId: string): Promise<ProjectDetail> {

@@ -10,19 +10,28 @@ export function useSessions(params: SessionsParams = {}) {
   });
 }
 
-export function useSession(sessionId: string | undefined, includeMessages = false) {
+export function useSession(
+  sessionId: string | undefined,
+  includeMessages = false
+) {
   return useQuery({
     queryKey: ['session', sessionId, includeMessages],
-    queryFn: () => sessionId ? sessionsApi.getSession(sessionId, includeMessages) : null,
+    queryFn: () =>
+      sessionId ? sessionsApi.getSession(sessionId, includeMessages) : null,
     enabled: !!sessionId,
     staleTime: 30000,
   });
 }
 
-export function useSessionMessages(sessionId: string | undefined, skip = 0, limit = 50) {
+export function useSessionMessages(
+  sessionId: string | undefined,
+  skip = 0,
+  limit = 50
+) {
   return useQuery({
     queryKey: ['session-messages', sessionId, skip, limit],
-    queryFn: () => sessionId ? sessionsApi.getSessionMessages(sessionId, skip, limit) : null,
+    queryFn: () =>
+      sessionId ? sessionsApi.getSessionMessages(sessionId, skip, limit) : null,
     enabled: !!sessionId,
     staleTime: 30000,
   });
@@ -35,9 +44,9 @@ export function useMessageThread(
 ) {
   return useQuery({
     queryKey: ['message-thread', sessionId, messageUuid, depth],
-    queryFn: () => 
-      sessionId && messageUuid 
-        ? sessionsApi.getMessageThread(sessionId, messageUuid, depth) 
+    queryFn: () =>
+      sessionId && messageUuid
+        ? sessionsApi.getMessageThread(sessionId, messageUuid, depth)
         : null,
     enabled: !!sessionId && !!messageUuid,
     staleTime: 30000,
@@ -46,9 +55,10 @@ export function useMessageThread(
 
 export function useGenerateSessionSummary() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: (sessionId: string) => sessionsApi.generateSessionSummary(sessionId),
+    mutationFn: (sessionId: string) =>
+      sessionsApi.generateSessionSummary(sessionId),
     onSuccess: (_, sessionId) => {
       toast.success('Summary generated successfully');
       // Invalidate session queries to refresh with new summary

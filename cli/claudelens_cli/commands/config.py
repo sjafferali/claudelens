@@ -72,7 +72,7 @@ def set(key: str, value: str):
             # For backward compatibility - redirect to claude_dirs
             console.print("[yellow]Note: claude_dir is deprecated. Use claude_dirs instead.[/yellow]")
             value = Prompt.ask(
-                f"Enter directory path",
+                "Enter directory path",
                 default=str(current_value) if current_value else str(Path.home() / ".claude")
             )
         elif key == "claude_dirs":

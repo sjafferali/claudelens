@@ -42,3 +42,10 @@ docs
 plans
 **/*.md
 !README.md
+
+# Development scripts - CRITICAL: Never include in production
+backend/scripts/
+scripts/dev.sh
+scripts/generate_*.py
+docker-compose.override.yml
+docker/docker-compose.dev.yml

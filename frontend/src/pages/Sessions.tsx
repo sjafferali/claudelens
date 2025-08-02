@@ -7,7 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/common';
-import { useSessions, useSession, useSessionMessages } from '@/hooks/useSessions';
+import {
+  useSessions,
+  useSession,
+  useSessionMessages,
+} from '@/hooks/useSessions';
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import MessageList from '@/components/MessageList';
@@ -26,11 +30,11 @@ function SessionsList() {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const pageSize = 20;
-  
+
   // Get project_id from URL search params
   const searchParams = new URLSearchParams(window.location.search);
   const projectId = searchParams.get('project_id') || undefined;
-  
+
   const { data, isLoading, error } = useSessions({
     projectId,
     skip: currentPage * pageSize,
@@ -94,26 +98,32 @@ function SessionsList() {
                     >
                       <div className="space-y-1 flex-1">
                         <p className="font-medium">
-                          {session.summary || `Session ${session.sessionId.slice(0, 8)}...`}
+                          {session.summary ||
+                            `Session ${session.sessionId.slice(0, 8)}...`}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {session.messageCount} messages • 
-                          {formatDistanceToNow(new Date(session.startedAt), { addSuffix: true })}
+                          {session.messageCount} messages •
+                          {formatDistanceToNow(new Date(session.startedAt), {
+                            addSuffix: true,
+                          })}
                         </p>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {session.totalCost ? `$${session.totalCost.toFixed(2)}` : 'N/A'}
+                        {session.totalCost
+                          ? `$${session.totalCost.toFixed(2)}`
+                          : 'N/A'}
                       </div>
                     </div>
                   ))
                 )}
               </div>
-              
+
               {data && data.items.length > 0 && (
                 <div className="flex items-center justify-between mt-6">
                   <p className="text-sm text-muted-foreground">
                     Showing {currentPage * pageSize + 1} to{' '}
-                    {Math.min((currentPage + 1) * pageSize, data.total)} of {data.total}
+                    {Math.min((currentPage + 1) * pageSize, data.total)} of{' '}
+                    {data.total}
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -144,7 +154,8 @@ function SessionsList() {
 function SessionDetail({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
   const { data: session, isLoading: sessionLoading } = useSession(sessionId);
-  const { data: messages, isLoading: messagesLoading } = useSessionMessages(sessionId);
+  const { data: messages, isLoading: messagesLoading } =
+    useSessionMessages(sessionId);
 
   if (sessionLoading || messagesLoading) {
     return (
@@ -158,7 +169,9 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Session Not Found</h2>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Session Not Found
+          </h2>
           <p className="text-muted-foreground">
             This session could not be found.
           </p>
@@ -187,9 +200,13 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
             {session.summary || `Session ${session.sessionId.slice(0, 8)}...`}
           </h2>
           <p className="text-muted-foreground">
-            {formatDistanceToNow(new Date(session.startedAt), { addSuffix: true })} • 
-            {session.messageCount} messages • 
-            {session.totalCost ? ` $${session.totalCost.toFixed(2)}` : ' No cost data'}
+            {formatDistanceToNow(new Date(session.startedAt), {
+              addSuffix: true,
+            })}{' '}
+            •{session.messageCount} messages •
+            {session.totalCost
+              ? ` $${session.totalCost.toFixed(2)}`
+              : ' No cost data'}
           </p>
         </div>
       </div>
@@ -198,9 +215,7 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Conversation</CardTitle>
-            <CardDescription>
-              Messages in this session
-            </CardDescription>
+            <CardDescription>Messages in this session</CardDescription>
           </CardHeader>
           <CardContent>
             <MessageList messages={messages.messages} />
@@ -213,22 +228,34 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Session ID</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Session ID
+              </p>
               <p className="text-sm font-mono">{session.sessionId}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Started</p>
-              <p className="text-sm">{new Date(session.startedAt).toLocaleString()}</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Started
+              </p>
+              <p className="text-sm">
+                {new Date(session.startedAt).toLocaleString()}
+              </p>
             </div>
             {session.endedAt && (
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Ended</p>
-                <p className="text-sm">{new Date(session.endedAt).toLocaleString()}</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Ended
+                </p>
+                <p className="text-sm">
+                  {new Date(session.endedAt).toLocaleString()}
+                </p>
               </div>
             )}
             {session.modelsUsed && session.modelsUsed.length > 0 && (
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Models Used</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Models Used
+                </p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {session.modelsUsed.map((model, i) => (
                     <span

@@ -1,7 +1,9 @@
 line-length = 88
-select = ["E", "F", "B", "I", "N", "UP", "YTT", "ASYNC", "S", "A", "C4", "DTZ", "ICN", "PIE", "PT", "RSE", "RET", "SIM", "TID", "TCH", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "RUF"]
-ignore = ["E501", "B008", "B904"]
 target-version = "py311"
 
-[per-file-ignores]
+[lint]
+select = ["E", "F", "B", "I", "N", "UP", "YTT", "ASYNC", "S", "A", "C4", "DTZ", "ICN", "PIE", "PT", "RSE", "RET", "SIM", "TID", "TCH", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "RUF"]
+ignore = ["E501", "B008", "B904", "E722"]
+
+[lint.per-file-ignores]
 "tests/*" = ["S101", "PLR2004"]

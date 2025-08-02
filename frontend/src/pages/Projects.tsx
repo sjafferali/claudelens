@@ -26,7 +26,7 @@ function ProjectsList() {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
   const pageSize = 12;
-  
+
   const { data, isLoading, error } = useProjects({
     skip: currentPage * pageSize,
     limit: pageSize,
@@ -108,9 +108,13 @@ function ProjectsList() {
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Last updated</span>
+                        <span className="text-muted-foreground">
+                          Last updated
+                        </span>
                         <span className="font-medium text-xs">
-                          {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(project.updatedAt), {
+                            addSuffix: true,
+                          })}
                         </span>
                       </div>
                     </div>
@@ -119,12 +123,13 @@ function ProjectsList() {
               ))
             )}
           </div>
-          
+
           {data && data.items.length > 0 && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
                 Showing {currentPage * pageSize + 1} to{' '}
-                {Math.min((currentPage + 1) * pageSize, data.total)} of {data.total}
+                {Math.min((currentPage + 1) * pageSize, data.total)} of{' '}
+                {data.total}
               </p>
               <div className="flex gap-2">
                 <button
@@ -172,7 +177,9 @@ function ProjectDetail({ projectId }: { projectId: string }) {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Project Not Found</h2>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Project Not Found
+          </h2>
           <p className="text-muted-foreground">
             This project could not be found.
           </p>
@@ -209,31 +216,41 @@ function ProjectDetail({ projectId }: { projectId: string }) {
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Sessions
+            </CardTitle>
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{project.stats?.session_count || 0}</div>
+            <div className="text-2xl font-bold">
+              {project.stats?.session_count || 0}
+            </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Messages
+            </CardTitle>
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{project.stats?.message_count || 0}</div>
+            <div className="text-2xl font-bold">
+              {project.stats?.message_count || 0}
+            </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Last Updated</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
+              {formatDistanceToNow(new Date(project.updatedAt), {
+                addSuffix: true,
+              })}
             </div>
           </CardContent>
         </Card>
@@ -265,19 +282,24 @@ function ProjectDetail({ projectId }: { projectId: string }) {
                 >
                   <div className="space-y-1 flex-1">
                     <p className="font-medium">
-                      {session.summary || `Session ${session.sessionId.slice(0, 8)}...`}
+                      {session.summary ||
+                        `Session ${session.sessionId.slice(0, 8)}...`}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {session.messageCount} messages • 
-                      {formatDistanceToNow(new Date(session.startedAt), { addSuffix: true })}
+                      {session.messageCount} messages •
+                      {formatDistanceToNow(new Date(session.startedAt), {
+                        addSuffix: true,
+                      })}
                     </p>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {session.totalCost ? `$${session.totalCost.toFixed(2)}` : 'N/A'}
+                    {session.totalCost
+                      ? `$${session.totalCost.toFixed(2)}`
+                      : 'N/A'}
                   </div>
                 </div>
               ))}
-              
+
               {sessions && sessions.total > 10 && (
                 <button
                   onClick={() => navigate(`/sessions?project_id=${projectId}`)}

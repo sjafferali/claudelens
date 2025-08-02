@@ -78,11 +78,12 @@ export default function MessageList({ messages }: MessageListProps) {
         <div
           key={message._id}
           className={cn(
-            "flex gap-3 p-4 rounded-lg",
-            message.type === 'user' && "bg-primary/5",
-            message.type === 'assistant' && "bg-secondary/30",
-            message.type === 'system' && "bg-muted/50",
-            (message.type === 'tool_use' || message.type === 'tool_result') && "bg-accent/30"
+            'flex gap-3 p-4 rounded-lg',
+            message.type === 'user' && 'bg-primary/5',
+            message.type === 'assistant' && 'bg-secondary/30',
+            message.type === 'system' && 'bg-muted/50',
+            (message.type === 'tool_use' || message.type === 'tool_result') &&
+              'bg-accent/30'
           )}
         >
           <div className="flex-shrink-0 mt-1">
@@ -91,7 +92,9 @@ export default function MessageList({ messages }: MessageListProps) {
           <div className="flex-1 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-medium">{getMessageLabel(message.type)}</span>
+                <span className="font-medium">
+                  {getMessageLabel(message.type)}
+                </span>
                 {message.model && (
                   <span className="text-xs px-2 py-1 bg-secondary rounded-md">
                     {message.model}
