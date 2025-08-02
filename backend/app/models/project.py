@@ -53,10 +53,11 @@ class ProjectStats(BaseModel):
 class ProjectInDB(ProjectBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     stats: ProjectStats = Field(default_factory=ProjectStats)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), alias="createdAt")
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), alias="updatedAt")
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        arbitrary_types_allowed=True
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC), alias="createdAt"
     )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC), alias="updatedAt"
+    )
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)

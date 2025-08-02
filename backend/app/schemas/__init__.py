@@ -20,5 +20,5 @@ __all__ = [
     # Common schemas
     "PaginationParams",
     "PaginatedResponse",
-    "ErrorResponse"
+    "ErrorResponse",
 ]

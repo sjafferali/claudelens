@@ -12,8 +12,8 @@ Implement a comprehensive search and filtering UI for the sessions page, includi
 - Project filtering
 - URL state management
 
-**Priority**: High  
-**Estimated Effort**: Medium  
+**Priority**: High
+**Estimated Effort**: Medium
 **Dependencies**: None
 
 ### 2. [Conversation Pagination](./conversation-pagination.md)
@@ -24,8 +24,8 @@ Implement efficient pagination for long conversation threads, including:
 - Search within conversation
 - Keyboard shortcuts
 
-**Priority**: High  
-**Estimated Effort**: High  
+**Priority**: High
+**Estimated Effort**: High
 **Dependencies**: None
 
 ## How to Use These Prompts
@@ -37,7 +37,7 @@ Implement efficient pagination for long conversation threads, including:
    # Start the development environment
    cd /Users/sjafferali/github/personal/claudelens
    ./scripts/dev.sh --load-samples
-   
+
    # Frontend will be available at http://localhost:5173
    # Backend API at http://localhost:8000
    ```

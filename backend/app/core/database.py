@@ -28,18 +28,18 @@ async def connect_to_mongodb() -> None:
         # Check if we should use testcontainers
         testcontainer_url = get_testcontainer_mongodb_url()
         mongodb_url = testcontainer_url or settings.MONGODB_URL
-        
+
         db.client = AsyncIOMotorClient(
             mongodb_url,
             maxPoolSize=settings.MAX_CONNECTIONS_COUNT,
             minPoolSize=settings.MIN_CONNECTIONS_COUNT,
         )
         db.database = db.client[settings.DATABASE_NAME]
-        
+
         # Verify connection
         await db.client.admin.command("ping")
         logger.info(f"Successfully connected to MongoDB at {mongodb_url}")
-        
+
     except errors.ConnectionFailure as e:
         logger.error(f"Could not connect to MongoDB: {e}")
         raise
@@ -50,7 +50,7 @@ async def close_mongodb_connection() -> None:
     if db.client:
         db.client.close()
         logger.info("Disconnected from MongoDB")
-    
+
     # Testcontainer cleanup is handled by atexit in testcontainers_db.py
 
 

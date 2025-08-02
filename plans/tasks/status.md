@@ -266,5 +266,5 @@ cat plans/tasks/todo/XX-task-name.md
 
 ---
 
-*Last Updated: [Current Date]*  
+*Last Updated: [Current Date]*
 *Next Review: After completing Phase 1 tasks*

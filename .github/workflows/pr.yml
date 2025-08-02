@@ -9,84 +9,84 @@ jobs:
   quick-tests:
     name: Quick Tests
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
-        
+
     - name: Install Poetry
       uses: snok/install-poetry@v1
-      
+
     - name: Backend tests
       run: |
         cd backend
         poetry install --with dev
         poetry run pytest -x --ff
-        
+
     - name: CLI tests
       run: |
         cd cli
         poetry install --with dev
         poetry run pytest -x --ff
-        
+
     - name: Frontend tests
       run: |
         cd frontend
         npm ci
         npm test -- --watchAll=false --maxWorkers=2
-  
+
   # Linting
   lint:
     name: Linting
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        
+
     - name: Python linting
       run: |
         pip install ruff
-        cd backend && ruff check . --select E,F,I --ignore E501 --output-format=github
-        cd ../cli && ruff check . --select E,F,I --ignore E501 --output-format=github
-        
+        cd backend && ruff check . --output-format=github
+        cd ../cli && ruff check . --output-format=github
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
-        
+
     - name: Frontend linting
       run: |
         cd frontend
         npm ci
         npm run lint
         npm run format:check
-  
+
   # Security quick scan
   security-quick:
     name: Security Quick Check
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
@@ -95,18 +95,18 @@ jobs:
         severity: 'CRITICAL'
         exit-code: '1'
         ignore-unfixed: true
-  
+
   # Test Docker build
   docker-build-test:
     name: Test Docker Build
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
+
     - name: Test Docker build
       uses: docker/build-push-action@v6
       with:

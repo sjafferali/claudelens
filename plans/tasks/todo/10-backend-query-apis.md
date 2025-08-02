@@ -1,8 +1,8 @@
 # Task 10: Backend Query APIs Implementation
 
 ## Status
-**Status:** TODO  
-**Priority:** High  
+**Status:** TODO
+**Priority:** High
 **Estimated Time:** 4 hours
 
 ## Purpose
@@ -53,16 +53,16 @@ async def list_projects(
     sort_order: str = Query("desc", regex="^(asc|desc)$")
 ) -> PaginatedResponse[ProjectWithStats]:
     """List all projects with pagination and filtering.
-    
+
     Returns projects with their statistics including message and session counts.
     """
     service = ProjectService(db)
-    
+
     # Build filter
     filter_dict = {}
     if search:
         filter_dict["$text"] = {"$search": search}
-    
+
     # Get projects
     projects, total = await service.list_projects(
         filter_dict=filter_dict,
@@ -71,7 +71,7 @@ async def list_projects(
         sort_by=sort_by,
         sort_order=sort_order
     )
-    
+
     return PaginatedResponse(
         items=projects,
         total=total,
@@ -87,18 +87,18 @@ async def get_project(
     db: CommonDeps
 ) -> ProjectWithStats:
     """Get a specific project by ID.
-    
+
     Returns the project with detailed statistics.
     """
     if not ObjectId.is_valid(project_id):
         raise HTTPException(status_code=400, detail="Invalid project ID")
-    
+
     service = ProjectService(db)
     project = await service.get_project(ObjectId(project_id))
-    
+
     if not project:
         raise NotFoundError("Project", project_id)
-    
+
     return project
 
 
@@ -108,12 +108,12 @@ async def create_project(
     db: CommonDeps
 ) -> Project:
     """Create a new project.
-    
+
     Projects are usually created automatically during ingestion,
     but this endpoint allows manual creation.
     """
     service = ProjectService(db)
-    
+
     # Check if project with same path exists
     existing = await service.get_project_by_path(project.path)
     if existing:
@@ -121,7 +121,7 @@ async def create_project(
             status_code=409,
             detail=f"Project with path '{project.path}' already exists"
         )
-    
+
     created = await service.create_project(project)
     return created
 
@@ -135,13 +135,13 @@ async def update_project(
     """Update a project's metadata."""
     if not ObjectId.is_valid(project_id):
         raise HTTPException(status_code=400, detail="Invalid project ID")
-    
+
     service = ProjectService(db)
     updated = await service.update_project(ObjectId(project_id), update)
-    
+
     if not updated:
         raise NotFoundError("Project", project_id)
-    
+
     return updated
 
 
@@ -152,16 +152,16 @@ async def delete_project(
     cascade: bool = Query(False, description="Delete all associated data")
 ):
     """Delete a project.
-    
+
     If cascade=true, also deletes all sessions and messages.
     Otherwise, only deletes the project metadata.
     """
     if not ObjectId.is_valid(project_id):
         raise HTTPException(status_code=400, detail="Invalid project ID")
-    
+
     service = ProjectService(db)
     deleted = await service.delete_project(ObjectId(project_id), cascade=cascade)
-    
+
     if not deleted:
         raise NotFoundError("Project", project_id)
 
@@ -172,18 +172,18 @@ async def get_project_stats(
     db: CommonDeps
 ) -> dict:
     """Get detailed statistics for a project.
-    
+
     Returns message counts by type, cost breakdown, and activity timeline.
     """
     if not ObjectId.is_valid(project_id):
         raise HTTPException(status_code=400, detail="Invalid project ID")
-    
+
     service = ProjectService(db)
     stats = await service.get_project_statistics(ObjectId(project_id))
-    
+
     if not stats:
         raise NotFoundError("Project", project_id)
-    
+
     return stats
 ```
 
@@ -221,26 +221,26 @@ async def list_sessions(
 ) -> PaginatedResponse[Session]:
     """List sessions with pagination and filtering."""
     service = SessionService(db)
-    
+
     # Build filter
     filter_dict = {}
     if project_id:
         if not ObjectId.is_valid(project_id):
             raise HTTPException(status_code=400, detail="Invalid project ID")
         filter_dict["projectId"] = ObjectId(project_id)
-    
+
     if search:
         filter_dict["$text"] = {"$search": search}
-    
+
     if start_date:
         filter_dict["startedAt"] = {"$gte": start_date}
-    
+
     if end_date:
         if "startedAt" in filter_dict:
             filter_dict["startedAt"]["$lte"] = end_date
         else:
             filter_dict["startedAt"] = {"$lte": end_date}
-    
+
     # Get sessions
     sessions, total = await service.list_sessions(
         filter_dict=filter_dict,
@@ -249,7 +249,7 @@ async def list_sessions(
         sort_by=sort_by,
         sort_order=sort_order
     )
-    
+
     return PaginatedResponse(
         items=sessions,
         total=total,
@@ -268,10 +268,10 @@ async def get_session(
     """Get a specific session by ID."""
     service = SessionService(db)
     session = await service.get_session(session_id, include_messages=include_messages)
-    
+
     if not session:
         raise NotFoundError("Session", session_id)
-    
+
     return session
 
 
@@ -283,23 +283,23 @@ async def get_session_messages(
     limit: int = Query(50, ge=1, le=200)
 ) -> SessionWithMessages:
     """Get all messages for a session.
-    
+
     Returns messages in chronological order with pagination.
     """
     service = SessionService(db)
-    
+
     # Get session
     session = await service.get_session(session_id)
     if not session:
         raise NotFoundError("Session", session_id)
-    
+
     # Get messages
     messages = await service.get_session_messages(
         session_id,
         skip=skip,
         limit=limit
     )
-    
+
     return SessionWithMessages(
         session=session,
         messages=messages,
@@ -316,15 +316,15 @@ async def get_message_thread(
     depth: int = Query(10, ge=1, le=100, description="Maximum thread depth")
 ) -> dict:
     """Get the conversation thread for a specific message.
-    
+
     Returns the message and its parent/child messages up to the specified depth.
     """
     service = SessionService(db)
     thread = await service.get_message_thread(session_id, message_uuid, depth)
-    
+
     if not thread:
         raise NotFoundError("Message thread", f"{session_id}/{message_uuid}")
-    
+
     return thread
 
 
@@ -334,15 +334,15 @@ async def generate_session_summary(
     db: CommonDeps
 ) -> dict:
     """Generate or regenerate a summary for a session.
-    
+
     Uses the first and last few messages to create a concise summary.
     """
     service = SessionService(db)
     summary = await service.generate_summary(session_id)
-    
+
     if not summary:
         raise NotFoundError("Session", session_id)
-    
+
     return {"session_id": session_id, "summary": summary}
 ```
 
@@ -376,11 +376,11 @@ async def list_messages(
     sort_order: str = Query("asc", regex="^(asc|desc)$")
 ) -> PaginatedResponse[Message]:
     """List messages with pagination and filtering.
-    
+
     By default, returns messages in chronological order.
     """
     service = MessageService(db)
-    
+
     # Build filter
     filter_dict = {}
     if session_id:
@@ -389,7 +389,7 @@ async def list_messages(
         filter_dict["type"] = type
     if model:
         filter_dict["model"] = model
-    
+
     # Get messages
     messages, total = await service.list_messages(
         filter_dict=filter_dict,
@@ -397,7 +397,7 @@ async def list_messages(
         limit=limit,
         sort_order=sort_order
     )
-    
+
     return PaginatedResponse(
         items=messages,
         total=total,
@@ -415,10 +415,10 @@ async def get_message(
     """Get a specific message by ID."""
     service = MessageService(db)
     message = await service.get_message(message_id)
-    
+
     if not message:
         raise NotFoundError("Message", message_id)
-    
+
     return message
 
 
@@ -430,10 +430,10 @@ async def get_message_by_uuid(
     """Get a message by its Claude UUID."""
     service = MessageService(db)
     message = await service.get_message_by_uuid(uuid)
-    
+
     if not message:
         raise NotFoundError("Message with UUID", uuid)
-    
+
     return message
 
 
@@ -445,16 +445,16 @@ async def get_message_context(
     after: int = Query(5, ge=0, le=50, description="Number of messages after")
 ) -> dict:
     """Get a message with surrounding context.
-    
+
     Returns the specified message along with messages before and after it
     in the same session.
     """
     service = MessageService(db)
     context = await service.get_message_context(message_id, before, after)
-    
+
     if not context:
         raise NotFoundError("Message", message_id)
-    
+
     return context
 ```
 
@@ -474,10 +474,10 @@ from app.models.project import ProjectInDB
 
 class ProjectService:
     """Service for project operations."""
-    
+
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
-    
+
     async def list_projects(
         self,
         filter_dict: Dict[str, Any],
@@ -489,47 +489,47 @@ class ProjectService:
         """List projects with pagination."""
         # Count total
         total = await self.db.projects.count_documents(filter_dict)
-        
+
         # Build sort
         sort_direction = -1 if sort_order == "desc" else 1
-        
+
         # Special handling for nested fields
         if sort_by == "message_count":
             sort_field = "stats.message_count"
         else:
             sort_field = sort_by
-        
+
         # Get projects
         cursor = self.db.projects.find(filter_dict).sort(
             sort_field, sort_direction
         ).skip(skip).limit(limit)
-        
+
         projects = []
         async for doc in cursor:
             # Enrich with real-time stats
             stats = await self._get_project_stats(doc["_id"])
             doc["stats"] = stats
             projects.append(ProjectWithStats(**doc))
-        
+
         return projects, total
-    
+
     async def get_project(self, project_id: ObjectId) -> Optional[ProjectWithStats]:
         """Get a single project."""
         doc = await self.db.projects.find_one({"_id": project_id})
         if not doc:
             return None
-        
+
         # Enrich with stats
         stats = await self._get_project_stats(project_id)
         doc["stats"] = stats
-        
+
         return ProjectWithStats(**doc)
-    
+
     async def get_project_by_path(self, path: str) -> Optional[ProjectInDB]:
         """Get project by path."""
         doc = await self.db.projects.find_one({"path": path})
         return ProjectInDB(**doc) if doc else None
-    
+
     async def create_project(self, project: ProjectCreate) -> ProjectInDB:
         """Create a new project."""
         doc = {
@@ -540,10 +540,10 @@ class ProjectService:
             "createdAt": datetime.utcnow(),
             "updatedAt": datetime.utcnow()
         }
-        
+
         await self.db.projects.insert_one(doc)
         return ProjectInDB(**doc)
-    
+
     async def update_project(
         self,
         project_id: ObjectId,
@@ -553,17 +553,17 @@ class ProjectService:
         update_dict = update.dict(exclude_unset=True)
         if update_dict:
             update_dict["updatedAt"] = datetime.utcnow()
-            
+
             result = await self.db.projects.find_one_and_update(
                 {"_id": project_id},
                 {"$set": update_dict},
                 return_document=True
             )
-            
+
             return ProjectInDB(**result) if result else None
-        
+
         return await self.get_project(project_id)
-    
+
     async def delete_project(
         self,
         project_id: ObjectId,
@@ -577,32 +577,32 @@ class ProjectService:
                 "sessionId",
                 {"projectId": project_id}
             )
-            
+
             # Delete messages
             await self.db.messages.delete_many(
                 {"sessionId": {"$in": session_ids}}
             )
-            
+
             # Delete sessions
             await self.db.sessions.delete_many({"projectId": project_id})
-        
+
         # Delete project
         result = await self.db.projects.delete_one({"_id": project_id})
         return result.deleted_count > 0
-    
+
     async def get_project_statistics(self, project_id: ObjectId) -> Optional[dict]:
         """Get detailed project statistics."""
         # Check project exists
         project = await self.db.projects.find_one({"_id": project_id})
         if not project:
             return None
-        
+
         # Get session IDs
         session_ids = await self.db.sessions.distinct(
             "sessionId",
             {"projectId": project_id}
         )
-        
+
         # Aggregate statistics
         pipeline = [
             {"$match": {"sessionId": {"$in": session_ids}}},
@@ -621,15 +621,15 @@ class ProjectService:
                 "last_message": {"$max": "$timestamp"}
             }}
         ]
-        
+
         result = await self.db.messages.aggregate(pipeline).to_list(1)
-        
+
         if result:
             stats = result[0]
             stats["session_count"] = len(session_ids)
             stats["project_id"] = str(project_id)
             return stats
-        
+
         return {
             "project_id": str(project_id),
             "session_count": 0,
@@ -639,24 +639,24 @@ class ProjectService:
             "total_cost": 0,
             "models_used": []
         }
-    
+
     async def _get_project_stats(self, project_id: ObjectId) -> dict:
         """Get basic project statistics."""
         # Count sessions
         session_count = await self.db.sessions.count_documents(
             {"projectId": project_id}
         )
-        
+
         # Count messages (through sessions)
         session_ids = await self.db.sessions.distinct(
             "sessionId",
             {"projectId": project_id}
         )
-        
+
         message_count = await self.db.messages.count_documents(
             {"sessionId": {"$in": session_ids}}
         )
-        
+
         return {
             "session_count": session_count,
             "message_count": message_count
@@ -698,7 +698,7 @@ class Project(ProjectBase):
     id: str = Field(alias="_id")
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         populate_by_name = True
         json_encoders = {

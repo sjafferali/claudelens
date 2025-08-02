@@ -19,9 +19,8 @@ def setup_test_environment():
     """Set up test environment variables."""
     # Enable testcontainers for tests
     os.environ["USE_TEST_DB"] = "true"
-    
+
     # Set other test environment variables if needed
     os.environ["ENVIRONMENT"] = "test"
-    
-    
+
     # Cleanup is handled by atexit in testcontainers_db.py

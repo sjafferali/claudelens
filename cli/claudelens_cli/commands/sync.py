@@ -14,34 +14,32 @@ console = Console()
 
 @click.command()
 @click.option(
-    "--watch", "-w",
-    is_flag=True,
-    help="Watch for changes and sync continuously"
+    "--watch", "-w", is_flag=True, help="Watch for changes and sync continuously"
 )
 @click.option(
-    "--project", "-p",
+    "--project",
+    "-p",
     type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
-    help="Sync only a specific project"
+    help="Sync only a specific project",
 )
 @click.option(
-    "--force", "-f",
-    is_flag=True,
-    help="Force full sync, ignoring previous state"
+    "--force", "-f", is_flag=True, help="Force full sync, ignoring previous state"
 )
 @click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be synced without actually syncing"
+    "--dry-run", is_flag=True, help="Show what would be synced without actually syncing"
 )
 @click.option(
-    "--claude-dir", "-d",
+    "--claude-dir",
+    "-d",
     multiple=True,
     type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
-    help="Claude data directory to sync from (can be specified multiple times)"
+    help="Claude data directory to sync from (can be specified multiple times)",
 )
-def sync(watch: bool, project: Path, force: bool, dry_run: bool, claude_dir: tuple[Path]):
+def sync(
+    watch: bool, project: Path, force: bool, dry_run: bool, claude_dir: tuple[Path]
+):
     """Sync Claude conversations to ClaudeLens server.
-    
+
     This command scans your local Claude directory for conversation files
     and syncs them to the ClaudeLens server for archival and analysis.
     """
@@ -50,31 +48,37 @@ def sync(watch: bool, project: Path, force: bool, dry_run: bool, claude_dir: tup
         # Temporarily update config with CLI-provided directories
         original_dirs = config_manager.config.claude_dirs.copy()
         config_manager.config.claude_dirs = list(claude_dir)
-    
+
     # Initialize components
     state_manager = StateManager()
     sync_engine = SyncEngine(config_manager, state_manager)
-    
+
     # Show current configuration
     console.print(f"[dim]API URL: {config_manager.config.api_url}[/dim]")
     if len(config_manager.config.claude_dirs) == 1:
-        console.print(f"[dim]Claude directory: {config_manager.config.claude_dirs[0]}[/dim]")
+        console.print(
+            f"[dim]Claude directory: {config_manager.config.claude_dirs[0]}[/dim]"
+        )
     else:
-        console.print(f"[dim]Claude directories ({len(config_manager.config.claude_dirs)}):[/dim]")
+        console.print(
+            f"[dim]Claude directories ({len(config_manager.config.claude_dirs)}):[/dim]"
+        )
         for dir_path in config_manager.config.claude_dirs:
             console.print(f"[dim]  - {dir_path}[/dim]")
-    
+
     if dry_run:
         console.print("[yellow]DRY RUN MODE - No data will be synced[/yellow]")
-    
+
     if force:
-        console.print("[yellow]Force sync enabled - all data will be re-synced[/yellow]")
+        console.print(
+            "[yellow]Force sync enabled - all data will be re-synced[/yellow]"
+        )
         if project:
             state_manager.clear_project(str(project))
         else:
             state_manager.state.projects.clear()
             state_manager.save()
-    
+
     try:
         if watch:
             # Watch mode
@@ -86,21 +90,23 @@ def sync(watch: bool, project: Path, force: bool, dry_run: bool, claude_dir: tup
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
-                console=console
+                console=console,
             ) as progress:
                 task = progress.add_task("Syncing conversations...", total=None)
-                
+
                 stats = sync_engine.sync_once(
                     project_filter=project,
                     dry_run=dry_run,
-                    progress_callback=lambda msg: progress.update(task, description=msg)
+                    progress_callback=lambda msg: progress.update(
+                        task, description=msg
+                    ),
                 )
-                
+
                 progress.update(task, completed=True, description="Sync completed!")
-            
+
             # Show statistics
             _show_sync_stats(stats)
-            
+
     except KeyboardInterrupt:
         console.print("\n[yellow]Sync cancelled by user[/yellow]")
     except Exception as e:

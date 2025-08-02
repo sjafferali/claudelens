@@ -1,8 +1,8 @@
 # Task 01: Project Setup and Initial Structure
 
 ## Status
-**Status:** TODO  
-**Priority:** High  
+**Status:** TODO
+**Priority:** High
 **Estimated Time:** 2 hours
 
 ## Purpose

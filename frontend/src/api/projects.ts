@@ -5,7 +5,7 @@ export interface ProjectsParams {
   skip?: number;
   limit?: number;
   search?: string;
-  sortBy?: 'name' | 'last_activity' | 'session_count' | 'total_cost';
+  sortBy?: 'name' | 'created_at' | 'updated_at' | 'message_count';
   sortOrder?: 'asc' | 'desc';
 }
 

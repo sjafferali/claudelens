@@ -30,7 +30,7 @@ function ProjectsList() {
   const { data, isLoading, error } = useProjects({
     skip: currentPage * pageSize,
     limit: pageSize,
-    sortBy: 'last_activity',
+    sortBy: 'updated_at',
     sortOrder: 'desc',
   });
 

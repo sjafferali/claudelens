@@ -6,7 +6,15 @@ from claudelens_cli.core.state import StateManager, SyncState
 from claudelens_cli.core.sync_engine import SyncEngine
 
 __all__ = [
-    "ConfigManager", "config_manager", "CLIConfig", "StateManager", "SyncState", "SyncEngine",
-    "ClaudeMessageParser", "ClaudeDatabaseReader", 
-    "TodoHandler", "ConfigHandler", "ProjectScanner"
+    "ConfigManager",
+    "config_manager",
+    "CLIConfig",
+    "StateManager",
+    "SyncState",
+    "SyncEngine",
+    "ClaudeMessageParser",
+    "ClaudeDatabaseReader",
+    "TodoHandler",
+    "ConfigHandler",
+    "ProjectScanner",
 ]

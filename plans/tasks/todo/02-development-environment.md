@@ -1,8 +1,8 @@
 # Task 02: Development Environment Setup
 
 ## Status
-**Status:** TODO  
-**Priority:** High  
+**Status:** TODO
+**Priority:** High
 **Estimated Time:** 1.5 hours
 
 ## Purpose
@@ -199,7 +199,7 @@ python_files = test_*.py
 python_classes = Test*
 python_functions = test_*
 asyncio_mode = auto
-addopts = 
+addopts =
     -v
     --cov=app
     --cov-report=html

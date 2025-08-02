@@ -67,7 +67,7 @@ Add navigation aids for long conversations:
   - Show "Jump to Bottom" when scrolled up
   - Show "Jump to Top" when scrolled down
   - Smooth scroll animation
-  
+
 - **Message Timeline Indicator**
   - Slim timeline on the right side
   - Shows relative position in conversation
@@ -85,7 +85,7 @@ Add navigation aids for long conversations:
   - Memoize message components with React.memo
   - Lazy load images and large content blocks
   - Debounce scroll events
-  
+
 - **Data Management**
   - Cache loaded messages in React Query
   - Prefetch next batch while user approaches end

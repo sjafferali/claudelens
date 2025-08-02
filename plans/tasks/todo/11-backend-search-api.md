@@ -1,8 +1,8 @@
 # Task 11: Backend Search API Implementation
 
 ## Status
-**Status:** TODO  
-**Priority:** High  
+**Status:** TODO
+**Priority:** High
 **Estimated Time:** 3 hours
 
 ## Purpose
@@ -52,20 +52,20 @@ async def search(
     db: CommonDeps
 ) -> SearchResponse:
     """Perform a search across messages.
-    
+
     Supports full-text search with filtering by project, date range,
     message type, and model. Returns results with relevance scoring
     and optional highlighting.
     """
     service = SearchService(db)
-    
+
     # Validate request
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Search query cannot be empty")
-    
+
     if request.limit > 100:
         raise HTTPException(status_code=400, detail="Limit cannot exceed 100")
-    
+
     # Perform search
     results = await service.search_messages(
         query=request.query,
@@ -74,7 +74,7 @@ async def search(
         limit=request.limit,
         highlight=request.highlight
     )
-    
+
     return results
 
 
@@ -85,7 +85,7 @@ async def search_suggestions(
     limit: int = Query(10, ge=1, le=20)
 ) -> List[SearchSuggestion]:
     """Get search suggestions based on partial query.
-    
+
     Returns autocomplete suggestions from recent searches and
     common terms in the database.
     """
@@ -100,7 +100,7 @@ async def recent_searches(
     limit: int = Query(10, ge=1, le=50)
 ) -> List[Dict[str, Any]]:
     """Get recent search queries.
-    
+
     Returns the most recent searches performed, useful for
     quick access to common searches.
     """
@@ -116,33 +116,33 @@ async def search_code(
     language: Optional[str] = Query(None, description="Programming language filter")
 ) -> SearchResponse:
     """Search specifically for code snippets.
-    
+
     Optimized for searching code blocks with language-specific filtering.
     """
     service = SearchService(db)
-    
+
     # Add code-specific filtering
     if request.filters is None:
         request.filters = SearchFilters()
-    
+
     request.filters.has_code = True
     if language:
         request.filters.code_language = language
-    
+
     results = await service.search_code(
         query=request.query,
         filters=request.filters,
         skip=request.skip,
         limit=request.limit
     )
-    
+
     return results
 
 
 @router.get("/stats")
 async def search_stats(db: CommonDeps) -> Dict[str, Any]:
     """Get search statistics.
-    
+
     Returns information about search usage, popular queries,
     and search performance metrics.
     """
@@ -197,15 +197,15 @@ class SearchResult(BaseModel):
     session_id: str = Field(..., description="Session ID")
     project_id: str = Field(..., description="Project ID")
     project_name: str = Field(..., description="Project name")
-    
+
     message_type: str = Field(..., description="Message type")
     timestamp: datetime = Field(..., description="Message timestamp")
-    
+
     content_preview: str = Field(..., description="Content preview")
     highlights: List[SearchHighlight] = Field(default_factory=list)
-    
+
     score: float = Field(..., description="Search relevance score")
-    
+
     # Optional enriched data
     session_summary: Optional[str] = None
     model: Optional[str] = None
@@ -218,9 +218,9 @@ class SearchResponse(BaseModel):
     total: int = Field(..., description="Total number of matching results")
     skip: int = Field(..., description="Number of results skipped")
     limit: int = Field(..., description="Maximum results returned")
-    
+
     results: List[SearchResult] = Field(..., description="Search results")
-    
+
     took_ms: int = Field(..., description="Search duration in milliseconds")
     filters_applied: Dict[str, Any] = Field(default_factory=dict)
 
@@ -258,10 +258,10 @@ logger = logging.getLogger(__name__)
 
 class SearchService:
     """Service for search operations."""
-    
+
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
-    
+
     async def search_messages(
         self,
         query: str,
@@ -272,31 +272,31 @@ class SearchService:
     ) -> SearchResponse:
         """Search messages with full-text search."""
         start_time = datetime.utcnow()
-        
+
         # Build search pipeline
         pipeline = self._build_search_pipeline(query, filters, skip, limit)
-        
+
         # Execute search
         cursor = self.db.messages.aggregate(pipeline)
         results = await cursor.to_list(limit)
-        
+
         # Get total count
         count_pipeline = self._build_count_pipeline(query, filters)
         count_result = await self.db.messages.aggregate(count_pipeline).to_list(1)
         total = count_result[0]["total"] if count_result else 0
-        
+
         # Process results
         search_results = []
         for doc in results:
             result = await self._process_search_result(doc, query, highlight)
             search_results.append(result)
-        
+
         # Calculate duration
         duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
-        
+
         # Log search
         await self._log_search(query, filters, total, duration_ms)
-        
+
         return SearchResponse(
             query=query,
             total=total,
@@ -306,7 +306,7 @@ class SearchService:
             took_ms=duration_ms,
             filters_applied=filters.dict(exclude_none=True) if filters else {}
         )
-    
+
     async def search_code(
         self,
         query: str,
@@ -317,7 +317,7 @@ class SearchService:
         """Search specifically for code blocks."""
         # Enhance query for code search
         code_query = self._enhance_code_query(query)
-        
+
         # Add code-specific stages to pipeline
         return await self.search_messages(
             query=code_query,
@@ -326,7 +326,7 @@ class SearchService:
             limit=limit,
             highlight=True
         )
-    
+
     def _build_search_pipeline(
         self,
         query: str,
@@ -336,32 +336,32 @@ class SearchService:
     ) -> List[Dict[str, Any]]:
         """Build MongoDB aggregation pipeline for search."""
         pipeline = []
-        
+
         # Text search stage
         pipeline.append({
             "$match": {
                 "$text": {"$search": query}
             }
         })
-        
+
         # Add filters
         if filters:
             filter_stage = self._build_filter_stage(filters)
             if filter_stage:
                 pipeline.append({"$match": filter_stage})
-        
+
         # Add text score
         pipeline.append({
             "$addFields": {
                 "score": {"$meta": "textScore"}
             }
         })
-        
+
         # Sort by relevance
         pipeline.append({
             "$sort": {"score": -1, "timestamp": -1}
         })
-        
+
         # Join with sessions and projects
         pipeline.extend([
             {
@@ -393,13 +393,13 @@ class SearchService:
                 }
             }
         ])
-        
+
         # Pagination
         pipeline.append({"$skip": skip})
         pipeline.append({"$limit": limit})
-        
+
         return pipeline
-    
+
     def _build_count_pipeline(
         self,
         query: str,
@@ -407,72 +407,72 @@ class SearchService:
     ) -> List[Dict[str, Any]]:
         """Build pipeline for counting total results."""
         pipeline = []
-        
+
         # Text search
         pipeline.append({
             "$match": {
                 "$text": {"$search": query}
             }
         })
-        
+
         # Add filters
         if filters:
             filter_stage = self._build_filter_stage(filters)
             if filter_stage:
                 pipeline.append({"$match": filter_stage})
-        
+
         # Count
         pipeline.append({
             "$count": "total"
         })
-        
+
         return pipeline
-    
+
     def _build_filter_stage(self, filters: SearchFilters) -> Dict[str, Any]:
         """Build filter stage from search filters."""
         conditions = {}
-        
+
         if filters.project_ids:
             # Need to join with sessions first
             conditions["session.projectId"] = {
                 "$in": [ObjectId(pid) for pid in filters.project_ids]
             }
-        
+
         if filters.session_ids:
             conditions["sessionId"] = {"$in": filters.session_ids}
-        
+
         if filters.message_types:
             conditions["type"] = {"$in": filters.message_types}
-        
+
         if filters.models:
             conditions["model"] = {"$in": filters.models}
-        
+
         if filters.start_date:
             conditions["timestamp"] = {"$gte": filters.start_date}
-        
+
         if filters.end_date:
             if "timestamp" in conditions:
                 conditions["timestamp"]["$lte"] = filters.end_date
             else:
                 conditions["timestamp"] = {"$lte": filters.end_date}
-        
+
         if filters.has_code:
             conditions["$or"] = [
                 {"message.content": {"$regex": r"```", "$options": "i"}},
                 {"toolUseResult": {"$regex": r"```", "$options": "i"}}
             ]
-        
+
         if filters.min_cost is not None:
             conditions["costUsd"] = {"$gte": filters.min_cost}
-        
+
         if filters.max_cost is not None:
             if "costUsd" in conditions:
                 conditions["costUsd"]["$lte"] = filters.max_cost
             else:
                 conditions["costUsd"] = {"$lte": filters.max_cost}
-        
+
         return conditions
-    
+
     async def _process_search_result(
         self,
         doc: Dict[str, Any],
@@ -486,15 +486,15 @@ class SearchService:
             content = doc["message"].get("content", "")
         elif doc.get("message"):
             content = str(doc["message"])
-        
+
         # Create preview
         preview = self._create_preview(content, query, max_length=200)
-        
+
         # Create highlights
         highlights = []
         if highlight:
             highlights = self._create_highlights(doc, query)
-        
+
         return SearchResult(
             message_id=str(doc["_id"]),
             session_id=doc["sessionId"],
@@ -509,7 +509,7 @@ class SearchService:
             model=doc.get("model"),
             cost_usd=doc.get("costUsd")
         )
-    
+
     def _create_preview(
         self,
         content: str,
@@ -519,30 +519,30 @@ class SearchService:
         """Create a content preview with query context."""
         if not content:
             return ""
-        
+
         # Find query in content (case-insensitive)
         query_lower = query.lower()
         content_lower = content.lower()
-        
+
         pos = content_lower.find(query_lower)
         if pos == -1:
             # Query not found, return beginning
             return content[:max_length] + "..." if len(content) > max_length else content
-        
+
         # Center preview around query
         start = max(0, pos - max_length // 2)
         end = min(len(content), pos + len(query) + max_length // 2)
-        
+
         preview = content[start:end]
-        
+
         # Add ellipsis
         if start > 0:
             preview = "..." + preview
         if end < len(content):
             preview = preview + "..."
-        
+
         return preview
-    
+
     def _create_highlights(
         self,
         doc: Dict[str, Any],
@@ -550,7 +550,7 @@ class SearchService:
     ) -> List[SearchHighlight]:
         """Create search highlights."""
         highlights = []
-        
+
         # Check message content
         if doc.get("message") and isinstance(doc["message"], dict):
             content = doc["message"].get("content", "")
@@ -561,7 +561,7 @@ class SearchService:
                     snippet=snippet,
                     score=1.0
                 ))
-        
+
         # Check tool results
         if doc.get("toolUseResult"):
             tool_result = str(doc["toolUseResult"])
@@ -572,24 +572,24 @@ class SearchService:
                     snippet=snippet,
                     score=0.8
                 ))
-        
+
         return highlights
-    
+
     def _enhance_code_query(self, query: str) -> str:
         """Enhance query for code search."""
         # Add common code-related terms
         code_terms = ["function", "class", "def", "import", "return"]
-        
+
         # Check if query already contains code terms
         query_lower = query.lower()
         has_code_term = any(term in query_lower for term in code_terms)
-        
+
         if not has_code_term:
             # Add code context
             return f"{query} code function"
-        
+
         return query
-    
+
     async def get_suggestions(
         self,
         partial_query: str,
@@ -597,32 +597,32 @@ class SearchService:
     ) -> List[SearchSuggestion]:
         """Get search suggestions."""
         suggestions = []
-        
+
         # Get from recent searches
         recent_searches = await self.db.search_logs.find(
             {"query": {"$regex": f"^{re.escape(partial_query)}", "$options": "i"}},
             {"query": 1, "count": 1}
         ).sort("count", -1).limit(limit // 2).to_list(limit // 2)
-        
+
         for search in recent_searches:
             suggestions.append(SearchSuggestion(
                 text=search["query"],
                 type="query",
                 count=search.get("count", 1)
             ))
-        
+
         # Get project names
         project_names = await self.db.projects.find(
             {"name": {"$regex": f"^{re.escape(partial_query)}", "$options": "i"}},
             {"name": 1}
         ).limit(limit // 4).to_list(limit // 4)
-        
+
         for project in project_names:
             suggestions.append(SearchSuggestion(
                 text=project["name"],
                 type="project"
             ))
-        
+
         # Get models
         models = await self.db.messages.distinct("model")
         for model in models:
@@ -631,16 +631,16 @@ class SearchService:
                     text=model,
                     type="model"
                 ))
-        
+
         return suggestions[:limit]
-    
+
     async def get_recent_searches(self, limit: int) -> List[Dict[str, Any]]:
         """Get recent search queries."""
         recent = await self.db.search_logs.find(
             {},
             {"query": 1, "timestamp": 1, "result_count": 1}
         ).sort("timestamp", -1).limit(limit).to_list(limit)
-        
+
         return [
             {
                 "query": r["query"],
@@ -649,12 +649,12 @@ class SearchService:
             }
             for r in recent
         ]
-    
+
     async def get_search_stats(self) -> Dict[str, Any]:
         """Get search statistics."""
         # Total searches
         total_searches = await self.db.search_logs.count_documents({})
-        
+
         # Popular queries
         popular_pipeline = [
             {"$group": {
@@ -664,11 +664,11 @@ class SearchService:
             {"$sort": {"count": -1}},
             {"$limit": 10}
         ]
-        
+
         popular_queries = await self.db.search_logs.aggregate(
             popular_pipeline
         ).to_list(10)
-        
+
         # Average search time
         avg_time_pipeline = [
             {"$group": {
@@ -676,13 +676,13 @@ class SearchService:
                 "avg_duration": {"$avg": "$duration_ms"}
             }}
         ]
-        
+
         avg_time_result = await self.db.search_logs.aggregate(
             avg_time_pipeline
         ).to_list(1)
-        
+
         avg_duration = avg_time_result[0]["avg_duration"] if avg_time_result else 0
-        
+
         return {
             "total_searches": total_searches,
             "popular_queries": [
@@ -691,7 +691,7 @@ class SearchService:
             ],
             "average_duration_ms": round(avg_duration, 2)
         }
-    
+
     async def _log_search(
         self,
         query: str,
@@ -707,9 +707,9 @@ class SearchService:
             "duration_ms": duration_ms,
             "timestamp": datetime.utcnow()
         }
-        
+
         await self.db.search_logs.insert_one(log_entry)
-        
+
         # Update search count
         await self.db.search_logs.update_one(
             {"query": query},

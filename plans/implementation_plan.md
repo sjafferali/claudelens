@@ -229,14 +229,14 @@ services:
       - API_KEY=${API_KEY}
     depends_on:
       - mongodb
-      
+
   mongodb:
     image: mongo:7.0
     volumes:
       - claudelens_data:/data/db
     ports:
       - "27017:27017"
-      
+
 volumes:
   claudelens_data:
 ```

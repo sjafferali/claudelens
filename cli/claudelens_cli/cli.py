@@ -17,7 +17,7 @@ console = Console()
 @click.pass_context
 def cli(ctx):
     """ClaudeLens - Archive and sync your Claude conversations.
-    
+
     A CLI tool to sync your local Claude conversation history to ClaudeLens server
     for archival, search, and visualization.
     """
@@ -33,12 +33,14 @@ cli.add_command(config_cmd.config)  # type: ignore[has-type]
 @cli.command()
 def version():
     """Show detailed version information."""
-    console.print(Panel.fit(
-        f"[bold blue]ClaudeLens CLI[/bold blue]\n"
-        f"Version: {__version__}\n"
-        f"Python: {sys.version.split()[0]}",
-        title="Version Info"
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold blue]ClaudeLens CLI[/bold blue]\n"
+            f"Version: {__version__}\n"
+            f"Python: {sys.version.split()[0]}",
+            title="Version Info",
+        )
+    )
 
 
 if __name__ == "__main__":

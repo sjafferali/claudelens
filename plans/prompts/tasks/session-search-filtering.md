@@ -60,14 +60,14 @@ Add a collapsible filter panel with:
   - End date input
   - Quick presets: "Last 7 days", "Last 30 days", "Last 3 months", "All time"
   - Use date-fns for date formatting
-  
+
 - **Sort Options**
   - Dropdown with options:
     - "Most Recent" (started_at desc)
     - "Oldest First" (started_at asc)
     - "Most Messages" (message_count desc)
     - "Highest Cost" (total_cost desc)
-  
+
 - **Project Filter** (only show if not already filtered by project)
   - Dropdown to select a specific project
   - "All Projects" option

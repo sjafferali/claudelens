@@ -40,7 +40,7 @@ print_error() {
 run_check() {
     local name=$1
     local command=$2
-    
+
     echo -e "${YELLOW}Running: $name${NC}"
     if eval "$command"; then
         print_success "$name passed"
@@ -84,7 +84,7 @@ auto_fix_ruff() {
         local name=$(basename "$path")
         local current_dir=$(pwd)
         cd "$path"
-        "$CI_VENV/bin/ruff" check . --fix --select E,F,I --ignore E501
+        "$CI_VENV/bin/ruff" check . --fix
         print_success "Ruff issues fixed (where possible)"
         AUTO_FIXES_APPLIED+=("Ruff ($name)")
         cd "$current_dir"
@@ -215,7 +215,7 @@ python -m pip install --upgrade pip --quiet
 # Python Tests
 if [ "$SKIP_TESTS" = false ]; then
     print_section "Python Tests"
-    
+
     # Backend tests
     echo -e "\n${YELLOW}Backend Tests${NC}"
     cd "$PROJECT_ROOT/backend"
@@ -223,14 +223,14 @@ if [ "$SKIP_TESTS" = false ]; then
         echo "Installing backend dependencies..."
         poetry install --with dev
     fi
-    
+
     if [ "$QUICK" = true ]; then
         run_check "Backend quick tests" "poetry run pytest -x --ff"
     else
         run_check "Backend tests with coverage" "poetry run pytest --cov=app --cov-report=xml --cov-report=term"
     fi
     cd "$PROJECT_ROOT"
-    
+
     # CLI tests
     echo -e "\n${YELLOW}CLI Tests${NC}"
     cd "$PROJECT_ROOT/cli"
@@ -238,7 +238,7 @@ if [ "$SKIP_TESTS" = false ]; then
         echo "Installing CLI dependencies..."
         poetry install --with dev
     fi
-    
+
     if [ "$QUICK" = true ]; then
         run_check "CLI quick tests" "poetry run pytest -x --ff"
     else
@@ -250,13 +250,13 @@ fi
 # Frontend Tests
 if [ "$SKIP_TESTS" = false ]; then
     print_section "Frontend Tests"
-    
+
     cd "$PROJECT_ROOT/frontend"
     if [ ! -d "node_modules" ]; then
         echo "Installing frontend dependencies..."
         npm ci
     fi
-    
+
     if [ "$QUICK" = true ]; then
         run_check "Frontend tests" "npm test -- --run --pool=threads --poolOptions.threads.maxThreads=2"
     else
@@ -268,40 +268,40 @@ fi
 # Python Linting
 if [ "$SKIP_LINT" = false ]; then
     print_section "Python Linting"
-    
+
     # Install linting tools in CI virtual environment
     echo "Installing linting tools..."
     python -m pip install --quiet ruff mypy
-    
+
     # Ruff checks
     echo -e "\n${YELLOW}Ruff Linting${NC}"
-    if ! run_check "Backend ruff" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check . --select E,F,I --ignore E501"; then
+    if ! run_check "Backend ruff" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check ."; then
         auto_fix_ruff "$PROJECT_ROOT/backend"
         if [ "$AUTO_FIX" = true ]; then
             # Re-run the check after fix
-            run_check "Backend ruff (after fix)" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check . --select E,F,I --ignore E501"
+            run_check "Backend ruff (after fix)" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check ."
         fi
     fi
-    
-    if ! run_check "CLI ruff" "cd \"$PROJECT_ROOT/cli\" && \"$CI_VENV/bin/ruff\" check . --select E,F,I --ignore E501"; then
+
+    if ! run_check "CLI ruff" "cd \"$PROJECT_ROOT/cli\" && \"$CI_VENV/bin/ruff\" check ."; then
         auto_fix_ruff "$PROJECT_ROOT/cli"
         if [ "$AUTO_FIX" = true ]; then
             # Re-run the check after fix
-            run_check "CLI ruff (after fix)" "cd \"$PROJECT_ROOT/cli\" && \"$CI_VENV/bin/ruff\" check . --select E,F,I --ignore E501"
+            run_check "CLI ruff (after fix)" "cd \"$PROJECT_ROOT/cli\" && \"$CI_VENV/bin/ruff\" check ."
         fi
     fi
-    
+
     # MyPy checks (only if not quick mode)
     if [ "$QUICK" = false ]; then
         echo -e "\n${YELLOW}MyPy Type Checking${NC}"
-        
+
         cd "$PROJECT_ROOT/backend"
         if [ ! -d ".venv" ]; then
             poetry install --with dev
         fi
         run_check "Backend mypy" "poetry run mypy app/ --ignore-missing-imports --allow-untyped-defs --allow-untyped-calls"
         cd "$PROJECT_ROOT"
-        
+
         cd "$PROJECT_ROOT/cli"
         if [ ! -d ".venv" ]; then
             poetry install --with dev
@@ -314,12 +314,12 @@ fi
 # Frontend Linting
 if [ "$SKIP_LINT" = false ]; then
     print_section "Frontend Linting"
-    
+
     cd "$PROJECT_ROOT/frontend"
     if [ ! -d "node_modules" ]; then
         npm ci
     fi
-    
+
     if ! run_check "ESLint" "npm run lint"; then
         auto_fix_eslint
         if [ "$AUTO_FIX" = true ]; then
@@ -327,7 +327,7 @@ if [ "$SKIP_LINT" = false ]; then
             run_check "ESLint (after fix)" "npm run lint"
         fi
     fi
-    
+
     if ! run_check "Prettier formatting check" "npm run format:check"; then
         auto_fix_prettier
         if [ "$AUTO_FIX" = true ]; then
@@ -335,7 +335,7 @@ if [ "$SKIP_LINT" = false ]; then
             run_check "Prettier formatting check (after fix)" "npm run format:check"
         fi
     fi
-    
+
     if [ "$QUICK" = false ]; then
         run_check "TypeScript check" "npm run type-check"
     fi
@@ -345,7 +345,7 @@ fi
 # Security Scanning
 if [ "$SKIP_SECURITY" = false ]; then
     print_section "Security Scanning"
-    
+
     # Trivy scan
     if command -v trivy &> /dev/null; then
         if [ "$QUICK" = true ]; then
@@ -357,21 +357,21 @@ if [ "$SKIP_SECURITY" = false ]; then
         echo -e "${YELLOW}Trivy not installed. Skipping vulnerability scan.${NC}"
         echo "Install with: brew install trivy (macOS) or see https://github.com/aquasecurity/trivy"
     fi
-    
+
     # Python dependency check (only if not quick mode)
     if [ "$QUICK" = false ]; then
         echo -e "\n${YELLOW}Python Dependency Security${NC}"
         python -m pip install --quiet pip-audit
-        
+
         cd "$PROJECT_ROOT/backend"
         run_check "Backend pip-audit check" "\"$CI_VENV/bin/pip-audit\" || true"
         cd "$PROJECT_ROOT"
-        
+
         cd "$PROJECT_ROOT/cli"
         run_check "CLI pip-audit check" "\"$CI_VENV/bin/pip-audit\" || true"
         cd "$PROJECT_ROOT"
     fi
-    
+
     # npm audit (only if not quick mode)
     if [ "$QUICK" = false ]; then
         echo -e "\n${YELLOW}npm Dependency Audit${NC}"
@@ -385,10 +385,10 @@ fi
 # Docker Build Test (only if explicitly requested)
 if [ "$SKIP_DOCKER" = false ]; then
     print_section "Docker Build Test"
-    
+
     if command -v docker &> /dev/null; then
         run_check "Docker build" "cd \"$PROJECT_ROOT\" && docker build -f docker/Dockerfile -t claudelens:ci-test ."
-        
+
         # Clean up
         docker rmi claudelens:ci-test 2>/dev/null || true
     else

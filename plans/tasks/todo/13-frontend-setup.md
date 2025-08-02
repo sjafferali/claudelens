@@ -1,8 +1,8 @@
 # Task 13: Frontend Project Setup
 
 ## Status
-**Status:** TODO  
-**Priority:** High  
+**Status:** TODO
+**Priority:** High
 **Estimated Time:** 2 hours
 
 ## Purpose
@@ -247,20 +247,20 @@ export default App;
   .scrollbar-thin {
     scrollbar-width: thin;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar-track {
     @apply bg-muted;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar-thumb {
     @apply bg-muted-foreground/30 rounded-full;
   }
-  
+
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/50;
   }
@@ -400,7 +400,7 @@ class ApiClient {
       (error) => {
         if (error.response) {
           const message = error.response.data?.detail || 'An error occurred';
-          
+
           if (error.response.status === 401) {
             toast.error('Authentication required');
             // Handle auth error
@@ -412,7 +412,7 @@ class ApiClient {
         } else if (error.request) {
           toast.error('Network error. Please check your connection.');
         }
-        
+
         return Promise.reject(error);
       }
     );

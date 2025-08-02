@@ -23,13 +23,10 @@ async def verify_api_key_header(
             detail="API key required",
             headers={"WWW-Authenticate": "ApiKey"},
         )
-    
+
     if not verify_api_key(x_api_key):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid API key"
-        )
-    
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
     return x_api_key
 
 

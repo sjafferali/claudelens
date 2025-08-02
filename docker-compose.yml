@@ -1,5 +1,5 @@
 # ClaudeLens Docker Compose Configuration
-# 
+#
 # IMPORTANT: This file contains default values for quick setup/demo.
 # For production use, please:
 # - Create a dedicated MongoDB user with limited privileges
@@ -21,16 +21,16 @@ services:
     environment:
       # MongoDB connection (using root user for simplicity in demo)
       - MONGODB_URL=mongodb://admin:changeme-use-strong-password-in-production@mongodb:27017/claudelens?authSource=admin
-      
+
       # Security
       - API_KEY=default-api-key
-      
+
       # Application settings
       - DEBUG=false
-      
+
       # Database settings
       - DATABASE_NAME=claudelens
-      
+
     depends_on:
       mongodb:
         condition: service_healthy

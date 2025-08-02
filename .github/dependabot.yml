@@ -11,7 +11,7 @@ updates:
     labels:
       - "dependencies"
       - "backend"
-      
+
   # Python dependencies - CLI
   - package-ecosystem: "pip"
     directory: "/cli"
@@ -23,7 +23,7 @@ updates:
     labels:
       - "dependencies"
       - "cli"
-      
+
   # JavaScript dependencies
   - package-ecosystem: "npm"
     directory: "/frontend"
@@ -35,7 +35,7 @@ updates:
     labels:
       - "dependencies"
       - "frontend"
-      
+
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"

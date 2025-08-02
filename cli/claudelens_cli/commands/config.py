@@ -24,22 +24,22 @@ def show():
     table.add_column("Setting", style="cyan")
     table.add_column("Value", style="green")
     table.add_column("Description", style="dim")
-    
+
     config_dict = config_manager.config.model_dump()
     fields = config_manager.config.model_fields
-    
+
     for key, value in config_dict.items():
         field_info = fields.get(key)
         description = field_info.description if field_info else ""
-        
+
         # Mask API key
         if key == "api_key" and value:
             display_value = value[:8] + "..." + value[-4:]
         else:
             display_value = str(value)
-        
+
         table.add_row(key, display_value, description)
-    
+
     console.print(table)
     console.print(f"\n[dim]Config file: {config_manager.config_file}[/dim]")
 
@@ -49,46 +49,47 @@ def show():
 @click.argument("value", required=False)
 def set(key: str, value: str):
     """Set a configuration value.
-    
+
     If KEY and VALUE are not provided, enter interactive mode.
     """
     if not key:
         # Interactive mode
         key = Prompt.ask(
-            "Configuration key",
-            choices=list(config_manager.config.model_fields.keys())
+            "Configuration key", choices=list(config_manager.config.model_fields.keys())
         )
-    
+
     if not value:
         current_value = getattr(config_manager.config, key, None)
-        
+
         if key == "api_key":
             value = Prompt.ask(
-                f"Enter {key}",
-                password=True,
-                default=current_value or ""
+                f"Enter {key}", password=True, default=current_value or ""
             )
         elif key == "claude_dir":
             # For backward compatibility - redirect to claude_dirs
-            console.print("[yellow]Note: claude_dir is deprecated. Use claude_dirs instead.[/yellow]")
+            console.print(
+                "[yellow]Note: claude_dir is deprecated. Use claude_dirs instead.[/yellow]"
+            )
             value = Prompt.ask(
                 "Enter directory path",
-                default=str(current_value) if current_value else str(Path.home() / ".claude")
+                default=str(current_value)
+                if current_value
+                else str(Path.home() / ".claude"),
             )
         elif key == "claude_dirs":
             console.print("[dim]Enter comma-separated directory paths[/dim]")
             current_dirs = getattr(config_manager.config, "claude_dirs", [])
-            default_value = ",".join(str(d) for d in current_dirs) if current_dirs else str(Path.home() / ".claude")
-            value = Prompt.ask(
-                f"Enter {key}",
-                default=default_value
+            default_value = (
+                ",".join(str(d) for d in current_dirs)
+                if current_dirs
+                else str(Path.home() / ".claude")
             )
+            value = Prompt.ask(f"Enter {key}", default=default_value)
         else:
             value = Prompt.ask(
-                f"Enter {key}",
-                default=str(current_value) if current_value else ""
+                f"Enter {key}", default=str(current_value) if current_value else ""
             )
-    
+
     # Validate and set
     try:
         parsed_value: Any = value
@@ -107,7 +108,7 @@ def set(key: str, value: str):
             parsed_value = value.split(",") if isinstance(value, str) else value
         elif key == "exclude_projects":
             parsed_value = value.split(",") if isinstance(value, str) else value
-        
+
         config_manager.update(**{key: parsed_value})
         console.print(f"[green]✓[/green] Set {key} = {parsed_value}")
     except Exception as e:
@@ -115,7 +116,9 @@ def set(key: str, value: str):
 
 
 @config.command()
-@click.argument("path", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path))
+@click.argument(
+    "path", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path)
+)
 def add_claude_dir(path: Path):
     """Add a Claude directory to the sync list."""
     current_dirs = config_manager.config.claude_dirs.copy()

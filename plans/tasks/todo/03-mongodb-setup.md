@@ -1,8 +1,8 @@
 # Task 03: MongoDB Database Setup
 
 ## Status
-**Status:** TODO  
-**Priority:** High  
+**Status:** TODO
+**Priority:** High
 **Estimated Time:** 2 hours
 
 ## Purpose
@@ -245,11 +245,11 @@ async def connect_to_mongodb() -> None:
             minPoolSize=settings.MIN_CONNECTIONS_COUNT,
         )
         db.database = db.client[settings.DATABASE_NAME]
-        
+
         # Verify connection
         await db.client.admin.command("ping")
         logger.info("Successfully connected to MongoDB")
-        
+
     except errors.ConnectionFailure as e:
         logger.error(f"Could not connect to MongoDB: {e}")
         raise
@@ -305,33 +305,33 @@ from typing import Optional
 
 class Settings(BaseSettings):
     """Application settings."""
-    
+
     # Application
     APP_NAME: str = "ClaudeLens"
     VERSION: str = "0.1.0"
     DEBUG: bool = False
-    
+
     # Database
     MONGODB_URL: str = "mongodb://claudelens_app:claudelens_password@localhost:27017/claudelens?authSource=claudelens"
     DATABASE_NAME: str = "claudelens"
     MAX_CONNECTIONS_COUNT: int = 10
     MIN_CONNECTIONS_COUNT: int = 10
-    
+
     # API
     API_V1_STR: str = "/api/v1"
     API_KEY: str = "default-api-key"
-    
+
     # Security
     SECRET_KEY: str = "your-secret-key-here"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    
+
     # Redis (for caching/rate limiting)
     REDIS_URL: Optional[str] = "redis://localhost:6379"
-    
+
     # CORS
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -425,12 +425,12 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
     """Generate sample data for testing."""
     client = motor.motor_asyncio.AsyncIOMotorClient(db_url)
     db = client.claudelens
-    
+
     # Clear existing data
     await db.projects.delete_many({})
     await db.sessions.delete_many({})
     await db.messages.delete_many({})
-    
+
     # Generate projects
     projects = []
     for i in range(5):
@@ -443,16 +443,16 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
             "updatedAt": datetime.utcnow()
         }
         projects.append(project)
-    
+
     await db.projects.insert_many(projects)
-    
+
     # Generate sessions and messages
     for project in projects:
         # 5-20 sessions per project
         for _ in range(random.randint(5, 20)):
             session_id = fake.uuid4()
             start_time = datetime.utcnow() - timedelta(days=random.randint(1, 30))
-            
+
             session = {
                 "_id": ObjectId(),
                 "sessionId": session_id,
@@ -467,18 +467,18 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
                     "version": "1.0.55"
                 }
             }
-            
+
             # Generate conversation messages
             messages = []
             parent_uuid = None
             current_time = start_time
             total_cost = 0.0
-            
+
             # 10-50 messages per session
             for msg_idx in range(random.randint(10, 50)):
                 msg_uuid = fake.uuid4()
                 is_user = msg_idx % 2 == 0
-                
+
                 if is_user:
                     message = {
                         "uuid": msg_uuid,
@@ -497,13 +497,13 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
                     model = random.choice(MODELS)
                     cost = random.uniform(0.001, 0.05)
                     total_cost += cost
-                    
+
                     # Sometimes include code
                     content = fake.paragraph()
                     if random.random() > 0.7:
                         lang, code = random.choice(CODE_SAMPLES)
                         content = f"{content}\n\n```{lang}\n{code}\n```"
-                    
+
                     message = {
                         "uuid": msg_uuid,
                         "parentUuid": parent_uuid,
@@ -518,25 +518,25 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
                         "costUsd": cost,
                         "durationMs": random.randint(500, 5000)
                     }
-                
+
                 messages.append(message)
                 parent_uuid = msg_uuid
                 current_time += timedelta(seconds=random.randint(5, 60))
-            
+
             session["messageCount"] = len(messages)
             session["totalCost"] = round(total_cost, 6)
-            
+
             await db.sessions.insert_one(session)
             if messages:
                 await db.messages.insert_many(messages)
-    
+
     print("Sample data generated successfully!")
-    
+
     # Print statistics
     project_count = await db.projects.count_documents({})
     session_count = await db.sessions.count_documents({})
     message_count = await db.messages.count_documents({})
-    
+
     print(f"Created {project_count} projects")
     print(f"Created {session_count} sessions")
     print(f"Created {message_count} messages")
@@ -558,10 +558,10 @@ set -e
 # Start MongoDB
 start_mongodb() {
     echo "Starting MongoDB..."
-    
+
     if [ "$PERSISTENT_DB" = true ]; then
         docker-compose -f docker/docker-compose.dev.yml up -d mongodb mongo-express
-        
+
         # Wait for MongoDB to be ready
         echo "Waiting for MongoDB to be ready..."
         until docker exec claudelens_mongodb mongosh --eval "db.adminCommand('ping')" &>/dev/null; do
@@ -585,7 +585,7 @@ load_sample_data() {
 # Main execution
 if [ "$BACKEND_ONLY" = false ] && [ "$FRONTEND_ONLY" = false ]; then
     start_mongodb
-    
+
     if [ "$LOAD_SAMPLES" = true ]; then
         load_sample_data
     fi
@@ -607,14 +607,14 @@ from app.core.database import connect_to_mongodb, get_database, close_mongodb_co
 async def test_mongodb_connection():
     """Test MongoDB connection."""
     await connect_to_mongodb()
-    
+
     db = await get_database()
     assert db is not None
-    
+
     # Test ping
     result = await db.client.admin.command("ping")
     assert result["ok"] == 1
-    
+
     await close_mongodb_connection()
 
 
@@ -623,14 +623,14 @@ async def test_collections_exist():
     """Test that required collections exist."""
     await connect_to_mongodb()
     db = await get_database()
-    
+
     collections = await db.list_collection_names()
-    
+
     assert "projects" in collections
     assert "sessions" in collections
     assert "messages" in collections
     assert "sync_state" in collections
-    
+
     await close_mongodb_connection()
 ```
 

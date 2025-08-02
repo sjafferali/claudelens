@@ -8,39 +8,39 @@ from typing import Any
 
 class ClaudeMessageParser:
     """Parses and validates Claude message format."""
-    
+
     def parse_jsonl_message(self, raw_message: dict[str, Any]) -> dict[str, Any] | None:
         """Parse a raw message from JSONL files.
-        
+
         Handles the following message types:
         - summary: Session summaries (stored separately)
         - user: User inputs with optional tool results
         - assistant: Claude responses with model info and costs
-        
+
         Returns None if message should be skipped.
         """
         msg_type = raw_message.get("type")
-        
+
         # Handle summary messages separately
         if msg_type == "summary":
             return {
                 "type": "summary",
                 "summary": raw_message.get("summary"),
                 "leafUuid": raw_message.get("leafUuid"),
-                "isSummary": True
+                "isSummary": True,
             }
-        
+
         # Basic validation
         required_fields = ["uuid", "type", "timestamp"]
         if not all(field in raw_message for field in required_fields):
             return None
-        
+
         # Parse timestamp
         try:
             timestamp = self._parse_timestamp(raw_message["timestamp"])
         except Exception:
             return None
-        
+
         # Build normalized message
         message = {
             "uuid": raw_message["uuid"],
@@ -54,90 +54,92 @@ class ClaudeMessageParser:
             "version": raw_message.get("version"),
             "gitBranch": raw_message.get("gitBranch"),
         }
-        
+
         # Add message content based on type
         if "message" in raw_message:
             message["message"] = raw_message["message"]
-            
+
         # Add type-specific fields
         if msg_type == "user":
             message.update(self._parse_user_message(raw_message))
         elif msg_type == "assistant":
             message.update(self._parse_assistant_message(raw_message))
-        
+
         return message
-    
+
     def _parse_timestamp(self, timestamp_str: str) -> datetime:
         """Parse timestamp string to datetime."""
         # Handle different timestamp formats
-        if timestamp_str.endswith('Z'):
-            timestamp_str = timestamp_str[:-1] + '+00:00'
-        
+        if timestamp_str.endswith("Z"):
+            timestamp_str = timestamp_str[:-1] + "+00:00"
+
         return datetime.fromisoformat(timestamp_str)
-    
+
     def _parse_user_message(self, raw_message: dict[str, Any]) -> dict[str, Any]:
         """Parse user message fields."""
         result = {
             "userType": raw_message.get("userType", "external"),
             "cwd": raw_message.get("cwd"),
         }
-        
+
         # Extract message content
         if "message" in raw_message:
             result["message"] = raw_message["message"]
-        
+
         # Tool use results
         if "toolUseResult" in raw_message:
             result["toolUseResult"] = raw_message["toolUseResult"]
-        
+
         return result
-    
+
     def _parse_assistant_message(self, raw_message: dict[str, Any]) -> dict[str, Any]:
         """Parse assistant message fields."""
         result = {}
-        
+
         # Extract message content
         if "message" in raw_message:
             message = raw_message["message"]
             result["message"] = message
-            
+
             # Extract model info
             if isinstance(message, dict):
                 if "model" in message:
                     result["model"] = message["model"]
                 if "usage" in message:
                     result["usage"] = message["usage"]
-        
+
         # Cost and duration (from JSONL metadata)
         if "costUsd" in raw_message:
             result["costUsd"] = raw_message["costUsd"]
         if "durationMs" in raw_message:
             result["durationMs"] = raw_message["durationMs"]
-        
+
         # Request ID
         if "requestId" in raw_message:
             result["requestId"] = raw_message["requestId"]
-        
+
         return result
 
 
 class ClaudeDatabaseReader:
     """Reads messages from Claude's SQLite database."""
-    
+
     def __init__(self, db_path: Path):
         self.db_path = db_path
-    
-    async def read_messages(self, after_timestamp: datetime | None = None) -> list[dict[str, Any]]:
+
+    async def read_messages(
+        self, after_timestamp: datetime | None = None
+    ) -> list[dict[str, Any]]:
         """Read messages from SQLite database.
-        
+
         Joins data from multiple tables to reconstruct full messages.
         """
         conn = sqlite3.connect(str(self.db_path))
         conn.row_factory = sqlite3.Row
-        
+
         try:
             query = """
-            SELECT 
+            SELECT
                 b.uuid,
                 b.parent_uuid,
                 b.session_id,
@@ -159,33 +161,33 @@ class ClaudeDatabaseReader:
             LEFT JOIN assistant_messages a ON b.uuid = a.uuid
             LEFT JOIN conversation_summaries c ON b.uuid = c.leaf_uuid
             """
-            
+
             params = []
             if after_timestamp:
                 query += " WHERE b.timestamp > ?"
                 params.append(int(after_timestamp.timestamp() * 1000))
-            
+
             query += " ORDER BY b.timestamp ASC"
-            
+
             cursor = conn.execute(query, params)
             messages = []
-            
+
             for row in cursor:
                 message = self._row_to_message(dict(row))
                 if message:
                     messages.append(message)
-            
+
             return messages
-            
+
         finally:
             conn.close()
-    
+
     def _row_to_message(self, row: dict[str, Any]) -> dict[str, Any] | None:
         """Convert SQLite row to message format."""
         # Skip if no message type
         if not row.get("message_type"):
             return None
-        
+
         # Base message structure
         message = {
             "uuid": row["uuid"],
@@ -198,13 +200,13 @@ class ClaudeDatabaseReader:
             "version": row["version"],
             "isSidechain": bool(row["isSidechain"]),
         }
-        
+
         # Add type-specific content
         if row["message_type"] == "user" and row["user_message"]:
             message["message"] = json.loads(row["user_message"])
             if row["tool_use_result"]:
                 message["toolUseResult"] = json.loads(row["tool_use_result"])
-                
+
         elif row["message_type"] == "assistant" and row["assistant_message"]:
             message["message"] = json.loads(row["assistant_message"])
             if row["cost_usd"]:
@@ -213,9 +215,9 @@ class ClaudeDatabaseReader:
                 message["durationMs"] = row["duration_ms"]
             if row["model"]:
                 message["model"] = row["model"]
-        
+
         # Add summary if this is a summary node
         if row["summary"]:
             message["summary"] = row["summary"]
-        
+
         return message
