@@ -1,5 +1,4 @@
 """Main API router."""
-from app.core.custom_router import APIRouter
 from app.api.api_v1.endpoints import (
     analytics,
     ingest,
@@ -8,6 +7,7 @@ from app.api.api_v1.endpoints import (
     search,
     sessions,
 )
+from app.core.custom_router import APIRouter
 
 api_router = APIRouter()
 
