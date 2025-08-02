@@ -16,7 +16,42 @@ Archive, search, and visualize your Claude conversation history. Transform your 
 - 💾 Support for Claude.ai, Claude Code CLI, and API conversations
 
 ## Quick Start
-[Installation and usage instructions - to be added]
+
+### Using Docker Compose (Recommended)
+
+1. Clone the repository:
+```bash
+git clone https://github.com/sjafferali/claudelens.git
+cd claudelens
+```
+
+2. **For production use**, edit `docker-compose.yml` and update:
+   - `SECRET_KEY` - Replace with a secure random key
+   - `MONGO_INITDB_ROOT_PASSWORD` - Replace with a strong password
+   - `BACKEND_CORS_ORIGINS` - Add your production domain
+
+3. Start the application:
+```bash
+docker compose up -d
+```
+
+4. Access ClaudeLens at http://localhost:3000
+
+The application includes:
+- ClaudeLens web app (port 3000)
+- MongoDB database (port 27017)
+- Automatic database initialization
+
+### Using Pre-built Docker Image
+
+```bash
+docker run -d \
+  --name claudelens \
+  -p 3000:8080 \
+  -e MONGODB_URL="mongodb://user:pass@host:27017/claudelens" \
+  -e SECRET_KEY="your-secret-key" \
+  sjafferali/claudelens:latest
+```
 
 ## Components
 - **Web Application**: React-based frontend for browsing and analyzing conversations

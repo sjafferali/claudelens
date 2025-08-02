@@ -1,25 +1,60 @@
+# ClaudeLens Docker Compose Configuration
+# 
+# IMPORTANT: This file contains default values for quick setup.
+# For production use, please update the following:
+# - SECRET_KEY: Generate a secure random key
+# - MONGO_INITDB_ROOT_PASSWORD: Use a strong password
+# - BACKEND_CORS_ORIGINS: Add your production domain
+#
+# To use different ports or values, copy this file and modify as needed.
+
 version: '3.8'
 
 services:
   claudelens:
-    image: ghcr.io/sjafferali/claudelens:latest
+    image: sjafferali/claudelens:latest
     container_name: claudelens
     restart: unless-stopped
     ports:
-      - "${CLAUDELENS_PORT:-3000}:80"
+      - "3000:8080"
     environment:
-      - MONGODB_URL=mongodb://claudelens_app:${MONGODB_PASSWORD}@mongodb:27017/claudelens?authSource=claudelens
+      # MongoDB connection
+      - MONGODB_URL=mongodb://claudelens_app:claudelens_password@mongodb:27017/claudelens?authSource=claudelens
+      
+      # API Configuration
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_PREFIX=/api/v1
+      
+      # Security
+      - SECRET_KEY=your-secret-key-here-change-in-production
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      
+      # CORS
+      - BACKEND_CORS_ORIGINS=http://localhost:3000,http://localhost:8080
+      
+      # Application settings
+      - PROJECT_NAME=ClaudeLens
+      - VERSION=0.1.0
+      - DEBUG=false
+      - LOG_LEVEL=info
+      
+      # Database settings
+      - DATABASE_NAME=claudelens
+      - MAX_CONNECTIONS_COUNT=100
+      - MIN_CONNECTIONS_COUNT=10
+      
+      # Rate limiting
+      - RATE_LIMIT_PER_MINUTE=100
+      
+      # Optional Redis (for future use)
       - REDIS_URL=redis://redis:6379
-      - API_KEY=${API_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:3000}
     depends_on:
       mongodb:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -32,15 +67,15 @@ services:
     container_name: claudelens_mongodb
     restart: unless-stopped
     ports:
-      - "${MONGODB_PORT:-27017}:27017"
+      - "27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USER:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD}
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: changeme-use-strong-password-in-production
       MONGO_INITDB_DATABASE: claudelens
     volumes:
       - mongodb_data:/data/db
       - ./docker/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
-    command: mongod --auth --wiredTigerCacheSizeGB 1
+    command: mongod --auth
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/claudelens --quiet
       interval: 10s
@@ -49,22 +84,24 @@ services:
     networks:
       - claudelens-network
 
-  redis:
-    image: redis:7-alpine
-    container_name: claudelens_redis
-    restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - claudelens-network
+  # Redis service commented out - not currently used
+  # Uncomment if Redis caching is needed in the future
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: claudelens_redis
+  #   restart: unless-stopped
+  #   ports:
+  #     - "${REDIS_PORT:-6379}:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - claudelens-network
 
   # Optional: Backup service
   backup:
@@ -75,8 +112,8 @@ services:
       MONGO_HOST: mongodb
       MONGO_PORT: 27017
       MONGO_DATABASE: claudelens
-      MONGO_USERNAME: ${MONGODB_ROOT_USER:-admin}
-      MONGO_PASSWORD: ${MONGODB_ROOT_PASSWORD}
+      MONGO_USERNAME: admin
+      MONGO_PASSWORD: changeme-use-strong-password-in-production
     volumes:
       - ./backups:/backups
     command: |
@@ -87,8 +124,6 @@ services:
 volumes:
   mongodb_data:
     name: claudelens_mongodb_data
-  redis_data:
-    name: claudelens_redis_data
 
 networks:
   claudelens-network:
