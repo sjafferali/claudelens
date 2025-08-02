@@ -2,8 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import toast from 'react-hot-toast';
 import { useStore } from '@/store';
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || '/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 class ApiClient {
   private client: AxiosInstance;

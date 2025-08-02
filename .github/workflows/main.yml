@@ -343,6 +343,12 @@ jobs:
         cache-to: type=gha,mode=max
         platforms: linux/amd64
         
+    - name: Send webhook notification
+      uses: distributhor/workflow-webhook@v3
+      env:
+        webhook_url: ${{ secrets.WEBHOOK_URL }}
+        webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
+        
     - name: Generate SBOM
       uses: anchore/sbom-action@v0
       with:
