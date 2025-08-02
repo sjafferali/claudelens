@@ -69,9 +69,19 @@ def set(key: str, value: str):
                 default=current_value or ""
             )
         elif key == "claude_dir":
+            # For backward compatibility - redirect to claude_dirs
+            console.print("[yellow]Note: claude_dir is deprecated. Use claude_dirs instead.[/yellow]")
+            value = Prompt.ask(
+                f"Enter directory path",
+                default=str(current_value) if current_value else str(Path.home() / ".claude")
+            )
+        elif key == "claude_dirs":
+            console.print("[dim]Enter comma-separated directory paths[/dim]")
+            current_dirs = getattr(config_manager.config, "claude_dirs", [])
+            default_value = ",".join(str(d) for d in current_dirs) if current_dirs else str(Path.home() / ".claude")
             value = Prompt.ask(
                 f"Enter {key}",
-                default=str(current_value) if current_value else str(Path.home() / ".claude")
+                default=default_value
             )
         else:
             value = Prompt.ask(
@@ -83,7 +93,14 @@ def set(key: str, value: str):
     try:
         parsed_value: Any = value
         if key == "claude_dir":
-            parsed_value = Path(value)
+            # For backward compatibility - update claude_dirs instead
+            parsed_value = [Path(value)]
+            key = "claude_dirs"
+            console.print("[yellow]Setting claude_dirs instead of claude_dir[/yellow]")
+        elif key == "claude_dirs":
+            # Parse comma-separated paths
+            paths = [Path(p.strip()) for p in value.split(",") if p.strip()]
+            parsed_value = paths
         elif key in ["sync_interval", "batch_size"]:
             parsed_value = int(value)
         elif key == "sync_types":
@@ -95,6 +112,32 @@ def set(key: str, value: str):
         console.print(f"[green]✓[/green] Set {key} = {parsed_value}")
     except Exception as e:
         console.print(f"[red]✗[/red] Failed to set {key}: {e}")
+
+
+@config.command()
+@click.argument("path", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path))
+def add_claude_dir(path: Path):
+    """Add a Claude directory to the sync list."""
+    current_dirs = config_manager.config.claude_dirs.copy()
+    if path not in current_dirs:
+        current_dirs.append(path)
+        config_manager.update(claude_dirs=current_dirs)
+        console.print(f"[green]✓[/green] Added {path} to claude_dirs")
+    else:
+        console.print(f"[yellow]{path} is already in claude_dirs[/yellow]")
+
+
+@config.command()
+@click.argument("path", type=click.Path(path_type=Path))
+def remove_claude_dir(path: Path):
+    """Remove a Claude directory from the sync list."""
+    current_dirs = config_manager.config.claude_dirs.copy()
+    if path in current_dirs:
+        current_dirs.remove(path)
+        config_manager.update(claude_dirs=current_dirs)
+        console.print(f"[green]✓[/green] Removed {path} from claude_dirs")
+    else:
+        console.print(f"[yellow]{path} is not in claude_dirs[/yellow]")
 
 
 @config.command()

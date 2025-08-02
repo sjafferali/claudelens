@@ -10,7 +10,8 @@ from fastapi.responses import JSONResponse
 
 from app.api.api_v1.api import api_router
 from app.core.config import settings
-from app.core.database import close_mongodb_connection, connect_to_mongodb
+from app.core.database import close_mongodb_connection, connect_to_mongodb, get_database
+from app.core.db_init import initialize_database
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
@@ -29,6 +30,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting ClaudeLens API...")
     await connect_to_mongodb()
     logger.info("Connected to MongoDB")
+    
+    # Initialize database (create collections, indexes, etc.)
+    try:
+        db = await get_database()
+        await initialize_database(db)
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
     
     yield
     

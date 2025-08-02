@@ -121,24 +121,32 @@ class SyncEngine:
             await self._close_http_client()
     
     async def _find_projects(self, project_filter: Path | None = None) -> list[Path]:
-        """Find all Claude projects."""
+        """Find all Claude projects across all configured directories."""
         if project_filter:
             return [project_filter]
         
-        claude_dir = self.config.config.claude_dir
-        projects_dir = claude_dir / "projects"
+        all_projects = []
+        seen_projects = set()  # Track project names to handle duplicates
         
-        if not projects_dir.exists():
-            console.print(f"[yellow]Claude projects directory not found: {projects_dir}[/yellow]")
-            return []
+        # Iterate over all configured claude directories
+        for claude_dir in self.config.config.claude_dirs:
+            projects_dir = claude_dir / "projects"
+            
+            if not projects_dir.exists():
+                console.print(f"[yellow]Claude projects directory not found: {projects_dir}[/yellow]")
+                continue
+            
+            # Find all project directories
+            for item in projects_dir.iterdir():
+                if item.is_dir() and not item.name.startswith('.'):
+                    # Check for duplicate project names across directories
+                    if item.name in seen_projects:
+                        console.print(f"[yellow]Warning: Duplicate project '{item.name}' found in {claude_dir}[/yellow]")
+                    else:
+                        seen_projects.add(item.name)
+                    all_projects.append(item)
         
-        # Find all project directories
-        projects = []
-        for item in projects_dir.iterdir():
-            if item.is_dir() and not item.name.startswith('.'):
-                projects.append(item)
-        
-        return sorted(projects)
+        return sorted(all_projects)
     
     async def _sync_project(
         self,
@@ -339,12 +347,23 @@ class SyncEngine:
         event_handler = ClaudeFileHandler(self, project_filter, dry_run)
         self._observer = Observer()
         
-        watch_path = project_filter or (self.config.config.claude_dir / "projects")
-        self._observer.schedule(event_handler, str(watch_path), recursive=True)
+        # Determine paths to watch
+        if project_filter:
+            watch_paths = [project_filter]
+        else:
+            watch_paths = [claude_dir / "projects" for claude_dir in self.config.config.claude_dirs]
+        
+        # Schedule observer for each path
+        for watch_path in watch_paths:
+            if watch_path.exists():
+                self._observer.schedule(event_handler, str(watch_path), recursive=True)
+                console.print(f"[green]Watching {watch_path}[/green]")
+            else:
+                console.print(f"[yellow]Warning: Watch path does not exist: {watch_path}[/yellow]")
         
         # Start watching
         self._observer.start()
-        console.print(f"\n[green]Watching {watch_path} for changes...[/green]")
+        console.print(f"\n[green]Watching for changes...[/green]")
         
         try:
             while True:

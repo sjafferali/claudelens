@@ -14,9 +14,6 @@ pydantic = "^2.10.0"
 pydantic-settings = "^2.0.0"
 python-multipart = "^0.0.20"
 httpx = "^0.28.0"
-python-jose = {extras = ["cryptography"], version = "^3.3.0"}
-passlib = {extras = ["bcrypt"], version = "^1.7.4"}
-redis = "^6.0.0"
 aiofiles = "^24.1.0"
 pytz = "^2025.1"
 faker = "^37.0.0"
@@ -28,7 +25,7 @@ pytest = "^8.4.0"
 pytest-asyncio = "^1.0.0"
 pytest-cov = "^6.0.0"
 pytest-xdist = "^3.3.0"
-testcontainers = {extras = ["mongodb", "redis"], version = "^4.12.0"}
+testcontainers = {extras = ["mongodb"], version = "^4.12.0"}
 ruff = "^0.12.0"
 mypy = "^1.6.0"
 black = "^25.0.0"

@@ -1,9 +1,11 @@
 # ClaudeLens Docker Compose Configuration
 # 
-# IMPORTANT: This file contains default values for quick setup.
-# For production use, please update the following:
-# - SECRET_KEY: Generate a secure random key
-# - MONGO_INITDB_ROOT_PASSWORD: Use a strong password
+# IMPORTANT: This file contains default values for quick setup/demo.
+# For production use, please:
+# - Create a dedicated MongoDB user with limited privileges
+# - Update MONGODB_URL to use the dedicated user instead of root
+# - Update API_KEY with a secure generated key
+# - Update MONGO_INITDB_ROOT_PASSWORD with a strong password
 #
 # To use different ports or values, copy this file and modify as needed.
 
@@ -17,25 +19,17 @@ services:
     ports:
       - "3000:8080"
     environment:
-      # MongoDB connection
-      - MONGODB_URL=mongodb://claudelens_app:claudelens_password@mongodb:27017/claudelens?authSource=claudelens
-      
-      # API Configuration
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
+      # MongoDB connection (using root user for simplicity in demo)
+      - MONGODB_URL=mongodb://admin:changeme-use-strong-password-in-production@mongodb:27017/claudelens?authSource=admin
       
       # Security
-      - SECRET_KEY=your-secret-key-here-change-in-production
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - API_KEY=default-api-key
       
       # Application settings
       - DEBUG=false
       
       # Database settings
       - DATABASE_NAME=claudelens
-      - MAX_CONNECTIONS_COUNT=100
-      - MIN_CONNECTIONS_COUNT=10
       
     depends_on:
       mongodb:
@@ -46,8 +40,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    networks:
-      - claudelens-network
 
   mongodb:
     image: mongo:7.0
@@ -61,58 +53,14 @@ services:
       MONGO_INITDB_DATABASE: claudelens
     volumes:
       - mongodb_data:/data/db
-      - ./docker/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     command: mongod --auth
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/claudelens --quiet
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - claudelens-network
 
-  # Redis service commented out - not currently used
-  # Uncomment if Redis caching is needed in the future
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: claudelens_redis
-  #   restart: unless-stopped
-  #   ports:
-  #     - "${REDIS_PORT:-6379}:6379"
-  #   volumes:
-  #     - redis_data:/data
-  #   command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-  #   healthcheck:
-  #     test: ["CMD", "redis-cli", "ping"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     - claudelens-network
-
-  # Optional: Backup service
-  backup:
-    image: mongo:7.0
-    container_name: claudelens_backup
-    profiles: ["backup"]
-    environment:
-      MONGO_HOST: mongodb
-      MONGO_PORT: 27017
-      MONGO_DATABASE: claudelens
-      MONGO_USERNAME: admin
-      MONGO_PASSWORD: changeme-use-strong-password-in-production
-    volumes:
-      - ./backups:/backups
-    command: |
-      sh -c 'mongodump --host=$${MONGO_HOST}:$${MONGO_PORT} --username=$${MONGO_USERNAME} --password=$${MONGO_PASSWORD} --authenticationDatabase=admin --db=$${MONGO_DATABASE} --out=/backups/backup-$$(date +%Y%m%d-%H%M%S)'
-    networks:
-      - claudelens-network
 
 volumes:
   mongodb_data:
     name: claudelens_mongodb_data
-
-networks:
-  claudelens-network:
-    name: claudelens_network
-    driver: bridge

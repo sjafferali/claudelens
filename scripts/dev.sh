@@ -159,8 +159,8 @@ start_backend() {
         poetry install
     fi
     
-    # Export environment variables
-    export MONGODB_URL="mongodb://claudelens_app:claudelens_password@localhost:27017/claudelens?authSource=claudelens"
+    # Export environment variables (using root user from docker-compose.dev.yml)
+    export MONGODB_URL="mongodb://admin:admin123@localhost:27017/claudelens?authSource=admin"
     export DEBUG=true
     export LOG_LEVEL=info
     

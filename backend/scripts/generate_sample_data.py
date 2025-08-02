@@ -58,7 +58,7 @@ async def generate_sample_data(db_url: str | None = None):
                     print("Error: Failed to get testcontainer MongoDB URL")
                     return
         else:
-            db_url = os.getenv("TESTCONTAINER_MONGODB_URL") or os.getenv("MONGODB_URL") or "mongodb://claudelens_app:claudelens_password@localhost:27017/claudelens?authSource=claudelens"
+            db_url = os.getenv("TESTCONTAINER_MONGODB_URL") or os.getenv("MONGODB_URL") or "mongodb://admin:admin123@localhost:27017/claudelens?authSource=admin"
     
     print(f"Using MongoDB URL: {db_url}")
     client = motor.motor_asyncio.AsyncIOMotorClient(db_url)

@@ -23,9 +23,9 @@ class CLIConfig(BaseModel):
         default=None,
         description="API key for authentication"
     )
-    claude_dir: Path = Field(
-        default_factory=lambda: Path.home() / ".claude",
-        description="Claude data directory"
+    claude_dirs: list[Path] = Field(
+        default_factory=lambda: [Path.home() / ".claude"],
+        description="Claude data directories to sync from"
     )
     sync_interval: int = Field(
         default=300,
@@ -50,6 +50,11 @@ class CLIConfig(BaseModel):
     
     class Config:
         validate_assignment = True
+    
+    @property
+    def claude_dir(self) -> Path:
+        """Backward compatibility property for single claude_dir."""
+        return self.claude_dirs[0] if self.claude_dirs else Path.home() / ".claude"
 
 
 class ConfigManager:
@@ -69,7 +74,14 @@ class ConfigManager:
         if api_key := os.getenv("CLAUDELENS_API_KEY"):
             env_config["api_key"] = api_key
         if claude_dir := os.getenv("CLAUDE_DIR"):
-            env_config["claude_dir"] = claude_dir  # CLIConfig will convert to Path
+            # Support comma-separated paths for multiple directories
+            if "," in claude_dir:
+                env_config["claude_dirs"] = [Path(d.strip()) for d in claude_dir.split(",")]
+            else:
+                env_config["claude_dirs"] = [Path(claude_dir.strip())]
+        elif claude_dirs := os.getenv("CLAUDE_DIRS"):
+            # Alternative env var for multiple directories
+            env_config["claude_dirs"] = [Path(d.strip()) for d in claude_dirs.split(",")]
         
         # Then, load from file
         if self.config_file.exists():

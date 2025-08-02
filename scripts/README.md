@@ -136,7 +136,7 @@ Depending on the flags used, the script will start:
 
 1. **MongoDB** (unless `--frontend-only`)
    - Port: 27017
-   - Credentials: claudelens_app / claudelens_password
+   - Credentials: admin / admin123 (root user)
    - Database: claudelens
 
 2. **Mongo Express** (unless `--frontend-only`)
