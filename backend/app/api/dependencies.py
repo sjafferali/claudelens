@@ -1,9 +1,9 @@
 """API dependencies."""
-from typing import Optional, Annotated
-from fastapi import Header, HTTPException, Depends
+from typing import Annotated
+
+from fastapi import Depends, Header, HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.core.config import settings
 from app.core.database import get_database
 from app.core.security import verify_api_key
 
@@ -14,7 +14,7 @@ async def get_db() -> AsyncIOMotorDatabase:
 
 
 async def verify_api_key_header(
-    x_api_key: Annotated[Optional[str], Header()] = None
+    x_api_key: Annotated[str | None, Header()] = None
 ) -> str:
     """Verify API key from header."""
     if not x_api_key:

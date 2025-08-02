@@ -1,5 +1,11 @@
 import { useParams } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/common';
 
 export default function Sessions() {
   const { sessionId } = useParams();
@@ -31,16 +37,17 @@ function SessionsList() {
         <CardContent>
           <div className="space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent cursor-pointer">
+              <div
+                key={i}
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent cursor-pointer"
+              >
                 <div className="space-y-1">
                   <p className="font-medium">Session {i}</p>
                   <p className="text-sm text-muted-foreground">
                     Project: Example Project • 45 messages • 2 hours ago
                   </p>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  $0.25
-                </div>
+                <div className="text-sm text-muted-foreground">$0.25</div>
               </div>
             ))}
           </div>
@@ -54,7 +61,9 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Session {sessionId}</h2>
+        <h2 className="text-3xl font-bold tracking-tight">
+          Session {sessionId}
+        </h2>
         <p className="text-muted-foreground">
           Conversation details and messages
         </p>

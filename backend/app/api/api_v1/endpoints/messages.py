@@ -1,14 +1,12 @@
 """Messages API endpoints."""
-from typing import List, Optional
-from datetime import datetime
-from fastapi import APIRouter, Query, HTTPException
-from motor.motor_asyncio import AsyncIOMotorDatabase
+
+from fastapi import APIRouter, Query
 
 from app.api.dependencies import CommonDeps
-from app.schemas.message import Message, MessageDetail
-from app.schemas.common import PaginatedResponse
-from app.services.message import MessageService
 from app.core.exceptions import NotFoundError
+from app.schemas.common import PaginatedResponse
+from app.schemas.message import Message, MessageDetail
+from app.services.message import MessageService
 
 router = APIRouter()
 
@@ -16,12 +14,12 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResponse[Message])
 async def list_messages(
     db: CommonDeps,
-    session_id: Optional[str] = Query(None, description="Filter by session ID"),
-    type: Optional[str] = Query(None, description="Filter by message type"),
-    model: Optional[str] = Query(None, description="Filter by model"),
+    session_id: str | None = Query(None, description="Filter by session ID"),
+    type: str | None = Query(None, description="Filter by message type"),
+    model: str | None = Query(None, description="Filter by model"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    sort_order: str = Query("asc", regex="^(asc|desc)$")
+    sort_order: str = Query("asc", pattern="^(asc|desc)$")
 ) -> PaginatedResponse[Message]:
     """List messages with pagination and filtering.
     

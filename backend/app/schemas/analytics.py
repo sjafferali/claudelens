@@ -1,7 +1,7 @@
 """Analytics schemas."""
-from typing import List, Dict, Any, Optional
 from datetime import datetime
 from enum import Enum
+
 from pydantic import BaseModel, Field
 
 
@@ -25,8 +25,8 @@ class AnalyticsSummary(BaseModel):
     messages_trend: float = Field(..., description="Percentage change from previous period")
     cost_trend: float = Field(..., description="Percentage change from previous period")
     
-    most_active_project: Optional[str] = None
-    most_used_model: Optional[str] = None
+    most_active_project: str | None = None
+    most_used_model: str | None = None
     
     time_range: TimeRange
     generated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -39,20 +39,20 @@ class HeatmapCell(BaseModel):
     count: int = Field(..., ge=0)
     
     # Optional enrichment
-    avg_cost: Optional[float] = None
-    avg_response_time: Optional[float] = None
+    avg_cost: float | None = None
+    avg_response_time: float | None = None
 
 
 class ActivityHeatmap(BaseModel):
     """Activity heatmap data."""
-    cells: List[HeatmapCell]
+    cells: list[HeatmapCell]
     total_messages: int
     time_range: TimeRange
     timezone: str
     
     # Peak activity times
-    peak_hour: Optional[int] = None
-    peak_day: Optional[int] = None
+    peak_hour: int | None = None
+    peak_day: int | None = None
 
 
 class CostDataPoint(BaseModel):
@@ -62,12 +62,12 @@ class CostDataPoint(BaseModel):
     message_count: int
     
     # Breakdown by model
-    cost_by_model: Optional[Dict[str, float]] = None
+    cost_by_model: dict[str, float] | None = None
 
 
 class CostAnalytics(BaseModel):
     """Cost analytics over time."""
-    data_points: List[CostDataPoint]
+    data_points: list[CostDataPoint]
     total_cost: float
     average_cost_per_message: float
     
@@ -75,8 +75,8 @@ class CostAnalytics(BaseModel):
     group_by: str
     
     # Cost breakdown
-    cost_by_model: Dict[str, float]
-    cost_by_project: Optional[Dict[str, float]] = None
+    cost_by_model: dict[str, float]
+    cost_by_project: dict[str, float] | None = None
 
 
 class ModelUsage(BaseModel):
@@ -86,23 +86,23 @@ class ModelUsage(BaseModel):
     total_cost: float
     avg_cost_per_message: float
     
-    avg_response_time_ms: Optional[float] = None
-    avg_tokens_input: Optional[float] = None
-    avg_tokens_output: Optional[float] = None
+    avg_response_time_ms: float | None = None
+    avg_tokens_input: float | None = None
+    avg_tokens_output: float | None = None
     
     # Usage trend
-    trend_percentage: Optional[float] = None
+    trend_percentage: float | None = None
 
 
 class ModelUsageStats(BaseModel):
     """Model usage statistics."""
-    models: List[ModelUsage]
+    models: list[ModelUsage]
     total_models: int
     time_range: TimeRange
     
     # Most/least used
-    most_used: Optional[str] = None
-    least_used: Optional[str] = None
+    most_used: str | None = None
+    least_used: str | None = None
 
 
 class TokenDataPoint(BaseModel):
@@ -115,7 +115,7 @@ class TokenDataPoint(BaseModel):
 
 class TokenUsageStats(BaseModel):
     """Token usage statistics."""
-    data_points: List[TokenDataPoint]
+    data_points: list[TokenDataPoint]
     total_input_tokens: int
     total_output_tokens: int
     

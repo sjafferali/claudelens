@@ -1,7 +1,9 @@
 """Retry logic and error handling utilities."""
 import asyncio
 import functools
-from typing import TypeVar, Callable, Optional, Type, Tuple
+from collections.abc import Callable, Coroutine
+from typing import Any, TypeVar
+
 import httpx
 from rich.console import Console
 
@@ -14,13 +16,13 @@ def with_retry(
     max_attempts: int = 3,
     delay: float = 1.0,
     backoff: float = 2.0,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,)
+    exceptions: tuple[type[Exception], ...] = (Exception,)
 ):
     """Decorator for retry logic with exponential backoff."""
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..., Coroutine[Any, Any, T]]:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs) -> T:
-            last_exception = None
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
+            last_exception: Exception | None = None
             
             for attempt in range(max_attempts):
                 try:
@@ -38,7 +40,9 @@ def with_retry(
                     else:
                         console.print(f"[red]All {max_attempts} attempts failed[/red]")
             
-            raise last_exception
+            if last_exception is not None:
+                raise last_exception
+            raise RuntimeError("Unexpected retry state")
         
         return wrapper
     return decorator
@@ -50,7 +54,7 @@ class RetryableHTTPClient:
     def __init__(
         self,
         base_url: str,
-        headers: Optional[dict] = None,
+        headers: dict | None = None,
         max_retries: int = 3,
         timeout: float = 30.0
     ):

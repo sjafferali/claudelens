@@ -1,7 +1,8 @@
 """Message service layer."""
-from typing import List, Optional, Tuple, Dict, Any
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import Any
+
 from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.schemas.message import Message, MessageDetail
 
@@ -14,11 +15,11 @@ class MessageService:
     
     async def list_messages(
         self,
-        filter_dict: Dict[str, Any],
+        filter_dict: dict[str, Any],
         skip: int,
         limit: int,
         sort_order: str
-    ) -> Tuple[List[Message], int]:
+    ) -> tuple[list[Message], int]:
         """List messages with pagination."""
         # Count total
         total = await self.db.messages.count_documents(filter_dict)
@@ -48,7 +49,7 @@ class MessageService:
         
         return messages, total
     
-    async def get_message(self, message_id: str) -> Optional[MessageDetail]:
+    async def get_message(self, message_id: str) -> MessageDetail | None:
         """Get a single message by ID."""
         if not ObjectId.is_valid(message_id):
             return None
@@ -59,7 +60,7 @@ class MessageService:
         
         return self._doc_to_message_detail(doc)
     
-    async def get_message_by_uuid(self, uuid: str) -> Optional[MessageDetail]:
+    async def get_message_by_uuid(self, uuid: str) -> MessageDetail | None:
         """Get a message by its Claude UUID."""
         doc = await self.db.messages.find_one({"uuid": uuid})
         if not doc:
@@ -72,7 +73,7 @@ class MessageService:
         message_id: str,
         before: int,
         after: int
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Get a message with surrounding context."""
         if not ObjectId.is_valid(message_id):
             return None
@@ -93,17 +94,7 @@ class MessageService:
         
         before_messages = []
         async for doc in before_cursor:
-            before_messages.append(Message(**{
-                "_id": str(doc["_id"]),
-                "uuid": doc["uuid"],
-                "type": doc["type"],
-                "session_id": doc["sessionId"],
-                "content": doc.get("content"),
-                "timestamp": doc["timestamp"],
-                "model": doc.get("model"),
-                "parent_uuid": doc.get("parentUuid"),
-                "created_at": doc["createdAt"]
-            }))
+            before_messages.append(Message(_id=str(doc["_id"]), uuid=doc["uuid"], type=doc["type"], session_id=doc["sessionId"], content=doc.get("content"), timestamp=doc["timestamp"], model=doc.get("model"), parent_uuid=doc.get("parentUuid"), created_at=doc["createdAt"]))
         
         # Reverse to get chronological order
         before_messages.reverse()
@@ -116,17 +107,7 @@ class MessageService:
         
         after_messages = []
         async for doc in after_cursor:
-            after_messages.append(Message(**{
-                "_id": str(doc["_id"]),
-                "uuid": doc["uuid"],
-                "type": doc["type"],
-                "session_id": doc["sessionId"],
-                "content": doc.get("content"),
-                "timestamp": doc["timestamp"],
-                "model": doc.get("model"),
-                "parent_uuid": doc.get("parentUuid"),
-                "created_at": doc["createdAt"]
-            }))
+            after_messages.append(Message(_id=str(doc["_id"]), uuid=doc["uuid"], type=doc["type"], session_id=doc["sessionId"], content=doc.get("content"), timestamp=doc["timestamp"], model=doc.get("model"), parent_uuid=doc.get("parentUuid"), created_at=doc["createdAt"]))
         
         return {
             "before": before_messages,
@@ -137,19 +118,4 @@ class MessageService:
     
     def _doc_to_message_detail(self, doc: dict) -> MessageDetail:
         """Convert MongoDB document to MessageDetail."""
-        return MessageDetail(**{
-            "_id": str(doc["_id"]),
-            "uuid": doc["uuid"],
-            "type": doc["type"],
-            "session_id": doc["sessionId"],
-            "content": doc.get("content"),
-            "timestamp": doc["timestamp"],
-            "model": doc.get("model"),
-            "parent_uuid": doc.get("parentUuid"),
-            "created_at": doc["createdAt"],
-            "usage": doc.get("usage"),
-            "cost_usd": doc.get("costUsd"),
-            "tool_use": doc.get("toolUse"),
-            "attachments": doc.get("attachments"),
-            "content_hash": doc.get("contentHash")
-        })
+        return MessageDetail(_id=str(doc["_id"]), uuid=doc["uuid"], type=doc["type"], session_id=doc["sessionId"], content=doc.get("content"), timestamp=doc["timestamp"], model=doc.get("model"), parent_uuid=doc.get("parentUuid"), created_at=doc["createdAt"], usage=doc.get("usage"), cost_usd=doc.get("costUsd"), tool_use=doc.get("toolUse"), attachments=doc.get("attachments"), content_hash=doc.get("contentHash"))

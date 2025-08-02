@@ -1,11 +1,18 @@
 """File watching utilities for continuous sync."""
 import asyncio
-from pathlib import Path
-from typing import Set, Optional, Callable
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileModifiedEvent, FileCreatedEvent
+from pathlib import Path
+
 from rich.console import Console
+from watchdog.events import (
+    DirCreatedEvent,
+    DirModifiedEvent,
+    FileCreatedEvent,
+    FileModifiedEvent,
+    FileSystemEventHandler,
+)
+from watchdog.observers import Observer
 
 console = Console()
 
@@ -16,7 +23,7 @@ class BatchedFileWatcher:
     def __init__(
         self,
         watch_paths: list[Path],
-        callback: Callable[[Set[Path]], None],
+        callback: Callable[[set[Path]], None],
         batch_delay: float = 2.0,
         file_pattern: str = "*.jsonl"
     ):
@@ -26,9 +33,9 @@ class BatchedFileWatcher:
         self.file_pattern = file_pattern
         
         self._observer = Observer()
-        self._pending_files: Set[Path] = set()
-        self._last_event_time: Optional[datetime] = None
-        self._process_task: Optional[asyncio.Task] = None
+        self._pending_files: set[Path] = set()
+        self._last_event_time: datetime | None = None
+        self._process_task: asyncio.Task | None = None
     
     def start(self):
         """Start watching files."""
@@ -93,16 +100,16 @@ class _FileChangeHandler(FileSystemEventHandler):
         """Check if file should be processed."""
         return file_path.match(self.file_pattern) and file_path.is_file()
     
-    def on_modified(self, event: FileModifiedEvent):
+    def on_modified(self, event: DirModifiedEvent | FileModifiedEvent):
         """Handle file modification."""
         if not event.is_directory:
-            file_path = Path(event.src_path)
+            file_path = Path(str(event.src_path))
             if self._should_process(file_path):
                 self.callback(file_path)
     
-    def on_created(self, event: FileCreatedEvent):
+    def on_created(self, event: DirCreatedEvent | FileCreatedEvent):
         """Handle file creation."""
         if not event.is_directory:
-            file_path = Path(event.src_path)
+            file_path = Path(str(event.src_path))
             if self._should_process(file_path):
                 self.callback(file_path)

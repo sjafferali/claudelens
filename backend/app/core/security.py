@@ -1,9 +1,9 @@
 """Security utilities."""
 import secrets
-from typing import Optional
-from passlib.context import CryptContext
+from datetime import datetime, timedelta, timezone
+
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
+from passlib.context import CryptContext
 
 from app.core.config import settings
 
@@ -17,16 +17,16 @@ def verify_api_key(api_key: str) -> bool:
     return api_key == settings.API_KEY
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Create JWT access token."""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
+    encoded_jwt: str = jwt.encode(
         to_encode,
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM
@@ -34,10 +34,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 
-def verify_token(token: str) -> Optional[dict]:
+def verify_token(token: str) -> dict | None:
     """Verify JWT token."""
     try:
-        payload = jwt.decode(
+        payload: dict = jwt.decode(
             token,
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM]

@@ -1,7 +1,8 @@
 """Common schemas used across the API."""
-from typing import Optional, Generic, TypeVar, List
-from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Generic, TypeVar
+
+from pydantic import BaseModel, Field
 
 T = TypeVar('T')
 
@@ -14,7 +15,7 @@ class PaginationParams(BaseModel):
 
 class PaginatedResponse(BaseModel, Generic[T]):
     """Paginated response wrapper."""
-    items: List[T]
+    items: list[T]
     total: int
     skip: int
     limit: int
@@ -26,13 +27,13 @@ class ErrorResponse(BaseModel):
     detail: str
     type: str = "error"
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    request_id: Optional[str] = None
+    request_id: str | None = None
 
 
 class SuccessResponse(BaseModel):
     """Success response schema."""
     message: str
-    data: Optional[dict] = None
+    data: dict | None = None
 
 
 class HealthResponse(BaseModel):

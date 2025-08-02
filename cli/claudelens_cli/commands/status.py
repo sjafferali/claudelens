@@ -1,13 +1,15 @@
 """Status command implementation."""
-import click
 from datetime import datetime
 from pathlib import Path
+
+import click
+import httpx
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
+
 from claudelens_cli.core.config import config_manager
 from claudelens_cli.core.state import StateManager
-import httpx
 
 console = Console()
 

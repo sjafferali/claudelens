@@ -1,27 +1,28 @@
 """Search schemas."""
-from typing import List, Optional, Dict, Any
 from datetime import datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
 class SearchFilters(BaseModel):
     """Search filter options."""
-    project_ids: Optional[List[str]] = Field(None, description="Filter by project IDs")
-    session_ids: Optional[List[str]] = Field(None, description="Filter by session IDs")
-    message_types: Optional[List[str]] = Field(None, description="Filter by message types")
-    models: Optional[List[str]] = Field(None, description="Filter by AI models")
-    start_date: Optional[datetime] = Field(None, description="Messages after this date")
-    end_date: Optional[datetime] = Field(None, description="Messages before this date")
-    has_code: Optional[bool] = Field(None, description="Only messages with code blocks")
-    code_language: Optional[str] = Field(None, description="Code language filter")
-    min_cost: Optional[float] = Field(None, description="Minimum message cost")
-    max_cost: Optional[float] = Field(None, description="Maximum message cost")
+    project_ids: list[str] | None = Field(None, description="Filter by project IDs")
+    session_ids: list[str] | None = Field(None, description="Filter by session IDs")
+    message_types: list[str] | None = Field(None, description="Filter by message types")
+    models: list[str] | None = Field(None, description="Filter by AI models")
+    start_date: datetime | None = Field(None, description="Messages after this date")
+    end_date: datetime | None = Field(None, description="Messages before this date")
+    has_code: bool | None = Field(None, description="Only messages with code blocks")
+    code_language: str | None = Field(None, description="Code language filter")
+    min_cost: float | None = Field(None, description="Minimum message cost")
+    max_cost: float | None = Field(None, description="Maximum message cost")
 
 
 class SearchRequest(BaseModel):
     """Search request parameters."""
     query: str = Field(..., min_length=1, max_length=500, description="Search query")
-    filters: Optional[SearchFilters] = Field(None, description="Search filters")
+    filters: SearchFilters | None = Field(None, description="Search filters")
     skip: int = Field(0, ge=0, description="Number of results to skip")
     limit: int = Field(20, ge=1, le=100, description="Number of results to return")
     highlight: bool = Field(True, description="Include highlighted snippets")
@@ -45,14 +46,14 @@ class SearchResult(BaseModel):
     timestamp: datetime = Field(..., description="Message timestamp")
     
     content_preview: str = Field(..., description="Content preview")
-    highlights: List[SearchHighlight] = Field(default_factory=list)
+    highlights: list[SearchHighlight] = Field(default_factory=list)
     
     score: float = Field(..., description="Search relevance score")
     
     # Optional enriched data
-    session_summary: Optional[str] = None
-    model: Optional[str] = None
-    cost_usd: Optional[float] = None
+    session_summary: str | None = None
+    model: str | None = None
+    cost_usd: float | None = None
 
 
 class SearchResponse(BaseModel):
@@ -62,14 +63,14 @@ class SearchResponse(BaseModel):
     skip: int = Field(..., description="Number of results skipped")
     limit: int = Field(..., description="Maximum results returned")
     
-    results: List[SearchResult] = Field(..., description="Search results")
+    results: list[SearchResult] = Field(..., description="Search results")
     
     took_ms: int = Field(..., description="Search duration in milliseconds")
-    filters_applied: Dict[str, Any] = Field(default_factory=dict)
+    filters_applied: dict[str, Any] = Field(default_factory=dict)
 
 
 class SearchSuggestion(BaseModel):
     """Search autocomplete suggestion."""
     text: str = Field(..., description="Suggestion text")
     type: str = Field(..., description="Suggestion type (query, project, model)")
-    count: Optional[int] = Field(None, description="Number of occurrences")
+    count: int | None = Field(None, description="Number of occurrences")

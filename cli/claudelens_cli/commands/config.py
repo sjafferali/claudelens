@@ -1,10 +1,13 @@
 """Config command implementation."""
+from pathlib import Path
+from typing import Any
+
 import click
 from rich.console import Console
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
-from rich.prompt import Prompt, Confirm
+
 from claudelens_cli.core.config import config_manager
-from pathlib import Path
 
 console = Console()
 
@@ -12,7 +15,6 @@ console = Console()
 @click.group()
 def config():
     """Manage ClaudeLens CLI configuration."""
-    pass
 
 
 @config.command()
@@ -79,17 +81,18 @@ def set(key: str, value: str):
     
     # Validate and set
     try:
+        parsed_value: Any = value
         if key == "claude_dir":
-            value = Path(value)
+            parsed_value = Path(value)
         elif key in ["sync_interval", "batch_size"]:
-            value = int(value)
+            parsed_value = int(value)
         elif key == "sync_types":
-            value = value.split(",") if isinstance(value, str) else value
+            parsed_value = value.split(",") if isinstance(value, str) else value
         elif key == "exclude_projects":
-            value = value.split(",") if isinstance(value, str) else value
+            parsed_value = value.split(",") if isinstance(value, str) else value
         
-        config_manager.update(**{key: value})
-        console.print(f"[green]✓[/green] Set {key} = {value}")
+        config_manager.update(**{key: parsed_value})
+        console.print(f"[green]✓[/green] Set {key} = {parsed_value}")
     except Exception as e:
         console.print(f"[red]✗[/red] Failed to set {key}: {e}")
 

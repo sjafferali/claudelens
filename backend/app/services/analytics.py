@@ -1,21 +1,21 @@
 """Analytics service implementation."""
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import Any
+
 from bson import ObjectId
-import pytz
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.schemas.analytics import (
-    TimeRange,
-    AnalyticsSummary,
     ActivityHeatmap,
-    HeatmapCell,
+    AnalyticsSummary,
     CostAnalytics,
     CostDataPoint,
-    ModelUsageStats,
+    HeatmapCell,
     ModelUsage,
+    ModelUsageStats,
+    TimeRange,
+    TokenDataPoint,
     TokenUsageStats,
-    TokenDataPoint
 )
 
 
@@ -25,7 +25,7 @@ class AnalyticsService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
     
-    def _get_time_filter(self, time_range: TimeRange) -> Dict[str, Any]:
+    def _get_time_filter(self, time_range: TimeRange) -> dict[str, Any]:
         """Convert time range to MongoDB filter."""
         now = datetime.utcnow()
         
@@ -70,7 +70,7 @@ class AnalyticsService:
             cost_trend = 0
         
         # Get most active project
-        project_pipeline = [
+        project_pipeline: list[dict[str, Any]] = [
             {"$match": time_filter},
             {"$lookup": {
                 "from": "sessions",
@@ -98,7 +98,7 @@ class AnalyticsService:
         most_active_project = project_result[0]["project"]["name"] if project_result else None
         
         # Get most used model
-        model_pipeline = [
+        model_pipeline: list[dict[str, Any]] = [
             {"$match": {**time_filter, "model": {"$exists": True}}},
             {"$group": {
                 "_id": "$model",
@@ -132,7 +132,7 @@ class AnalyticsService:
         time_filter = self._get_time_filter(time_range)
         
         # Aggregation pipeline for heatmap
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": time_filter},
             {"$project": {
                 "hour": {"$hour": {"date": "$timestamp", "timezone": timezone}},
@@ -158,8 +158,8 @@ class AnalyticsService:
         
         # Convert to heatmap cells
         cells = []
-        hour_counts = {}
-        day_counts = {}
+        hour_counts: dict[int, int] = {}
+        day_counts: dict[int, int] = {}
         
         for result in results:
             hour = result["_id"]["hour"]
@@ -179,8 +179,8 @@ class AnalyticsService:
             ))
         
         # Find peak times
-        peak_hour = max(hour_counts, key=hour_counts.get) if hour_counts else None
-        peak_day = max(day_counts, key=day_counts.get) if day_counts else None
+        peak_hour = max(hour_counts, key=lambda x: hour_counts[x]) if hour_counts else None
+        peak_day = max(day_counts, key=lambda x: day_counts[x]) if day_counts else None
         
         total_messages = sum(cell.count for cell in cells)
         
@@ -197,7 +197,7 @@ class AnalyticsService:
         self,
         time_range: TimeRange,
         group_by: str,
-        project_id: Optional[str] = None
+        project_id: str | None = None
     ) -> CostAnalytics:
         """Get cost analytics over time."""
         time_filter = self._get_time_filter(time_range)
@@ -214,7 +214,7 @@ class AnalyticsService:
         date_format = self._get_date_format(group_by)
         
         # Aggregation pipeline
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": {**time_filter, "costUsd": {"$exists": True}}},
             {"$group": {
                 "_id": {
@@ -247,7 +247,7 @@ class AnalyticsService:
         data_points = []
         total_cost = 0
         total_messages = 0
-        cost_by_model_global = {}
+        cost_by_model_global: dict[str, float] = {}
         
         for result in results:
             # Parse timestamp
@@ -285,7 +285,7 @@ class AnalyticsService:
     async def get_model_usage(
         self,
         time_range: TimeRange,
-        project_id: Optional[str] = None
+        project_id: str | None = None
     ) -> ModelUsageStats:
         """Get model usage statistics."""
         time_filter = self._get_time_filter(time_range)
@@ -299,7 +299,7 @@ class AnalyticsService:
             time_filter["sessionId"] = {"$in": session_ids}
         
         # Aggregation pipeline
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": {**time_filter, "model": {"$exists": True}}},
             {"$group": {
                 "_id": "$model",
@@ -362,7 +362,7 @@ class AnalyticsService:
         date_format = self._get_date_format(group_by)
         
         # Aggregation pipeline
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": time_filter},
             {"$group": {
                 "_id": {"$dateToString": {
@@ -415,9 +415,9 @@ class AnalyticsService:
     
     async def compare_projects(
         self,
-        project_ids: List[str],
+        project_ids: list[str],
         time_range: TimeRange
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compare analytics across multiple projects."""
         time_filter = self._get_time_filter(time_range)
         
@@ -432,7 +432,7 @@ class AnalyticsService:
         project_map = {str(p["_id"]): p["name"] for p in projects}
         
         # Analytics pipeline
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": time_filter},
             {"$lookup": {
                 "from": "sessions",
@@ -455,7 +455,7 @@ class AnalyticsService:
         results = await self.db.messages.aggregate(pipeline).to_list(None)
         
         # Process results
-        comparison = {
+        comparison: dict[str, Any] = {
             "projects": [],
             "time_range": time_range.value,
             "metrics": {
@@ -506,7 +506,7 @@ class AnalyticsService:
         self,
         time_range: TimeRange,
         metric: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Analyze usage trends."""
         time_filter = self._get_time_filter(time_range)
         
@@ -527,7 +527,7 @@ class AnalyticsService:
         date_format = self._get_date_format(group_by)
         
         # Build aggregation based on metric
-        group_stage = {
+        group_stage: dict[str, Any] = {
             "_id": {"$dateToString": {"format": date_format, "date": "$timestamp"}}
         }
         
@@ -540,7 +540,7 @@ class AnalyticsService:
         elif metric == "response_time":
             group_stage["value"] = {"$avg": "$durationMs"}
         
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": time_filter},
             {"$group": group_stage},
             {"$sort": {"_id": 1}},
@@ -619,7 +619,7 @@ class AnalyticsService:
             return 100.0 if current > 0 else 0.0
         return round(((current - previous) / previous) * 100, 2)
     
-    async def _get_period_stats(self, time_filter: Dict[str, Any]) -> Dict[str, Any]:
+    async def _get_period_stats(self, time_filter: dict[str, Any]) -> dict[str, Any]:
         """Get basic stats for a time period."""
         # Message count
         message_count = await self.db.messages.count_documents(time_filter)
@@ -629,7 +629,7 @@ class AnalyticsService:
         session_count = len(session_ids)
         
         # Project count
-        project_pipeline = [
+        project_pipeline: list[dict[str, Any]] = [
             {"$match": time_filter},
             {"$lookup": {
                 "from": "sessions",
@@ -645,7 +645,7 @@ class AnalyticsService:
         project_count = len(project_result)
         
         # Total cost
-        cost_pipeline = [
+        cost_pipeline: list[dict[str, Any]] = [
             {"$match": time_filter},
             {"$group": {
                 "_id": None,
@@ -663,7 +663,7 @@ class AnalyticsService:
             "total_cost": total_cost or 0
         }
     
-    def _get_previous_period_filter(self, time_range: TimeRange) -> Dict[str, Any]:
+    def _get_previous_period_filter(self, time_range: TimeRange) -> dict[str, Any]:
         """Get filter for previous period (for trend calculation)."""
         now = datetime.utcnow()
         

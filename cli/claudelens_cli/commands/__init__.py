@@ -1,4 +1,4 @@
 """ClaudeLens CLI commands."""
-from . import sync, status, config
+from . import config, status, sync
 
 __all__ = ["sync", "status", "config"]

@@ -1,14 +1,15 @@
 """Handlers for various Claude data types."""
 import json
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 import aiofiles
 
 
 class TodoHandler:
     """Handles Claude todo list files."""
     
-    async def read_todo_file(self, file_path: Path) -> Dict[str, Any]:
+    async def read_todo_file(self, file_path: Path) -> dict[str, Any]:
         """Read and parse a todo file."""
         async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
             content = await f.read()
@@ -30,7 +31,7 @@ class TodoHandler:
 class ConfigHandler:
     """Handles Claude configuration files."""
     
-    async def read_config(self, claude_dir: Path) -> Dict[str, Any]:
+    async def read_config(self, claude_dir: Path) -> dict[str, Any]:
         """Read Claude configuration files."""
         config = {}
         
@@ -52,7 +53,7 @@ class ConfigHandler:
 class ProjectScanner:
     """Scans for Claude projects and sessions."""
     
-    def find_projects(self, claude_dir: Path) -> List[Dict[str, Any]]:
+    def find_projects(self, claude_dir: Path) -> list[dict[str, Any]]:
         """Find all projects in Claude directory."""
         projects_dir = claude_dir / "projects"
         if not projects_dir.exists():

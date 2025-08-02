@@ -30,7 +30,7 @@ export interface Session {
   duration_seconds: number;
   models_used: string[];
   has_tool_use: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Message {
@@ -46,5 +46,5 @@ export interface Message {
   output_tokens?: number;
   timestamp: string;
   parent_uuid?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

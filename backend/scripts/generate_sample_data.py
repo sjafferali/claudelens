@@ -1,13 +1,12 @@
 """Generate sample Claude conversation data for testing."""
 import asyncio
-import json
 import os
 import random
-from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any
-from bson import ObjectId, Decimal128
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+
 import motor.motor_asyncio
+from bson import Decimal128, ObjectId
 from faker import Faker
 
 fake = Faker()
@@ -29,7 +28,7 @@ CODE_SAMPLES = [
 ]
 
 
-async def generate_sample_data(db_url: str = None):
+async def generate_sample_data(db_url: str | None = None):
     """Generate sample data for testing."""
     # Use environment variable if no URL provided
     if db_url is None:
@@ -42,9 +41,9 @@ async def generate_sample_data(db_url: str = None):
             url_file = os.path.join(tempfile.gettempdir(), "claudelens_testcontainer_url.txt")
             if os.path.exists(url_file):
                 try:
-                    with open(url_file, "r") as f:
+                    with open(url_file) as f:
                         db_url = f.read().strip()
-                    print(f"Read testcontainer URL from temp file")
+                    print("Read testcontainer URL from temp file")
                 except Exception as e:
                     print(f"Error reading URL file: {e}")
                     
@@ -72,14 +71,14 @@ async def generate_sample_data(db_url: str = None):
     
     # Generate projects
     projects = []
-    for i in range(5):
+    for _i in range(5):
         project = {
             "_id": ObjectId(),
             "name": fake.word() + "-project",
             "path": f"/Users/testuser/projects/{fake.word()}-project",
             "description": fake.sentence(),
-            "createdAt": datetime.now(timezone.utc) - timedelta(days=random.randint(30, 365)),
-            "updatedAt": datetime.now(timezone.utc)
+            "createdAt": datetime.now(UTC) - timedelta(days=random.randint(30, 365)),
+            "updatedAt": datetime.now(UTC)
         }
         projects.append(project)
     
@@ -90,7 +89,7 @@ async def generate_sample_data(db_url: str = None):
         # 5-20 sessions per project
         for _ in range(random.randint(5, 20)):
             session_id = fake.uuid4()
-            start_time = datetime.now(timezone.utc) - timedelta(days=random.randint(1, 30))
+            start_time = datetime.now(UTC) - timedelta(days=random.randint(1, 30))
             
             session = {
                 "_id": ObjectId(),

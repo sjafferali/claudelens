@@ -1,5 +1,6 @@
 """ClaudeLens CLI main entry point."""
 import sys
+
 from claudelens_cli.cli import cli
 
 

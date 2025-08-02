@@ -1,5 +1,12 @@
 import { Search as SearchIcon } from 'lucide-react';
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/common';
 
 export default function Search() {
   return (
@@ -15,7 +22,8 @@ export default function Search() {
         <CardHeader>
           <CardTitle>Search Conversations</CardTitle>
           <CardDescription>
-            Find messages, code snippets, or specific topics across all your sessions
+            Find messages, code snippets, or specific topics across all your
+            sessions
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -38,14 +46,14 @@ export default function Search() {
                 <option value="project1">Project 1</option>
                 <option value="project2">Project 2</option>
               </select>
-              
+
               <select className="px-3 py-2 bg-background border border-input rounded-md">
                 <option value="">All Time</option>
                 <option value="today">Today</option>
                 <option value="week">This Week</option>
                 <option value="month">This Month</option>
               </select>
-              
+
               <select className="px-3 py-2 bg-background border border-input rounded-md">
                 <option value="">All Models</option>
                 <option value="claude-3-opus">Claude 3 Opus</option>

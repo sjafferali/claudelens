@@ -1,10 +1,10 @@
 """State management for sync operations."""
-import json
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, Set, Optional, List
-from pydantic import BaseModel, Field
 import hashlib
+import json
+from datetime import datetime
+from pathlib import Path
+
+from pydantic import BaseModel, Field
 from rich.console import Console
 
 console = Console()
@@ -14,10 +14,10 @@ class ProjectState(BaseModel):
     """State for a single project."""
     
     last_sync: datetime
-    last_file: Optional[str] = None
-    last_line: Optional[int] = None
-    synced_sessions: Set[str] = Field(default_factory=set)  # Session UUIDs
-    synced_messages: Set[str] = Field(default_factory=set)  # Message UUIDs
+    last_file: str | None = None
+    last_line: int | None = None
+    synced_sessions: set[str] = Field(default_factory=set)  # Session UUIDs
+    synced_messages: set[str] = Field(default_factory=set)  # Message UUIDs
     message_count: int = 0
     
     class Config:
@@ -31,7 +31,7 @@ class DatabaseState(BaseModel):
     """State for SQLite database sync."""
     
     last_sync: datetime
-    last_message_timestamp: Optional[datetime] = None
+    last_message_timestamp: datetime | None = None
     synced_message_count: int = 0
     
     class Config:
@@ -44,11 +44,11 @@ class SyncState(BaseModel):
     """Overall sync state."""
     
     version: str = "1.0.0"
-    last_sync: Optional[datetime] = None
-    projects: Dict[str, ProjectState] = Field(default_factory=dict)
-    database_state: Optional[DatabaseState] = None
-    synced_todos: Set[str] = Field(default_factory=set)  # Todo file names
-    synced_snapshots: Set[str] = Field(default_factory=set)  # Shell snapshot files
+    last_sync: datetime | None = None
+    projects: dict[str, ProjectState] = Field(default_factory=dict)
+    database_state: DatabaseState | None = None
+    synced_todos: set[str] = Field(default_factory=set)  # Todo file names
+    synced_snapshots: set[str] = Field(default_factory=set)  # Shell snapshot files
     
     class Config:
         json_encoders = {
@@ -60,7 +60,7 @@ class SyncState(BaseModel):
 class StateManager:
     """Manages sync state."""
     
-    def __init__(self, state_dir: Optional[Path] = None):
+    def __init__(self, state_dir: Path | None = None):
         self.state_dir = state_dir or (Path.home() / ".claudelens")
         self.state_file = self.state_dir / "sync_state.json"
         self.state = self._load_state()
@@ -69,7 +69,7 @@ class StateManager:
         """Load state from file."""
         if self.state_file.exists():
             try:
-                with open(self.state_file, "r") as f:
+                with open(self.state_file) as f:
                     data = json.load(f)
                 # Convert ISO strings back to datetime
                 if data.get("last_sync"):
@@ -95,17 +95,17 @@ class StateManager:
         with open(self.state_file, "w") as f:
             json.dump(self.state.model_dump(mode="json"), f, indent=2)
     
-    def get_project_state(self, project_path: str) -> Optional[ProjectState]:
+    def get_project_state(self, project_path: str) -> ProjectState | None:
         """Get state for a specific project."""
         return self.state.projects.get(project_path)
     
     def update_project_state(
         self,
         project_path: str,
-        last_file: Optional[str] = None,
-        last_line: Optional[int] = None,
-        new_sessions: Optional[Set[str]] = None,
-        new_messages: Optional[Set[str]] = None
+        last_file: str | None = None,
+        last_line: int | None = None,
+        new_sessions: set[str] | None = None,
+        new_messages: set[str] | None = None
     ) -> None:
         """Update state for a project."""
         if project_path not in self.state.projects:
@@ -151,7 +151,7 @@ class StateManager:
     
     def update_database_state(
         self,
-        last_message_timestamp: Optional[datetime] = None,
+        last_message_timestamp: datetime | None = None,
         new_message_count: int = 0
     ) -> None:
         """Update state for database sync."""

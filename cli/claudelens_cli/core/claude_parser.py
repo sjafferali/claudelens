@@ -1,15 +1,15 @@
 """Parser for Claude conversation messages."""
-from typing import Optional, Dict, Any, List
-from datetime import datetime
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 
 class ClaudeMessageParser:
     """Parses and validates Claude message format."""
     
-    def parse_jsonl_message(self, raw_message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def parse_jsonl_message(self, raw_message: dict[str, Any]) -> dict[str, Any] | None:
         """Parse a raw message from JSONL files.
         
         Handles the following message types:
@@ -75,7 +75,7 @@ class ClaudeMessageParser:
         
         return datetime.fromisoformat(timestamp_str)
     
-    def _parse_user_message(self, raw_message: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_user_message(self, raw_message: dict[str, Any]) -> dict[str, Any]:
         """Parse user message fields."""
         result = {
             "userType": raw_message.get("userType", "external"),
@@ -92,7 +92,7 @@ class ClaudeMessageParser:
         
         return result
     
-    def _parse_assistant_message(self, raw_message: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_assistant_message(self, raw_message: dict[str, Any]) -> dict[str, Any]:
         """Parse assistant message fields."""
         result = {}
         
@@ -127,7 +127,7 @@ class ClaudeDatabaseReader:
     def __init__(self, db_path: Path):
         self.db_path = db_path
     
-    async def read_messages(self, after_timestamp: Optional[datetime] = None) -> List[Dict[str, Any]]:
+    async def read_messages(self, after_timestamp: datetime | None = None) -> list[dict[str, Any]]:
         """Read messages from SQLite database.
         
         Joins data from multiple tables to reconstruct full messages.
@@ -180,7 +180,7 @@ class ClaudeDatabaseReader:
         finally:
             conn.close()
     
-    def _row_to_message(self, row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _row_to_message(self, row: dict[str, Any]) -> dict[str, Any] | None:
         """Convert SQLite row to message format."""
         # Skip if no message type
         if not row.get("message_type"):

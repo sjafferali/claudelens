@@ -1,18 +1,18 @@
 """Search service implementation."""
-from typing import List, Dict, Any, Optional
-from datetime import datetime
-import re
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from bson import ObjectId
 import logging
+import re
+from datetime import datetime, timezone
+from typing import Any
+
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.schemas.search import (
-    SearchRequest,
-    SearchResponse,
-    SearchResult,
     SearchFilters,
     SearchHighlight,
-    SearchSuggestion
+    SearchResponse,
+    SearchResult,
+    SearchSuggestion,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,13 +27,13 @@ class SearchService:
     async def search_messages(
         self,
         query: str,
-        filters: Optional[SearchFilters],
+        filters: SearchFilters | None,
         skip: int,
         limit: int,
         highlight: bool = True
     ) -> SearchResponse:
         """Search messages with full-text search."""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         
         # Build search pipeline
         pipeline = self._build_search_pipeline(query, filters, skip, limit)
@@ -54,7 +54,7 @@ class SearchService:
             search_results.append(result)
         
         # Calculate duration
-        duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+        duration_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
         
         # Log search
         await self._log_search(query, filters, total, duration_ms)
@@ -72,7 +72,7 @@ class SearchService:
     async def search_code(
         self,
         query: str,
-        filters: Optional[SearchFilters],
+        filters: SearchFilters | None,
         skip: int,
         limit: int
     ) -> SearchResponse:
@@ -92,12 +92,12 @@ class SearchService:
     def _build_search_pipeline(
         self,
         query: str,
-        filters: Optional[SearchFilters],
+        filters: SearchFilters | None,
         skip: int,
         limit: int
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Build MongoDB aggregation pipeline for search."""
-        pipeline = []
+        pipeline: list[dict[str, Any]] = []
         
         # Text search stage
         pipeline.append({
@@ -165,10 +165,10 @@ class SearchService:
     def _build_count_pipeline(
         self,
         query: str,
-        filters: Optional[SearchFilters]
-    ) -> List[Dict[str, Any]]:
+        filters: SearchFilters | None
+    ) -> list[dict[str, Any]]:
         """Build pipeline for counting total results."""
-        pipeline = []
+        pipeline: list[dict[str, Any]] = []
         
         # Text search
         pipeline.append({
@@ -190,9 +190,9 @@ class SearchService:
         
         return pipeline
     
-    def _build_filter_stage(self, filters: SearchFilters) -> Dict[str, Any]:
+    def _build_filter_stage(self, filters: SearchFilters) -> dict[str, Any]:
         """Build filter stage from search filters."""
-        conditions = {}
+        conditions: dict[str, Any] = {}
         
         if filters.project_ids:
             # Need to join with sessions first
@@ -237,7 +237,7 @@ class SearchService:
     
     async def _process_search_result(
         self,
-        doc: Dict[str, Any],
+        doc: dict[str, Any],
         query: str,
         highlight: bool
     ) -> SearchResult:
@@ -307,9 +307,9 @@ class SearchService:
     
     def _create_highlights(
         self,
-        doc: Dict[str, Any],
+        doc: dict[str, Any],
         query: str
-    ) -> List[SearchHighlight]:
+    ) -> list[SearchHighlight]:
         """Create search highlights."""
         highlights = []
         
@@ -356,7 +356,7 @@ class SearchService:
         self,
         partial_query: str,
         limit: int
-    ) -> List[SearchSuggestion]:
+    ) -> list[SearchSuggestion]:
         """Get search suggestions."""
         suggestions = []
         
@@ -382,7 +382,8 @@ class SearchService:
         for project in project_names:
             suggestions.append(SearchSuggestion(
                 text=project["name"],
-                type="project"
+                type="project",
+                count=None
             ))
         
         # Get models
@@ -391,12 +392,13 @@ class SearchService:
             if model and partial_query.lower() in model.lower():
                 suggestions.append(SearchSuggestion(
                     text=model,
-                    type="model"
+                    type="model",
+                    count=None
                 ))
         
         return suggestions[:limit]
     
-    async def get_recent_searches(self, limit: int) -> List[Dict[str, Any]]:
+    async def get_recent_searches(self, limit: int) -> list[dict[str, Any]]:
         """Get recent search queries."""
         recent = await self.db.search_logs.find(
             {},
@@ -412,13 +414,13 @@ class SearchService:
             for r in recent
         ]
     
-    async def get_search_stats(self) -> Dict[str, Any]:
+    async def get_search_stats(self) -> dict[str, Any]:
         """Get search statistics."""
         # Total searches
         total_searches = await self.db.search_logs.count_documents({})
         
         # Popular queries
-        popular_pipeline = [
+        popular_pipeline: list[dict[str, Any]] = [
             {"$group": {
                 "_id": "$query",
                 "count": {"$sum": 1}
@@ -432,7 +434,7 @@ class SearchService:
         ).to_list(10)
         
         # Average search time
-        avg_time_pipeline = [
+        avg_time_pipeline: list[dict[str, Any]] = [
             {"$group": {
                 "_id": None,
                 "avg_duration": {"$avg": "$duration_ms"}
@@ -457,17 +459,17 @@ class SearchService:
     async def _log_search(
         self,
         query: str,
-        filters: Optional[SearchFilters],
+        filters: SearchFilters | None,
         result_count: int,
         duration_ms: int
-    ):
+    ) -> None:
         """Log search for analytics."""
         log_entry = {
             "query": query,
             "filters": filters.dict(exclude_none=True) if filters else {},
             "result_count": result_count,
             "duration_ms": duration_ms,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.now(timezone.utc)
         }
         
         await self.db.search_logs.insert_one(log_entry)

@@ -1,14 +1,13 @@
 """Projects API endpoints."""
-from typing import List, Optional
-from fastapi import APIRouter, Query, HTTPException
-from motor.motor_asyncio import AsyncIOMotorDatabase
+
 from bson import ObjectId
+from fastapi import APIRouter, HTTPException, Query
 
 from app.api.dependencies import CommonDeps
-from app.schemas.project import Project, ProjectCreate, ProjectUpdate, ProjectWithStats
-from app.schemas.common import PaginatedResponse
-from app.services.project import ProjectService
 from app.core.exceptions import NotFoundError
+from app.schemas.common import PaginatedResponse
+from app.schemas.project import Project, ProjectCreate, ProjectUpdate, ProjectWithStats
+from app.services.project import ProjectService
 
 router = APIRouter()
 
@@ -18,9 +17,9 @@ async def list_projects(
     db: CommonDeps,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    search: Optional[str] = Query(None, description="Search in project names"),
-    sort_by: str = Query("updated_at", regex="^(name|created_at|updated_at|message_count)$"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$")
+    search: str | None = Query(None, description="Search in project names"),
+    sort_by: str = Query("updated_at", pattern="^(name|created_at|updated_at|message_count)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$")
 ) -> PaginatedResponse[ProjectWithStats]:
     """List all projects with pagination and filtering.
     
@@ -93,7 +92,14 @@ async def create_project(
         )
     
     created = await service.create_project(project)
-    return created
+    return Project(
+        _id=str(created.id),
+        name=created.name,
+        description=created.description,
+        path=created.path,
+        createdAt=created.created_at,
+        updatedAt=created.updated_at
+    )
 
 
 @router.patch("/{project_id}", response_model=Project)
@@ -112,7 +118,14 @@ async def update_project(
     if not updated:
         raise NotFoundError("Project", project_id)
     
-    return updated
+    return Project(
+        _id=str(updated.id),
+        name=updated.name,
+        description=updated.description,
+        path=updated.path,
+        createdAt=updated.created_at,
+        updatedAt=updated.updated_at
+    )
 
 
 @router.delete("/{project_id}", status_code=204)
@@ -120,7 +133,7 @@ async def delete_project(
     project_id: str,
     db: CommonDeps,
     cascade: bool = Query(False, description="Delete all associated data")
-):
+) -> None:
     """Delete a project.
     
     If cascade=true, also deletes all sessions and messages.

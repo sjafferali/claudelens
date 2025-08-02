@@ -1,27 +1,24 @@
 """Project schemas."""
-from typing import Optional, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field
 
-from app.models.project import PyObjectId
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class ProjectBase(BaseModel):
     """Base project schema."""
     name: str
     path: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class ProjectCreate(ProjectBase):
     """Schema for creating a project."""
-    pass
 
 
 class ProjectUpdate(BaseModel):
     """Schema for updating a project."""
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
 
 
 class Project(ProjectBase):
@@ -30,12 +27,11 @@ class Project(ProjectBase):
     created_at: datetime = Field(alias="createdAt")
     updated_at: datetime = Field(alias="updatedAt")
     
-    class Config:
-        populate_by_name = True
-        json_encoders = {
-            PyObjectId: str,
-            datetime: lambda v: v.isoformat()
-        }
+    model_config = ConfigDict(populate_by_name=True)
+    
+    @field_serializer('created_at', 'updated_at')
+    def serialize_datetime(self, dt: datetime) -> str:
+        return dt.isoformat()
 
 
 class ProjectStats(BaseModel):

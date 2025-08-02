@@ -1,16 +1,14 @@
 """Search API endpoints."""
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-from fastapi import APIRouter, Query, HTTPException
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query
 
 from app.api.dependencies import CommonDeps
 from app.schemas.search import (
+    SearchFilters,
     SearchRequest,
     SearchResponse,
-    SearchResult,
-    SearchFilters,
-    SearchSuggestion
+    SearchSuggestion,
 )
 from app.services.search import SearchService
 
@@ -38,7 +36,7 @@ async def search(
         raise HTTPException(status_code=400, detail="Limit cannot exceed 100")
     
     # Perform search
-    results = await service.search_messages(
+    return await service.search_messages(
         query=request.query,
         filters=request.filters,
         skip=request.skip,
@@ -46,7 +44,6 @@ async def search(
         highlight=request.highlight
     )
     
-    return results
 
 
 @router.get("/suggestions")
@@ -54,37 +51,35 @@ async def search_suggestions(
     db: CommonDeps,
     query: str = Query(..., min_length=2, description="Partial search query"),
     limit: int = Query(10, ge=1, le=20)
-) -> List[SearchSuggestion]:
+) -> list[SearchSuggestion]:
     """Get search suggestions based on partial query.
     
     Returns autocomplete suggestions from recent searches and
     common terms in the database.
     """
     service = SearchService(db)
-    suggestions = await service.get_suggestions(query, limit)
-    return suggestions
+    return await service.get_suggestions(query, limit)
 
 
 @router.get("/recent")
 async def recent_searches(
     db: CommonDeps,
     limit: int = Query(10, ge=1, le=50)
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get recent search queries.
     
     Returns the most recent searches performed, useful for
     quick access to common searches.
     """
     service = SearchService(db)
-    recent = await service.get_recent_searches(limit)
-    return recent
+    return await service.get_recent_searches(limit)
 
 
 @router.post("/code")
 async def search_code(
     request: SearchRequest,
     db: CommonDeps,
-    language: Optional[str] = Query(None, description="Programming language filter")
+    language: str | None = Query(None, description="Programming language filter")
 ) -> SearchResponse:
     """Search specifically for code snippets.
     
@@ -94,29 +89,38 @@ async def search_code(
     
     # Add code-specific filtering
     if request.filters is None:
-        request.filters = SearchFilters()
+        request.filters = SearchFilters(
+            project_ids=None,
+            session_ids=None,
+            message_types=None,
+            models=None,
+            start_date=None,
+            end_date=None,
+            has_code=None,
+            code_language=None,
+            min_cost=None,
+            max_cost=None
+        )
     
     request.filters.has_code = True
     if language:
         request.filters.code_language = language
     
-    results = await service.search_code(
+    return await service.search_code(
         query=request.query,
         filters=request.filters,
         skip=request.skip,
         limit=request.limit
     )
     
-    return results
 
 
 @router.get("/stats")
-async def search_stats(db: CommonDeps) -> Dict[str, Any]:
+async def search_stats(db: CommonDeps) -> dict[str, Any]:
     """Get search statistics.
     
     Returns information about search usage, popular queries,
     and search performance metrics.
     """
     service = SearchService(db)
-    stats = await service.get_search_stats()
-    return stats
+    return await service.get_search_stats()

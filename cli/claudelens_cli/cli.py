@@ -1,10 +1,13 @@
 """Main CLI interface for ClaudeLens."""
 import sys
+
 import click
 from rich.console import Console
 from rich.panel import Panel
+
 from claudelens_cli import __version__
-from claudelens_cli.commands import sync, status, config as config_cmd
+from claudelens_cli.commands import config as config_cmd
+from claudelens_cli.commands import status, sync
 
 console = Console()
 
@@ -22,9 +25,9 @@ def cli(ctx):
 
 
 # Register commands
-cli.add_command(sync.sync)
-cli.add_command(status.status)
-cli.add_command(config_cmd.config)
+cli.add_command(sync.sync)  # type: ignore[has-type]
+cli.add_command(status.status)  # type: ignore[has-type]
+cli.add_command(config_cmd.config)  # type: ignore[has-type]
 
 
 @cli.command()

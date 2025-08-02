@@ -1,27 +1,29 @@
 """Rate limiting middleware."""
-import time
-from typing import Dict, Callable
-from fastapi import Request, Response, HTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
-from collections import defaultdict
 import asyncio
+import time
+from collections import defaultdict
+from collections.abc import Callable
+from typing import Any, cast
+
+from fastapi import HTTPException, Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Simple in-memory rate limiting middleware."""
     
-    def __init__(self, app, calls: int = 100, period: int = 60):
+    def __init__(self, app: Any, calls: int = 100, period: int = 60) -> None:
         super().__init__(app)
         self.calls = calls
         self.period = period
-        self.clients: Dict[str, list] = defaultdict(list)
-        self._cleanup_task = None
+        self.clients: dict[str, list] = defaultdict(list)
+        self._cleanup_task: asyncio.Task[Any] | None = None
     
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[..., Any]) -> Response:
         """Check rate limit before processing request."""
         # Skip rate limiting for health checks
         if request.url.path in ["/health", "/api/v1/health"]:
-            return await call_next(request)
+            return cast(Response, await call_next(request))
         
         # Get client identifier (IP or API key)
         client_id = self._get_client_id(request)
@@ -52,7 +54,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.clients[client_id].append(now)
         
         # Process request
-        response = await call_next(request)
+        response: Response = await call_next(request)
         
         # Add rate limit headers
         response.headers["X-RateLimit-Limit"] = str(self.calls)
@@ -80,7 +82,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         
         return "unknown"
     
-    async def _periodic_cleanup(self):
+    async def _periodic_cleanup(self) -> None:
         """Periodically clean up old entries."""
         while True:
             await asyncio.sleep(self.period)

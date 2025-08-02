@@ -1,10 +1,12 @@
 """Configuration management for ClaudeLens CLI."""
+import json
 import os
 from pathlib import Path
-from typing import Optional, Dict, Any, List
-import json
+from typing import Any
+
 from pydantic import BaseModel, Field, ValidationError
 from rich.console import Console
+
 from claudelens_cli import __version__
 
 console = Console()
@@ -17,7 +19,7 @@ class CLIConfig(BaseModel):
         default="http://localhost:8000",
         description="ClaudeLens API URL"
     )
-    api_key: Optional[str] = Field(
+    api_key: str | None = Field(
         default=None,
         description="API key for authentication"
     )
@@ -37,11 +39,11 @@ class CLIConfig(BaseModel):
         default="INFO",
         description="Logging level"
     )
-    sync_types: List[str] = Field(
+    sync_types: list[str] = Field(
         default=["projects", "todos", "database"],
         description="Data types to sync"
     )
-    exclude_projects: List[str] = Field(
+    exclude_projects: list[str] = Field(
         default_factory=list,
         description="Project paths to exclude from sync"
     )
@@ -61,18 +63,18 @@ class ConfigManager:
     def _load_config(self) -> CLIConfig:
         """Load configuration from file or create default."""
         # First, try environment variables
-        env_config = {}
+        env_config: dict[str, Any] = {}
         if api_url := os.getenv("CLAUDELENS_API_URL"):
             env_config["api_url"] = api_url
         if api_key := os.getenv("CLAUDELENS_API_KEY"):
             env_config["api_key"] = api_key
         if claude_dir := os.getenv("CLAUDE_DIR"):
-            env_config["claude_dir"] = Path(claude_dir)
+            env_config["claude_dir"] = claude_dir  # CLIConfig will convert to Path
         
         # Then, load from file
         if self.config_file.exists():
             try:
-                with open(self.config_file, "r") as f:
+                with open(self.config_file) as f:
                     file_config = json.load(f)
                 # Environment variables override file config
                 file_config.update(env_config)
@@ -102,7 +104,7 @@ class ConfigManager:
                 setattr(self.config, key, value)
         self.save()
     
-    def get_headers(self) -> Dict[str, str]:
+    def get_headers(self) -> dict[str, str]:
         """Get HTTP headers for API requests."""
         headers = {"User-Agent": f"ClaudeLens-CLI/{__version__}"}
         if self.config.api_key:

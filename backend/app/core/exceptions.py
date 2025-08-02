@@ -1,5 +1,4 @@
 """Custom exceptions."""
-from typing import Optional
 
 
 class ClaudeLensException(Exception):
@@ -20,7 +19,7 @@ class ClaudeLensException(Exception):
 class NotFoundError(ClaudeLensException):
     """Resource not found error."""
     
-    def __init__(self, resource: str, resource_id: Optional[str] = None):
+    def __init__(self, resource: str, resource_id: str | None = None):
         detail = f"{resource} not found"
         if resource_id:
             detail = f"{resource} with id '{resource_id}' not found"

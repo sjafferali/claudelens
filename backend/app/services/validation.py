@@ -1,9 +1,6 @@
 """Message validation service."""
-from typing import Dict, Any, List, Optional
-from datetime import datetime
 import re
-
-from app.core.exceptions import ValidationError
+from typing import Any
 
 
 class MessageValidator:
@@ -19,7 +16,7 @@ class MessageValidator:
     )
     
     @classmethod
-    def validate_message(cls, message: Dict[str, Any]) -> List[str]:
+    def validate_message(cls, message: dict[str, Any]) -> list[str]:
         """Validate a message and return list of errors."""
         errors = []
         
@@ -41,9 +38,8 @@ class MessageValidator:
             errors.append("Missing required field: sessionId")
         
         # Type-specific validation
-        if message.get("type") == "assistant":
-            if "message" not in message:
-                errors.append("Assistant messages must have 'message' field")
+        if message.get("type") == "assistant" and "message" not in message:
+            errors.append("Assistant messages must have 'message' field")
         
         # Cost validation
         if "costUsd" in message:
@@ -57,7 +53,7 @@ class MessageValidator:
         return errors
     
     @classmethod
-    def sanitize_message(cls, message: Dict[str, Any]) -> Dict[str, Any]:
+    def sanitize_message(cls, message: dict[str, Any]) -> dict[str, Any]:
         """Sanitize message content."""
         # Remove any potential XSS or injection attempts
         if "message" in message and isinstance(message["message"], dict):

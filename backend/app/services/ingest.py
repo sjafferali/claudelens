@@ -1,17 +1,15 @@
 """Ingestion service for processing messages."""
 import asyncio
-from typing import List, Dict, Any, Set, Optional
-from datetime import datetime
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from bson import ObjectId
 import hashlib
 import json
 import logging
+from datetime import datetime, timezone
+from typing import Any
 
-from app.schemas.ingest import MessageIngest, IngestStats
-from app.models.message import MessageInDB
-from app.models.session import SessionInDB
-from app.models.project import ProjectInDB
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
+from app.schemas.ingest import IngestStats, MessageIngest
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +19,26 @@ class IngestService:
     
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
-        self._project_cache: Dict[str, ObjectId] = {}
-        self._session_cache: Dict[str, ObjectId] = {}
+        self._project_cache: dict[str, ObjectId] = {}
+        self._session_cache: dict[str, ObjectId] = {}
     
-    async def ingest_messages(self, messages: List[MessageIngest]) -> IngestStats:
+    async def ingest_messages(self, messages: list[MessageIngest]) -> IngestStats:
         """Ingest a batch of messages."""
-        start_time = datetime.utcnow()
-        stats = IngestStats(messages_received=len(messages))
+        start_time = datetime.now(timezone.utc)
+        stats = IngestStats(
+            messages_received=len(messages),
+            messages_processed=0,
+            messages_skipped=0,
+            messages_failed=0,
+            sessions_created=0,
+            sessions_updated=0,
+            todos_processed=0,
+            config_updated=False,
+            duration_ms=0
+        )
         
         # Group messages by session
-        sessions_map: Dict[str, List[MessageIngest]] = {}
+        sessions_map: dict[str, list[MessageIngest]] = {}
         for message in messages:
             session_id = message.sessionId
             if session_id not in sessions_map:
@@ -47,7 +55,7 @@ class IngestService:
         await asyncio.gather(*tasks, return_exceptions=True)
         
         # Calculate duration
-        duration = (datetime.utcnow() - start_time).total_seconds() * 1000
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
         stats.duration_ms = int(duration)
         
         # Log ingestion
@@ -58,9 +66,9 @@ class IngestService:
     async def _process_session_messages(
         self,
         session_id: str,
-        messages: List[MessageIngest],
+        messages: list[MessageIngest],
         stats: IngestStats
-    ):
+    ) -> None:
         """Process messages for a single session."""
         try:
             # Ensure session exists
@@ -108,7 +116,7 @@ class IngestService:
         self,
         session_id: str,
         first_message: MessageIngest
-    ) -> Optional[ObjectId]:
+    ) -> ObjectId | None:
         """Ensure session exists, create if needed."""
         # Check cache first
         if session_id in self._session_cache:
@@ -135,7 +143,8 @@ class IngestService:
                     project_path = '/'.join(parts[:idx + 2])
         
         # Ensure project exists
-        project_id = await self._ensure_project(project_path or first_message.cwd, project_name)
+        effective_path = project_path or first_message.cwd or "unknown"
+        project_id = await self._ensure_project(effective_path, project_name)
         
         # Create session
         session_doc = {
@@ -146,14 +155,16 @@ class IngestService:
             "endedAt": first_message.timestamp,
             "messageCount": 0,
             "totalCost": 0.0,
-            "createdAt": datetime.utcnow(),
-            "updatedAt": datetime.utcnow()
+            "createdAt": datetime.now(timezone.utc),
+            "updatedAt": datetime.now(timezone.utc)
         }
         
         await self.db.sessions.insert_one(session_doc)
-        self._session_cache[session_id] = session_doc["_id"]
+        session_id_obj = session_doc["_id"]
+        assert isinstance(session_id_obj, ObjectId)
+        self._session_cache[session_id] = session_id_obj
         
-        return session_doc["_id"]
+        return session_id_obj
     
     async def _ensure_project(self, project_path: str, project_name: str) -> ObjectId:
         """Ensure project exists, create if needed."""
@@ -165,15 +176,17 @@ class IngestService:
         existing = await self.db.projects.find_one({"path": project_path})
         if existing:
             self._project_cache[project_path] = existing["_id"]
-            return existing["_id"]
+            project_id = existing["_id"]
+            assert isinstance(project_id, ObjectId)
+            return project_id
         
         # Create project
         project_doc = {
             "_id": ObjectId(),
             "name": project_name,
             "path": project_path,
-            "createdAt": datetime.utcnow(),
-            "updatedAt": datetime.utcnow(),
+            "createdAt": datetime.now(timezone.utc),
+            "updatedAt": datetime.now(timezone.utc),
             "stats": {
                 "message_count": 0,
                 "session_count": 0
@@ -181,11 +194,13 @@ class IngestService:
         }
         
         await self.db.projects.insert_one(project_doc)
-        self._project_cache[project_path] = project_doc["_id"]
+        project_id = project_doc["_id"]
+        assert isinstance(project_id, ObjectId)
+        self._project_cache[project_path] = project_id
         
-        return project_doc["_id"]
+        return project_id
     
-    async def _get_existing_hashes(self, session_id: str) -> Set[str]:
+    async def _get_existing_hashes(self, session_id: str) -> set[str]:
         """Get existing message hashes for a session."""
         cursor = self.db.messages.find(
             {"sessionId": session_id},
@@ -222,7 +237,7 @@ class IngestService:
             "timestamp": message.timestamp,
             "parentUuid": message.parentUuid,
             "contentHash": self._hash_message(message),
-            "createdAt": datetime.utcnow()
+            "createdAt": datetime.now(timezone.utc)
         }
         
         # Add message content
@@ -246,10 +261,10 @@ class IngestService:
         
         return doc
     
-    async def _update_session_stats(self, session_id: str):
+    async def _update_session_stats(self, session_id: str) -> None:
         """Update session statistics."""
         # Aggregate statistics
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": {"sessionId": session_id}},
             {"$group": {
                 "_id": None,
@@ -272,15 +287,15 @@ class IngestService:
                         "totalCost": stats["totalCost"],
                         "startedAt": stats["startTime"],
                         "endedAt": stats["endTime"],
-                        "updatedAt": datetime.utcnow()
+                        "updatedAt": datetime.now(timezone.utc)
                     }
                 }
             )
     
-    async def _log_ingestion(self, stats: IngestStats):
+    async def _log_ingestion(self, stats: IngestStats) -> None:
         """Log ingestion statistics."""
         log_entry = {
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
             "messages_processed": stats.messages_processed,
             "messages_skipped": stats.messages_skipped,
             "messages_failed": stats.messages_failed,

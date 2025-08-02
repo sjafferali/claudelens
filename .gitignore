@@ -50,6 +50,13 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+pytest_cache/
+**/htmlcov/
+**/.coverage
+**/coverage.xml
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
 
 # Translations
 *.mo
@@ -138,6 +145,7 @@ celerybeat.pid
 .env
 .envrc
 .venv
+.ci-venv/
 env/
 venv/
 ENV/
@@ -190,6 +198,7 @@ cython_debug/
 
 # Ruff stuff:
 .ruff_cache/
+*.ruff_cache/
 
 # PyPI configuration file
 .pypirc
@@ -213,14 +222,68 @@ node_modules/
 coverage/
 .env.local
 .env.*.local
+npm-audit.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Testing
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Frontend build outputs
+dist/
+.next/
+out/
+.cache/
+.parcel-cache/
+storybook-static/
+
+# TypeScript
+*.tsbuildinfo
+
+# ESLint
+.eslintcache
+
+# Prettier
+.prettierignore
 
 # IDE
 .idea/
 *.swp
 *.swo
 .DS_Store
+*.sublime-*
+.vscode/
+*.code-workspace
+
+# Editor backups and temp files
+*~
+*.bak
+*.tmp
+*.temp
+*.orig
+.*.swp
+.*.swo
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+._*
+.Spotlight-V100
+.Trashes
 
 # Project specific
 .claudelens/
 *.db
 docker/data/
+
+# Safety check outputs
+.safety/
+safety-report.json
+
+# Poetry
+poetry.toml

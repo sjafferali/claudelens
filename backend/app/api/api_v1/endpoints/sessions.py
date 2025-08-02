@@ -1,15 +1,15 @@
 """Sessions API endpoints."""
-from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Query, HTTPException
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import Any
+
 from bson import ObjectId
+from fastapi import APIRouter, HTTPException, Query
 
 from app.api.dependencies import CommonDeps
-from app.schemas.session import Session, SessionDetail, SessionWithMessages
-from app.schemas.common import PaginatedResponse
-from app.services.session import SessionService
 from app.core.exceptions import NotFoundError
+from app.schemas.common import PaginatedResponse
+from app.schemas.session import Session, SessionDetail, SessionWithMessages
+from app.services.session import SessionService
 
 router = APIRouter()
 
@@ -17,20 +17,20 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResponse[Session])
 async def list_sessions(
     db: CommonDeps,
-    project_id: Optional[str] = Query(None, description="Filter by project ID"),
+    project_id: str | None = Query(None, description="Filter by project ID"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    search: Optional[str] = Query(None, description="Search in session summaries"),
-    start_date: Optional[datetime] = Query(None, description="Filter by start date"),
-    end_date: Optional[datetime] = Query(None, description="Filter by end date"),
-    sort_by: str = Query("started_at", regex="^(started_at|ended_at|message_count|total_cost)$"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$")
+    search: str | None = Query(None, description="Search in session summaries"),
+    start_date: datetime | None = Query(None, description="Filter by start date"),
+    end_date: datetime | None = Query(None, description="Filter by end date"),
+    sort_by: str = Query("started_at", pattern="^(started_at|ended_at|message_count|total_cost)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$")
 ) -> PaginatedResponse[Session]:
     """List sessions with pagination and filtering."""
     service = SessionService(db)
     
     # Build filter
-    filter_dict = {}
+    filter_dict: dict[str, Any] = {}
     if project_id:
         if not ObjectId.is_valid(project_id):
             raise HTTPException(status_code=400, detail="Invalid project ID")

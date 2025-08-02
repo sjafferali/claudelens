@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/common';
 
 export default function Dashboard() {
   return (
@@ -13,7 +19,9 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Sessions
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">1,234</div>
@@ -22,10 +30,12 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Messages
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">12,543</div>
@@ -34,7 +44,7 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
@@ -46,16 +56,16 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Projects
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">
-              2 new this month
-            </p>
+            <p className="text-xs text-muted-foreground">2 new this month</p>
           </CardContent>
         </Card>
       </div>
@@ -63,12 +73,12 @@ export default function Dashboard() {
       <Card>
         <CardHeader>
           <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>
-            Your latest Claude conversations
-          </CardDescription>
+          <CardDescription>Your latest Claude conversations</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Activity chart will be implemented here</p>
+          <p className="text-muted-foreground">
+            Activity chart will be implemented here
+          </p>
         </CardContent>
       </Card>
     </div>

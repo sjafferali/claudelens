@@ -1,5 +1,11 @@
 import { useParams } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/common';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/common';
 
 export default function Projects() {
   const { projectId } = useParams();
@@ -23,7 +29,10 @@ function ProjectsList() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3, 4, 5, 6].map((i) => (
-          <Card key={i} className="cursor-pointer hover:shadow-lg transition-shadow">
+          <Card
+            key={i}
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+          >
             <CardHeader>
               <CardTitle>Project {i}</CardTitle>
               <CardDescription>/path/to/project{i}</CardDescription>
@@ -55,10 +64,10 @@ function ProjectDetail({ projectId }: { projectId: string }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Project {projectId}</h2>
-        <p className="text-muted-foreground">
-          /path/to/project/{projectId}
-        </p>
+        <h2 className="text-3xl font-bold tracking-tight">
+          Project {projectId}
+        </h2>
+        <p className="text-muted-foreground">/path/to/project/{projectId}</p>
       </div>
 
       <Card>

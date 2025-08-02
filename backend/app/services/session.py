@@ -1,12 +1,12 @@
 """Session service layer."""
-from typing import List, Optional, Tuple, Dict, Any
-from datetime import datetime
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from bson import ObjectId, Decimal128
+from datetime import datetime, timezone
+from typing import Any
 
-from app.schemas.session import SessionCreate, Session, SessionDetail
+from bson import Decimal128
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
 from app.schemas.message import Message
-from app.models.session import SessionInDB
+from app.schemas.session import Session, SessionDetail
 
 
 class SessionService:
@@ -17,12 +17,12 @@ class SessionService:
     
     async def list_sessions(
         self,
-        filter_dict: Dict[str, Any],
+        filter_dict: dict[str, Any],
         skip: int,
         limit: int,
         sort_by: str,
         sort_order: str
-    ) -> Tuple[List[Session], int]:
+    ) -> tuple[list[Session], int]:
         """List sessions with pagination."""
         # Count total
         total = await self.db.sessions.count_documents(filter_dict)
@@ -67,7 +67,7 @@ class SessionService:
         self,
         session_id: str,
         include_messages: bool = False
-    ) -> Optional[SessionDetail]:
+    ) -> SessionDetail | None:
         """Get a single session."""
         doc = await self.db.sessions.find_one({"sessionId": session_id})
         if not doc:
@@ -120,7 +120,7 @@ class SessionService:
         session_id: str,
         skip: int,
         limit: int
-    ) -> List[Message]:
+    ) -> list[Message]:
         """Get messages for a session."""
         cursor = self.db.messages.find(
             {"sessionId": session_id}
@@ -148,7 +148,7 @@ class SessionService:
         session_id: str,
         message_uuid: str,
         depth: int
-    ) -> Optional[dict]:
+    ) -> dict[str, Any] | None:
         """Get conversation thread for a message."""
         # Find the target message
         target = await self.db.messages.find_one({
@@ -159,18 +159,8 @@ class SessionService:
         if not target:
             return None
         
-        thread = {
-            "target": Message(**{
-                "_id": str(target["_id"]),
-                "uuid": target["uuid"],
-                "type": target["type"],
-                "session_id": target["sessionId"],
-                "content": target.get("content"),
-                "timestamp": target["timestamp"],
-                "model": target.get("model"),
-                "parent_uuid": target.get("parentUuid"),
-                "created_at": target["createdAt"]
-            }),
+        thread: dict[str, Any] = {
+            "target": Message(_id=str(target["_id"]), uuid=target["uuid"], type=target["type"], session_id=target["sessionId"], content=target.get("content"), timestamp=target["timestamp"], model=target.get("model"), parent_uuid=target.get("parentUuid"), created_at=target["createdAt"]),
             "ancestors": [],
             "descendants": []
         }
@@ -186,17 +176,8 @@ class SessionService:
             if not parent:
                 break
             
-            thread["ancestors"].insert(0, Message(**{
-                "_id": str(parent["_id"]),
-                "uuid": parent["uuid"],
-                "type": parent["type"],
-                "session_id": parent["sessionId"],
-                "content": parent.get("content"),
-                "timestamp": parent["timestamp"],
-                "model": parent.get("model"),
-                "parent_uuid": parent.get("parentUuid"),
-                "created_at": parent["createdAt"]
-            }))
+            ancestors_list: list[Any] = thread["ancestors"]
+            ancestors_list.insert(0, Message(_id=str(parent["_id"]), uuid=parent["uuid"], type=parent["type"], session_id=parent["sessionId"], content=parent.get("content"), timestamp=parent["timestamp"], model=parent.get("model"), parent_uuid=parent.get("parentUuid"), created_at=parent["createdAt"]))
             
             current_uuid = parent.get("parentUuid")
             ancestor_depth += 1
@@ -217,7 +198,7 @@ class SessionService:
         parent_uuid: str,
         depth: int,
         current_depth: int = 0
-    ) -> List[Message]:
+    ) -> list[Message]:
         """Recursively get descendants of a message."""
         if current_depth >= depth:
             return []
@@ -229,17 +210,7 @@ class SessionService:
         
         descendants = []
         async for doc in cursor:
-            message = Message(**{
-                "_id": str(doc["_id"]),
-                "uuid": doc["uuid"],
-                "type": doc["type"],
-                "session_id": doc["sessionId"],
-                "content": doc.get("content"),
-                "timestamp": doc["timestamp"],
-                "model": doc.get("model"),
-                "parent_uuid": doc.get("parentUuid"),
-                "created_at": doc["createdAt"]
-            })
+            message = Message(_id=str(doc["_id"]), uuid=doc["uuid"], type=doc["type"], session_id=doc["sessionId"], content=doc.get("content"), timestamp=doc["timestamp"], model=doc.get("model"), parent_uuid=doc.get("parentUuid"), created_at=doc["createdAt"])
             descendants.append(message)
             
             # Get descendants of this message
@@ -253,7 +224,7 @@ class SessionService:
         
         return descendants
     
-    async def generate_summary(self, session_id: str) -> Optional[str]:
+    async def generate_summary(self, session_id: str) -> str | None:
         """Generate a summary for a session."""
         # Check session exists
         session = await self.db.sessions.find_one({"sessionId": session_id})
@@ -275,8 +246,9 @@ class SessionService:
         )
         
         if first_user_msg and first_user_msg.get("content"):
-            summary = first_user_msg["content"][:200]
-            if len(first_user_msg["content"]) > 200:
+            content: str = first_user_msg["content"]
+            summary = content[:200]
+            if len(content) > 200:
                 summary += "..."
         else:
             summary = f"Conversation with {len(messages)} messages"
@@ -284,7 +256,7 @@ class SessionService:
         # Update session with summary
         await self.db.sessions.update_one(
             {"sessionId": session_id},
-            {"$set": {"summary": summary, "updatedAt": datetime.utcnow()}}
+            {"$set": {"summary": summary, "updatedAt": datetime.now(timezone.utc)}}
         )
         
         return summary

@@ -2,7 +2,8 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import toast from 'react-hot-toast';
 import { useStore } from '@/store';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 class ApiClient {
   private client: AxiosInstance;
@@ -36,7 +37,7 @@ class ApiClient {
       (error) => {
         if (error.response) {
           const message = error.response.data?.detail || 'An error occurred';
-          
+
           if (error.response.status === 401) {
             toast.error('Authentication required');
             // Handle auth error
@@ -48,7 +49,7 @@ class ApiClient {
         } else if (error.request) {
           toast.error('Network error. Please check your connection.');
         }
-        
+
         return Promise.reject(error);
       }
     );
@@ -59,12 +60,20 @@ class ApiClient {
     return response.data;
   }
 
-  async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+  async post<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig
+  ): Promise<T> {
     const response = await this.client.post<T>(url, data, config);
     return response.data;
   }
 
-  async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+  async put<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig
+  ): Promise<T> {
     const response = await this.client.put<T>(url, data, config);
     return response.data;
   }

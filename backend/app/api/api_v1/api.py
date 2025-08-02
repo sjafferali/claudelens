@@ -2,12 +2,12 @@
 from fastapi import APIRouter
 
 from app.api.api_v1.endpoints import (
-    projects,
-    sessions,
-    messages,
-    search,
     analytics,
-    ingest
+    ingest,
+    messages,
+    projects,
+    search,
+    sessions,
 )
 
 api_router = APIRouter()
@@ -51,6 +51,6 @@ api_router.include_router(
 
 
 @api_router.get("/health")
-async def api_health():
+async def api_health() -> dict[str, str]:
     """API health check."""
     return {"status": "ok", "api_version": "v1"}

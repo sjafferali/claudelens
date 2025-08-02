@@ -1,8 +1,8 @@
 """Session model."""
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+
 from bson import ObjectId
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SessionInDB(BaseModel):
@@ -18,6 +18,7 @@ class SessionInDB(BaseModel):
     createdAt: datetime
     updatedAt: datetime
     
-    class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True
+    )

@@ -1,21 +1,21 @@
 """Testcontainers MongoDB integration for development."""
-import os
 import atexit
-from typing import Optional
 import logging
+import os
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Global container instance
-_mongo_container: Optional[object] = None
+_mongo_container: Any | None = None
 
 
-def get_testcontainer_mongodb_url() -> Optional[str]:
+def get_testcontainer_mongodb_url() -> str | None:
     """Start and return testcontainers MongoDB URL if enabled."""
     global _mongo_container
     
     # Check if testcontainers is enabled
-    if not os.getenv("USE_TEST_DB", "").lower() == "true":
+    if os.getenv("USE_TEST_DB", "").lower() != "true":
         return None
     
     # First check if we have a URL in the environment (from a parent process)
@@ -26,8 +26,8 @@ def get_testcontainer_mongodb_url() -> Optional[str]:
     
     # Return existing container URL if already started
     if _mongo_container:
-        url = _mongo_container.get_connection_url().rsplit('/', 1)[0] + '/claudelens?authSource=admin'
-        return url
+        url: str = _mongo_container.get_connection_url()
+        return url.rsplit('/', 1)[0] + '/claudelens?authSource=admin'
     
     try:
         # Import testcontainers only when needed
@@ -85,7 +85,7 @@ def get_testcontainer_mongodb_url() -> Optional[str]:
         return None
 
 
-def stop_testcontainer_mongodb():
+def stop_testcontainer_mongodb() -> None:
     """Stop the MongoDB testcontainer if running."""
     global _mongo_container
     

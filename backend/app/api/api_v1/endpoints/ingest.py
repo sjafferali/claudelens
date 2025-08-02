@@ -1,19 +1,19 @@
 """Ingestion API endpoints."""
-from typing import List, Dict, Any
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from motor.motor_asyncio import AsyncIOMotorDatabase
 import logging
 from datetime import datetime
+from typing import Any
 
-from app.api.dependencies import CommonDeps, AuthDeps
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
+from app.api.dependencies import AuthDeps, CommonDeps
+from app.core.exceptions import ValidationError
 from app.schemas.ingest import (
     BatchIngestRequest,
     BatchIngestResponse,
-    IngestStats,
-    MessageIngest
+    MessageIngest,
 )
 from app.services.ingest import IngestService
-from app.core.exceptions import ValidationError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ async def ingest_single(
     Convenience endpoint for ingesting individual messages.
     """
     return await ingest_batch(
-        BatchIngestRequest(messages=[message]),
+        BatchIngestRequest(messages=[message], todos=[], config=None),
         BackgroundTasks(),
         db,
         api_key
@@ -99,7 +99,7 @@ async def ingest_single(
 async def ingestion_status(
     db: CommonDeps,
     api_key: AuthDeps
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get ingestion system status.
     
     Returns current ingestion statistics and system health.
@@ -134,12 +134,12 @@ async def ingestion_status(
     }
 
 
-async def update_project_metadata(db: AsyncIOMotorDatabase, project_ids: List[str]):
+async def update_project_metadata(db: AsyncIOMotorDatabase, project_ids: list[str]) -> None:
     """Background task to update project metadata."""
     try:
         for project_id in project_ids:
             # Count messages and sessions
-            pipeline = [
+            pipeline: list[dict[str, Any]] = [
                 {"$match": {"projectId": project_id}},
                 {"$group": {
                     "_id": None,

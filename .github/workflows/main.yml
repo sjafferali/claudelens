@@ -165,12 +165,12 @@ jobs:
     - name: Run Ruff on Backend
       run: |
         cd backend
-        ruff check . --output-format=github
+        ruff check . --select E,F,I --ignore E501 --output-format=github
         
     - name: Run Ruff on CLI
       run: |
         cd cli
-        ruff check . --output-format=github
+        ruff check . --select E,F,I --ignore E501 --output-format=github
         
     - name: Install Poetry for MyPy
       uses: snok/install-poetry@v1

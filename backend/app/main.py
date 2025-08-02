@@ -1,15 +1,16 @@
 """Main FastAPI application."""
+import logging
 from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-import logging
-import time
 
 from app.api.api_v1.api import api_router
 from app.core.config import settings
-from app.core.database import connect_to_mongodb, close_mongodb_connection
+from app.core.database import close_mongodb_connection, connect_to_mongodb
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan manager."""
     # Startup
     logger.info("Starting ClaudeLens API...")
@@ -63,7 +64,7 @@ app.add_middleware(RateLimitMiddleware, calls=100, period=60)
 
 # Global exception handler
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle all uncaught exceptions."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     
@@ -88,7 +89,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Root endpoint
 @app.get("/")
-async def root():
+async def root() -> dict[str, Any]:
     """Root endpoint."""
     return {
         "name": settings.APP_NAME,
@@ -99,7 +100,7 @@ async def root():
 
 # Health check
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {
         "status": "healthy",

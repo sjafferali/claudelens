@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  FolderOpen, 
-  MessageSquare, 
+import {
+  LayoutDashboard,
+  FolderOpen,
+  MessageSquare,
   Search,
   ChevronLeft,
   Settings,
-  Activity
+  Activity,
 } from 'lucide-react';
 import { useStore } from '@/store';
 
@@ -22,9 +22,11 @@ export default function Sidebar() {
   const { sidebarOpen, toggleSidebar } = useStore((state) => state.ui);
 
   return (
-    <aside className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-background border-r border-border transition-all duration-300 ${
-      sidebarOpen ? 'w-64' : 'w-16'
-    }`}>
+    <aside
+      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] bg-background border-r border-border transition-all duration-300 ${
+        sidebarOpen ? 'w-64' : 'w-16'
+      }`}
+    >
       <div className="flex flex-col h-full">
         <nav className="flex-1 p-4">
           <ul className="space-y-2">
@@ -62,9 +64,11 @@ export default function Sidebar() {
           className="absolute -right-3 top-6 p-1 bg-background border border-border rounded-full hover:bg-accent transition-colors"
           aria-label="Toggle sidebar"
         >
-          <ChevronLeft className={`h-4 w-4 transition-transform ${
-            !sidebarOpen ? 'rotate-180' : ''
-          }`} />
+          <ChevronLeft
+            className={`h-4 w-4 transition-transform ${
+              !sidebarOpen ? 'rotate-180' : ''
+            }`}
+          />
         </button>
       </div>
     </aside>

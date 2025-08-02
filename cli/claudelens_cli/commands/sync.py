@@ -1,8 +1,10 @@
 """Sync command implementation."""
-import click
 from pathlib import Path
+
+import click
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
+
 from claudelens_cli.core.config import config_manager
 from claudelens_cli.core.state import StateManager
 from claudelens_cli.core.sync_engine import SyncEngine

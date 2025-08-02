@@ -1,18 +1,23 @@
 """Core sync engine for ClaudeLens CLI."""
 import asyncio
 import json
-from pathlib import Path
-from typing import Optional, Dict, List, Set, Callable, AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import aiofiles
 import httpx
 from rich.console import Console
+from watchdog.events import DirModifiedEvent, FileModifiedEvent, FileSystemEventHandler
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, FileModifiedEvent
-import aiofiles
 
-from claudelens_cli.core.config import ConfigManager
-from claudelens_cli.core.state import StateManager, ProjectState
 from claudelens_cli.core.claude_parser import ClaudeMessageParser
+from claudelens_cli.core.config import ConfigManager
+from claudelens_cli.core.state import ProjectState, StateManager
+
+if TYPE_CHECKING:
+    from watchdog.observers.api import BaseObserver
 
 console = Console()
 
@@ -33,7 +38,7 @@ class SyncStats:
         """Get duration in seconds."""
         return (datetime.utcnow() - self.start_time).total_seconds()
     
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "projects_scanned": self.projects_scanned,
@@ -52,8 +57,8 @@ class SyncEngine:
         self.config = config
         self.state = state
         self.parser = ClaudeMessageParser()
-        self.http_client = None
-        self._observer = None
+        self.http_client: httpx.AsyncClient | None = None
+        self._observer: BaseObserver | None = None
     
     async def _get_http_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -73,19 +78,19 @@ class SyncEngine:
     
     def sync_once(
         self,
-        project_filter: Optional[Path] = None,
+        project_filter: Path | None = None,
         dry_run: bool = False,
-        progress_callback: Optional[Callable[[str], None]] = None
-    ) -> Dict:
+        progress_callback: Callable[[str], None] | None = None
+    ) -> dict:
         """Perform a one-time sync."""
         return asyncio.run(self._async_sync_once(project_filter, dry_run, progress_callback))
     
     async def _async_sync_once(
         self,
-        project_filter: Optional[Path] = None,
+        project_filter: Path | None = None,
         dry_run: bool = False,
-        progress_callback: Optional[Callable[[str], None]] = None
-    ) -> Dict:
+        progress_callback: Callable[[str], None] | None = None
+    ) -> dict:
         """Async implementation of one-time sync."""
         stats = SyncStats()
         
@@ -115,7 +120,7 @@ class SyncEngine:
         finally:
             await self._close_http_client()
     
-    async def _find_projects(self, project_filter: Optional[Path] = None) -> List[Path]:
+    async def _find_projects(self, project_filter: Path | None = None) -> list[Path]:
         """Find all Claude projects."""
         if project_filter:
             return [project_filter]
@@ -140,7 +145,7 @@ class SyncEngine:
         project_path: Path,
         stats: SyncStats,
         dry_run: bool,
-        progress_callback: Optional[Callable[[str], None]] = None
+        progress_callback: Callable[[str], None] | None = None
     ):
         """Sync a single project."""
         project_key = str(project_path)
@@ -178,10 +183,10 @@ class SyncEngine:
         self,
         file_path: Path,
         project_key: str,
-        project_state: Optional[ProjectState],
+        project_state: ProjectState | None,
         stats: SyncStats,
         dry_run: bool,
-        progress_callback: Optional[Callable[[str], None]] = None
+        progress_callback: Callable[[str], None] | None = None
     ):
         """Sync a single JSONL file."""
         batch = []
@@ -219,7 +224,7 @@ class SyncEngine:
                     project_key,
                     last_file=file_path.name,
                     last_line=line_number,
-                    new_hashes=batch_hashes
+                    new_messages=batch_hashes
                 )
                 
                 # Clear batch
@@ -239,7 +244,7 @@ class SyncEngine:
                 project_key,
                 last_file=file_path.name,
                 last_line=line_number,
-                new_hashes=batch_hashes
+                new_messages=batch_hashes
             )
     
     async def _read_jsonl_messages(
@@ -288,7 +293,7 @@ class SyncEngine:
         except Exception as e:
             console.print(f"[red]Error creating project: {e}[/red]")
     
-    async def _upload_batch(self, messages: List[dict], retry_count: int = 3):
+    async def _upload_batch(self, messages: list[dict], retry_count: int = 3):
         """Upload a batch of messages to the backend."""
         client = await self._get_http_client()
         
@@ -321,7 +326,7 @@ class SyncEngine:
     
     def watch(
         self,
-        project_filter: Optional[Path] = None,
+        project_filter: Path | None = None,
         dry_run: bool = False
     ):
         """Watch for changes and sync continuously."""
@@ -353,19 +358,19 @@ class SyncEngine:
 class ClaudeFileHandler(FileSystemEventHandler):
     """File system event handler for Claude files."""
     
-    def __init__(self, sync_engine: SyncEngine, project_filter: Optional[Path], dry_run: bool):
+    def __init__(self, sync_engine: SyncEngine, project_filter: Path | None, dry_run: bool):
         self.sync_engine = sync_engine
         self.project_filter = project_filter
         self.dry_run = dry_run
-        self._pending_files = set()
-        self._sync_task = None
+        self._pending_files: set[Path] = set()
+        self._sync_task: asyncio.Task[None] | None = None
     
-    def on_modified(self, event: FileModifiedEvent):
+    def on_modified(self, event: DirModifiedEvent | FileModifiedEvent):
         """Handle file modification events."""
         if event.is_directory:
             return
         
-        file_path = Path(event.src_path)
+        file_path = Path(str(event.src_path))
         
         # Only process JSONL files
         if file_path.suffix != '.jsonl':
