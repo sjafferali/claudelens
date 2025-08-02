@@ -73,8 +73,8 @@ COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Create necessary directories and set permissions
-RUN mkdir -p /var/log/supervisor /var/log/nginx /var/run /var/lib/nginx/body /var/lib/nginx/proxy /var/lib/nginx/fastcgi /var/lib/nginx/uwsgi /var/lib/nginx/scgi && \
-    chown -R appuser:appuser /app /var/log/nginx /var/log/supervisor /var/run /var/lib/nginx && \
+RUN mkdir -p /var/run /var/lib/nginx/body /var/lib/nginx/proxy /var/lib/nginx/fastcgi /var/lib/nginx/uwsgi /var/lib/nginx/scgi && \
+    chown -R appuser:appuser /app /var/run /var/lib/nginx && \
     chmod 755 /var/run /var/lib/nginx
 
 # Expose port

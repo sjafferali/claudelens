@@ -1,7 +1,7 @@
 """Main FastAPI application."""
-import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,15 +12,15 @@ from app.api.api_v1.api import api_router
 from app.core.config import settings
 from app.core.database import close_mongodb_connection, connect_to_mongodb, get_database
 from app.core.db_init import initialize_database
+from app.core.logging import get_logger, setup_logging
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+setup_logging(
+    log_level=settings.LOG_LEVEL if hasattr(settings, "LOG_LEVEL") else "INFO"
 )
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -30,17 +30,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting ClaudeLens API...")
     await connect_to_mongodb()
     logger.info("Connected to MongoDB")
-    
+
     # Initialize database (create collections, indexes, etc.)
     try:
         db = await get_database()
         await initialize_database(db)
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
+    except Exception:
+        logger.exception("Failed to initialize database")
         raise
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down ClaudeLens API...")
     await close_mongodb_connection()
@@ -54,7 +54,7 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url=f"{settings.API_V1_STR}/docs",
     redoc_url=f"{settings.API_V1_STR}/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add middleware
@@ -76,23 +76,16 @@ app.add_middleware(RateLimitMiddleware, calls=100, period=60)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle all uncaught exceptions."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    
+
     # In debug mode, show the actual error
     if settings.DEBUG:
         return JSONResponse(
-            status_code=500,
-            content={
-                "detail": str(exc),
-                "type": type(exc).__name__
-            }
+            status_code=500, content={"detail": str(exc), "type": type(exc).__name__}
         )
-    
+
     return JSONResponse(
         status_code=500,
-        content={
-            "detail": "Internal server error",
-            "type": "internal_error"
-        }
+        content={"detail": "Internal server error", "type": "internal_error"},
     )
 
 
@@ -100,21 +93,14 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 @app.get("/")
 async def root() -> dict[str, Any]:
     """Root endpoint."""
-    return {
-        "name": settings.APP_NAME,
-        "version": settings.VERSION,
-        "status": "running"
-    }
+    return {"name": settings.APP_NAME, "version": settings.VERSION, "status": "running"}
 
 
 # Health check
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "version": settings.VERSION
-    }
+    return {"status": "healthy", "version": settings.VERSION}
 
 
 # Include API router
