@@ -26,11 +26,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # Redis (for caching/rate limiting)
-    REDIS_URL: str | None = "redis://localhost:6379"
-    
     # CORS
-    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    BACKEND_CORS_ORIGINS: list[str] = ["*"]
     
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 

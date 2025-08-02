@@ -1,50 +1,47 @@
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
-  page: number;
-  page_size: number;
-  total_pages: number;
+  skip: number;
+  limit: number;
+  has_more: boolean;
 }
 
 export interface Project {
-  id: string;
+  _id: string;
   name: string;
   path: string;
-  session_count: number;
-  message_count: number;
-  total_cost: number;
-  last_activity: string;
-  created_at: string;
-  updated_at: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  stats?: {
+    session_count: number;
+    message_count: number;
+  };
 }
 
 export interface Session {
-  id: string;
-  session_id: string;
-  project_id: string;
-  project_name: string;
-  message_count: number;
-  total_cost: number;
-  start_time: string;
-  end_time: string;
-  duration_seconds: number;
-  models_used: string[];
-  has_tool_use: boolean;
-  metadata?: Record<string, unknown>;
+  _id: string;
+  sessionId: string;
+  projectId: string;
+  summary?: string;
+  startedAt: string;
+  endedAt?: string;
+  messageCount: number;
+  totalCost?: number;
 }
 
 export interface Message {
-  id: string;
-  session_id: string;
-  uuid: string;
+  _id: string;
+  sessionId: string;
+  messageUuid: string;
   type: 'user' | 'assistant' | 'system' | 'tool_use' | 'tool_result';
   role?: string;
   content: string;
   model?: string;
-  cost?: number;
-  input_tokens?: number;
-  output_tokens?: number;
+  totalCost?: number;
+  inputTokens?: number;
+  outputTokens?: number;
   timestamp: string;
-  parent_uuid?: string;
+  parentUuid?: string;
   metadata?: Record<string, unknown>;
 }

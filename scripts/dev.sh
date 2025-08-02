@@ -81,10 +81,13 @@ load_sample_data() {
 
 # Main execution
 if [ "$BACKEND_ONLY" = false ] && [ "$FRONTEND_ONLY" = false ]; then
-    start_mongodb
-    
-    if [ "$LOAD_SAMPLES" = true ]; then
-        load_sample_data
+    # Only start MongoDB if not using testcontainers
+    if [ "$TEST_DB" = false ]; then
+        start_mongodb
+        
+        if [ "$LOAD_SAMPLES" = true ]; then
+            load_sample_data
+        fi
     fi
 fi
 
@@ -233,7 +236,7 @@ if [ "$FRONTEND_ONLY" = false ]; then
         # Use Docker Compose for MongoDB
         start_mongodb
         
-        if [ "$BACKEND_ONLY" = false ] && [ "$LOAD_SAMPLES" = true ]; then
+        if [ "$LOAD_SAMPLES" = true ]; then
             load_sample_data
         fi
         

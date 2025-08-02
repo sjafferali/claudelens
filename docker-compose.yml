@@ -4,7 +4,6 @@
 # For production use, please update the following:
 # - SECRET_KEY: Generate a secure random key
 # - MONGO_INITDB_ROOT_PASSWORD: Use a strong password
-# - BACKEND_CORS_ORIGINS: Add your production domain
 #
 # To use different ports or values, copy this file and modify as needed.
 
@@ -24,32 +23,20 @@ services:
       # API Configuration
       - API_HOST=0.0.0.0
       - API_PORT=8000
-      - API_PREFIX=/api/v1
       
       # Security
       - SECRET_KEY=your-secret-key-here-change-in-production
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
       
-      # CORS
-      - BACKEND_CORS_ORIGINS=http://localhost:3000,http://localhost:8080
-      
       # Application settings
-      - PROJECT_NAME=ClaudeLens
-      - VERSION=0.1.0
       - DEBUG=false
-      - LOG_LEVEL=info
       
       # Database settings
       - DATABASE_NAME=claudelens
       - MAX_CONNECTIONS_COUNT=100
       - MIN_CONNECTIONS_COUNT=10
       
-      # Rate limiting
-      - RATE_LIMIT_PER_MINUTE=100
-      
-      # Optional Redis (for future use)
-      - REDIS_URL=redis://redis:6379
     depends_on:
       mongodb:
         condition: service_healthy
