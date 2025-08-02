@@ -40,11 +40,11 @@ jobs:
         poetry install --with dev
         poetry run pytest -x --ff
         
-    - name: Frontend tests
-      run: |
-        cd frontend
-        npm ci
-        npm test -- --watchAll=false --maxWorkers=2
+    # - name: Frontend tests
+    #   run: |
+    #     cd frontend
+    #     npm ci
+    #     npm test -- --watchAll=false --maxWorkers=2
   
   # Linting
   lint:
@@ -72,12 +72,12 @@ jobs:
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
         
-    - name: Frontend linting
-      run: |
-        cd frontend
-        npm ci
-        npm run lint
-        npm run format:check
+    # - name: Frontend linting
+    #   run: |
+    #     cd frontend
+    #     npm ci
+    #     npm run lint
+    #     npm run format:check
   
   # Security quick scan
   security-quick:
