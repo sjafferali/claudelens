@@ -23,7 +23,10 @@ beforeAll(() => {
   console.warn = (...args: unknown[]) => {
     // Suppress React Router future flag warnings in tests
     const firstArg = args[0];
-    if (typeof firstArg === 'string' && firstArg.includes('React Router Future Flag Warning')) {
+    if (
+      typeof firstArg === 'string' &&
+      firstArg.includes('React Router Future Flag Warning')
+    ) {
       return;
     }
     originalWarn(...args);

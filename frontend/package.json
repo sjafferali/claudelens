@@ -13,6 +13,7 @@
     "type-check": "tsc --noEmit",
     "test": "vitest",
     "test:coverage": "vitest --coverage --run",
+    "test:ci": "vitest --coverage --run --silent",
     "test:ui": "vitest --ui"
   },
   "dependencies": {

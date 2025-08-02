@@ -231,6 +231,8 @@ lerna-debug.log*
 
 # Testing
 test-results/
+test-results.xml
+test-results.json
 playwright-report/
 playwright/.cache/
 

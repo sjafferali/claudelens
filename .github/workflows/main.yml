@@ -125,10 +125,15 @@ jobs:
         cd frontend
         npm ci
         
-    - name: Run tests with coverage
+    - name: Run tests
       run: |
         cd frontend
-        npm run test:coverage -- --reporter=junit --outputFile=test-results.xml
+        npm test -- --run --reporter=junit --outputFile=test-results.xml
+        
+    - name: Generate coverage
+      run: |
+        cd frontend
+        npm run test:coverage
         
     - name: Upload test results
       uses: actions/upload-artifact@v4
