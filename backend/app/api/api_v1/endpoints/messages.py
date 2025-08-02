@@ -1,8 +1,9 @@
 """Messages API endpoints."""
 
-from fastapi import APIRouter, Query
+from fastapi import Query
 
 from app.api.dependencies import CommonDeps
+from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
 from app.schemas.common import PaginatedResponse
 from app.schemas.message import Message, MessageDetail

@@ -3,10 +3,11 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.dependencies import AuthDeps, CommonDeps
+from app.core.custom_router import APIRouter
 from app.core.exceptions import ValidationError
 from app.schemas.ingest import (
     BatchIngestRequest,

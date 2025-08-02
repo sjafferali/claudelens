@@ -1,9 +1,10 @@
 """Search API endpoints."""
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import HTTPException, Query
 
 from app.api.dependencies import CommonDeps
+from app.core.custom_router import APIRouter
 from app.schemas.search import (
     SearchFilters,
     SearchRequest,

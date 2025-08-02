@@ -1,6 +1,5 @@
 """Main API router."""
-from fastapi import APIRouter
-
+from app.core.custom_router import APIRouter
 from app.api.api_v1.endpoints import (
     analytics,
     ingest,

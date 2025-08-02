@@ -3,9 +3,10 @@ from datetime import datetime
 from typing import Any
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import HTTPException, Query
 
 from app.api.dependencies import CommonDeps
+from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
 from app.schemas.common import PaginatedResponse
 from app.schemas.session import Session, SessionDetail, SessionWithMessages
