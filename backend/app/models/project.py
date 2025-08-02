@@ -1,5 +1,5 @@
 """Project models."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from pydantic import BaseModel, Field
 from bson import ObjectId
@@ -39,8 +39,8 @@ class ProjectStats(BaseModel):
 class ProjectInDB(ProjectBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     stats: ProjectStats = Field(default_factory=ProjectStats)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="createdAt")
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="updatedAt")
 
     class Config:
         populate_by_name = True

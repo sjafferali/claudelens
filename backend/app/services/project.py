@@ -1,6 +1,6 @@
 """Project service layer."""
 from typing import List, Optional, Tuple, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
 
@@ -42,8 +42,10 @@ class ProjectService:
         
         projects = []
         async for doc in cursor:
+            # Convert ObjectId to string
+            doc["_id"] = str(doc["_id"])
             # Enrich with real-time stats
-            stats = await self._get_project_stats(doc["_id"])
+            stats = await self._get_project_stats(ObjectId(doc["_id"]))
             doc["stats"] = stats
             projects.append(ProjectWithStats(**doc))
         
@@ -55,6 +57,8 @@ class ProjectService:
         if not doc:
             return None
         
+        # Convert ObjectId to string
+        doc["_id"] = str(doc["_id"])
         # Enrich with stats
         stats = await self._get_project_stats(project_id)
         doc["stats"] = stats
@@ -64,6 +68,8 @@ class ProjectService:
     async def get_project_by_path(self, path: str) -> Optional[ProjectInDB]:
         """Get project by path."""
         doc = await self.db.projects.find_one({"path": path})
+        if doc:
+            doc["_id"] = str(doc["_id"])
         return ProjectInDB(**doc) if doc else None
     
     async def create_project(self, project: ProjectCreate) -> ProjectInDB:
@@ -73,11 +79,12 @@ class ProjectService:
             "name": project.name,
             "path": project.path,
             "description": project.description,
-            "createdAt": datetime.utcnow(),
-            "updatedAt": datetime.utcnow()
+            "createdAt": datetime.now(timezone.utc),
+            "updatedAt": datetime.now(timezone.utc)
         }
         
         await self.db.projects.insert_one(doc)
+        doc["_id"] = str(doc["_id"])
         return ProjectInDB(**doc)
     
     async def update_project(
@@ -88,7 +95,7 @@ class ProjectService:
         """Update a project."""
         update_dict = update.dict(exclude_unset=True)
         if update_dict:
-            update_dict["updatedAt"] = datetime.utcnow()
+            update_dict["updatedAt"] = datetime.now(timezone.utc)
             
             result = await self.db.projects.find_one_and_update(
                 {"_id": project_id},
@@ -96,7 +103,10 @@ class ProjectService:
                 return_document=True
             )
             
-            return ProjectInDB(**result) if result else None
+            if result:
+                result["_id"] = str(result["_id"])
+                return ProjectInDB(**result)
+            return None
         
         return await self.get_project(project_id)
     

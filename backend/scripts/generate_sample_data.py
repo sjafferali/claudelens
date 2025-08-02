@@ -1,10 +1,12 @@
 """Generate sample Claude conversation data for testing."""
 import asyncio
 import json
+import os
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
-from bson import ObjectId
+from bson import ObjectId, Decimal128
+from decimal import Decimal
 import motor.motor_asyncio
 from faker import Faker
 
@@ -27,8 +29,39 @@ CODE_SAMPLES = [
 ]
 
 
-async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudelens"):
+async def generate_sample_data(db_url: str = None):
     """Generate sample data for testing."""
+    # Use environment variable if no URL provided
+    if db_url is None:
+        # Check if we should use testcontainer
+        if os.getenv("USE_TEST_DB", "").lower() == "true":
+            print("Using testcontainer for MongoDB...")
+            
+            # First check if URL file exists (from backend process)
+            import tempfile
+            url_file = os.path.join(tempfile.gettempdir(), "claudelens_testcontainer_url.txt")
+            if os.path.exists(url_file):
+                try:
+                    with open(url_file, "r") as f:
+                        db_url = f.read().strip()
+                    print(f"Read testcontainer URL from temp file")
+                except Exception as e:
+                    print(f"Error reading URL file: {e}")
+                    
+            if not db_url:
+                # Fallback to starting a new testcontainer (not ideal)
+                import sys
+                sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                from app.core.testcontainers_db import get_testcontainer_mongodb_url
+                
+                db_url = get_testcontainer_mongodb_url()
+                if not db_url:
+                    print("Error: Failed to get testcontainer MongoDB URL")
+                    return
+        else:
+            db_url = os.getenv("TESTCONTAINER_MONGODB_URL") or os.getenv("MONGODB_URL") or "mongodb://claudelens_app:claudelens_password@localhost:27017/claudelens?authSource=claudelens"
+    
+    print(f"Using MongoDB URL: {db_url}")
     client = motor.motor_asyncio.AsyncIOMotorClient(db_url)
     db = client.claudelens
     
@@ -45,8 +78,8 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
             "name": fake.word() + "-project",
             "path": f"/Users/testuser/projects/{fake.word()}-project",
             "description": fake.sentence(),
-            "createdAt": datetime.utcnow() - timedelta(days=random.randint(30, 365)),
-            "updatedAt": datetime.utcnow()
+            "createdAt": datetime.now(timezone.utc) - timedelta(days=random.randint(30, 365)),
+            "updatedAt": datetime.now(timezone.utc)
         }
         projects.append(project)
     
@@ -57,7 +90,7 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
         # 5-20 sessions per project
         for _ in range(random.randint(5, 20)):
             session_id = fake.uuid4()
-            start_time = datetime.utcnow() - timedelta(days=random.randint(1, 30))
+            start_time = datetime.now(timezone.utc) - timedelta(days=random.randint(1, 30))
             
             session = {
                 "_id": ObjectId(),
@@ -67,7 +100,7 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
                 "startedAt": start_time,
                 "endedAt": start_time + timedelta(hours=random.uniform(0.1, 3)),
                 "messageCount": 0,
-                "totalCost": 0.0,
+                "totalCost": Decimal128("0.0"),
                 "metadata": {
                     "gitBranch": random.choice(["main", "develop", "feature/test"]),
                     "version": "1.0.55"
@@ -78,7 +111,7 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
             messages = []
             parent_uuid = None
             current_time = start_time
-            total_cost = 0.0
+            total_cost = Decimal("0.0")
             
             # 10-50 messages per session
             for msg_idx in range(random.randint(10, 50)):
@@ -102,7 +135,7 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
                 else:
                     model = random.choice(MODELS)
                     cost = random.uniform(0.001, 0.05)
-                    total_cost += cost
+                    total_cost += Decimal(str(cost))
                     
                     # Sometimes include code
                     content = fake.paragraph()
@@ -130,7 +163,7 @@ async def generate_sample_data(db_url: str = "mongodb://localhost:27017/claudele
                 current_time += timedelta(seconds=random.randint(5, 60))
             
             session["messageCount"] = len(messages)
-            session["totalCost"] = round(total_cost, 6)
+            session["totalCost"] = Decimal128(str(total_cost))
             
             await db.sessions.insert_one(session)
             if messages:

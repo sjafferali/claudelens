@@ -27,8 +27,8 @@ class ProjectUpdate(BaseModel):
 class Project(ProjectBase):
     """Project response schema."""
     id: str = Field(alias="_id")
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime = Field(alias="createdAt")
+    updated_at: datetime = Field(alias="updatedAt")
     
     class Config:
         populate_by_name = True

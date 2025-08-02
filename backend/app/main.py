@@ -66,6 +66,17 @@ app.add_middleware(RateLimitMiddleware, calls=100, period=60)
 async def global_exception_handler(request: Request, exc: Exception):
     """Handle all uncaught exceptions."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    
+    # In debug mode, show the actual error
+    if settings.DEBUG:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": str(exc),
+                "type": type(exc).__name__
+            }
+        )
+    
     return JSONResponse(
         status_code=500,
         content={

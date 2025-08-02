@@ -9,7 +9,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production && \
+RUN npm ci && \
     npm cache clean --force
 
 # Copy source code
@@ -29,12 +29,12 @@ WORKDIR /app/backend
 # Copy Poetry files
 COPY backend/pyproject.toml backend/poetry.lock ./
 
+# Copy backend source
+COPY backend/ .
+
 # Configure Poetry and install dependencies
 RUN poetry config virtualenvs.create false && \
     poetry install --no-interaction --no-ansi --only main
-
-# Copy backend source
-COPY backend/ .
 
 # Stage 3: Final image
 FROM python:3.11-slim
@@ -70,16 +70,16 @@ COPY docker/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Create necessary directories and set permissions
-RUN mkdir -p /var/log/supervisor /var/log/nginx /var/run && \
-    chown -R appuser:appuser /app /var/log/nginx /var/log/supervisor /var/run && \
-    chmod 755 /var/run
+RUN mkdir -p /var/log/supervisor /var/log/nginx /var/run /var/lib/nginx/body /var/lib/nginx/proxy /var/lib/nginx/fastcgi /var/lib/nginx/uwsgi /var/lib/nginx/scgi && \
+    chown -R appuser:appuser /app /var/log/nginx /var/log/supervisor /var/run /var/lib/nginx && \
+    chmod 755 /var/run /var/lib/nginx
 
 # Expose port
-EXPOSE 80
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost/api/v1/health || exit 1
+    CMD curl -f http://localhost:8080/api/v1/health || exit 1
 
 # Switch to non-root user
 USER appuser

@@ -5,6 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import errors
 import logging
 from app.core.config import settings
+from app.core.testcontainers_db import get_testcontainer_mongodb_url
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,12 @@ db = MongoDB()
 async def connect_to_mongodb() -> None:
     """Create database connection."""
     try:
+        # Check if we should use testcontainers
+        testcontainer_url = get_testcontainer_mongodb_url()
+        mongodb_url = testcontainer_url or settings.MONGODB_URL
+        
         db.client = AsyncIOMotorClient(
-            settings.MONGODB_URL,
+            mongodb_url,
             maxPoolSize=settings.MAX_CONNECTIONS_COUNT,
             minPoolSize=settings.MIN_CONNECTIONS_COUNT,
         )
@@ -29,7 +34,7 @@ async def connect_to_mongodb() -> None:
         
         # Verify connection
         await db.client.admin.command("ping")
-        logger.info("Successfully connected to MongoDB")
+        logger.info(f"Successfully connected to MongoDB at {mongodb_url}")
         
     except errors.ConnectionFailure as e:
         logger.error(f"Could not connect to MongoDB: {e}")
@@ -41,11 +46,13 @@ async def close_mongodb_connection() -> None:
     if db.client:
         db.client.close()
         logger.info("Disconnected from MongoDB")
+    
+    # Testcontainer cleanup is handled by atexit in testcontainers_db.py
 
 
 async def get_database() -> AsyncIOMotorDatabase:
     """Get database instance."""
-    if not db.database:
+    if db.database is None:
         await connect_to_mongodb()
     return db.database
 

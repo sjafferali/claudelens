@@ -9,11 +9,11 @@ from app.schemas.message import Message
 
 class SessionBase(BaseModel):
     """Base session schema."""
-    session_id: str
-    project_id: str
+    session_id: str = Field(alias="sessionId")
+    project_id: str = Field(alias="projectId")
     summary: Optional[str] = None
-    started_at: datetime
-    ended_at: Optional[datetime] = None
+    started_at: datetime = Field(alias="startedAt")
+    ended_at: Optional[datetime] = Field(None, alias="endedAt")
 
 
 class SessionCreate(SessionBase):
@@ -24,8 +24,8 @@ class SessionCreate(SessionBase):
 class Session(SessionBase):
     """Session response schema."""
     id: str = Field(alias="_id")
-    message_count: int = 0
-    total_cost: Optional[float] = None
+    message_count: int = Field(0, alias="messageCount")
+    total_cost: Optional[float] = Field(None, alias="totalCost")
     
     class Config:
         populate_by_name = True

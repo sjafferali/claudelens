@@ -2,7 +2,7 @@
 from typing import List, Optional, Tuple, Dict, Any
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from bson import ObjectId
+from bson import ObjectId, Decimal128
 
 from app.schemas.session import SessionCreate, Session, SessionDetail
 from app.schemas.message import Message
@@ -43,6 +43,11 @@ class SessionService:
         
         sessions = []
         async for doc in cursor:
+            # Convert Decimal128 to float
+            total_cost = doc.get("totalCost")
+            if isinstance(total_cost, Decimal128):
+                total_cost = float(total_cost.to_decimal())
+            
             # Map MongoDB fields to schema fields
             session_data = {
                 "_id": str(doc["_id"]),
@@ -52,7 +57,7 @@ class SessionService:
                 "started_at": doc["startedAt"],
                 "ended_at": doc.get("endedAt"),
                 "message_count": doc.get("messageCount", 0),
-                "total_cost": doc.get("totalCost")
+                "total_cost": total_cost
             }
             sessions.append(Session(**session_data))
         
@@ -84,6 +89,11 @@ class SessionService:
             sort=[("timestamp", -1)]
         )
         
+        # Convert Decimal128 to float
+        total_cost = doc.get("totalCost")
+        if isinstance(total_cost, Decimal128):
+            total_cost = float(total_cost.to_decimal())
+            
         session_data = {
             "_id": str(doc["_id"]),
             "session_id": doc["sessionId"],
@@ -92,7 +102,7 @@ class SessionService:
             "started_at": doc["startedAt"],
             "ended_at": doc.get("endedAt"),
             "message_count": doc.get("messageCount", 0),
-            "total_cost": doc.get("totalCost"),
+            "total_cost": total_cost,
             "models_used": models_used,
             "first_message": first_msg.get("content", "")[:100] if first_msg else None,
             "last_message": last_msg.get("content", "")[:100] if last_msg else None
