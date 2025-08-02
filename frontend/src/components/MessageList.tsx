@@ -1,7 +1,7 @@
 import { Message } from '@/api/types';
 import { format } from 'date-fns';
 import { User, Bot, Terminal, FileCode } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 
 interface MessageListProps {
   messages: Message[];

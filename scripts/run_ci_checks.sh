@@ -361,14 +361,14 @@ if [ "$SKIP_SECURITY" = false ]; then
     # Python dependency check (only if not quick mode)
     if [ "$QUICK" = false ]; then
         echo -e "\n${YELLOW}Python Dependency Security${NC}"
-        python -m pip install --quiet safety
+        python -m pip install --quiet pip-audit
         
         cd "$PROJECT_ROOT/backend"
-        run_check "Backend safety check" "\"$CI_VENV/bin/safety\" check || true"
+        run_check "Backend pip-audit check" "\"$CI_VENV/bin/pip-audit\" || true"
         cd "$PROJECT_ROOT"
         
         cd "$PROJECT_ROOT/cli"
-        run_check "CLI safety check" "\"$CI_VENV/bin/safety\" check || true"
+        run_check "CLI pip-audit check" "\"$CI_VENV/bin/pip-audit\" || true"
         cd "$PROJECT_ROOT"
     fi
     
