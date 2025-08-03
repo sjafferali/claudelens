@@ -120,7 +120,7 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    @apply bg-text-dim;
+    background-color: hsl(var(--text-dim));
   }
 
   /* Background utilities for new design */
