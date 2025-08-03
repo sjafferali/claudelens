@@ -90,16 +90,17 @@ export function useConversationSearch({
 
       @keyframes highlight-pulse {
         0% {
-          background-color: rgba(250, 204, 21, 0.3);
-          box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.4);
+          background-color: #FFF4B3;
+          box-shadow: 0 0 0 0 rgba(255, 244, 179, 0.7);
+          border-radius: 4px;
         }
         50% {
-          background-color: rgba(250, 204, 21, 0.2);
-          box-shadow: 0 0 0 10px rgba(250, 204, 21, 0);
+          background-color: #FFF4B3;
+          box-shadow: 0 0 0 10px rgba(255, 244, 179, 0);
         }
         100% {
           background-color: transparent;
-          box-shadow: 0 0 0 10px rgba(250, 204, 21, 0);
+          box-shadow: 0 0 0 10px rgba(255, 244, 179, 0);
         }
       }
 
@@ -109,16 +110,17 @@ export function useConversationSearch({
 
       @keyframes highlight-pulse-dark {
         0% {
-          background-color: rgba(250, 204, 21, 0.4);
-          box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.3);
+          background-color: rgba(255, 244, 179, 0.5);
+          box-shadow: 0 0 0 0 rgba(255, 244, 179, 0.4);
+          border-radius: 4px;
         }
         50% {
-          background-color: rgba(250, 204, 21, 0.3);
-          box-shadow: 0 0 0 10px rgba(250, 204, 21, 0);
+          background-color: rgba(255, 244, 179, 0.4);
+          box-shadow: 0 0 0 10px rgba(255, 244, 179, 0);
         }
         100% {
           background-color: transparent;
-          box-shadow: 0 0 0 10px rgba(250, 204, 21, 0);
+          box-shadow: 0 0 0 10px rgba(255, 244, 179, 0);
         }
       }
     `;

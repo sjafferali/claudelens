@@ -29,9 +29,16 @@ const VirtualMessageList = memo(function VirtualMessageList({
 }: VirtualMessageListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollPositionRef = useRef<number>(0);
-  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
-    new Set()
-  );
+  // Tool results start collapsed, everything else starts expanded
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(() => {
+    const expanded = new Set<string>();
+    messages.forEach((msg) => {
+      if (msg.type !== 'tool_result') {
+        expanded.add(msg._id);
+      }
+    });
+    return expanded;
+  });
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Intersection observers for infinite scroll
@@ -103,17 +110,32 @@ const VirtualMessageList = memo(function VirtualMessageList({
     }
   }, [isFetchingPreviousPage]);
 
-  const toggleExpanded = useCallback((messageId: string) => {
-    setExpandedMessages((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(messageId)) {
-        newSet.delete(messageId);
-      } else {
-        newSet.add(messageId);
-      }
-      return newSet;
-    });
-  }, []);
+  const toggleExpanded = useCallback(
+    (messageId: string) => {
+      setExpandedMessages((prev) => {
+        const newSet = new Set(prev);
+        const message = messages.find((m) => m._id === messageId);
+
+        if (message?.type === 'tool_result') {
+          // For tool results, we check if it's in the set (expanded)
+          if (newSet.has(messageId)) {
+            newSet.delete(messageId);
+          } else {
+            newSet.add(messageId);
+          }
+        } else {
+          // For other messages, they're expanded by default
+          if (newSet.has(messageId)) {
+            newSet.delete(messageId);
+          } else {
+            newSet.add(messageId);
+          }
+        }
+        return newSet;
+      });
+    },
+    [messages]
+  );
 
   const handleCopy = useCallback((text: string, messageId: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -179,7 +201,11 @@ const VirtualMessageList = memo(function VirtualMessageList({
         >
           {items.map((virtualItem) => {
             const message = messages[virtualItem.index];
-            const isExpanded = expandedMessages.has(message._id);
+            // Tool results are collapsed by default (not in set), others are expanded by default (in set)
+            const isExpanded =
+              message.type === 'tool_result'
+                ? expandedMessages.has(message._id)
+                : expandedMessages.has(message._id) !== false;
             const isFirstMessage = virtualItem.index === 0;
             const previousMessage =
               virtualItem.index > 0 ? messages[virtualItem.index - 1] : null;

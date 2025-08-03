@@ -9,10 +9,21 @@ import {
 } from '@/components/common';
 import { useSessions, useSession } from '@/hooks/useSessions';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2 } from 'lucide-react';
+import {
+  Loader2,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Calendar,
+  Hash,
+  DollarSign,
+} from 'lucide-react';
+import { cn } from '@/utils/cn';
 import VirtualMessageList from '@/components/VirtualMessageList';
 import MessageNavigator from '@/components/MessageNavigator';
 import ConversationSearch from '@/components/ConversationSearch';
+import TimestampJumper from '@/components/TimestampJumper';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import SearchBar from '@/components/SearchBar';
 import SessionFilters from '@/components/SessionFilters';
@@ -277,6 +288,10 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
   const { isSearchOpen, openSearch, closeSearch, navigateToMessage } =
     useConversationSearch({ containerRef });
 
+  // UI state
+  const [isTimestampJumperOpen, setIsTimestampJumperOpen] = useState(false);
+  const [isSessionDetailsOpen, setIsSessionDetailsOpen] = useState(false);
+
   // Keyboard navigation
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
@@ -299,6 +314,16 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
         setCurrentMessageIndex((prev) => prev + 1);
         navigateToMessage(messages[currentMessageIndex + 1]._id);
       }
+    },
+    { enableOnFormTags: false }
+  );
+
+  // Open timestamp jumper with Ctrl/Cmd + T
+  useHotkeys(
+    'ctrl+t, cmd+t',
+    (e) => {
+      e.preventDefault();
+      setIsTimestampJumperOpen(true);
     },
     { enableOnFormTags: false }
   );
@@ -390,31 +415,49 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <button
-            onClick={() => navigate(-1)}
-            className="text-sm text-muted-foreground hover:text-foreground mb-2 flex items-center gap-1"
-          >
-            ← Back to sessions
-          </button>
-          <h2 className="text-3xl font-bold tracking-tight">
-            {session.summary || `Session ${session.sessionId.slice(0, 8)}...`}
-          </h2>
-          <p className="text-muted-foreground">
-            {formatDistanceToNow(new Date(session.startedAt), {
-              addSuffix: true,
-            })}{' '}
-            • {totalMessages || session.messageCount} messages •
-            {session.totalCost
-              ? ` $${session.totalCost.toFixed(2)}`
-              : ' No cost data'}
-          </p>
+      {/* Sticky Session Header */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 sm:py-4 mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex-1">
+            <button
+              onClick={() => navigate(-1)}
+              className="text-xs sm:text-sm text-muted-foreground hover:text-foreground mb-1 sm:mb-2 flex items-center gap-1"
+            >
+              ← Back
+            </button>
+            <h2 className="text-lg sm:text-2xl font-bold tracking-tight line-clamp-1">
+              {session.summary || `Session ${session.sessionId.slice(0, 8)}...`}
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
+              {formatDistanceToNow(new Date(session.startedAt), {
+                addSuffix: true,
+              })}{' '}
+              • {totalMessages || session.messageCount} msgs
+              <span className="hidden sm:inline">
+                {' '}
+                •
+                {session.totalCost
+                  ? ` $${session.totalCost.toFixed(2)}`
+                  : ' No cost'}
+              </span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsTimestampJumperOpen(true)}
+              className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-md hover:bg-accent transition-colors flex items-center gap-1 sm:gap-2"
+              title="Jump to timestamp (Ctrl/Cmd + T)"
+            >
+              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Jump to Time</span>
+              <span className="sm:hidden">Jump</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2 relative">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2 relative order-2 lg:order-1">
           <CardHeader>
             <CardTitle>Conversation</CardTitle>
             <CardDescription>
@@ -446,53 +489,97 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Session Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Session ID
-              </p>
-              <p className="text-sm font-mono">{session.sessionId}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Started
-              </p>
-              <p className="text-sm">
-                {new Date(session.startedAt).toLocaleString()}
-              </p>
-            </div>
-            {session.endedAt && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Ended
-                </p>
-                <p className="text-sm">
-                  {new Date(session.endedAt).toLocaleString()}
-                </p>
+        <Card className="overflow-hidden order-1 lg:order-2 lg:sticky lg:top-20 lg:self-start">
+          <CardHeader
+            className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+            onClick={() => setIsSessionDetailsOpen(!isSessionDetailsOpen)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                <CardTitle className="text-base">Session Details</CardTitle>
               </div>
+              {isSessionDetailsOpen ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </div>
+          </CardHeader>
+          <div
+            className={cn(
+              'transition-all duration-300 ease-in-out overflow-hidden',
+              isSessionDetailsOpen ? 'max-h-96' : 'max-h-0'
             )}
-            {session.modelsUsed && session.modelsUsed.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Models Used
-                </p>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {session.modelsUsed.map((model, i) => (
-                    <span
-                      key={i}
-                      className="text-xs px-2 py-1 bg-secondary rounded-md"
-                    >
-                      {model}
-                    </span>
-                  ))}
+          >
+            <CardContent className="space-y-4 pt-0">
+              <div className="flex items-start gap-3">
+                <Hash className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    🆔 Session ID
+                  </p>
+                  <p className="text-sm font-mono break-all">
+                    {session.sessionId}
+                  </p>
                 </div>
               </div>
-            )}
-          </CardContent>
+              <div className="flex items-start gap-3">
+                <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    ⏰ Started
+                  </p>
+                  <p className="text-sm">
+                    {new Date(session.startedAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              {session.endedAt && (
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      📅 Ended
+                    </p>
+                    <p className="text-sm">
+                      {new Date(session.endedAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {session.totalCost && (
+                <div className="flex items-start gap-3">
+                  <DollarSign className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Total Cost
+                    </p>
+                    <p className="text-sm font-semibold">
+                      ${session.totalCost.toFixed(4)}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {session.modelsUsed && session.modelsUsed.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Models Used
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {session.modelsUsed.map((model, i) => (
+                      <span
+                        key={i}
+                        className="text-xs px-2 py-1 bg-secondary rounded-md"
+                      >
+                        {model}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </div>
         </Card>
       </div>
 
@@ -509,6 +596,14 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
         isOpen={isSearchOpen}
         onClose={closeSearch}
         onNavigateToMessage={navigateToMessage}
+      />
+
+      {/* Timestamp Jumper */}
+      <TimestampJumper
+        messages={messages}
+        isOpen={isTimestampJumperOpen}
+        onClose={() => setIsTimestampJumperOpen(false)}
+        onJumpToMessage={navigateToMessage}
       />
 
       {/* Keyboard Shortcuts Guide */}
