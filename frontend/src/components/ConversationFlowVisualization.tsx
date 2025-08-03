@@ -28,6 +28,9 @@ import {
   Search,
   Download,
   RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Info,
 } from 'lucide-react';
 
 export interface ConversationFlowNode {
@@ -192,6 +195,8 @@ const ConversationFlowVisualizationInner: React.FC<
 > = ({ data, className = '' }) => {
   const [showSidechains, setShowSidechains] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [controlsOpen, setControlsOpen] = useState(true);
+  const [legendOpen, setLegendOpen] = useState(true);
   const { fitView } = useReactFlow();
 
   // Convert data to React Flow format
@@ -324,97 +329,149 @@ const ConversationFlowVisualizationInner: React.FC<
   }, [fitView]);
 
   return (
-    <div className={`w-full h-full ${className}`}>
+    <div className={`w-full h-full relative ${className}`}>
       {/* Controls */}
-      <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-3 space-y-3 min-w-[250px]">
-        <div className="text-sm font-medium text-gray-700">Flow Controls</div>
-
-        {/* Search */}
-        <div className="space-y-1">
-          <label className="text-xs text-gray-600">Search Messages</label>
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search content..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
+      <div className="absolute top-4 left-4 z-[5] transition-all duration-300">
+        <div
+          className={`bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${controlsOpen ? 'w-[250px]' : 'w-auto'}`}
+        >
+          <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
+            <div
+              className={`text-sm font-medium text-gray-700 flex items-center gap-2 ${!controlsOpen ? 'hidden' : ''}`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Flow Controls
+            </div>
+            <button
+              onClick={() => setControlsOpen(!controlsOpen)}
+              className="p-1 hover:bg-gray-200 rounded transition-colors"
+              title={controlsOpen ? 'Collapse' : 'Expand'}
+            >
+              {controlsOpen ? (
+                <ChevronLeft className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </button>
           </div>
-        </div>
 
-        {/* Options */}
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={showSidechains}
-            onChange={(e) => setShowSidechains(e.target.checked)}
-            className="rounded"
-          />
-          Show Sidechains
-        </label>
+          {controlsOpen && (
+            <div className="p-3 space-y-3">
+              {/* Search */}
+              <div className="space-y-1">
+                <label className="text-xs text-gray-600">Search Messages</label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search content..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
 
-        {/* Actions */}
-        <div className="flex gap-1">
-          <button
-            onClick={resetView}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-            title="Reset View"
-          >
-            <RotateCcw className="w-3 h-3" />
-            Reset
-          </button>
-          <button
-            onClick={exportAsPNG}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 rounded transition-colors"
-            title="Export as PNG"
-          >
-            <Download className="w-3 h-3" />
-            Export
-          </button>
-        </div>
+              {/* Options */}
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={showSidechains}
+                  onChange={(e) => setShowSidechains(e.target.checked)}
+                  className="rounded"
+                />
+                Show Sidechains
+              </label>
 
-        <div className="pt-2 border-t space-y-1 text-xs text-gray-600">
-          <div>Nodes: {data.metrics.total_nodes}</div>
-          <div>Branches: {data.metrics.branch_count}</div>
-          <div>Max Depth: {data.metrics.max_depth}</div>
-          <div>Cost: ${data.metrics.total_cost.toFixed(4)}</div>
-          {data.metrics.avg_response_time_ms && (
-            <div>
-              Avg Response:{' '}
-              {(data.metrics.avg_response_time_ms / 1000).toFixed(1)}s
+              {/* Actions */}
+              <div className="flex gap-1">
+                <button
+                  onClick={resetView}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                  title="Reset View"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Reset
+                </button>
+                <button
+                  onClick={exportAsPNG}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 rounded transition-colors"
+                  title="Export as PNG"
+                >
+                  <Download className="w-3 h-3" />
+                  Export
+                </button>
+              </div>
+
+              <div className="pt-2 border-t space-y-1 text-xs text-gray-600">
+                <div>Nodes: {data.metrics.total_nodes}</div>
+                <div>Branches: {data.metrics.branch_count}</div>
+                <div>Max Depth: {data.metrics.max_depth}</div>
+                <div>Cost: ${data.metrics.total_cost.toFixed(4)}</div>
+                {data.metrics.avg_response_time_ms && (
+                  <div>
+                    Avg Response:{' '}
+                    {(data.metrics.avg_response_time_ms / 1000).toFixed(1)}s
+                  </div>
+                )}
+                <div>
+                  Sidechains: {data.metrics.sidechain_percentage.toFixed(1)}%
+                </div>
+              </div>
             </div>
           )}
-          <div>Sidechains: {data.metrics.sidechain_percentage.toFixed(1)}%</div>
         </div>
       </div>
 
       {/* Legend */}
-      <div className="absolute top-4 right-4 z-10 bg-white rounded-lg shadow-lg p-3 space-y-2">
-        <div className="text-sm font-medium text-gray-700">Legend</div>
+      <div className="absolute top-4 right-4 z-[5] transition-all duration-300">
+        <div
+          className={`bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${legendOpen ? 'w-[200px]' : 'w-auto'}`}
+        >
+          <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
+            <div
+              className={`text-sm font-medium text-gray-700 flex items-center gap-2 ${!legendOpen ? 'hidden' : ''}`}
+            >
+              <Info className="w-4 h-4" />
+              Legend
+            </div>
+            <button
+              onClick={() => setLegendOpen(!legendOpen)}
+              className="p-1 hover:bg-gray-200 rounded transition-colors"
+              title={legendOpen ? 'Collapse' : 'Expand'}
+            >
+              {legendOpen ? (
+                <ChevronRight className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
+            </button>
+          </div>
 
-        <div className="space-y-2 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-100 border-2 border-blue-300 rounded"></div>
-            <span>User Message</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-100 border-2 border-green-300 rounded"></div>
-            <span>Assistant Message</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-gray-100 border-2 border-gray-300 border-dashed rounded opacity-80"></div>
-            <span>Sidechain</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-0.5 bg-gray-600"></div>
-            <span>Main Flow</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-0.5 bg-orange-500 border-dashed border-b"></div>
-            <span>Sidechain Flow</span>
-          </div>
+          {legendOpen && (
+            <div className="p-3 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-100 border-2 border-blue-300 rounded"></div>
+                <span>User Message</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-100 border-2 border-green-300 rounded"></div>
+                <span>Assistant Message</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-gray-100 border-2 border-gray-300 border-dashed rounded opacity-80"></div>
+                <span>Sidechain</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0.5 bg-gray-600"></div>
+                <span>Main Flow</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0.5 bg-orange-500 border-dashed border-b"></div>
+                <span>Sidechain Flow</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -28,5 +28,3 @@ services:
       ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_ROOT_USER:-admin}:${MONGODB_ROOT_PASSWORD}@mongodb:27017/
     depends_on:
       - mongodb
-    networks:
-      - claudelens-network

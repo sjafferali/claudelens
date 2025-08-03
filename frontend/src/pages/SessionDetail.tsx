@@ -129,7 +129,7 @@ export default function SessionDetail() {
       case 'tool_use':
         return 'Claude';
       case 'tool_result':
-        return 'You';
+        return 'System';
       default:
         return type;
     }
