@@ -69,22 +69,33 @@ class SessionService:
     async def get_session(
         self, session_id: str, include_messages: bool = False
     ) -> SessionDetail | None:
-        """Get a single session."""
-        doc = await self.db.sessions.find_one({"sessionId": session_id})
+        """Get a single session by its MongoDB _id."""
+        try:
+            from bson import ObjectId
+
+            if not ObjectId.is_valid(session_id):
+                return None
+            doc = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
+        except Exception:
+            return None
+
         if not doc:
             return None
 
+        # Get the actual sessionId from the document
+        actual_session_id = doc["sessionId"]
+
         # Get additional details
         models_used = await self.db.messages.distinct(
-            "model", {"sessionId": session_id, "model": {"$ne": None}}
+            "model", {"sessionId": actual_session_id, "model": {"$ne": None}}
         )
 
         # Get first and last messages
         first_msg = await self.db.messages.find_one(
-            {"sessionId": session_id}, sort=[("timestamp", 1)]
+            {"sessionId": actual_session_id}, sort=[("timestamp", 1)]
         )
         last_msg = await self.db.messages.find_one(
-            {"sessionId": session_id}, sort=[("timestamp", -1)]
+            {"sessionId": actual_session_id}, sort=[("timestamp", -1)]
         )
 
         # Convert Decimal128 to float
@@ -108,7 +119,9 @@ class SessionService:
 
         # Include messages if requested
         if include_messages:
-            messages = await self.get_session_messages(session_id, skip=0, limit=10)
+            messages = await self.get_session_messages(
+                actual_session_id, skip=0, limit=10
+            )
             session_data["messages"] = messages
 
         return SessionDetail(**session_data)
@@ -116,9 +129,22 @@ class SessionService:
     async def get_session_messages(
         self, session_id: str, skip: int, limit: int
     ) -> list[Message]:
-        """Get messages for a session."""
+        """Get messages for a session by its MongoDB _id."""
+        # First get the session to find the actual sessionId
+        try:
+            from bson import ObjectId
+
+            if not ObjectId.is_valid(session_id):
+                return []
+            session_doc = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
+            if not session_doc:
+                return []
+            actual_session_id = session_doc["sessionId"]
+        except Exception:
+            return []
+
         cursor = (
-            self.db.messages.find({"sessionId": session_id})
+            self.db.messages.find({"sessionId": actual_session_id})
             .sort("timestamp", 1)
             .skip(skip)
             .limit(limit)
@@ -145,9 +171,22 @@ class SessionService:
         self, session_id: str, message_uuid: str, depth: int
     ) -> dict[str, Any] | None:
         """Get conversation thread for a message."""
+        # First get the session to find the actual sessionId
+        try:
+            from bson import ObjectId
+
+            if not ObjectId.is_valid(session_id):
+                return None
+            session_doc = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
+            if not session_doc:
+                return None
+            actual_session_id = session_doc["sessionId"]
+        except Exception:
+            return None
+
         # Find the target message
         target = await self.db.messages.find_one(
-            {"sessionId": session_id, "uuid": message_uuid}
+            {"sessionId": actual_session_id, "uuid": message_uuid}
         )
 
         if not target:
@@ -240,15 +279,23 @@ class SessionService:
 
     async def generate_summary(self, session_id: str) -> str | None:
         """Generate a summary for a session."""
-        # Check session exists
-        session = await self.db.sessions.find_one({"sessionId": session_id})
-        if not session:
+        # Get session by _id
+        try:
+            from bson import ObjectId
+
+            if not ObjectId.is_valid(session_id):
+                return None
+            session = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
+            if not session:
+                return None
+            actual_session_id = session["sessionId"]
+        except Exception:
             return None
 
         # Get first and last few messages
         messages = (
             await self.db.messages.find(
-                {"sessionId": session_id, "type": {"$in": ["user", "assistant"]}}
+                {"sessionId": actual_session_id, "type": {"$in": ["user", "assistant"]}}
             )
             .sort("timestamp", 1)
             .to_list(None)
@@ -270,7 +317,7 @@ class SessionService:
 
         # Update session with summary
         await self.db.sessions.update_one(
-            {"sessionId": session_id},
+            {"_id": ObjectId(session_id)},
             {"$set": {"summary": summary, "updatedAt": datetime.now(UTC)}},
         )
 

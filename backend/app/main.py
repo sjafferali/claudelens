@@ -12,6 +12,7 @@ from app.api.api_v1.api import api_router
 from app.core.config import settings
 from app.core.database import close_mongodb_connection, connect_to_mongodb, get_database
 from app.core.db_init import initialize_database
+from app.core.exceptions import AuthenticationError, NotFoundError, ValidationError
 from app.core.logging import get_logger, setup_logging
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -69,6 +70,40 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(RateLimitMiddleware, calls=100, period=60)
+
+
+# Exception handlers
+@app.exception_handler(NotFoundError)
+async def not_found_exception_handler(
+    request: Request, exc: NotFoundError
+) -> JSONResponse:
+    """Handle NotFoundError exceptions."""
+    return JSONResponse(
+        status_code=404,
+        content={"detail": str(exc), "type": "not_found"},
+    )
+
+
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(
+    request: Request, exc: ValidationError
+) -> JSONResponse:
+    """Handle ValidationError exceptions."""
+    return JSONResponse(
+        status_code=400,
+        content={"detail": str(exc), "type": "validation_error"},
+    )
+
+
+@app.exception_handler(AuthenticationError)
+async def auth_exception_handler(
+    request: Request, exc: AuthenticationError
+) -> JSONResponse:
+    """Handle AuthenticationError exceptions."""
+    return JSONResponse(
+        status_code=401,
+        content={"detail": str(exc), "type": "authentication_error"},
+    )
 
 
 # Global exception handler
