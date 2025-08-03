@@ -53,12 +53,13 @@ class SyncStats:
 class SyncEngine:
     """Main sync engine for Claude conversations."""
 
-    def __init__(self, config: ConfigManager, state: StateManager):
+    def __init__(self, config: ConfigManager, state: StateManager, debug: bool = False):
         self.config = config
         self.state = state
         self.parser = ClaudeMessageParser()
         self.http_client: httpx.AsyncClient | None = None
         self._observer: BaseObserver | None = None
+        self.debug = debug
 
     async def _get_http_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -216,6 +217,10 @@ class SyncEngine:
         batch_hashes = set()
         line_number = 0
 
+        # Get the project path from the file path
+        # project_key is the full project path
+        project_path = project_key
+
         # Determine starting line (only use saved state in non-dry-run mode)
         start_line = 0
         if not dry_run and project_state and project_state.last_file == file_path.name:
@@ -231,6 +236,10 @@ class SyncEngine:
             if not dry_run and self.state.is_message_synced(project_key, message_hash):
                 stats.messages_skipped += 1
                 continue
+
+            # Ensure message has the correct project path in cwd
+            if not message.get("cwd"):
+                message["cwd"] = project_path
 
             # Add to batch
             batch.append(message)
@@ -275,6 +284,8 @@ class SyncEngine:
         """Read messages from JSONL file."""
         async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
             line_number = 0
+            pending_summary = None
+
             async for line in f:
                 line_number += 1
 
@@ -287,9 +298,45 @@ class SyncEngine:
 
                 try:
                     message = json.loads(line)
+
+                    if self.debug:
+                        console.print(
+                            f"[cyan]DEBUG: Line {line_number} - Message type: {message.get('type')}[/cyan]"
+                        )
+
+                    # Handle summary messages specially
+                    if message.get("type") == "summary":
+                        # Store summary to attach to the next message with matching leafUuid
+                        pending_summary = {
+                            "summary": message.get("summary"),
+                            "leafUuid": message.get("leafUuid"),
+                        }
+                        if self.debug:
+                            console.print(
+                                f"[cyan]DEBUG: Found summary for leafUuid: {pending_summary.get('leafUuid')}[/cyan]"
+                            )
+                        continue
+
                     # Parse and validate message
                     parsed = self.parser.parse_jsonl_message(message)
                     if parsed:
+                        # Attach pending summary if this is the leaf message
+                        if pending_summary and parsed.get(
+                            "uuid"
+                        ) == pending_summary.get("leafUuid"):
+                            parsed["summary"] = pending_summary["summary"]
+                            parsed["leafUuid"] = pending_summary["leafUuid"]
+                            pending_summary = None
+                            if self.debug:
+                                console.print(
+                                    f"[cyan]DEBUG: Attached summary to message {parsed.get('uuid')}[/cyan]"
+                                )
+
+                        if self.debug and "toolUseResult" in parsed:
+                            console.print(
+                                f"[cyan]DEBUG: Message has toolUseResult: {type(parsed['toolUseResult'])}[/cyan]"
+                            )
+
                         yield parsed, line_number
                 except json.JSONDecodeError as e:
                     console.print(
@@ -302,9 +349,12 @@ class SyncEngine:
         """Ensure project exists in backend."""
         client = await self._get_http_client()
 
+        # Use the full absolute path for consistency
+        full_path = str(project_path.resolve())
+
         project_data = {
             "name": project_path.name,
-            "path": str(project_path),
+            "path": full_path,
             "description": f"Claude project: {project_path.name}",
         }
 
@@ -332,6 +382,28 @@ class SyncEngine:
     async def _upload_batch(self, messages: list[dict], retry_count: int = 3):
         """Upload a batch of messages to the backend."""
         client = await self._get_http_client()
+
+        # Add project path to messages if not already present
+        if messages and messages[0].get("cwd"):
+            # Extract project path from the first message's cwd
+            cwd = messages[0]["cwd"]
+            # Ensure all messages have the same cwd for consistency
+            for msg in messages:
+                if not msg.get("cwd"):
+                    msg["cwd"] = cwd
+
+        if self.debug:
+            console.print(
+                f"[cyan]DEBUG: Uploading batch of {len(messages)} messages[/cyan]"
+            )
+            for i, msg in enumerate(messages[:3]):  # Show first 3 messages
+                console.print(
+                    f"[cyan]DEBUG: Message {i}: type={msg.get('type')}, uuid={msg.get('uuid')}, has_toolUseResult={'toolUseResult' in msg}[/cyan]"
+                )
+                if "toolUseResult" in msg:
+                    console.print(
+                        f"[cyan]DEBUG:   toolUseResult type: {type(msg['toolUseResult'])}, content: {str(msg['toolUseResult'])[:100]}...[/cyan]"
+                    )
 
         for attempt in range(retry_count):
             try:
@@ -363,11 +435,35 @@ class SyncEngine:
                     )
                     await asyncio.sleep(wait_time)
                 else:
+                    error_text = (
+                        response.text[:1000] if not self.debug else response.text
+                    )
                     console.print(
-                        f"[red]Upload failed ({response.status_code}): {response.text}[/red]"
+                        f"[red]Upload failed ({response.status_code}): {error_text}[/red]"
                     )
                     # Log request details for debugging
                     console.print(f"[dim]Request URL: {response.request.url}[/dim]")
+
+                    if self.debug and response.status_code == 422:
+                        # Try to parse validation errors
+                        try:
+                            error_data = response.json()
+                            if "detail" in error_data and isinstance(
+                                error_data["detail"], list
+                            ):
+                                console.print("[red]Validation errors:[/red]")
+                                for error in error_data["detail"][
+                                    :5
+                                ]:  # Show first 5 errors
+                                    console.print(
+                                        f"[red]  - {error.get('loc', [])}: {error.get('msg')}[/red]"
+                                    )
+                                    if "input" in error:
+                                        console.print(
+                                            f"[red]    Input: {json.dumps(error['input'], indent=2)[:200]}...[/red]"
+                                        )
+                        except Exception:
+                            pass
                     console.print(
                         f"[dim]Request method: {response.request.method}[/dim]"
                     )

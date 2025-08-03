@@ -21,14 +21,10 @@ class ClaudeMessageParser:
         """
         msg_type = raw_message.get("type")
 
-        # Handle summary messages separately
+        # Skip summary messages - they should be handled differently
+        # Summary data is attached to the leaf message, not sent as separate messages
         if msg_type == "summary":
-            return {
-                "type": "summary",
-                "summary": raw_message.get("summary"),
-                "leafUuid": raw_message.get("leafUuid"),
-                "isSummary": True,
-            }
+            return None
 
         # Basic validation
         required_fields = ["uuid", "type", "timestamp"]
@@ -88,7 +84,15 @@ class ClaudeMessageParser:
 
         # Tool use results
         if "toolUseResult" in raw_message:
-            result["toolUseResult"] = raw_message["toolUseResult"]
+            tool_result = raw_message["toolUseResult"]
+            # Ensure tool result is always a dict
+            if isinstance(tool_result, str):
+                result["toolUseResult"] = {"output": tool_result}
+            elif isinstance(tool_result, dict):
+                result["toolUseResult"] = tool_result
+            else:
+                # Handle other types by converting to string
+                result["toolUseResult"] = {"output": str(tool_result)}
 
         return result
 
@@ -205,7 +209,17 @@ class ClaudeDatabaseReader:
         if row["message_type"] == "user" and row["user_message"]:
             message["message"] = json.loads(row["user_message"])
             if row["tool_use_result"]:
-                message["toolUseResult"] = json.loads(row["tool_use_result"])
+                # Handle tool_use_result - it might be a JSON string or already parsed
+                try:
+                    tool_result = json.loads(row["tool_use_result"])
+                    # If it's a string, wrap it in a dict
+                    if isinstance(tool_result, str):
+                        message["toolUseResult"] = {"output": tool_result}
+                    else:
+                        message["toolUseResult"] = tool_result
+                except (json.JSONDecodeError, TypeError):
+                    # If it's not valid JSON, treat it as a plain string
+                    message["toolUseResult"] = {"output": str(row["tool_use_result"])}
 
         elif row["message_type"] == "assistant" and row["assistant_message"]:
             message["message"] = json.loads(row["assistant_message"])

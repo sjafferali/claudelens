@@ -35,8 +35,14 @@ console = Console()
     type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
     help="Claude data directory to sync from (can be specified multiple times)",
 )
+@click.option("--debug", is_flag=True, help="Enable debug output for troubleshooting")
 def sync(
-    watch: bool, project: Path, force: bool, dry_run: bool, claude_dir: tuple[Path]
+    watch: bool,
+    project: Path,
+    force: bool,
+    dry_run: bool,
+    claude_dir: tuple[Path],
+    debug: bool,
 ):
     """Sync Claude conversations to ClaudeLens server.
 
@@ -51,7 +57,7 @@ def sync(
 
     # Initialize components
     state_manager = StateManager()
-    sync_engine = SyncEngine(config_manager, state_manager)
+    sync_engine = SyncEngine(config_manager, state_manager, debug=debug)
 
     # Show current configuration
     console.print(f"[dim]API URL: {config_manager.config.api_url}[/dim]")

@@ -128,14 +128,20 @@ class IngestService:
         project_name = "Unknown Project"
 
         if first_message.cwd:
-            # Extract project from Claude path format
-            # e.g., /Users/user/projects/my-project -> my-project
-            parts = first_message.cwd.split("/")
-            if "projects" in parts:
-                idx = parts.index("projects")
-                if idx + 1 < len(parts):
-                    project_name = parts[idx + 1]
-                    project_path = "/".join(parts[: idx + 2])
+            # The cwd should be the full project path
+            # Extract project name from the last part of the path
+            project_path = first_message.cwd
+            path_parts = project_path.rstrip("/").split("/")
+            if path_parts:
+                project_name = path_parts[-1]
+
+            # Also check for Claude path format
+            # e.g., /Users/user/Library/Application Support/Claude/projects/my-project
+            if "projects" in path_parts:
+                idx = path_parts.index("projects")
+                if idx + 1 < len(path_parts):
+                    # Use the more specific project name if found
+                    project_name = path_parts[idx + 1]
 
         # Ensure project exists
         effective_path = project_path or first_message.cwd or "unknown"
