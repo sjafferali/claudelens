@@ -236,9 +236,9 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
                 fontSize="10"
                 fillOpacity={0.8}
               >
-                {metric === 'cost' && formatCurrency(payload.cost)}
-                {metric === 'messages' && `${payload.messages} msgs`}
-                {metric === 'sessions' && `${payload.sessions} sessions`}
+                {metric === 'cost' && formatCurrency(payload?.cost || 0)}
+                {metric === 'messages' && `${payload?.messages || 0} msgs`}
+                {metric === 'sessions' && `${payload?.sessions || 0} sessions`}
               </tspan>
             )}
           </text>

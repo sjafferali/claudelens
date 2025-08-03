@@ -40,21 +40,21 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
   const childrenData =
     selectedNode?.children?.slice(0, 10).map((child) => ({
       name:
-        child.name.length > 15
+        child.name && child.name.length > 15
           ? child.name.substring(0, 15) + '...'
-          : child.name,
-      fullName: child.name,
-      cost: child.metrics.cost,
-      messages: child.metrics.messages,
-      sessions: child.metrics.sessions,
-      percentage: child.percentage_of_total,
+          : child.name || 'Unknown',
+      fullName: child.name || 'Unknown',
+      cost: child.metrics?.cost || 0,
+      messages: child.metrics?.messages || 0,
+      sessions: child.metrics?.sessions || 0,
+      percentage: child.percentage_of_total || 0,
     })) || [];
 
   const topDirectoriesData =
     selectedNode?.children?.slice(0, 5).map((child, index) => ({
-      name: child.name,
-      value: child.metrics.cost,
-      percentage: child.percentage_of_total,
+      name: child.name || 'Unknown',
+      value: child.metrics?.cost || 0,
+      percentage: child.percentage_of_total || 0,
       color: COLORS[index % COLORS.length],
     })) || [];
 
@@ -149,7 +149,7 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
             <div>
               <p className="text-sm text-gray-600">Total Cost</p>
               <p className="text-2xl font-bold text-green-600">
-                {formatCurrency(selectedNode.metrics.cost)}
+                {formatCurrency(selectedNode.metrics?.cost || 0)}
               </p>
             </div>
             <DollarSign className="w-8 h-8 text-green-500" />
@@ -157,7 +157,7 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
           <div className="mt-2 flex items-center text-sm">
             <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
             <span className="text-green-600 font-medium">
-              {selectedNode.percentage_of_total.toFixed(1)}%
+              {(selectedNode.percentage_of_total || 0).toFixed(1)}%
             </span>
             <span className="text-gray-600 ml-1">of total</span>
           </div>
@@ -168,7 +168,7 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
             <div>
               <p className="text-sm text-gray-600">Messages</p>
               <p className="text-2xl font-bold text-blue-600">
-                {selectedNode.metrics.messages.toLocaleString()}
+                {(selectedNode.metrics?.messages || 0).toLocaleString()}
               </p>
             </div>
             <MessageSquare className="w-8 h-8 text-blue-500" />
@@ -176,7 +176,10 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
           <div className="mt-2 text-sm text-gray-600">
             Avg cost per message:{' '}
             {formatCurrency(
-              selectedNode.metrics.cost / selectedNode.metrics.messages || 0
+              selectedNode.metrics?.messages
+                ? (selectedNode.metrics.cost || 0) /
+                    selectedNode.metrics.messages
+                : 0
             )}
           </div>
         </Card>
@@ -186,14 +189,14 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
             <div>
               <p className="text-sm text-gray-600">Sessions</p>
               <p className="text-2xl font-bold text-purple-600">
-                {selectedNode.metrics.sessions.toLocaleString()}
+                {(selectedNode.metrics?.sessions || 0).toLocaleString()}
               </p>
             </div>
             <Users className="w-8 h-8 text-purple-500" />
           </div>
           <div className="mt-2 text-sm text-gray-600">
             Avg cost per session:{' '}
-            {formatCurrency(selectedNode.metrics.avg_cost_per_session)}
+            {formatCurrency(selectedNode.metrics?.avg_cost_per_session || 0)}
           </div>
         </Card>
 
@@ -202,7 +205,9 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
             <div>
               <p className="text-sm text-gray-600">Last Active</p>
               <p className="text-lg font-bold text-gray-900">
-                {formatDate(selectedNode.metrics.last_active)}
+                {formatDate(
+                  selectedNode.metrics?.last_active || new Date().toISOString()
+                )}
               </p>
             </div>
             <Clock className="w-8 h-8 text-gray-500" />
@@ -343,14 +348,19 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
           <div>
             <p className="font-medium text-gray-900 mb-2">Resource Usage</p>
             <ul className="space-y-1 text-gray-600">
-              <li>• Total cost: {formatCurrency(selectedNode.metrics.cost)}</li>
               <li>
-                • Average per session:{' '}
-                {formatCurrency(selectedNode.metrics.avg_cost_per_session)}
+                • Total cost: {formatCurrency(selectedNode.metrics?.cost || 0)}
               </li>
               <li>
-                • Represents {selectedNode.percentage_of_total.toFixed(1)}% of
-                all usage
+                • Average per session:{' '}
+                {formatCurrency(
+                  selectedNode.metrics?.avg_cost_per_session || 0
+                )}
+              </li>
+              <li>
+                • Represents{' '}
+                {(selectedNode.percentage_of_total || 0).toFixed(1)}% of all
+                usage
               </li>
             </ul>
           </div>
@@ -358,26 +368,34 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
             <p className="font-medium text-gray-900 mb-2">Activity</p>
             <ul className="space-y-1 text-gray-600">
               <li>
-                • {selectedNode.metrics.messages.toLocaleString()} total
+                • {(selectedNode.metrics?.messages || 0).toLocaleString()} total
                 messages
               </li>
               <li>
-                • {selectedNode.metrics.sessions.toLocaleString()} unique
-                sessions
+                • {(selectedNode.metrics?.sessions || 0).toLocaleString()}{' '}
+                unique sessions
               </li>
               <li>
-                • Last active: {formatDate(selectedNode.metrics.last_active)}
+                • Last active:{' '}
+                {formatDate(
+                  selectedNode.metrics?.last_active || new Date().toISOString()
+                )}
               </li>
             </ul>
           </div>
           <div>
             <p className="font-medium text-gray-900 mb-2">Global Context</p>
             <ul className="space-y-1 text-gray-600">
-              <li>• {totalMetrics.unique_directories} total directories</li>
               <li>
-                • {totalMetrics.total_messages.toLocaleString()} total messages
+                • {totalMetrics?.unique_directories || 0} total directories
               </li>
-              <li>• {formatCurrency(totalMetrics.total_cost)} global cost</li>
+              <li>
+                • {(totalMetrics?.total_messages || 0).toLocaleString()} total
+                messages
+              </li>
+              <li>
+                • {formatCurrency(totalMetrics?.total_cost || 0)} global cost
+              </li>
             </ul>
           </div>
         </div>

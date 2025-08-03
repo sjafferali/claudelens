@@ -786,19 +786,21 @@ export default function Analytics() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
-                    {formatCost(directoryData.total_metrics.total_cost)}
+                    {formatCost(directoryData.total_metrics?.total_cost || 0)}
                   </div>
                   <div className="text-sm text-gray-600">Total Cost</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">
-                    {directoryData.total_metrics.total_messages.toLocaleString()}
+                    {(
+                      directoryData.total_metrics?.total_messages || 0
+                    ).toLocaleString()}
                   </div>
                   <div className="text-sm text-gray-600">Total Messages</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">
-                    {directoryData.total_metrics.unique_directories}
+                    {directoryData.total_metrics?.unique_directories || 0}
                   </div>
                   <div className="text-sm text-gray-600">
                     Unique Directories
@@ -836,7 +838,13 @@ export default function Analytics() {
                 <div>
                   <DirectoryMetrics
                     selectedNode={selectedDirectoryNode || directoryData.root}
-                    totalMetrics={directoryData.total_metrics}
+                    totalMetrics={
+                      directoryData.total_metrics || {
+                        unique_directories: 0,
+                        total_messages: 0,
+                        total_cost: 0,
+                      }
+                    }
                   />
                 </div>
               </div>
