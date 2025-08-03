@@ -42,6 +42,7 @@ class IngestServiceDebug:
             messages_received=len(messages),
             messages_processed=0,
             messages_skipped=0,
+            messages_updated=0,
             messages_failed=0,
             sessions_created=0,
             sessions_updated=0,

@@ -110,6 +110,7 @@ class IngestStats(BaseModel):
     messages_processed: int = Field(0, description="Messages successfully processed")
     messages_skipped: int = Field(0, description="Messages skipped (duplicates)")
     messages_failed: int = Field(0, description="Messages that failed processing")
+    messages_updated: int = Field(0, description="Messages updated (in overwrite mode)")
 
     sessions_created: int = Field(0, description="New sessions created")
     sessions_updated: int = Field(0, description="Existing sessions updated")

@@ -143,6 +143,9 @@ def _show_sync_stats(stats: dict):
     console.print(f"  Projects scanned: {stats.get('projects_scanned', 0)}")
     console.print(f"  Files processed: {stats.get('files_processed', 0)}")
     console.print(f"  Messages synced: {stats.get('messages_synced', 0)}")
+    messages_updated = stats.get("messages_updated", 0)
+    if messages_updated > 0:
+        console.print(f"  Messages updated: {messages_updated}")
     console.print(f"  Messages skipped: {stats.get('messages_skipped', 0)}")
     console.print(f"  Errors: {stats.get('errors', 0)}")
     console.print(f"  Duration: {stats.get('duration', '0')}s")

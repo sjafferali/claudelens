@@ -42,6 +42,7 @@ class IngestService:
             messages_processed=0,
             messages_skipped=0,
             messages_failed=0,
+            messages_updated=0,
             sessions_created=0,
             sessions_updated=0,
             todos_processed=0,
@@ -145,9 +146,9 @@ class IngestService:
 
                     try:
                         bulk_result = await self.db.messages.bulk_write(operations)
-                        stats.messages_processed += (
-                            bulk_result.inserted_count + bulk_result.modified_count
-                        )
+                        # Track inserts and updates separately
+                        stats.messages_processed += bulk_result.inserted_count
+                        stats.messages_updated += bulk_result.modified_count
                     except Exception as e:
                         logger.error(f"MongoDB bulk write failed: {e}")
                         stats.messages_failed += len(new_messages)

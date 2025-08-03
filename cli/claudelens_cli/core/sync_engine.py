@@ -29,6 +29,7 @@ class SyncStats:
         self.projects_scanned = 0
         self.files_processed = 0
         self.messages_synced = 0
+        self.messages_updated = 0
         self.messages_skipped = 0
         self.errors = 0
         self.start_time = datetime.utcnow()
@@ -44,6 +45,7 @@ class SyncStats:
             "projects_scanned": self.projects_scanned,
             "files_processed": self.files_processed,
             "messages_synced": self.messages_synced,
+            "messages_updated": self.messages_updated,
             "messages_skipped": self.messages_skipped,
             "errors": self.errors,
             "duration": f"{self.duration:.2f}",
@@ -261,6 +263,9 @@ class SyncEngine:
                         stats.messages_synced += response_stats.get(
                             "messages_processed", 0
                         )
+                        stats.messages_updated += response_stats.get(
+                            "messages_updated", 0
+                        )
                         stats.messages_skipped += response_stats.get(
                             "messages_skipped", 0
                         )
@@ -293,6 +298,7 @@ class SyncEngine:
                 if response_stats:
                     # Update counts based on actual server response
                     stats.messages_synced += response_stats.get("messages_processed", 0)
+                    stats.messages_updated += response_stats.get("messages_updated", 0)
                     stats.messages_skipped += response_stats.get("messages_skipped", 0)
                     stats.errors += response_stats.get("messages_failed", 0)
                 else:
@@ -346,6 +352,7 @@ class SyncEngine:
                             console.print(
                                 f"[cyan]DEBUG: Found summary for leafUuid: {pending_summary.get('leafUuid')}[/cyan]"
                             )
+                        # Don't count summaries as they're not sent to the server
                         continue
 
                     # Parse and validate message
@@ -469,6 +476,14 @@ class SyncEngine:
                         if "stats" in result:
                             response_stats = result["stats"]
                             messages_failed = response_stats.get("messages_failed", 0)
+                            messages_processed = response_stats.get(
+                                "messages_processed", 0
+                            )
+
+                            if self.debug:
+                                console.print(
+                                    f"[dim]Server response: {messages_processed} processed, {messages_failed} failed[/dim]"
+                                )
 
                             if messages_failed > 0:
                                 console.print(
@@ -629,9 +644,14 @@ class ClaudeFileHandler(FileSystemEventHandler):
                 self.project_filter, self.dry_run
             )
 
-            console.print(
-                f"[green]Sync completed: {stats['messages_synced']} new messages[/green]"
+            # Build completion message
+            completion_msg = (
+                f"[green]Sync completed: {stats['messages_synced']} new messages"
             )
+            if stats.get("messages_updated", 0) > 0:
+                completion_msg += f", {stats['messages_updated']} updated"
+            completion_msg += "[/green]"
+            console.print(completion_msg)
             self._pending_files.clear()
 
 
