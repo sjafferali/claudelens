@@ -1,4 +1,5 @@
 """Ingestion service for processing messages."""
+
 import asyncio
 import hashlib
 import json
@@ -119,10 +120,10 @@ class IngestService:
                         stats.messages_skipped += 1
                         continue
 
-                # Convert to database model
+                # Convert to database model(s)
                 try:
-                    message_doc = self._message_to_doc(message, session_id)
-                    new_messages.append(message_doc)
+                    message_docs = self._message_to_doc(message, session_id)
+                    new_messages.extend(message_docs)  # Extend instead of append
                     if not overwrite_mode:
                         existing_hashes.add(self._hash_message(message))
                 except Exception as e:
@@ -323,9 +324,154 @@ class IngestService:
         content = json.dumps(hash_data, sort_keys=True, default=str)
         return hashlib.sha256(content.encode()).hexdigest()
 
-    def _message_to_doc(self, message: MessageIngest, session_id: str) -> dict:
-        """Convert message to database document."""
+    def _message_to_doc(self, message: MessageIngest, session_id: str) -> list[dict]:
+        """Convert message to database document(s).
 
+        Returns a list of documents because tool_use and tool_result parts
+        need to be split into separate messages.
+        """
+
+        docs = []
+
+        # First, handle special cases where we need to split messages
+        if message.type == "assistant" and isinstance(message.message, dict):
+            content_parts = message.message.get("content", [])
+            if isinstance(content_parts, list):
+                # Separate regular content from tool uses
+                text_parts = []
+                thinking_parts = []
+                tool_use_parts = []
+
+                for part in content_parts:
+                    if isinstance(part, dict):
+                        part_type = part.get("type")
+                        if part_type == "text":
+                            text_parts.append(part.get("text", ""))
+                        elif part_type == "thinking":
+                            thinking = part.get("thinking", "")
+                            if thinking:
+                                thinking_parts.append(thinking)
+                        elif part_type == "tool_use":
+                            tool_use_parts.append(part)
+
+                # Create main assistant message with text content
+                if text_parts or thinking_parts:
+                    main_doc = {
+                        "_id": ObjectId(),
+                        "uuid": message.uuid,
+                        "sessionId": session_id,
+                        "type": "assistant",
+                        "timestamp": message.timestamp,
+                        "parentUuid": message.parentUuid,
+                        "contentHash": self._hash_message(message),
+                        "createdAt": datetime.now(UTC),
+                    }
+
+                    # Combine text content
+                    all_parts = []
+                    if thinking_parts:
+                        all_parts.append("[Thinking]\n" + "\n".join(thinking_parts))
+                        main_doc["thinking"] = "\n".join(thinking_parts)
+                    if text_parts:
+                        all_parts.extend(text_parts)
+
+                    main_doc["content"] = "\n\n".join(all_parts) if all_parts else ""
+                    main_doc["messageData"] = {
+                        "content": [{"type": "text", "text": main_doc["content"]}]
+                    }
+
+                    # Add optional fields
+                    self._add_optional_fields(main_doc, message)
+                    docs.append(main_doc)
+
+                # Create separate tool_use messages
+                for i, tool_part in enumerate(tool_use_parts):
+                    tool_doc = {
+                        "_id": ObjectId(),
+                        "uuid": f"{message.uuid}_tool_{i}",
+                        "sessionId": session_id,
+                        "type": "tool_use",
+                        "timestamp": message.timestamp,
+                        "parentUuid": message.parentUuid,
+                        "createdAt": datetime.now(UTC),
+                    }
+
+                    # Store tool use content as JSON
+                    tool_doc["content"] = json.dumps(tool_part, ensure_ascii=False)
+                    tool_doc["messageData"] = tool_part
+
+                    # Add optional fields
+                    self._add_optional_fields(tool_doc, message)
+                    docs.append(tool_doc)
+
+                return docs if docs else [self._create_default_doc(message, session_id)]
+
+        elif message.type == "user" and isinstance(message.message, dict):
+            raw_content = message.message.get("content", "")
+            if isinstance(raw_content, list):
+                # Separate text from tool results
+                text_parts = []
+                tool_result_parts = []
+
+                for part in raw_content:
+                    if isinstance(part, dict):
+                        if part.get("type") == "text":
+                            text_parts.append(part.get("text", ""))
+                        elif part.get("type") == "tool_result":
+                            tool_result_parts.append(part)
+
+                # Create main user message with text content
+                if text_parts:
+                    main_doc = {
+                        "_id": ObjectId(),
+                        "uuid": message.uuid,
+                        "sessionId": session_id,
+                        "type": "user",
+                        "timestamp": message.timestamp,
+                        "parentUuid": message.parentUuid,
+                        "contentHash": self._hash_message(message),
+                        "createdAt": datetime.now(UTC),
+                    }
+
+                    main_doc["content"] = "\n".join(text_parts)
+                    main_doc["messageData"] = {"content": main_doc["content"]}
+
+                    # Add optional fields
+                    self._add_optional_fields(main_doc, message)
+                    docs.append(main_doc)
+
+                # Create separate tool_result messages
+                for i, result_part in enumerate(tool_result_parts):
+                    result_doc = {
+                        "_id": ObjectId(),
+                        "uuid": f"{message.uuid}_result_{i}",
+                        "sessionId": session_id,
+                        "type": "tool_result",
+                        "timestamp": message.timestamp,
+                        "parentUuid": message.parentUuid,
+                        "createdAt": datetime.now(UTC),
+                    }
+
+                    # Extract tool result content
+                    tool_content = result_part.get("content", "")
+                    result_doc["content"] = (
+                        tool_content
+                        if isinstance(tool_content, str)
+                        else json.dumps(tool_content, ensure_ascii=False)
+                    )
+                    result_doc["messageData"] = result_part
+
+                    # Add optional fields
+                    self._add_optional_fields(result_doc, message)
+                    docs.append(result_doc)
+
+                return docs if docs else [self._create_default_doc(message, session_id)]
+
+        # For all other cases, create a single document using the original logic
+        return [self._create_default_doc(message, session_id)]
+
+    def _create_default_doc(self, message: MessageIngest, session_id: str) -> dict:
+        """Create a default document using the original logic."""
         doc = {
             "_id": ObjectId(),
             "uuid": message.uuid,
@@ -426,6 +572,11 @@ class IngestService:
                 doc["content"] = str(message.message)
 
         # Add optional fields
+        self._add_optional_fields(doc, message)
+        return doc
+
+    def _add_optional_fields(self, doc: dict, message: MessageIngest) -> None:
+        """Add optional fields to a document."""
         optional_fields = [
             "userType",
             "cwd",
@@ -452,8 +603,6 @@ class IngestService:
         # Add any extra fields
         if message.extra_fields:
             doc["metadata"] = message.extra_fields
-
-        return doc
 
     async def _update_session_stats(self, session_id: str) -> None:
         """Update session statistics."""
