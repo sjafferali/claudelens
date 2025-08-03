@@ -100,24 +100,29 @@ class IngestService:
             else:
                 stats.sessions_updated += 1
 
-            # Get existing message hashes for deduplication
-            existing_hashes = await self._get_existing_hashes(session_id)
+            # Get existing message hashes for deduplication (skip if overwrite mode)
+            existing_hashes = set()
+            if not overwrite_mode:
+                existing_hashes = await self._get_existing_hashes(session_id)
 
             # Process each message
             new_messages = []
             for message in messages:
-                # Generate hash for deduplication
-                message_hash = self._hash_message(message)
+                # Skip deduplication check in overwrite mode
+                if not overwrite_mode:
+                    # Generate hash for deduplication
+                    message_hash = self._hash_message(message)
 
-                if message_hash in existing_hashes:
-                    stats.messages_skipped += 1
-                    continue
+                    if message_hash in existing_hashes:
+                        stats.messages_skipped += 1
+                        continue
 
                 # Convert to database model
                 try:
                     message_doc = self._message_to_doc(message, session_id)
                     new_messages.append(message_doc)
-                    existing_hashes.add(message_hash)
+                    if not overwrite_mode:
+                        existing_hashes.add(self._hash_message(message))
                 except Exception as e:
                     logger.error(f"Error processing message {message.uuid}: {e}")
                     stats.messages_failed += 1
