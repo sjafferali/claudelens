@@ -28,7 +28,7 @@ export default function MessageList({ messages }: MessageListProps) {
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
   );
-  const [expandedToolGroups, setExpandedToolGroups] = useState<Set<string>>(
+  const [expandedToolPairs, setExpandedToolPairs] = useState<Set<string>>(
     new Set()
   );
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -45,13 +45,13 @@ export default function MessageList({ messages }: MessageListProps) {
     });
   };
 
-  const toggleToolGroupExpanded = (groupId: string) => {
-    setExpandedToolGroups((prev) => {
+  const toggleToolPairExpanded = (pairId: string) => {
+    setExpandedToolPairs((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId);
+      if (newSet.has(pairId)) {
+        newSet.delete(pairId);
       } else {
-        newSet.add(groupId);
+        newSet.add(pairId);
       }
       return newSet;
     });
@@ -95,7 +95,7 @@ export default function MessageList({ messages }: MessageListProps) {
       case 'tool_use':
         return 'Tool Use';
       case 'tool_result':
-        return 'System Response';
+        return 'Tool Result';
       default:
         return type;
     }
@@ -403,51 +403,44 @@ export default function MessageList({ messages }: MessageListProps) {
     );
   };
 
-  // Group consecutive tool_use and tool_result messages
+  // Group consecutive tool_use and tool_result messages into pairs
   const messageGroups: Array<{
-    type: 'single' | 'tool_group';
+    type: 'single' | 'tool_pair';
     messages: Message[];
   }> = [];
-  let currentGroup: Message[] = [];
-  let inToolGroup = false;
 
-  messages.forEach((message, index) => {
+  let i = 0;
+  while (i < messages.length) {
+    const message = messages[i];
+
     if (message.type === 'tool_use') {
-      if (!inToolGroup) {
-        if (currentGroup.length > 0) {
-          messageGroups.push({ type: 'single', messages: currentGroup });
-          currentGroup = [];
-        }
-        inToolGroup = true;
-      }
-      currentGroup.push(message);
-    } else if (message.type === 'tool_result' && inToolGroup) {
-      currentGroup.push(message);
-      // Check if next message is also tool_use
-      const nextMessage = messages[index + 1];
-      if (!nextMessage || nextMessage.type !== 'tool_use') {
-        messageGroups.push({ type: 'tool_group', messages: currentGroup });
-        currentGroup = [];
-        inToolGroup = false;
+      // Look for the corresponding tool_result
+      const toolUseMessage = message;
+      const nextMessage = messages[i + 1];
+
+      if (nextMessage && nextMessage.type === 'tool_result') {
+        // Found a tool_use/tool_result pair
+        messageGroups.push({
+          type: 'tool_pair',
+          messages: [toolUseMessage, nextMessage],
+        });
+        i += 2; // Skip both messages
+      } else {
+        // Tool use without result
+        messageGroups.push({
+          type: 'single',
+          messages: [toolUseMessage],
+        });
+        i++;
       }
     } else {
-      if (inToolGroup) {
-        messageGroups.push({ type: 'tool_group', messages: currentGroup });
-        currentGroup = [];
-        inToolGroup = false;
-      }
-      currentGroup.push(message);
-      messageGroups.push({ type: 'single', messages: [message] });
-      currentGroup = [];
+      // Regular message
+      messageGroups.push({
+        type: 'single',
+        messages: [message],
+      });
+      i++;
     }
-  });
-
-  // Handle any remaining messages
-  if (currentGroup.length > 0) {
-    messageGroups.push({
-      type: inToolGroup ? 'tool_group' : 'single',
-      messages: currentGroup,
-    });
   }
 
   if (messages.length === 0) {
@@ -592,12 +585,11 @@ export default function MessageList({ messages }: MessageListProps) {
             </div>
           );
         } else {
-          // Tool group rendering
-          const groupId = group.messages[0]._id;
-          const isGroupExpanded = expandedToolGroups.has(groupId);
-          const toolUseMessages = group.messages.filter(
-            (m) => m.type === 'tool_use'
-          );
+          // Tool pair rendering
+          const [toolUseMessage, toolResultMessage] = group.messages;
+          const pairId = toolUseMessage._id;
+          const isPairExpanded = expandedToolPairs.has(pairId);
+          const colors = getMessageColors(toolUseMessage.type);
 
           // Get preview of results (first few lines)
           const getResultPreview = (content: string) => {
@@ -611,141 +603,169 @@ export default function MessageList({ messages }: MessageListProps) {
             };
           };
 
+          const resultPreview = getResultPreview(toolResultMessage.content);
+
           return (
             <div
-              key={groupId}
-              className="relative transition-all duration-200 mt-8"
+              key={pairId}
+              className="relative transition-all duration-200 mt-4"
             >
-              {/* Tool Group Header */}
-              <div className="flex items-center gap-4 px-6 py-3 mb-2">
-                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md">
-                  <Wrench className="h-5 w-5" />
-                </div>
-                <div className="flex items-center gap-3 flex-1">
-                  <span className="text-base font-semibold text-violet-700 dark:text-violet-300">
-                    Tool Operations ({toolUseMessages.length} calls)
-                  </span>
-                </div>
-                <button
-                  onClick={() => toggleToolGroupExpanded(groupId)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-violet-600 hover:text-violet-900 dark:text-violet-400 dark:hover:text-violet-100 bg-violet-100 hover:bg-violet-200 dark:bg-violet-900/30 dark:hover:bg-violet-800/30 rounded-lg transition-all duration-200"
-                >
-                  {isGroupExpanded ? (
-                    <>
-                      <ChevronUp className="h-4 w-4" /> Collapse
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="h-4 w-4" /> Expand all
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Tool Group Content */}
-              <div className="space-y-2">
-                {group.messages.map((message, messageIndex) => {
-                  const isToolUse = message.type === 'tool_use';
-                  const isToolResult = message.type === 'tool_result';
-                  const colors = getMessageColors(message.type);
-
-                  // For collapsed view, only show tool_use messages and preview of results
-                  if (!isGroupExpanded && isToolResult) {
-                    const resultPreview = getResultPreview(message.content);
-                    const prevMessage = group.messages[messageIndex - 1];
-                    const isFirstResult =
-                      messageIndex === 0 || prevMessage?.type !== 'tool_result';
-
-                    if (isFirstResult) {
-                      return (
-                        <div
-                          key={message._id}
-                          className="ml-14 mr-3 px-4 py-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-lg border border-slate-200/50 dark:border-slate-700/50"
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <Terminal className="h-4 w-4 text-slate-500" />
-                            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                              System response preview
-                            </span>
-                          </div>
-                          <pre className="text-xs text-slate-600 dark:text-slate-400 overflow-hidden">
-                            {resultPreview.preview}
-                            {resultPreview.hasMore && (
-                              <span className="text-slate-400 dark:text-slate-500">
-                                {'\n'}... ({resultPreview.totalLines} lines
-                                total)
-                              </span>
-                            )}
-                          </pre>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }
-
-                  // For expanded view or tool_use messages, show full content
-                  return (
-                    <div
-                      key={message._id}
-                      className={cn(
-                        'group rounded-xl mx-3 px-6 py-5 transition-all duration-200 border backdrop-blur-sm relative',
-                        colors.background,
-                        colors.hover,
-                        'border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md',
-                        isToolResult && 'ml-14'
-                      )}
-                    >
-                      <div className="max-w-none">
-                        {/* Metadata */}
-                        <div className="flex items-center gap-4 mb-3 opacity-60 group-hover:opacity-100 transition-all duration-200">
-                          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                            <Clock className="h-3.5 w-3.5" />
-                            <time dateTime={message.timestamp}>
-                              {format(
-                                new Date(message.timestamp),
-                                'MMM d, HH:mm:ss'
-                              )}
-                            </time>
-                          </div>
-                          {message.totalCost && (
-                            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                              <Coins className="h-3.5 w-3.5" />
-                              <span>${message.totalCost.toFixed(4)}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Content Label for Tool Messages */}
-                        {isToolUse && (
-                          <div className="flex items-center gap-2 mb-3">
-                            <Wrench className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                            <span className="text-sm font-medium text-violet-700 dark:text-violet-300">
-                              Tool Call
-                            </span>
-                          </div>
+              {/* Tool Pair Container */}
+              <div
+                className={cn(
+                  'group rounded-xl mx-3 px-6 py-5 transition-all duration-200 border backdrop-blur-sm relative',
+                  colors.background,
+                  colors.hover,
+                  'border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md'
+                )}
+              >
+                {/* Header with expand/collapse button */}
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm mt-0.5">
+                      <Wrench className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+                          Tool Operation
+                        </span>
+                        {toolUseMessage.model && (
+                          <span className="text-xs px-2 py-0.5 bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-full font-medium">
+                            {toolUseMessage.model}
+                          </span>
                         )}
-                        {isToolResult && (
-                          <div className="flex items-center gap-2 mb-3">
-                            <Terminal className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                            <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-                              System Response
-                            </span>
-                          </div>
-                        )}
+                      </div>
 
-                        {/* Message Content */}
-                        <div className="prose prose-slate dark:prose-invert max-w-none">
-                          {formatContent(
-                            message.content,
-                            message.type,
-                            expandedMessages.has(message._id),
-                            message._id
-                          )}
+                      {/* Tool use content preview */}
+                      <div className="text-sm text-slate-700 dark:text-slate-300">
+                        {(() => {
+                          try {
+                            const parsed = JSON.parse(toolUseMessage.content);
+                            return parsed.name || 'Tool call';
+                          } catch {
+                            return toolUseMessage.content.slice(0, 100) + '...';
+                          }
+                        })()}
+                      </div>
+
+                      {/* Result preview */}
+                      <div className="mt-3 p-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-lg border border-slate-200/50 dark:border-slate-700/50">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Terminal className="h-3.5 w-3.5 text-slate-500" />
+                          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                            Result preview
+                          </span>
                         </div>
+                        <pre className="text-xs text-slate-600 dark:text-slate-400 overflow-hidden whitespace-pre-wrap break-words">
+                          {resultPreview.preview}
+                          {resultPreview.hasMore && (
+                            <span className="text-slate-400 dark:text-slate-500">
+                              {'\n'}... ({resultPreview.totalLines} lines total)
+                            </span>
+                          )}
+                        </pre>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+
+                  <button
+                    onClick={() => toggleToolPairExpanded(pairId)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-violet-600 hover:text-violet-900 dark:text-violet-400 dark:hover:text-violet-100 bg-violet-100 hover:bg-violet-200 dark:bg-violet-900/30 dark:hover:bg-violet-800/30 rounded-lg transition-all duration-200"
+                  >
+                    {isPairExpanded ? (
+                      <>
+                        <ChevronUp className="h-3.5 w-3.5" /> Collapse
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-3.5 w-3.5" /> Expand
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Expanded content */}
+                {isPairExpanded && (
+                  <div className="mt-4 space-y-3 border-t border-slate-200/50 dark:border-slate-700/50 pt-4">
+                    {/* Tool use full content */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Wrench className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                        <span className="text-sm font-medium text-violet-700 dark:text-violet-300">
+                          Tool Call Details
+                        </span>
+                      </div>
+                      <div className="prose prose-slate dark:prose-invert max-w-none">
+                        {formatContent(
+                          toolUseMessage.content,
+                          toolUseMessage.type,
+                          expandedMessages.has(toolUseMessage._id),
+                          toolUseMessage._id
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tool result full content */}
+                    <div className="mt-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Terminal className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                        <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                          Full Result
+                        </span>
+                      </div>
+                      <div className="prose prose-slate dark:prose-invert max-w-none">
+                        {formatContent(
+                          toolResultMessage.content,
+                          toolResultMessage.type,
+                          expandedMessages.has(toolResultMessage._id),
+                          toolResultMessage._id
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Metadata footer */}
+                <div className="flex items-center gap-4 mt-3 opacity-60 group-hover:opacity-100 transition-all duration-200">
+                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                    <Clock className="h-3.5 w-3.5" />
+                    <time dateTime={toolUseMessage.timestamp}>
+                      {format(
+                        new Date(toolUseMessage.timestamp),
+                        'MMM d, HH:mm:ss'
+                      )}
+                    </time>
+                  </div>
+                  {(toolUseMessage.totalCost ||
+                    toolResultMessage.totalCost) && (
+                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                      <Coins className="h-3.5 w-3.5" />
+                      <span>
+                        $
+                        {(
+                          (toolUseMessage.totalCost || 0) +
+                          (toolResultMessage.totalCost || 0)
+                        ).toFixed(4)}
+                      </span>
+                    </div>
+                  )}
+                  {(toolUseMessage.inputTokens ||
+                    toolUseMessage.outputTokens) && (
+                    <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                      <Hash className="h-3.5 w-3.5" />
+                      <span>
+                        {(
+                          (toolUseMessage.inputTokens || 0) +
+                          (toolUseMessage.outputTokens || 0) +
+                          (toolResultMessage.inputTokens || 0) +
+                          (toolResultMessage.outputTokens || 0)
+                        ).toLocaleString()}{' '}
+                        tokens
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
