@@ -642,7 +642,11 @@ function TimelineView({
 
           return (
             <div key={pairId} className="group">
-              <div className="rounded-xl p-4 bg-layer-secondary border border-secondary-c hover:border-primary-c transition-all">
+              <div className="rounded-xl p-4 bg-layer-secondary border border-secondary-c hover:border-primary-c transition-all relative">
+                {/* Version indicator for debugging */}
+                <div className="absolute top-1 right-1 text-[8px] text-gray-400 dark:text-gray-600 font-mono">
+                  v2.1
+                </div>
                 {/* Header with expand/collapse button */}
                 <div className="flex items-start justify-between gap-4 mb-3">
                   <div className="flex items-start gap-3 flex-1">
@@ -662,35 +666,35 @@ function TimelineView({
                       </div>
 
                       {/* Tool use content preview */}
-                      <div className="text-sm text-secondary-c mb-2">
+                      <div className="text-sm text-secondary-c font-medium">
                         {(() => {
                           try {
                             const parsed = JSON.parse(toolUseMessage.content);
-                            return parsed.name || 'Tool call';
+                            return `🔧 ${parsed.name || 'Tool call'}`;
                           } catch {
-                            return toolUseMessage.content.slice(0, 60) + '...';
+                            return '🔧 Tool call';
                           }
                         })()}
                       </div>
 
                       {/* Result preview - Collapsed state */}
                       {!isPairExpanded && (
-                        <div className="mt-2 p-2 bg-layer-tertiary/50 rounded-lg border border-secondary-c/50">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Terminal className="h-3 w-3 text-muted-c/70" />
-                            <span className="text-xs font-medium text-muted-c/70">
-                              Result preview (collapsed)
+                        <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border-2 border-dashed border-amber-300 dark:border-amber-700">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Terminal className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                              <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
+                                Tool Result (COLLAPSED)
+                              </span>
+                            </div>
+                            <span className="text-xs text-amber-600 dark:text-amber-400 font-mono">
+                              {resultPreview.totalLines} lines hidden
                             </span>
                           </div>
-                          <pre className="text-xs text-secondary-c/70 overflow-hidden whitespace-pre-wrap break-words font-mono">
-                            {resultPreview.preview}
-                            {resultPreview.hasMore && (
-                              <span className="text-muted-c/60 italic">
-                                {' '}
-                                ... ({resultPreview.totalLines} lines)
-                              </span>
-                            )}
-                          </pre>
+                          <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 italic">
+                            Click "Expand" to view the full tool operation and
+                            result
+                          </div>
                         </div>
                       )}
                     </div>
@@ -698,7 +702,11 @@ function TimelineView({
 
                   <button
                     onClick={() => onToggleToolPairExpanded(pairId)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-primary hover:text-primary-hover bg-layer-tertiary hover:bg-border rounded-lg transition-all duration-200"
+                    className={
+                      isPairExpanded
+                        ? 'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-all duration-200'
+                        : 'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-lg transition-all duration-200 shadow-md animate-pulse'
+                    }
                   >
                     {isPairExpanded ? (
                       <>
@@ -706,7 +714,7 @@ function TimelineView({
                       </>
                     ) : (
                       <>
-                        <ChevronDown className="h-3.5 w-3.5" /> Expand
+                        <ChevronDown className="h-3.5 w-3.5" /> EXPAND TO VIEW
                       </>
                     )}
                   </button>
