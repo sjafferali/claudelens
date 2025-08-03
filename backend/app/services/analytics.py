@@ -1571,7 +1571,7 @@ class AnalyticsService:
 
     def _calculate_branch_lengths(
         self, node_id: str, children: dict, current_length: int, lengths: list
-    ):
+    ) -> None:
         """Recursively calculate branch lengths."""
         if node_id not in children:
             # Leaf node - record the length

@@ -36,7 +36,9 @@ class ConnectionManager:
         self.stats_connections: Set[WebSocket] = set()
         self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket, session_id: str | None = None):
+    async def connect(
+        self, websocket: WebSocket, session_id: str | None = None
+    ) -> None:
         """Accept a WebSocket connection and add it to the appropriate groups."""
         await websocket.accept()
 
@@ -62,7 +64,9 @@ class ConnectionManager:
             ),
         )
 
-    async def disconnect(self, websocket: WebSocket, session_id: str | None = None):
+    async def disconnect(
+        self, websocket: WebSocket, session_id: str | None = None
+    ) -> None:
         """Remove a WebSocket connection from all groups."""
         async with self._lock:
             # Remove from session connections
@@ -85,7 +89,7 @@ class ConnectionManager:
         formatted_value: str,
         delta: int,
         animation: AnimationType = AnimationType.INCREMENT,
-    ):
+    ) -> None:
         """Broadcast a stat update to relevant connections."""
         event = StatUpdateEvent(
             stat_type=stat_type,
@@ -109,7 +113,7 @@ class ConnectionManager:
 
     async def broadcast_new_message(
         self, session_id: str, message_data: MessagePreview
-    ):
+    ) -> None:
         """Broadcast a new message event to relevant connections."""
         event = NewMessageEvent(session_id=session_id, message=message_data)
 
@@ -121,7 +125,7 @@ class ConnectionManager:
 
     async def handle_websocket_messages(
         self, websocket: WebSocket, session_id: str | None = None
-    ):
+    ) -> None:
         """Handle incoming WebSocket messages (like ping/pong)."""
         try:
             while True:
@@ -146,7 +150,7 @@ class ConnectionManager:
 
     async def _broadcast_to_connections(
         self, connections: Set[WebSocket], event: WebSocketEvent
-    ):
+    ) -> None:
         """Broadcast an event to a set of connections."""
         if not connections:
             return
@@ -162,7 +166,9 @@ class ConnectionManager:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def _send_to_websocket(self, websocket: WebSocket, event: WebSocketEvent):
+    async def _send_to_websocket(
+        self, websocket: WebSocket, event: WebSocketEvent
+    ) -> None:
         """Send an event to a specific WebSocket connection."""
         try:
             # Convert Pydantic model to dict and then to JSON
@@ -208,7 +214,7 @@ class RealtimeStatsService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
-    async def update_message_count(self, session_id: str):
+    async def update_message_count(self, session_id: str) -> None:
         """Update message count and broadcast the change."""
         try:
             # Get current message count from database
@@ -239,7 +245,7 @@ class RealtimeStatsService:
                 f"Error updating message count for session {session_id}: {e}"
             )
 
-    async def update_tool_usage(self, session_id: str):
+    async def update_tool_usage(self, session_id: str) -> None:
         """Update tool usage count and broadcast the change."""
         try:
             # Get current tool usage count from database
@@ -276,7 +282,7 @@ class RealtimeStatsService:
         except Exception as e:
             logger.exception(f"Error updating tool usage for session {session_id}: {e}")
 
-    async def update_token_count(self, session_id: str):
+    async def update_token_count(self, session_id: str) -> None:
         """Update token count and broadcast the change."""
         try:
             # Get current token count from database
@@ -327,7 +333,7 @@ class RealtimeStatsService:
                 f"Error updating token count for session {session_id}: {e}"
             )
 
-    async def update_cost(self, session_id: str):
+    async def update_cost(self, session_id: str) -> None:
         """Update cost and broadcast the change."""
         try:
             # Get current cost from database
@@ -362,7 +368,7 @@ class RealtimeStatsService:
         except Exception as e:
             logger.exception(f"Error updating cost for session {session_id}: {e}")
 
-    async def broadcast_new_message(self, session_id: str, message_data: dict):
+    async def broadcast_new_message(self, session_id: str, message_data: dict) -> None:
         """Broadcast a new message event."""
         try:
             # Create message preview

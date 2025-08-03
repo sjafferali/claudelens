@@ -299,14 +299,14 @@ if [ "$SKIP_LINT" = false ]; then
         if [ ! -d ".venv" ]; then
             poetry install --with dev
         fi
-        run_check "Backend mypy" "poetry run mypy app/ --ignore-missing-imports --allow-untyped-defs --allow-untyped-calls"
+        run_check "Backend mypy" "poetry run mypy app/ --ignore-missing-imports"
         cd "$PROJECT_ROOT"
 
         cd "$PROJECT_ROOT/cli"
         if [ ! -d ".venv" ]; then
             poetry install --with dev
         fi
-        run_check "CLI mypy" "poetry run mypy claudelens_cli/ --ignore-missing-imports --allow-untyped-defs --allow-untyped-calls"
+        run_check "CLI mypy" "poetry run mypy claudelens_cli/ --ignore-missing-imports"
         cd "$PROJECT_ROOT"
     fi
 fi

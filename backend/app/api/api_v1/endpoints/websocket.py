@@ -21,7 +21,7 @@ async def websocket_session_endpoint(
     websocket: WebSocket,
     session_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-):
+) -> None:
     """WebSocket endpoint for session-specific real-time updates."""
     logger.info(f"WebSocket connection attempt for session: {session_id}")
 
@@ -51,7 +51,7 @@ async def websocket_stats_endpoint(
     websocket: WebSocket,
     session_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
-):
+) -> None:
     """WebSocket endpoint for session stats real-time updates."""
     logger.info(f"WebSocket stats connection attempt for session: {session_id}")
 
@@ -91,7 +91,7 @@ async def websocket_stats_endpoint(
 @router.websocket("/stats")
 async def websocket_global_stats_endpoint(
     websocket: WebSocket, db: AsyncIOMotorDatabase = Depends(get_database)
-):
+) -> None:
     """WebSocket endpoint for global stats real-time updates."""
     logger.info("WebSocket global stats connection attempt")
 
@@ -266,6 +266,6 @@ async def get_live_global_stats(
 
 
 @router.get("/connections")
-async def get_connection_stats():
+async def get_connection_stats() -> dict:
     """Get WebSocket connection statistics (for debugging)."""
     return connection_manager.get_connection_stats()

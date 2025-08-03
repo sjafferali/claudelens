@@ -17,7 +17,7 @@ class RealtimeIntegrationService:
         self.db = db
         self.stats_service = RealtimeStatsService(db)
 
-    async def on_message_ingested(self, message_data: Dict[str, Any]):
+    async def on_message_ingested(self, message_data: Dict[str, Any]) -> None:
         """Called when a new message is ingested into the system."""
         try:
             session_id = message_data.get("sessionId")
@@ -35,7 +35,7 @@ class RealtimeIntegrationService:
 
     async def _broadcast_message_updates(
         self, session_id: str, message_data: Dict[str, Any]
-    ):
+    ) -> None:
         """Broadcast all relevant updates for a new message."""
         try:
             # Broadcast new message event
@@ -58,13 +58,13 @@ class RealtimeIntegrationService:
 
     async def _update_tool_usage_if_applicable(
         self, session_id: str, message_data: Dict[str, Any]
-    ):
+    ) -> None:
         """Update tool usage if the message contains tool usage."""
         tools_used = message_data.get("toolsUsed", [])
         if tools_used:
             await self.stats_service.update_tool_usage(session_id)
 
-    async def on_session_started(self, session_id: str):
+    async def on_session_started(self, session_id: str) -> None:
         """Called when a new session is started."""
         try:
             # Initialize stats for the session
@@ -79,7 +79,7 @@ class RealtimeIntegrationService:
         except Exception as e:
             logger.exception(f"Error initializing stats for session {session_id}: {e}")
 
-    async def on_session_updated(self, session_id: str):
+    async def on_session_updated(self, session_id: str) -> None:
         """Called when a session is updated."""
         try:
             # Refresh all stats for the session
@@ -107,7 +107,7 @@ def get_integration_service(db: AsyncIOMotorDatabase) -> RealtimeIntegrationServ
     return _integration_service
 
 
-async def initialize_realtime_integration(db: AsyncIOMotorDatabase):
+async def initialize_realtime_integration(db: AsyncIOMotorDatabase) -> None:
     """Initialize the real-time integration service."""
     global _integration_service
     _integration_service = RealtimeIntegrationService(db)
