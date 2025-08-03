@@ -6,7 +6,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from bson import ObjectId
+from bson import Decimal128, ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.schemas.ingest import IngestStats, MessageIngest
@@ -204,7 +204,7 @@ class IngestService:
             "startedAt": first_message.timestamp,
             "endedAt": first_message.timestamp,
             "messageCount": 0,
-            "totalCost": 0.0,
+            "totalCost": Decimal128("0.0"),  # MongoDB expects Decimal128, not float
             "createdAt": datetime.now(UTC),
             "updatedAt": datetime.now(UTC),
         }
@@ -384,7 +384,6 @@ class IngestService:
             "userType",
             "cwd",
             "model",
-            "costUsd",
             "durationMs",
             "requestId",
             "version",
@@ -398,6 +397,11 @@ class IngestService:
             value = getattr(message, field, None)
             if value is not None:
                 doc[field] = value
+
+        # Handle costUsd separately to convert to Decimal128
+        cost_usd = getattr(message, "costUsd", None)
+        if cost_usd is not None:
+            doc["costUsd"] = Decimal128(str(cost_usd))
 
         # Add any extra fields
         if message.extra_fields:
@@ -430,7 +434,9 @@ class IngestService:
                 {
                     "$set": {
                         "messageCount": stats["messageCount"],
-                        "totalCost": stats["totalCost"],
+                        "totalCost": Decimal128(
+                            str(stats["totalCost"])
+                        ),  # Convert to Decimal128
                         "startedAt": stats["startTime"],
                         "endedAt": stats["endTime"],
                         "updatedAt": datetime.now(UTC),

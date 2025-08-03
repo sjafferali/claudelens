@@ -7,7 +7,7 @@ import traceback
 from datetime import UTC, datetime
 from typing import Any
 
-from bson import ObjectId
+from bson import Decimal128, ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.schemas.ingest import IngestStats, MessageIngest
@@ -241,7 +241,7 @@ class IngestServiceDebug:
             "startedAt": first_message.timestamp,
             "endedAt": first_message.timestamp,
             "messageCount": 0,
-            "totalCost": 0.0,
+            "totalCost": Decimal128("0.0"),
             "createdAt": datetime.now(UTC),
             "updatedAt": datetime.now(UTC),
         }
@@ -440,7 +440,6 @@ class IngestServiceDebug:
             "userType",
             "cwd",
             "model",
-            "costUsd",
             "durationMs",
             "requestId",
             "version",
@@ -454,6 +453,11 @@ class IngestServiceDebug:
             value = getattr(message, field, None)
             if value is not None:
                 doc[field] = value
+
+        # Handle costUsd separately to convert to Decimal128
+        cost_usd = getattr(message, "costUsd", None)
+        if cost_usd is not None:
+            doc["costUsd"] = Decimal128(str(cost_usd))
 
         # Add any extra fields
         if message.extra_fields:
@@ -487,7 +491,7 @@ class IngestServiceDebug:
                 {
                     "$set": {
                         "messageCount": stats["messageCount"],
-                        "totalCost": stats["totalCost"],
+                        "totalCost": Decimal128(str(stats["totalCost"])),
                         "startedAt": stats["startTime"],
                         "endedAt": stats["endTime"],
                         "updatedAt": datetime.now(UTC),
