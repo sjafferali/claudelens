@@ -235,9 +235,93 @@ class IngestService:
             "createdAt": datetime.now(UTC),
         }
 
-        # Add message content
+        # Add message content - extract text content from message object
         if message.message:
-            doc["message"] = message.message
+            # Handle different message formats
+            if isinstance(message.message, dict):
+                content = ""
+
+                # Extract content based on message type
+                if message.type == "user":
+                    # User messages can have string or array content
+                    raw_content = message.message.get("content", "")
+
+                    if isinstance(raw_content, str):
+                        # Direct string content
+                        content = raw_content
+                    elif isinstance(raw_content, list):
+                        # Array-based content (tool results or text)
+                        text_parts = []
+                        for part in raw_content:
+                            if isinstance(part, dict):
+                                if part.get("type") == "text":
+                                    text_parts.append(part.get("text", ""))
+                                elif part.get("type") == "tool_result":
+                                    # Include tool result content
+                                    tool_content = part.get("content", "")
+                                    if tool_content:
+                                        text_parts.append(
+                                            f"[Tool Result: {tool_content}]"
+                                        )
+                        content = "\n".join(text_parts)
+
+                elif message.type == "assistant":
+                    # Assistant messages with content array
+                    content_parts = message.message.get("content", [])
+                    if isinstance(content_parts, list):
+                        # Extract different content types
+                        text_parts = []
+                        thinking_parts = []
+                        tool_uses = []
+
+                        for part in content_parts:
+                            if isinstance(part, dict):
+                                part_type = part.get("type")
+
+                                if part_type == "text":
+                                    text_parts.append(part.get("text", ""))
+                                elif part_type == "thinking":
+                                    # Store thinking separately but include in content
+                                    thinking = part.get("thinking", "")
+                                    if thinking:
+                                        thinking_parts.append(thinking)
+                                elif part_type == "tool_use":
+                                    # Format tool use for display
+                                    tool_name = part.get("name", "Unknown")
+                                    tool_uses.append(f"[Using tool: {tool_name}]")
+
+                        # Combine all parts
+                        all_parts = []
+                        if thinking_parts:
+                            all_parts.append("[Thinking]\n" + "\n".join(thinking_parts))
+                        if text_parts:
+                            all_parts.extend(text_parts)
+                        if tool_uses:
+                            all_parts.extend(tool_uses)
+
+                        content = "\n\n".join(all_parts) if all_parts else ""
+
+                        # Store thinking separately if present
+                        if thinking_parts:
+                            doc["thinking"] = "\n".join(thinking_parts)
+                    else:
+                        content = str(content_parts)
+
+                elif message.type == "summary":
+                    # Summary messages don't have standard message format
+                    content = message.message.get("summary", "")
+                else:
+                    # For other types, convert to string
+                    content = str(message.message)
+
+                # Store the content as a simple string
+                doc["content"] = content or ""
+
+                # Store the full message object for reference
+                doc["messageData"] = message.message
+            else:
+                # If message is already a string, use it directly
+                doc["content"] = str(message.message)
 
         # Add optional fields
         optional_fields = [
