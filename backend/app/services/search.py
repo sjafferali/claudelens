@@ -90,19 +90,10 @@ class SearchService:
         # Text search stage
         pipeline.append({"$match": {"$text": {"$search": query}}})
 
-        # Add filters
-        if filters:
-            filter_stage = self._build_filter_stage(filters)
-            if filter_stage:
-                pipeline.append({"$match": filter_stage})
-
         # Add text score
         pipeline.append({"$addFields": {"score": {"$meta": "textScore"}}})
 
-        # Sort by relevance
-        pipeline.append({"$sort": {"score": -1, "timestamp": -1}})
-
-        # Join with sessions and projects
+        # Join with sessions and projects BEFORE filtering
         pipeline.extend(
             [
                 {
@@ -126,6 +117,15 @@ class SearchService:
             ]
         )
 
+        # Add filters AFTER joins
+        if filters:
+            filter_stage = self._build_filter_stage(filters)
+            if filter_stage:
+                pipeline.append({"$match": filter_stage})
+
+        # Sort by relevance
+        pipeline.append({"$sort": {"score": -1, "timestamp": -1}})
+
         # Pagination
         pipeline.append({"$skip": skip})
         pipeline.append({"$limit": limit})
@@ -140,6 +140,27 @@ class SearchService:
 
         # Text search
         pipeline.append({"$match": {"$text": {"$search": query}}})
+
+        # Need to join if we have project filters
+        if filters and filters.project_ids:
+            pipeline.extend(
+                [
+                    {
+                        "$lookup": {
+                            "from": "sessions",
+                            "localField": "sessionId",
+                            "foreignField": "sessionId",
+                            "as": "session",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$session",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                ]
+            )
 
         # Add filters
         if filters:
@@ -169,7 +190,7 @@ class SearchService:
             conditions["type"] = {"$in": filters.message_types}
 
         if filters.models:
-            conditions["model"] = {"$in": filters.models}
+            conditions["message.model"] = {"$in": filters.models}
 
         if filters.start_date:
             conditions["timestamp"] = {"$gte": filters.start_date}
@@ -227,7 +248,9 @@ class SearchService:
             highlights=highlights,
             score=doc.get("score", 0),
             session_summary=doc.get("session", {}).get("summary"),
-            model=doc.get("model"),
+            model=doc.get("message", {}).get("model")
+            if isinstance(doc.get("message"), dict)
+            else None,
             cost_usd=doc.get("costUsd"),
         )
 

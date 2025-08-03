@@ -20,7 +20,8 @@ const navItems = [
 ];
 
 export default function Sidebar() {
-  const { theme, toggleTheme } = useStore((state) => state.ui);
+  const theme = useStore((state) => state.ui.theme);
+  const toggleTheme = useStore((state) => state.toggleTheme);
 
   return (
     <aside className="w-60 bg-layer-secondary border-r border-primary-c flex flex-col">

@@ -11,7 +11,7 @@ import Analytics from '@/pages/Analytics';
 import NotFound from '@/pages/NotFound';
 
 function App() {
-  const { theme } = useStore((state) => state.ui);
+  const theme = useStore((state) => state.ui.theme);
 
   useEffect(() => {
     if (theme === 'dark') {

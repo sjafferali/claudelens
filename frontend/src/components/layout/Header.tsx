@@ -2,7 +2,9 @@ import { Menu, Search, Moon, Sun } from 'lucide-react';
 import { useStore } from '@/store';
 
 export default function Header() {
-  const { toggleSidebar, theme, toggleTheme } = useStore((state) => state.ui);
+  const toggleSidebar = useStore((state) => state.toggleSidebar);
+  const toggleTheme = useStore((state) => state.toggleTheme);
+  const theme = useStore((state) => state.ui.theme);
 
   return (
     <header className="h-16 bg-background border-b border-border">
