@@ -92,4 +92,19 @@ export const sessionsApi = {
     }>(`/sessions/${sessionId}/generate-summary`);
     return { summary: response.summary };
   },
+
+  async updateMessageCost(messageId: string, costUsd: number) {
+    const response = await apiClient.patch(
+      `/messages/${messageId}/cost?cost_usd=${costUsd}`
+    );
+    return response;
+  },
+
+  async batchUpdateMessageCosts(costUpdates: Record<string, number>) {
+    const response = await apiClient.post(
+      '/messages/batch-update-costs',
+      costUpdates
+    );
+    return response;
+  },
 };

@@ -19,12 +19,14 @@ import { cn } from '@/utils/cn';
 import { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { getMessageUuid, getMessageCost } from '@/types/message-extensions';
 
 interface MessageListProps {
   messages: Message[];
+  costMap?: Map<string, number>;
 }
 
-export default function MessageList({ messages }: MessageListProps) {
+export default function MessageList({ messages, costMap }: MessageListProps) {
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
   );
@@ -552,12 +554,20 @@ export default function MessageList({ messages }: MessageListProps) {
                         {format(new Date(message.timestamp), 'MMM d, HH:mm:ss')}
                       </time>
                     </div>
-                    {message.totalCost && (
+                    {getMessageCost(message) ||
+                    (costMap && costMap.get(getMessageUuid(message) || '')) ? (
                       <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
                         <Coins className="h-3.5 w-3.5" />
-                        <span>${message.totalCost.toFixed(4)}</span>
+                        <span>
+                          $
+                          {(
+                            getMessageCost(message) ||
+                            costMap?.get(getMessageUuid(message) || '') ||
+                            0
+                          ).toFixed(4)}
+                        </span>
                       </div>
-                    )}
+                    ) : null}
                     {message.inputTokens && message.outputTokens && (
                       <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 font-medium">
                         <Hash className="h-3.5 w-3.5" />
@@ -737,15 +747,29 @@ export default function MessageList({ messages }: MessageListProps) {
                       )}
                     </time>
                   </div>
-                  {(toolUseMessage.totalCost ||
-                    toolResultMessage.totalCost) && (
+                  {(getMessageCost(toolUseMessage) ||
+                    (costMap &&
+                      costMap.get(getMessageUuid(toolUseMessage) || '')) ||
+                    getMessageCost(toolResultMessage) ||
+                    (costMap &&
+                      costMap.get(
+                        getMessageUuid(toolResultMessage) || ''
+                      ))) && (
                     <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
                       <Coins className="h-3.5 w-3.5" />
                       <span>
                         $
                         {(
-                          (toolUseMessage.totalCost || 0) +
-                          (toolResultMessage.totalCost || 0)
+                          (getMessageCost(toolUseMessage) ||
+                            costMap?.get(
+                              getMessageUuid(toolUseMessage) || ''
+                            ) ||
+                            0) +
+                          (getMessageCost(toolResultMessage) ||
+                            costMap?.get(
+                              getMessageUuid(toolResultMessage) || ''
+                            ) ||
+                            0)
                         ).toFixed(4)}
                       </span>
                     </div>

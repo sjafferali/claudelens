@@ -83,8 +83,14 @@ async def create_project(project: ProjectCreate, db: CommonDeps) -> Project:
     # Check if project with same path exists
     existing = await service.get_project_by_path(project.path)
     if existing:
-        raise HTTPException(
-            status_code=409, detail=f"Project with path '{project.path}' already exists"
+        # Return existing project instead of 409 error
+        return Project(
+            _id=str(existing.id),
+            name=existing.name,
+            description=existing.description,
+            path=existing.path,
+            createdAt=existing.created_at,
+            updatedAt=existing.updated_at,
         )
 
     created = await service.create_project(project)

@@ -229,9 +229,17 @@ class IngestService:
         project_path = None
         project_name = "Unknown Project"
 
-        if first_message.cwd:
-            # The cwd should be the full project path
-            # Extract project name from the last part of the path
+        # Check if we have a _project_path field from the sync engine
+        # It might be in extra_fields
+        extra_project_path = first_message.extra_fields.get("_project_path")
+        if extra_project_path:
+            project_path = extra_project_path
+            # Extract project name from the Claude project path
+            path_parts = project_path.rstrip("/").split("/")
+            if path_parts:
+                project_name = path_parts[-1]
+        elif first_message.cwd:
+            # Fallback to using cwd if no _project_path
             project_path = first_message.cwd
             path_parts = project_path.rstrip("/").split("/")
             if path_parts:

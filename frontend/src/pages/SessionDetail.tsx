@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSession, useSessionMessages } from '@/hooks/useSessions';
+import { useMessageCosts } from '@/hooks/useMessageCosts';
 import { cn } from '@/utils/cn';
 import { Message } from '@/api/types';
 import ToolUsageStatCard from '@/components/ToolUsageStatCard';
@@ -25,6 +26,7 @@ import TokenDetailsPanel from '@/components/TokenDetailsPanel';
 import CostStatCard from '@/components/CostStatCard';
 import CostDetailsPanel from '@/components/CostDetailsPanel';
 import SessionTopics from '@/components/SessionTopics';
+import { getMessageUuid, getMessageCost } from '@/types/message-extensions';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -33,6 +35,9 @@ export default function SessionDetail() {
   const { data: messages, isLoading: messagesLoading } = useSessionMessages(
     sessionId!
   );
+
+  // Calculate costs for messages
+  const { costMap } = useMessageCosts(messages?.messages);
 
   const [viewMode, setViewMode] = useState<'timeline' | 'compact' | 'raw'>(
     'timeline'
@@ -301,6 +306,7 @@ export default function SessionDetail() {
                   collapsedToolResults={collapsedToolResults}
                   expandedToolPairs={expandedToolPairs}
                   copiedId={copiedId}
+                  costMap={costMap}
                   onToggleExpanded={toggleExpanded}
                   onToggleToolResult={toggleToolResult}
                   onToggleToolPairExpanded={toggleToolPairExpanded}
@@ -427,6 +433,7 @@ interface TimelineViewProps {
   collapsedToolResults: Set<string>;
   expandedToolPairs: Set<string>;
   copiedId: string | null;
+  costMap?: Map<string, number>;
   onToggleExpanded: (messageId: string) => void;
   onToggleToolResult: (messageId: string) => void;
   onToggleToolPairExpanded: (pairId: string) => void;
@@ -442,6 +449,7 @@ function TimelineView({
   collapsedToolResults,
   expandedToolPairs,
   copiedId,
+  costMap,
   onToggleExpanded,
   onToggleToolResult,
   onToggleToolPairExpanded,
@@ -529,9 +537,26 @@ function TimelineView({
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-dim-c">
-                        {format(new Date(message.timestamp), 'MMM d, HH:mm:ss')}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        {getMessageCost(message) ||
+                        (costMap &&
+                          costMap.get(getMessageUuid(message) || '')) ? (
+                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                            $
+                            {(
+                              getMessageCost(message) ||
+                              costMap?.get(getMessageUuid(message) || '') ||
+                              0
+                            ).toFixed(4)}
+                          </span>
+                        ) : null}
+                        <span className="text-xs text-dim-c">
+                          {format(
+                            new Date(message.timestamp),
+                            'MMM d, HH:mm:ss'
+                          )}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Tool Result - Collapsible */}
@@ -759,6 +784,28 @@ function TimelineView({
                       'MMM d, HH:mm:ss'
                     )}
                   </time>
+                  {(getMessageCost(toolUseMessage) ||
+                    (costMap &&
+                      costMap.get(getMessageUuid(toolUseMessage) || '')) ||
+                    getMessageCost(toolResultMessage) ||
+                    (costMap &&
+                      costMap.get(
+                        getMessageUuid(toolResultMessage) || ''
+                      ))) && (
+                    <span className="text-green-600 dark:text-green-400 font-medium">
+                      $
+                      {(
+                        (getMessageCost(toolUseMessage) ||
+                          costMap?.get(getMessageUuid(toolUseMessage) || '') ||
+                          0) +
+                        (getMessageCost(toolResultMessage) ||
+                          costMap?.get(
+                            getMessageUuid(toolResultMessage) || ''
+                          ) ||
+                          0)
+                      ).toFixed(4)}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

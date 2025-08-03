@@ -246,7 +246,9 @@ class SyncEngine:
                 stats.messages_skipped += 1
                 continue
 
-            # Ensure message has the correct project path in cwd
+            # Store the original cwd but ensure we have the project path
+            # The project path is the actual Claude project directory
+            message["_project_path"] = project_path
             if not message.get("cwd"):
                 message["cwd"] = project_path
 
@@ -398,7 +400,10 @@ class SyncEngine:
 
         try:
             response = await client.post("/projects", json=project_data)
-            if response.status_code not in (200, 201, 409):  # 409 = already exists
+            if response.status_code not in (
+                200,
+                201,
+            ):  # Now returns 200/201 for both new and existing
                 error_msg = (
                     response.text.strip()
                     if response.text

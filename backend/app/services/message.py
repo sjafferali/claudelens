@@ -160,3 +160,62 @@ class MessageService:
             attachments=doc.get("attachments"),
             content_hash=doc.get("contentHash"),
         )
+
+    async def update_message_cost(self, message_id: str, cost_usd: float) -> bool:
+        """Update the cost for a specific message."""
+        from bson import Decimal128, ObjectId
+
+        try:
+            result = await self.db.messages.update_one(
+                {"_id": ObjectId(message_id)},
+                {"$set": {"costUsd": Decimal128(str(cost_usd))}},
+            )
+            return result.modified_count > 0
+        except Exception:
+            return False
+
+    async def batch_update_costs(self, cost_updates: dict[str, float]) -> int:
+        """Batch update costs for multiple messages by UUID."""
+        from bson import Decimal128
+
+        updated_count = 0
+        for uuid, cost in cost_updates.items():
+            result = await self.db.messages.update_one(
+                {"uuid": uuid},
+                {"$set": {"costUsd": Decimal128(str(cost))}},
+            )
+            if result.modified_count > 0:
+                updated_count += 1
+
+        # Update session total costs
+        session_ids = set()
+        cursor = self.db.messages.find(
+            {"uuid": {"$in": list(cost_updates.keys())}}, {"sessionId": 1}
+        )
+        async for doc in cursor:
+            session_ids.add(doc["sessionId"])
+
+        # Update each session's total cost
+        for session_id in session_ids:
+            await self._update_session_total_cost(session_id)
+
+        return updated_count
+
+    async def _update_session_total_cost(self, session_id: str) -> None:
+        """Update the total cost for a session."""
+        pipeline: list[dict[str, Any]] = [
+            {"$match": {"sessionId": session_id}},
+            {
+                "$group": {
+                    "_id": None,
+                    "totalCost": {"$sum": {"$ifNull": ["$costUsd", 0]}},
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        if result:
+            total_cost = float(result[0]["totalCost"])
+            await self.db.sessions.update_one(
+                {"sessionId": session_id}, {"$set": {"totalCost": total_cost}}
+            )

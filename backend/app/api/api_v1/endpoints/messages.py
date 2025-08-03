@@ -94,3 +94,38 @@ async def get_message_context(
         raise NotFoundError("Message", message_id)
 
     return context
+
+
+@router.patch("/{message_id}/cost")
+async def update_message_cost(
+    message_id: str,
+    db: CommonDeps,
+    cost_usd: float = Query(..., description="Cost in USD"),
+) -> dict:
+    """Update the cost for a specific message."""
+    service = MessageService(db)
+    success = await service.update_message_cost(message_id, cost_usd)
+
+    if not success:
+        raise NotFoundError("Message", message_id)
+
+    return {"success": True, "message_id": message_id, "cost_usd": cost_usd}
+
+
+@router.post("/batch-update-costs")
+async def batch_update_costs(
+    db: CommonDeps,
+    cost_updates: dict[str, float],
+) -> dict:
+    """Batch update costs for multiple messages.
+
+    Expects a dictionary mapping message UUIDs to their costs in USD.
+    """
+    service = MessageService(db)
+    updated_count = await service.batch_update_costs(cost_updates)
+
+    return {
+        "success": True,
+        "updated_count": updated_count,
+        "requested_count": len(cost_updates),
+    }

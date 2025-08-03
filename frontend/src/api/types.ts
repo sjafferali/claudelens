@@ -34,16 +34,24 @@ export interface Message {
   _id: string;
   sessionId: string;
   messageUuid: string;
+  uuid: string; // Add uuid field (same as messageUuid for compatibility)
   type: 'user' | 'assistant' | 'system' | 'tool_use' | 'tool_result';
   role?: string;
   content: string;
   model?: string;
   totalCost?: number;
+  cost_usd?: number; // Add cost_usd field
   inputTokens?: number;
   outputTokens?: number;
   timestamp: string;
   parentUuid?: string;
   metadata?: Record<string, unknown>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
 }
 
 // Response Time Analytics Types
