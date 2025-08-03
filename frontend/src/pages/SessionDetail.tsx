@@ -275,7 +275,7 @@ export default function SessionDetail() {
           </div>
 
           {/* Messages Container */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin">
+          <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin min-h-0">
             {viewMode === 'timeline' && (
               <TimelineView
                 messages={filteredMessages}
@@ -613,26 +613,30 @@ function RawView({ messages, onCopy, copiedId }: RawViewProps) {
     .join('\n\n');
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => onCopy(rawContent, 'raw-content')}
-        className="absolute top-2 right-2 px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1"
-      >
-        {copiedId === 'raw-content' ? (
-          <>
-            <Check className="h-3 w-3" />
-            Copied!
-          </>
-        ) : (
-          <>
-            <Copy className="h-3 w-3" />
-            Copy All
-          </>
-        )}
-      </button>
-      <pre className="bg-layer-tertiary border border-secondary-c rounded-lg p-6 text-secondary-c font-mono text-sm whitespace-pre-wrap">
-        {rawContent}
-      </pre>
+    <div className="relative h-full flex flex-col">
+      <div className="absolute top-2 right-2 z-10">
+        <button
+          onClick={() => onCopy(rawContent, 'raw-content')}
+          className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1"
+        >
+          {copiedId === 'raw-content' ? (
+            <>
+              <Check className="h-3 w-3" />
+              Copied!
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3" />
+              Copy All
+            </>
+          )}
+        </button>
+      </div>
+      <div className="flex-1 overflow-auto scrollbar-thin">
+        <pre className="bg-layer-tertiary border border-secondary-c rounded-lg p-6 text-secondary-c font-mono text-sm whitespace-pre-wrap break-words">
+          {rawContent}
+        </pre>
+      </div>
     </div>
   );
 }

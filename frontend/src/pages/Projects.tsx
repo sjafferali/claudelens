@@ -14,6 +14,7 @@ import { useSessions } from '@/hooks/useSessions';
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2, FolderOpen, MessageSquare, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { Project } from '@/api/types';
 
 export default function Projects() {
   const { projectId } = useParams();
@@ -28,14 +29,45 @@ export default function Projects() {
 function ProjectsList() {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
+  const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
+  const [deleteProjectName, setDeleteProjectName] = useState<string>('');
+  const [deleteProjectStats, setDeleteProjectStats] = useState<{
+    session_count: number;
+    message_count: number;
+  } | null>(null);
   const pageSize = 12;
 
-  const { data, isLoading, error } = useProjects({
+  const { data, isLoading, error, refetch } = useProjects({
     skip: currentPage * pageSize,
     limit: pageSize,
     sortBy: 'updated_at',
     sortOrder: 'desc',
   });
+  const deleteProject = useDeleteProject();
+
+  const handleDelete = async () => {
+    if (!deleteProjectId) return;
+
+    try {
+      await deleteProject.mutateAsync({
+        projectId: deleteProjectId,
+        cascade: true,
+      });
+      toast.success('Project deleted successfully');
+      refetch();
+    } catch (error) {
+      toast.error('Failed to delete project');
+      console.error('Delete project error:', error);
+    }
+    setDeleteProjectId(null);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, project: Project) => {
+    e.stopPropagation(); // Prevent navigation to project detail
+    setDeleteProjectId(project._id);
+    setDeleteProjectName(project.name);
+    setDeleteProjectStats(project.stats || null);
+  };
 
   if (error) {
     return (
@@ -82,10 +114,19 @@ function ProjectsList() {
                 <Card
                   key={project._id}
                   onClick={() => navigate(`/projects/${project._id}`)}
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  className="cursor-pointer hover:shadow-lg transition-shadow relative"
                 >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => handleDeleteClick(e, project)}
+                    className="absolute top-2 right-2 p-2 hover:bg-destructive/10"
+                    title="Delete project"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 pr-8">
                       <FolderOpen className="h-4 w-4" />
                       {project.name}
                     </CardTitle>
@@ -154,6 +195,30 @@ function ProjectsList() {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        isOpen={!!deleteProjectId}
+        title="Delete Project"
+        message={
+          <div>
+            <p>
+              Are you sure you want to delete the project "{deleteProjectName}"?
+            </p>
+            <p className="mt-2 text-sm">This will permanently delete:</p>
+            <ul className="mt-1 ml-4 text-sm list-disc">
+              <li>All {deleteProjectStats?.session_count || 0} sessions</li>
+              <li>All {deleteProjectStats?.message_count || 0} messages</li>
+              <li>The project configuration</li>
+            </ul>
+            <p className="mt-2 text-sm font-semibold">
+              This action cannot be undone.
+            </p>
+          </div>
+        }
+        confirmLabel="Delete Project"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteProjectId(null)}
+      />
     </div>
   );
 }
