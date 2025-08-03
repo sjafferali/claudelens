@@ -1,96 +1,168 @@
 # Cost Prediction Dashboard Implementation
 
 ## Context
-ClaudeLens tracks detailed cost data per message and session, enabling predictive analytics for budget planning and cost optimization.
+ClaudeLens tracks cost data per message and session, displaying it in the "Cost" stat card with detailed analytics available in expanded views.
 
 ## Feature Description
-Implement a cost prediction dashboard using time-series analysis to forecast future costs based on historical usage patterns and trends.
+Implement cost tracking and prediction that powers the Cost stat card (showing session/project costs) and provides detailed cost breakdowns and predictions in analytics views.
 
 ## Requirements
 
 ### Backend Implementation
 1. Create endpoints:
-   - `GET /api/v1/analytics/cost-prediction`
-   - `GET /api/v1/analytics/budget-alerts`
+   - `GET /api/v1/analytics/cost/summary` - For stat card display
+   - `GET /api/v1/analytics/cost/breakdown` - For detailed cost analysis
+   - `GET /api/v1/analytics/cost/prediction` - For cost forecasting
 
 2. Query parameters:
-   - `prediction_days`: Number of days to predict (7, 14, 30)
-   - `confidence_level`: Prediction confidence (0.8, 0.9, 0.95)
-   - `include_seasonality`: Account for weekly/monthly patterns
-   - `budget_amount`: Optional budget for alert calculation
+   - `session_id`: Filter by specific session
+   - `project_id`: Filter by project
+   - `time_range`: TimeRange enum
+   - `prediction_days`: For forecast endpoint (7, 14, 30)
 
-3. Prediction algorithms:
+3. Cost calculation:
    ```python
-   # Time series analysis using:
-   #   - Moving averages
-   #   - Exponential smoothing
-   #   - Seasonal decomposition
-   #   - Linear regression with features
-   # Calculate prediction intervals
-   # Detect anomalies and trends
-   # Factor in known events (deployments, team changes)
+   # Extract costUsd from messages
+   # Sum total costs for stat card
+   # Break down by model type
+   # Calculate trends and predictions
+   # Format currency display
    ```
 
-4. Response schema:
+4. Response schemas:
    ```typescript
+   // Summary for stat card
    {
-     predictions: [{
-       date: string,
-       predicted_cost: number,
-       lower_bound: number,
-       upper_bound: number,
-       confidence: number
-     }],
-     trend_analysis: {
-       trend_direction: 'increasing' | 'decreasing' | 'stable',
-       trend_strength: number,
-       seasonal_pattern: string,
-       anomalies: [{
-         date: string,
-         actual: number,
-         expected: number,
-         severity: 'high' | 'medium' | 'low'
+     total_cost: number,
+     formatted_cost: string,  // e.g., "$0.45", "$12.30"
+     currency: string,
+     trend: 'up' | 'down' | 'stable',
+     period: string
+   }
+
+   // Detailed breakdown
+   {
+     cost_breakdown: {
+       by_model: [{
+         model: string,
+         cost: number,
+         percentage: number,
+         message_count: number
+       }],
+       by_time: [{
+         timestamp: string,
+         cost: number,
+         cumulative: number
        }]
      },
-     budget_analysis: {
-       current_burn_rate: number,
-       days_until_budget_exceeded: number,
-       recommended_daily_budget: number,
-       savings_opportunities: number
+     cost_metrics: {
+       avg_cost_per_message: number,
+       avg_cost_per_hour: number,
+       most_expensive_model: string,
+       cost_efficiency_score: number
      }
    }
    ```
 
 ### Frontend Implementation
-1. Create components:
-   - `CostPredictionChart.tsx` - Main prediction visualization
-   - `BudgetGauge.tsx` - Budget consumption gauge
-   - `TrendIndicators.tsx` - Trend analysis cards
-   - `CostAlerts.tsx` - Alert configuration and display
 
-2. Features:
-   - Area chart with prediction bands
-   - Budget burn-down visualization
-   - Anomaly detection markers
-   - Adjustable prediction parameters
-   - What-if scenario modeling
+1. **Cost Stat Card**: `CostStatCard.tsx`
+   ```typescript
+   // Displays in the 2x2 stat grid
+   // Shows formatted cost (e.g., "$0.45")
+   // Styling:
+   // - stat-value: 24px font, var(--accent-primary)
+   // - stat-label: 12px font, var(--text-muted)
+   // - Shows "$0.00" when no cost data
+   ```
+
+2. **Cost Details Section**: `CostDetailsPanel.tsx`
+   ```typescript
+   // New section in details panel (optional)
+   // Shows cost breakdown by model
+   // Mini chart showing cost over time
+   // Budget warnings if applicable
+   ```
+
+3. **Visual Design**:
+   ```html
+   <!-- Stat card -->
+   <div class="stat-card">
+     <div class="stat-value">$0.45</div>
+     <div class="stat-label">Cost</div>
+   </div>
+
+   <!-- Alternative "No cost data" display -->
+   <div class="stat-card">
+     <div class="stat-value">$0.00</div>
+     <div class="stat-label">Cost</div>
+   </div>
+
+   <!-- Cost breakdown in details (optional) -->
+   <div class="cost-breakdown">
+     <div class="cost-item">
+       <span class="cost-model">claude-3-opus</span>
+       <span class="cost-amount">$0.35</span>
+     </div>
+     <div class="cost-item">
+       <span class="cost-model">claude-3-sonnet</span>
+       <span class="cost-amount">$0.10</span>
+     </div>
+   </div>
+   ```
 
 ### UI/UX Requirements
-- Shaded confidence intervals
-- Clear distinction between actual and predicted
-- Alert thresholds visualization
-- Interactive budget adjustment
-- Export predictions for reporting
+- **Stat Card**: Display cost with proper currency formatting
+- **No Data State**: Show "$0.00" or "No cost data" gracefully
+- **Hover Details**: Show breakdown on hover (optional)
+- **Color Coding**: Green for low cost, yellow for medium, red for high
+- **Real-time Updates**: Update as new costs are incurred
+
+### Cost Display Rules
+```typescript
+function formatCost(cost: number): string {
+  if (cost === 0) return "$0.00";
+  if (cost < 0.01) return "<$0.01";
+  if (cost < 1) return `$${cost.toFixed(2)}`;
+  if (cost < 100) return `$${cost.toFixed(2)}`;
+  return `$${cost.toFixed(0)}`;
+}
+```
+
+### Visual Styling
+```css
+.stat-card .stat-value {
+  font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.cost-breakdown {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.cost-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  color: var(--text-secondary);
+}
+
+.cost-amount {
+  font-family: 'Monaco', 'Menlo', monospace;
+  color: var(--text-primary);
+}
+```
 
 ## Technical Considerations
-- Handle sparse or irregular data
-- Account for API pricing changes
-- Multiple prediction models for comparison
-- Real-time prediction updates
-- Store prediction history for accuracy tracking
+- Handle missing cost data gracefully
+- Cache cost calculations for performance
+- Support multiple currencies (future)
+- Real-time cost updates as messages arrive
+- Consider free tier vs paid usage
 
 ## Success Criteria
-- Prediction accuracy within 15% for 7-day forecasts
-- Clear visualization of uncertainty
-- Actionable budget recommendations
-- Early warning system for budget overruns
+- Cost displays instantly in stat card
+- Accurate cost calculation from message data
+- Clear "No cost data" state when applicable
+- Consistent currency formatting
+- Updates reflect immediately in UI

@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClaudeLens - Improved Session View</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* CSS Variables for theming */
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-tertiary: #1a1a1a;
+            --border-primary: #2a2a2a;
+            --border-secondary: #1a1a1a;
+            --text-primary: #ffffff;
+            --text-secondary: #d0d0d0;
+            --text-tertiary: #b0b0b0;
+            --text-muted: #808080;
+            --text-dim: #606060;
+            --accent-primary: #4a5eff;
+            --accent-secondary: #6b46c1;
+            --accent-hover: #6b7cff;
+            --success: #10b981;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --border-primary: #e5e7eb;
+            --border-secondary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #374151;
+            --text-tertiary: #6b7280;
+            --text-muted: #9ca3af;
+            --text-dim: #d1d5db;
+            --accent-primary: #3730a3;
+            --accent-secondary: #7c3aed;
+            --accent-hover: #4f46e5;
+            --success: #059669;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-primary);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .theme-toggle {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 6px;
+            cursor: pointer;
+            color: var(--text-tertiary);
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--border-primary);
+            color: var(--text-primary);
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--text-tertiary);
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-left: 3px solid var(--accent-primary);
+        }
+
+        .nav-icon {
+            margin-right: 12px;
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-primary);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .session-title {
+            color: var(--text-primary);
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .session-meta {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 8px 16px;
+            width: 300px;
+        }
+
+        .search-box input {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            outline: none;
+            width: 100%;
+            margin-left: 8px;
+        }
+
+        /* Content Layout */
+        .content-wrapper {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Conversation Panel */
+        .conversation-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .conversation-header {
+            background: var(--bg-secondary);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .conversation-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .view-options {
+            display: flex;
+            gap: 8px;
+        }
+
+        .view-btn {
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            color: var(--text-tertiary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .view-btn.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: #ffffff;
+        }
+
+        /* Messages Container */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .message-group {
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            border-radius: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-secondary);
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+
+        .message:hover {
+            border-color: var(--border-primary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .avatar-claude {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+            color: #ffffff;
+        }
+
+        .avatar-user {
+            background: linear-gradient(135deg, var(--accent-secondary), #8b5cf6);
+            color: #ffffff;
+        }
+
+        .message-content {
+            flex: 1;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .message-author {
+            font-weight: 500;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .model-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            color: var(--text-muted);
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .message-text {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .message-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+
+        .action-btn {
+            padding: 4px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: var(--border-primary);
+            color: var(--text-primary);
+        }
+
+        /* Details Panel */
+        .details-panel {
+            width: 320px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-primary);
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .details-section {
+            margin-bottom: 32px;
+        }
+
+        .details-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-secondary);
+        }
+
+        .detail-label {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .detail-value {
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .stat-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-secondary);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-primary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-dim);
+        }
+
+        /* Copy button effect */
+        .copied {
+            background: var(--success) !important;
+            color: #ffffff !important;
+        }
+
+        /* Tag styles */
+        .tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .tag {
+            padding: 4px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 16px;
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        /* Collapsible content - much more compact */
+        .tool-result-collapsed {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-tertiary);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .expand-btn {
+            background: none;
+            border: none;
+            color: var(--accent-primary);
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0;
+            transition: color 0.2s;
+        }
+
+        .expand-btn:hover {
+            color: var(--accent-hover);
+        }
+
+        .tool-result-full {
+            margin-top: 8px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            border: 1px solid var(--border-primary);
+        }
+
+        /* Compact view styles */
+        .compact-view {
+            padding: 16px;
+        }
+
+        .compact-message {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-secondary);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+
+        .compact-message:hover {
+            border-color: var(--border-primary);
+        }
+
+        .compact-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .compact-author {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .compact-author.claude {
+            color: var(--accent-primary);
+        }
+
+        .compact-author.user {
+            color: var(--accent-secondary);
+        }
+
+        .compact-time {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .compact-text {
+            color: var(--text-tertiary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* Raw view styles */
+        .raw-view {
+            padding: 24px;
+            position: relative;
+        }
+
+        .raw-content {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-secondary);
+            border-radius: 8px;
+            padding: 24px;
+            color: var(--text-secondary);
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        .copy-raw {
+            position: absolute;
+            top: 32px;
+            right: 32px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>ClaudeLens</h1>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
+            <nav>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"></path>
+                    </svg>
+                    Projects
+                </a>
+                <a href="#" class="nav-item active">
+                    <svg class="nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"></path>
+                    </svg>
+                    Sessions
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path>
+                    </svg>
+                    Search
+                </a>
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path>
+                    </svg>
+                    Analytics
+                </a>
+            </nav>
+            <div style="margin-top: auto; padding: 20px;">
+                <a href="#" class="nav-item">
+                    <svg class="nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+                    </svg>
+                    Settings
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <div>
+                    <div class="breadcrumb">
+                        <span>← Back to sessions</span>
+                    </div>
+                    <h2 class="session-title">Session edc4b902...</h2>
+                    <div class="session-meta">
+                        <span>1 day ago</span>
+                        <span>•</span>
+                        <span>262 messages</span>
+                        <span>•</span>
+                        <span>No cost data</span>
+                    </div>
+                </div>
+                <div class="search-box">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input type="text" placeholder="Search messages...">
+                </div>
+            </div>
+
+            <!-- Content Wrapper -->
+            <div class="content-wrapper">
+                <!-- Conversation Panel -->
+                <div class="conversation-panel">
+                    <div class="conversation-header">
+                        <h3 class="conversation-title">Conversation</h3>
+                        <div class="view-options">
+                            <button class="view-btn active">Timeline</button>
+                            <button class="view-btn">Compact</button>
+                            <button class="view-btn">Raw</button>
+                        </div>
+                    </div>
+
+                    <!-- Messages -->
+                    <div class="messages-container">
+                        <!-- Claude's Message -->
+                        <div class="message-group">
+                            <div class="message">
+                                <div class="message-avatar avatar-claude">C</div>
+                                <div class="message-content">
+                                    <div class="message-header">
+                                        <div class="message-author">
+                                            Claude
+                                            <span class="model-badge">claude-opus-4-20250514</span>
+                                        </div>
+                                        <div class="message-time">Aug 1, 18:47:53</div>
+                                    </div>
+                                    <div class="message-text">I'll help you create a comprehensive web app for visualizing Claude conversation history. Let me start by exploring the existing projects and understanding the Claude data structure.</div>
+                                    <div class="message-actions">
+                                        <button class="action-btn" onclick="copyMessage(this)">Copy</button>
+                                        <button class="action-btn">Pin</button>
+                                        <button class="action-btn">Export</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="message">
+                                <div class="message-avatar avatar-claude">C</div>
+                                <div class="message-content">
+                                    <div class="message-header">
+                                        <div class="message-author">
+                                            Claude
+                                            <span class="model-badge">claude-opus-4-20250514</span>
+                                        </div>
+                                        <div class="message-time">Aug 1, 18:47:53</div>
+                                    </div>
+                                    <div class="message-text">[Using tool: todoWrite]</div>
+                                    <div class="tags">
+                                        <span class="tag">Tool Usage</span>
+                                        <span class="tag">todoWrite</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- User's Message -->
+                        <div class="message-group">
+                            <div class="message">
+                                <div class="message-avatar avatar-user">Y</div>
+                                <div class="message-content">
+                                    <div class="message-header">
+                                        <div class="message-author">You</div>
+                                        <div class="message-time">Aug 1, 18:47:53</div>
+                                    </div>
+                                    <div class="message-text">[Tool Result: Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable]</div>
+                                    <div class="tags">
+                                        <span class="tag">Tool Result</span>
+                                    </div>
+                                    <div class="message-actions">
+                                        <button class="action-btn" onclick="copyMessage(this)">Copy</button>
+                                        <button class="action-btn">Pin</button>
+                                        <button class="action-btn">Export</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Claude's Response -->
+                        <div class="message-group">
+                            <div class="message">
+                                <div class="message-avatar avatar-claude">C</div>
+                                <div class="message-content">
+                                    <div class="message-header">
+                                        <div class="message-author">
+                                            Claude
+                                            <span class="model-badge">claude-opus-4-20250514</span>
+                                        </div>
+                                        <div class="message-time">Aug 1, 18:48:12</div>
+                                    </div>
+                                    <div class="message-text">Great! I've created the initial todo list for the project. Now let's start building the web app for visualizing Claude conversation history.
+
+I'll create a modern, responsive web application with the following features:
+- Session browser with search and filtering
+- Conversation viewer with syntax highlighting
+- Analytics dashboard
+- Export functionality
+
+Let me create the main application structure:</div>
+                                    <div class="message-actions">
+                                        <button class="action-btn" onclick="copyMessage(this)">Copy</button>
+                                        <button class="action-btn">Pin</button>
+                                        <button class="action-btn">Export</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Details Panel -->
+                <div class="details-panel">
+                    <div class="details-section">
+                        <h3 class="details-title">Session Details</h3>
+                        <div class="detail-item">
+                            <span class="detail-label">Session ID</span>
+                            <span class="detail-value">edc4b902-b618...</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Started</span>
+                            <span class="detail-value">8/1/2025, 6:47:53 PM</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Ended</span>
+                            <span class="detail-value">8/1/2025, 7:51:46 PM</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Duration</span>
+                            <span class="detail-value">1h 3m 53s</span>
+                        </div>
+                    </div>
+
+                    <div class="details-section">
+                        <h3 class="details-title">Statistics</h3>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value">262</div>
+                                <div class="stat-label">Messages</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">18</div>
+                                <div class="stat-label">Tools Used</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">45K</div>
+                                <div class="stat-label">Tokens</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">$0.00</div>
+                                <div class="stat-label">Cost</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="details-section">
+                        <h3 class="details-title">Tools Used</h3>
+                        <div class="tags">
+                            <span class="tag">todoWrite × 12</span>
+                            <span class="tag">fileWrite × 4</span>
+                            <span class="tag">codeAnalysis × 2</span>
+                        </div>
+                    </div>
+
+                    <div class="details-section">
+                        <h3 class="details-title">Topics</h3>
+                        <div class="tags">
+                            <span class="tag">Web Development</span>
+                            <span class="tag">Claude API</span>
+                            <span class="tag">Data Visualization</span>
+                            <span class="tag">React</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Store original messages for view switching
+        let messagesData = [];
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for saved theme preference or default to dark
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+
+            // Store message data
+            storeMessageData();
+
+            // Collapse Tool Result messages by default
+            collapseToolResults();
+        });
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        function storeMessageData() {
+            const messages = document.querySelectorAll('.message');
+            messagesData = Array.from(messages).map(msg => {
+                const authorEl = msg.querySelector('.message-author');
+                const author = authorEl ? authorEl.childNodes[0].textContent.trim() : '';
+                const time = msg.querySelector('.message-time')?.textContent || '';
+                const text = msg.querySelector('.message-text')?.textContent || '';
+                const modelBadge = msg.querySelector('.model-badge')?.textContent || '';
+                return { author, time, text, modelBadge, element: msg.cloneNode(true) };
+            });
+        }
+
+        function copyMessage(button) {
+            const messageText = button.closest('.message-content').querySelector('.message-text').textContent;
+            navigator.clipboard.writeText(messageText).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // Collapse Tool Result messages
+        function collapseToolResults() {
+            document.querySelectorAll('.message-text').forEach(textEl => {
+                const text = textEl.textContent;
+                if (text.startsWith('[Tool Result:')) {
+                    const fullText = text;
+                    textEl.innerHTML = `
+                        <span class="tool-result-collapsed">
+                            <span>Tool Result</span>
+                            <button class="expand-btn" onclick="toggleToolResult(this, \`${fullText.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">Show</button>
+                        </span>
+                    `;
+                    textEl.dataset.fullText = fullText;
+                }
+            });
+        }
+
+        function toggleToolResult(button, fullText) {
+            const textEl = button.closest('.message-text');
+            const isCollapsed = button.textContent === 'Show';
+
+            if (isCollapsed) {
+                textEl.innerHTML = `
+                    <div class="tool-result-full">
+                        ${fullText}
+                        <button class="expand-btn" onclick="toggleToolResult(this, \`${fullText.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">Hide</button>
+                    </div>
+                `;
+            } else {
+                textEl.innerHTML = `
+                    <span class="tool-result-collapsed">
+                        <span>Tool Result</span>
+                        <button class="expand-btn" onclick="toggleToolResult(this, \`${fullText.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">Show</button>
+                    </span>
+                `;
+            }
+        }
+
+        // View toggle functionality
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const view = this.textContent;
+                const container = document.querySelector('.messages-container');
+
+                switch(view) {
+                    case 'Timeline':
+                        showTimelineView();
+                        break;
+                    case 'Compact':
+                        showCompactView();
+                        break;
+                    case 'Raw':
+                        showRawView();
+                        break;
+                }
+            });
+        });
+
+        function showTimelineView() {
+            const container = document.querySelector('.messages-container');
+            container.innerHTML = '';
+
+            let currentGroup = null;
+            messagesData.forEach(msg => {
+                if (!currentGroup || currentGroup.lastAuthor !== msg.author) {
+                    currentGroup = document.createElement('div');
+                    currentGroup.className = 'message-group';
+                    currentGroup.lastAuthor = msg.author;
+                    container.appendChild(currentGroup);
+                }
+                currentGroup.appendChild(msg.element.cloneNode(true));
+            });
+
+            collapseToolResults();
+        }
+
+        function showCompactView() {
+            const container = document.querySelector('.messages-container');
+            container.innerHTML = `
+                <div class="compact-view">
+                    ${messagesData.map(msg => `
+                        <div class="compact-message">
+                            <div class="compact-header">
+                                <span class="compact-author ${msg.author === 'You' ? 'user' : 'claude'}">${msg.author}</span>
+                                <span class="compact-time">${msg.time}</span>
+                            </div>
+                            <div class="compact-text">${msg.text.substring(0, 200)}${msg.text.length > 200 ? '...' : ''}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function showRawView() {
+            const container = document.querySelector('.messages-container');
+            const rawText = messagesData.map(msg => {
+                const model = msg.modelBadge ? ` (${msg.modelBadge})` : '';
+                return `[${msg.time}] ${msg.author}${model}: ${msg.text}`;
+            }).join('\n\n');
+
+            container.innerHTML = `
+                <div class="raw-view">
+                    <pre class="raw-content">${rawText}</pre>
+                    <button class="action-btn copy-raw" onclick="copyRawContent()">Copy All</button>
+                </div>
+            `;
+        }
+
+        function copyRawContent() {
+            const content = document.querySelector('.raw-content').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const button = document.querySelector('.copy-raw');
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = 'Copy All';
+                    button.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // Search functionality
+        const searchInput = document.querySelector('.search-box input');
+        searchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const currentView = document.querySelector('.view-btn.active').textContent;
+
+            if (currentView === 'Timeline') {
+                const messages = document.querySelectorAll('.message');
+                messages.forEach(message => {
+                    const text = message.querySelector('.message-text').textContent.toLowerCase();
+                    message.style.display = text.includes(searchTerm) ? 'flex' : 'none';
+                });
+            } else if (currentView === 'Compact') {
+                const messages = document.querySelectorAll('.compact-message');
+                messages.forEach(message => {
+                    const text = message.querySelector('.compact-text').textContent.toLowerCase();
+                    message.style.display = text.includes(searchTerm) ? 'block' : 'none';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

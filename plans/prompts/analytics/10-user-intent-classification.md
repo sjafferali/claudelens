@@ -1,98 +1,151 @@
 # User Intent Classification Implementation
 
 ## Context
-ClaudeLens captures detailed message content and tool usage patterns, enabling classification of user intents and session purposes.
+ClaudeLens captures message content and tool usage patterns, enabling topic classification that displays in the "Topics" section of the session details panel.
 
 ## Feature Description
-Implement ML-based intent classification to categorize sessions by purpose (debugging, feature development, refactoring, documentation, etc.) and provide insights into usage patterns.
+Implement intelligent topic detection to automatically tag sessions with relevant topics (Web Development, Claude API, Data Visualization, etc.) for the Topics section in the details panel.
 
 ## Requirements
 
 ### Backend Implementation
 1. Create endpoints:
-   - `GET /api/v1/analytics/intent-classification`
-   - `POST /api/v1/analytics/train-classifier`
+   - `GET /api/v1/analytics/topics/extract` - Extract topics for a session
+   - `GET /api/v1/analytics/topics/suggest` - Suggest related topics
+   - `POST /api/v1/analytics/topics/train` - Improve topic detection
 
-2. Classification approach:
+2. Topic extraction approach:
    ```python
-   # Feature extraction:
+   # Feature extraction from messages:
+   #   - Keywords and phrases
+   #   - File extensions accessed
    #   - Tool usage patterns
-   #   - Message keywords
-   #   - Session duration
-   #   - File types accessed
-   #   - Error/success ratios
-   # Intent categories:
-   #   - Debugging/Troubleshooting
-   #   - Feature Development
-   #   - Code Refactoring
-   #   - Documentation
-   #   - Code Review
-   #   - Learning/Exploration
-   #   - Testing
+   #   - Library/framework mentions
+   #   - Error types encountered
+   # Topic categories:
+   #   - Web Development
+   #   - API Integration
+   #   - Data Visualization
+   #   - Machine Learning
+   #   - Database Operations
    #   - DevOps/Deployment
+   #   - Testing/QA
+   #   - Documentation
    ```
 
-3. Response schema:
+3. Response schemas:
    ```typescript
+   // Topic extraction
    {
-     session_intents: [{
-       session_id: string,
-       primary_intent: string,
+     session_id: string,
+     topics: [{
+       name: string,
        confidence: number,
-       secondary_intents: [{
-         intent: string,
-         confidence: number
-       }],
-       characteristic_patterns: string[]
+       category: string,
+       relevance_score: number
      }],
-     intent_distribution: [{
-       intent: string,
-       count: number,
-       percentage: number,
-       avg_cost: number,
-       avg_duration: number,
-       typical_tools: string[]
+     suggested_topics: string[],
+     extraction_method: 'keyword' | 'ml' | 'hybrid'
+   }
+
+   // Topic aggregation
+   {
+     popular_topics: [{
+       name: string,
+       session_count: number,
+       trend: 'trending' | 'stable' | 'declining'
      }],
-     insights: {
-       most_costly_intent: string,
-       most_efficient_intent: string,
-       intent_trends: [{
-         intent: string,
-         trend: 'increasing' | 'decreasing' | 'stable'
-       }]
-     }
+     topic_combinations: [{
+       topics: string[],
+       frequency: number
+     }]
    }
    ```
 
 ### Frontend Implementation
-1. Create components:
-   - `IntentDashboard.tsx` - Overview of intent distribution
-   - `IntentTimeline.tsx` - Intent patterns over time
-   - `IntentDetails.tsx` - Deep dive into specific intent
-   - `IntentTraining.tsx` - Manual classification interface
 
-2. Visualizations:
-   - Pie/donut chart for intent distribution
-   - Stacked area chart for intent trends
-   - Sankey diagram for intent transitions
-   - Confidence score indicators
+1. **Topics Section Component**: `SessionTopics.tsx`
+   ```typescript
+   // Displays in the details panel
+   // Shows extracted topics as tags
+   // Consistent with existing UI design
+   ```
+
+2. **Tag Display**:
+   ```html
+   <div class="details-section">
+     <h3 class="details-title">Topics</h3>
+     <div class="tags">
+       <span class="tag">Web Development</span>
+       <span class="tag">Claude API</span>
+       <span class="tag">Data Visualization</span>
+       <span class="tag">React</span>
+     </div>
+   </div>
+   ```
+
+3. **Interactive Features**:
+   - Click tag to filter sessions by topic
+   - Add/remove topics manually
+   - Suggest related topics on hover
+   - Topic confidence indicator (optional)
 
 ### UI/UX Requirements
-- Color-coded intent categories
-- Confidence indicators (high/medium/low)
-- Manual override capability
-- Drill-down to example sessions
-- Export intent analysis reports
+- **Tag Styling**: Use existing tag class from mockup
+- **Layout**: Flexible wrap for multiple topics
+- **Colors**: Consistent with theme variables
+- **Interactions**: Subtle hover effects
+- **Loading**: Graceful loading state
+
+### Topic Detection Rules
+```typescript
+const topicRules = {
+  "Web Development": ["react", "vue", "angular", "frontend", "css", "html"],
+  "Claude API": ["claude", "anthropic", "api", "webhook", "endpoint"],
+  "Data Visualization": ["chart", "graph", "plot", "dashboard", "metrics"],
+  "Database": ["mongodb", "sql", "postgres", "database", "query"],
+  "Testing": ["test", "jest", "vitest", "pytest", "unit test"],
+  // ... more rules
+};
+```
+
+### Visual Styling
+```css
+/* Reuse existing tag styles from mockup */
+.tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.tag {
+  padding: 4px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tag:hover {
+  background: var(--border-primary);
+  color: var(--text-primary);
+}
+```
 
 ## Technical Considerations
-- Privacy-preserving classification
-- Incremental learning from user corrections
-- Handle ambiguous sessions
-- Performance for real-time classification
-- Explainable AI for transparency
+- Cache extracted topics per session
+- Use keyword matching for initial implementation
+- Add ML-based extraction as enhancement
+- Support user corrections to improve accuracy
+- Lightweight processing for real-time updates
 
 ## Success Criteria
-- 80%+ classification accuracy
-- Clear differentiation between intents
-- Actionable insights for workflow optimization
-- User trust through explainability
+- Topics load instantly in details panel
+- Accurate topic extraction from session content
+- Consistent tag styling with mockup
+- Interactive filtering capabilities
+- Graceful handling of sessions without clear topics

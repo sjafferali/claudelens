@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { useEffect } from 'react';
+import { useStore } from '@/store';
 import Layout from '@/components/layout/Layout';
 import Dashboard from '@/pages/Dashboard';
 import Projects from '@/pages/Projects';
@@ -9,6 +11,12 @@ import Analytics from '@/pages/Analytics';
 import NotFound from '@/pages/NotFound';
 
 function App() {
+  const { theme } = useStore((state) => state.ui);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
+
   return (
     <BrowserRouter>
       <Layout>

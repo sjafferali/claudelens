@@ -1,10 +1,3 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/common';
 import { useAnalyticsSummary } from '@/hooks/useAnalytics';
 import { TimeRange } from '@/api/analytics';
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
@@ -18,16 +11,16 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex h-screen items-center justify-center bg-layer-primary">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-c" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <p className="text-muted-foreground">Failed to load analytics data</p>
+      <div className="flex h-screen items-center justify-center bg-layer-primary">
+        <p className="text-muted-c">Failed to load analytics data</p>
       </div>
     );
   }
@@ -35,7 +28,7 @@ export default function Dashboard() {
   const formatTrend = (trend: number) => {
     const isPositive = trend > 0;
     const Icon = isPositive ? TrendingUp : TrendingDown;
-    const color = isPositive ? 'text-green-600' : 'text-red-600';
+    const color = isPositive ? 'text-success' : 'text-destructive';
 
     return (
       <p className={`flex items-center text-xs ${color}`}>
@@ -55,96 +48,108 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
+    <div className="flex flex-col h-screen bg-layer-primary">
+      {/* Header */}
+      <div className="bg-layer-secondary border-b border-primary-c px-6 py-4">
+        <h2 className="text-2xl font-semibold text-primary-c">Dashboard</h2>
+        <p className="text-tertiary-c mt-1">
           Overview of your Claude conversation activity
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Sessions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {summary?.total_sessions.toLocaleString() || 0}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Stats Grid */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="bg-layer-secondary border border-primary-c rounded-lg p-6">
+              <h3 className="text-sm font-medium text-tertiary-c mb-2">
+                Total Sessions
+              </h3>
+              <div className="text-2xl font-bold text-primary-c">
+                {summary?.total_sessions.toLocaleString() || 0}
+              </div>
+              {summary && (
+                <div className="mt-2">
+                  {formatTrend(summary.messages_trend)}
+                </div>
+              )}
             </div>
-            {summary && formatTrend(summary.messages_trend)}
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Messages
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {summary?.total_messages.toLocaleString() || 0}
+            <div className="bg-layer-secondary border border-primary-c rounded-lg p-6">
+              <h3 className="text-sm font-medium text-tertiary-c mb-2">
+                Total Messages
+              </h3>
+              <div className="text-2xl font-bold text-primary-c">
+                {summary?.total_messages.toLocaleString() || 0}
+              </div>
+              {summary && (
+                <div className="mt-2">
+                  {formatTrend(summary.messages_trend)}
+                </div>
+              )}
             </div>
-            {summary && formatTrend(summary.messages_trend)}
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {summary ? formatCost(summary.total_cost) : '$0.00'}
+            <div className="bg-layer-secondary border border-primary-c rounded-lg p-6">
+              <h3 className="text-sm font-medium text-tertiary-c mb-2">
+                Total Cost
+              </h3>
+              <div className="text-2xl font-bold text-primary-c">
+                {summary ? formatCost(summary.total_cost) : '$0.00'}
+              </div>
+              {summary && (
+                <div className="mt-2">{formatTrend(summary.cost_trend)}</div>
+              )}
             </div>
-            {summary && formatTrend(summary.cost_trend)}
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Projects
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {summary?.total_projects || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {summary?.most_active_project
-                ? `Most active: ${summary.most_active_project}`
-                : 'No active projects'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Your latest Claude conversations</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {summary?.most_used_model && (
-              <p className="text-sm text-muted-foreground">
-                Most used model:{' '}
-                <span className="font-medium">{summary.most_used_model}</span>
+            <div className="bg-layer-secondary border border-primary-c rounded-lg p-6">
+              <h3 className="text-sm font-medium text-tertiary-c mb-2">
+                Active Projects
+              </h3>
+              <div className="text-2xl font-bold text-primary-c">
+                {summary?.total_projects || 0}
+              </div>
+              <p className="text-xs text-muted-c mt-2">
+                {summary?.most_active_project
+                  ? `Most active: ${summary.most_active_project}`
+                  : 'No active projects'}
               </p>
-            )}
-            <p className="text-sm text-muted-foreground">
-              Data from last 30 days • Updated{' '}
-              {summary
-                ? new Date(summary.generated_at).toLocaleTimeString()
-                : 'now'}
-            </p>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Recent Activity */}
+          <div className="bg-layer-secondary border border-primary-c rounded-lg">
+            <div className="px-6 py-4 border-b border-primary-c">
+              <h3 className="text-lg font-medium text-primary-c">
+                Recent Activity
+              </h3>
+              <p className="text-sm text-tertiary-c mt-1">
+                Your latest Claude conversations
+              </p>
+            </div>
+            <div className="p-6">
+              <div className="space-y-3">
+                {summary?.most_used_model && (
+                  <div className="flex justify-between items-center py-2 border-b border-secondary-c">
+                    <span className="text-sm text-muted-c">
+                      Most used model
+                    </span>
+                    <span className="text-sm font-medium text-secondary-c">
+                      {summary.most_used_model}
+                    </span>
+                  </div>
+                )}
+                <p className="text-sm text-muted-c">
+                  Data from last 30 days • Updated{' '}
+                  {summary
+                    ? new Date(summary.generated_at).toLocaleTimeString()
+                    : 'now'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

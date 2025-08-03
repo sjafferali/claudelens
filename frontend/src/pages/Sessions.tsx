@@ -1,30 +1,18 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/common';
-import {
-  useSessions,
-  useSession,
-  useSessionMessages,
-} from '@/hooks/useSessions';
+import { useSessions } from '@/hooks/useSessions';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2 } from 'lucide-react';
-import MessageList from '@/components/MessageList';
 import SearchBar from '@/components/SearchBar';
 import SessionFilters from '@/components/SessionFilters';
 import ActiveFilters from '@/components/ActiveFilters';
 import { useSessionFilters } from '@/hooks/useSessionFilters';
+import SessionDetail from './SessionDetail';
 
 export default function Sessions() {
   const { sessionId } = useParams();
 
   if (sessionId) {
-    return <SessionDetail sessionId={sessionId} />;
+    return <SessionDetail />;
   }
 
   return <SessionsList />;
@@ -98,283 +86,168 @@ function SessionsList() {
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Sessions</h2>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col h-screen bg-layer-primary">
+        <div className="bg-layer-secondary border-b border-primary-c px-6 py-4">
+          <h2 className="text-2xl font-semibold text-primary-c">Sessions</h2>
+          <p className="text-tertiary-c mt-1">
             Browse all your Claude conversation sessions
           </p>
         </div>
-        <Card>
-          <CardContent className="p-12 text-center">
-            <p className="text-muted-foreground">Failed to load sessions</p>
-          </CardContent>
-        </Card>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="bg-layer-secondary border border-primary-c rounded-lg p-12 text-center">
+            <p className="text-tertiary-c">Failed to load sessions</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Sessions</h2>
-        <p className="text-muted-foreground">
+    <div className="flex flex-col h-screen bg-layer-primary">
+      {/* Header */}
+      <div className="bg-layer-secondary border-b border-primary-c px-6 py-4">
+        <h2 className="text-2xl font-semibold text-primary-c">Sessions</h2>
+        <p className="text-tertiary-c mt-1">
           Browse all your Claude conversation sessions
         </p>
       </div>
 
-      <div className="space-y-4">
-        <SearchBar
-          value={filters.search || ''}
-          onChange={handleSearchChange}
-          placeholder="Search sessions..."
-          className="w-full"
-        />
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <div className="space-y-4">
+            <SearchBar
+              value={filters.search || ''}
+              onChange={handleSearchChange}
+              placeholder="Search sessions..."
+              className="w-full"
+            />
 
-        <SessionFilters
-          filters={filters}
-          onChange={handleFilterChange}
-          hideProjectFilter={!!filters.projectId}
-        />
+            <SessionFilters
+              filters={filters}
+              onChange={handleFilterChange}
+              hideProjectFilter={!!filters.projectId}
+            />
 
-        {hasActiveFilters && (
-          <ActiveFilters
-            filters={filters}
-            onRemoveFilter={removeFilter}
-            onClearAll={clearAllFilters}
-          />
-        )}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {hasActiveFilters ? 'Filtered Sessions' : 'Recent Sessions'}
-          </CardTitle>
-          <CardDescription>
-            {data && (
-              <span>
-                Showing {data.items.length > 0 ? currentPage * pageSize + 1 : 0}{' '}
-                - {Math.min((currentPage + 1) * pageSize, data.total)} of{' '}
-                {data.total} sessions
-              </span>
+            {hasActiveFilters && (
+              <ActiveFilters
+                filters={filters}
+                onRemoveFilter={removeFilter}
+                onClearAll={clearAllFilters}
+              />
             )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between p-4 border rounded-lg animate-pulse"
-                >
-                  <div className="space-y-2 flex-1">
-                    <div className="h-4 w-3/4 bg-muted rounded"></div>
-                    <div className="h-3 w-1/2 bg-muted rounded"></div>
-                  </div>
-                  <div className="h-4 w-16 bg-muted rounded"></div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="space-y-4">
-                {data?.items.length === 0 ? (
-                  <div className="text-center py-12 space-y-4">
-                    <p className="text-muted-foreground">
-                      {hasActiveFilters
-                        ? 'No sessions found matching your filters'
-                        : 'No sessions found'}
-                    </p>
-                    {hasActiveFilters && (
-                      <button
-                        onClick={clearAllFilters}
-                        className="text-sm text-primary hover:underline"
-                      >
-                        Clear all filters
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  data?.items.map((session) => (
-                    <div
-                      key={session._id}
-                      onClick={() => navigate(`/sessions/${session._id}`)}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
-                    >
-                      <div className="space-y-1 flex-1">
-                        <p className="font-medium">
-                          {session.summary ||
-                            `Session ${session.sessionId.slice(0, 8)}...`}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {session.messageCount} messages •
-                          {formatDistanceToNow(new Date(session.startedAt), {
-                            addSuffix: true,
-                          })}
-                        </p>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {session.totalCost
-                          ? `$${session.totalCost.toFixed(2)}`
-                          : 'N/A'}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+          </div>
 
-              {data && data.items.length > 0 && (
-                <div className="flex items-center justify-between mt-6">
-                  <p className="text-sm text-muted-foreground">
-                    Page {currentPage + 1} of {Math.ceil(data.total / pageSize)}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 0}
-                      className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent transition-colors"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={!data.has_more}
-                      className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent transition-colors"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
+          <div className="bg-layer-secondary border border-primary-c rounded-lg">
+            <div className="px-6 py-4 border-b border-primary-c">
+              <h3 className="text-lg font-medium text-primary-c">
+                {hasActiveFilters ? 'Filtered Sessions' : 'Recent Sessions'}
+              </h3>
+              {data && (
+                <p className="text-sm text-tertiary-c mt-1">
+                  Showing{' '}
+                  {data.items.length > 0 ? currentPage * pageSize + 1 : 0} -{' '}
+                  {Math.min((currentPage + 1) * pageSize, data.total)} of{' '}
+                  {data.total} sessions
+                </p>
               )}
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function SessionDetail({ sessionId }: { sessionId: string }) {
-  const navigate = useNavigate();
-  const { data: session, isLoading: sessionLoading } = useSession(sessionId);
-  const { data: messages, isLoading: messagesLoading } =
-    useSessionMessages(sessionId);
-
-  if (sessionLoading || messagesLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!session || !messages) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">
-            Session Not Found
-          </h2>
-          <p className="text-muted-foreground">
-            This session could not be found.
-          </p>
-        </div>
-        <button
-          onClick={() => navigate('/sessions')}
-          className="text-sm text-primary hover:underline"
-        >
-          ← Back to sessions
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <button
-            onClick={() => navigate(-1)}
-            className="text-sm text-muted-foreground hover:text-foreground mb-2 flex items-center gap-1"
-          >
-            ← Back to sessions
-          </button>
-          <h2 className="text-3xl font-bold tracking-tight">
-            {session.summary || `Session ${session.sessionId.slice(0, 8)}...`}
-          </h2>
-          <p className="text-muted-foreground">
-            {formatDistanceToNow(new Date(session.startedAt), {
-              addSuffix: true,
-            })}{' '}
-            •{session.messageCount} messages •
-            {session.totalCost
-              ? ` $${session.totalCost.toFixed(2)}`
-              : ' No cost data'}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Conversation</CardTitle>
-            <CardDescription>Messages in this session</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MessageList messages={messages.messages} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Session Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Session ID
-              </p>
-              <p className="text-sm font-mono">{session.sessionId}</p>
             </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Started
-              </p>
-              <p className="text-sm">
-                {new Date(session.startedAt).toLocaleString()}
-              </p>
-            </div>
-            {session.endedAt && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Ended
-                </p>
-                <p className="text-sm">
-                  {new Date(session.endedAt).toLocaleString()}
-                </p>
-              </div>
-            )}
-            {session.modelsUsed && session.modelsUsed.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Models Used
-                </p>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {session.modelsUsed.map((model, i) => (
-                    <span
+            <div className="p-6">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[...Array(5)].map((_, i) => (
+                    <div
                       key={i}
-                      className="text-xs px-2 py-1 bg-secondary rounded-md"
+                      className="flex items-center justify-between p-4 bg-layer-tertiary border border-secondary-c rounded-lg animate-pulse"
                     >
-                      {model}
-                    </span>
+                      <div className="space-y-2 flex-1">
+                        <div className="h-4 w-3/4 bg-border rounded"></div>
+                        <div className="h-3 w-1/2 bg-border rounded"></div>
+                      </div>
+                      <div className="h-4 w-16 bg-border rounded"></div>
+                    </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    {data?.items.length === 0 ? (
+                      <div className="text-center py-12 space-y-4">
+                        <p className="text-tertiary-c">
+                          {hasActiveFilters
+                            ? 'No sessions found matching your filters'
+                            : 'No sessions found'}
+                        </p>
+                        {hasActiveFilters && (
+                          <button
+                            onClick={clearAllFilters}
+                            className="text-sm text-primary hover:text-primary-hover"
+                          >
+                            Clear all filters
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      data?.items.map((session) => (
+                        <div
+                          key={session._id}
+                          onClick={() => navigate(`/sessions/${session._id}`)}
+                          className="flex items-center justify-between p-4 bg-layer-tertiary border border-secondary-c rounded-lg hover:border-primary-c hover:bg-layer-tertiary/80 cursor-pointer transition-all"
+                        >
+                          <div className="space-y-1 flex-1">
+                            <p className="font-medium text-primary-c">
+                              {session.summary ||
+                                `Session ${session.sessionId.slice(0, 8)}...`}
+                            </p>
+                            <p className="text-sm text-tertiary-c">
+                              {session.messageCount} messages •{' '}
+                              {formatDistanceToNow(
+                                new Date(session.startedAt),
+                                {
+                                  addSuffix: true,
+                                }
+                              )}
+                            </p>
+                          </div>
+                          <div className="text-sm text-muted-c">
+                            {session.totalCost
+                              ? `$${session.totalCost.toFixed(2)}`
+                              : 'N/A'}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {data && data.items.length > 0 && (
+                    <div className="flex items-center justify-between mt-6">
+                      <p className="text-sm text-tertiary-c">
+                        Page {currentPage + 1} of{' '}
+                        {Math.ceil(data.total / pageSize)}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 0}
+                          className="px-3 py-1.5 text-sm bg-layer-tertiary border border-primary-c rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-border hover:text-primary-c transition-all text-tertiary-c"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={!data.has_more}
+                          className="px-3 py-1.5 text-sm bg-layer-tertiary border border-primary-c rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-border hover:text-primary-c transition-all text-tertiary-c"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

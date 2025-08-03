@@ -1,6 +1,4 @@
 import { ReactNode } from 'react';
-import { useStore } from '@/store';
-import Header from './Header';
 import Sidebar from './Sidebar';
 
 interface LayoutProps {
@@ -8,20 +6,11 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { sidebarOpen } = useStore((state) => state.ui);
-
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <div className="flex h-[calc(100vh-4rem)]">
+    <div className="min-h-screen bg-layer-primary">
+      <div className="flex h-screen overflow-hidden">
         <Sidebar />
-        <main
-          className={`flex-1 overflow-y-auto p-6 transition-all duration-300 ${
-            sidebarOpen ? 'ml-64' : 'ml-16'
-          }`}
-        >
-          {children}
-        </main>
+        <main className="flex-1 overflow-hidden">{children}</main>
       </div>
     </div>
   );
