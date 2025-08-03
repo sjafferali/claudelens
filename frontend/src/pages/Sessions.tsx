@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -7,18 +7,20 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/common';
-import {
-  useSessions,
-  useSession,
-  useSessionMessages,
-} from '@/hooks/useSessions';
+import { useSessions, useSession } from '@/hooks/useSessions';
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2 } from 'lucide-react';
-import MessageList from '@/components/MessageList';
+import VirtualMessageList from '@/components/VirtualMessageList';
+import MessageNavigator from '@/components/MessageNavigator';
+import ConversationSearch from '@/components/ConversationSearch';
+import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import SearchBar from '@/components/SearchBar';
 import SessionFilters from '@/components/SessionFilters';
 import ActiveFilters from '@/components/ActiveFilters';
 import { useSessionFilters } from '@/hooks/useSessionFilters';
+import { useMessagePagination } from '@/hooks/useMessagePagination';
+import { useConversationSearch } from '@/hooks/useConversationSearch';
+import { useHotkeys } from 'react-hotkeys-hook';
 
 export default function Sessions() {
   const { sessionId } = useParams();
@@ -258,11 +260,106 @@ function SessionsList() {
 
 function SessionDetail({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
+  const containerRef = useRef<HTMLDivElement>(null);
   const { data: session, isLoading: sessionLoading } = useSession(sessionId);
-  const { data: messages, isLoading: messagesLoading } =
-    useSessionMessages(sessionId);
+  const {
+    messages,
+    totalMessages,
+    loadedRange,
+    isLoading: messagesLoading,
+    hasNextPage,
+    hasPreviousPage,
+    isFetchingNextPage,
+    isFetchingPreviousPage,
+    loadMore,
+  } = useMessagePagination({ sessionId });
 
-  if (sessionLoading || messagesLoading) {
+  const { isSearchOpen, openSearch, closeSearch, navigateToMessage } =
+    useConversationSearch({ containerRef });
+
+  // Keyboard navigation
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+
+  // Navigate with J/K keys
+  useHotkeys(
+    'j',
+    () => {
+      if (currentMessageIndex > 0) {
+        setCurrentMessageIndex((prev) => prev - 1);
+        navigateToMessage(messages[currentMessageIndex - 1]._id);
+      }
+    },
+    { enableOnFormTags: false }
+  );
+
+  useHotkeys(
+    'k',
+    () => {
+      if (currentMessageIndex < messages.length - 1) {
+        setCurrentMessageIndex((prev) => prev + 1);
+        navigateToMessage(messages[currentMessageIndex + 1]._id);
+      }
+    },
+    { enableOnFormTags: false }
+  );
+
+  // Go to top with G G
+  useHotkeys(
+    'g g',
+    () => {
+      containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    { enableOnFormTags: false }
+  );
+
+  // Go to bottom with Shift+G
+  useHotkeys(
+    'shift+g',
+    () => {
+      containerRef.current?.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    },
+    { enableOnFormTags: false }
+  );
+
+  // Page navigation
+  useHotkeys(
+    'space',
+    (e) => {
+      e.preventDefault();
+      containerRef.current?.scrollBy({
+        top: window.innerHeight * 0.8,
+        behavior: 'smooth',
+      });
+    },
+    { enableOnFormTags: false }
+  );
+
+  useHotkeys(
+    'shift+space',
+    (e) => {
+      e.preventDefault();
+      containerRef.current?.scrollBy({
+        top: -window.innerHeight * 0.8,
+        behavior: 'smooth',
+      });
+    },
+    { enableOnFormTags: false }
+  );
+
+  // Open search with /
+  useHotkeys(
+    '/',
+    (e) => {
+      e.preventDefault();
+      openSearch();
+    },
+    { enableOnFormTags: false }
+  );
+
+  if (sessionLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -270,7 +367,7 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
     );
   }
 
-  if (!session || !messages) {
+  if (!session) {
     return (
       <div className="space-y-6">
         <div>
@@ -308,7 +405,7 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
             {formatDistanceToNow(new Date(session.startedAt), {
               addSuffix: true,
             })}{' '}
-            •{session.messageCount} messages •
+            • {totalMessages || session.messageCount} messages •
             {session.totalCost
               ? ` $${session.totalCost.toFixed(2)}`
               : ' No cost data'}
@@ -317,13 +414,35 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 relative">
           <CardHeader>
             <CardTitle>Conversation</CardTitle>
-            <CardDescription>Messages in this session</CardDescription>
+            <CardDescription>
+              {loadedRange.start > 0 || loadedRange.end < totalMessages ? (
+                <span>
+                  Showing messages {loadedRange.start}-{loadedRange.end} of{' '}
+                  {totalMessages}
+                </span>
+              ) : (
+                <span>All {messages.length} messages loaded</span>
+              )}
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <MessageList messages={messages.messages} />
+          <CardContent className="p-0">
+            <div
+              ref={containerRef}
+              className="h-[calc(100vh-300px)] overflow-hidden"
+            >
+              <VirtualMessageList
+                messages={messages}
+                isLoading={messagesLoading}
+                hasNextPage={hasNextPage}
+                hasPreviousPage={hasPreviousPage}
+                isFetchingNextPage={isFetchingNextPage}
+                isFetchingPreviousPage={isFetchingPreviousPage}
+                onLoadMore={loadMore}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -376,6 +495,24 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Navigation Controls */}
+      <MessageNavigator
+        containerRef={containerRef}
+        totalMessages={totalMessages}
+        loadedRange={loadedRange}
+      />
+
+      {/* Search Interface */}
+      <ConversationSearch
+        messages={messages}
+        isOpen={isSearchOpen}
+        onClose={closeSearch}
+        onNavigateToMessage={navigateToMessage}
+      />
+
+      {/* Keyboard Shortcuts Guide */}
+      <KeyboardShortcuts />
     </div>
   );
 }
