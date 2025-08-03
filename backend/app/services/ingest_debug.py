@@ -1,8 +1,9 @@
-"""Ingestion service for processing messages."""
+"""Debug version of ingestion service with extensive logging."""
 import asyncio
 import hashlib
 import json
 import logging
+import traceback
 from datetime import UTC, datetime
 from typing import Any
 
@@ -11,30 +12,30 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.schemas.ingest import IngestStats, MessageIngest
 
+# Set up detailed logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-# Temporary debug handler
-_debug_handler = logging.StreamHandler()
-_debug_handler.setLevel(logging.DEBUG)
-_debug_formatter = logging.Formatter(
-    "%(asctime)s - INGEST_DEBUG - %(levelname)s - %(message)s"
-)
-_debug_handler.setFormatter(_debug_formatter)
-logger.addHandler(_debug_handler)
+# Add console handler with detailed format
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 
-class IngestService:
-    """Service for ingesting Claude messages."""
+class IngestServiceDebug:
+    """Debug version of IngestService with extensive logging."""
 
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
         self._project_cache: dict[str, ObjectId] = {}
         self._session_cache: dict[str, ObjectId] = {}
+        logger.info("IngestServiceDebug initialized")
 
     async def ingest_messages(self, messages: list[MessageIngest]) -> IngestStats:
-        """Ingest a batch of messages."""
-        logger.debug(f"=== Starting ingest_messages with {len(messages)} messages ===")
+        """Ingest a batch of messages with debug logging."""
+        logger.info(f"=== Starting ingestion of {len(messages)} messages ===")
 
         start_time = datetime.now(UTC)
         stats = IngestStats(
@@ -49,152 +50,188 @@ class IngestService:
             duration_ms=0,
         )
 
-        # Log first message details
-        if messages:
-            first = messages[0]
-            logger.debug(
-                f"First message: type={first.type}, uuid={first.uuid}, sessionId={first.sessionId}"
-            )
-            logger.debug(f"Has message field: {hasattr(first, 'message')}")
+        try:
+            # Log first message details
+            if messages:
+                first_msg = messages[0]
+                logger.debug(f"First message type: {first_msg.type}")
+                logger.debug(f"First message UUID: {first_msg.uuid}")
+                logger.debug(f"First message sessionId: {first_msg.sessionId}")
+                logger.debug(
+                    f"First message has 'message' field: {hasattr(first_msg, 'message')}"
+                )
+                if hasattr(first_msg, "message"):
+                    logger.debug(f"Message field type: {type(first_msg.message)}")
 
-        # Group messages by session
-        sessions_map: dict[str, list[MessageIngest]] = {}
-        for message in messages:
-            session_id = message.sessionId
-            if session_id not in sessions_map:
-                sessions_map[session_id] = []
-            sessions_map[session_id].append(message)
+            # Group messages by session
+            sessions_map: dict[str, list[MessageIngest]] = {}
+            for message in messages:
+                session_id = message.sessionId
+                if session_id not in sessions_map:
+                    sessions_map[session_id] = []
+                sessions_map[session_id].append(message)
 
-        # Process each session
-        tasks = []
-        for session_id, session_messages in sessions_map.items():
-            task = self._process_session_messages(session_id, session_messages, stats)
-            tasks.append(task)
+            logger.info(f"Messages grouped into {len(sessions_map)} sessions")
 
-        # Run all sessions in parallel
-        await asyncio.gather(*tasks, return_exceptions=True)
+            # Process each session
+            tasks = []
+            for session_id, session_messages in sessions_map.items():
+                logger.debug(
+                    f"Creating task for session {session_id} with {len(session_messages)} messages"
+                )
+                task = self._process_session_messages(
+                    session_id, session_messages, stats
+                )
+                tasks.append(task)
 
-        # Calculate duration
-        duration = (datetime.now(UTC) - start_time).total_seconds() * 1000
-        stats.duration_ms = int(duration)
+            # Run all sessions in parallel
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Log final stats
-        logger.debug("=== Ingestion completed ===")
-        logger.debug(f"Messages received: {stats.messages_received}")
-        logger.debug(f"Messages processed: {stats.messages_processed}")
-        logger.debug(f"Messages failed: {stats.messages_failed}")
-        logger.debug(f"Messages skipped: {stats.messages_skipped}")
-        logger.debug(f"Sessions created: {stats.sessions_created}")
-        logger.debug(f"Duration: {stats.duration_ms}ms")
+            # Check for exceptions
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(f"Task {i} failed with exception: {result}")
+                    logger.error(traceback.format_exc())
 
-        # Log ingestion
-        await self._log_ingestion(stats)
+            # Calculate duration
+            duration = (datetime.now(UTC) - start_time).total_seconds() * 1000
+            stats.duration_ms = int(duration)
 
-        return stats
+            logger.info("=== Ingestion completed ===")
+            logger.info(f"Messages received: {stats.messages_received}")
+            logger.info(f"Messages processed: {stats.messages_processed}")
+            logger.info(f"Messages failed: {stats.messages_failed}")
+            logger.info(f"Messages skipped: {stats.messages_skipped}")
+            logger.info(f"Sessions created: {stats.sessions_created}")
+            logger.info(f"Duration: {stats.duration_ms}ms")
+
+            # Log ingestion
+            await self._log_ingestion(stats)
+
+            return stats
+
+        except Exception as e:
+            logger.error(f"Fatal error in ingest_messages: {e}")
+            logger.error(traceback.format_exc())
+            raise
 
     async def _process_session_messages(
         self, session_id: str, messages: list[MessageIngest], stats: IngestStats
     ) -> None:
-        """Process messages for a single session."""
+        """Process messages for a single session with debug logging."""
+        logger.debug(f"=== Processing session {session_id} ===")
+
         try:
             # Ensure session exists
-            logger.debug(
-                f"Processing session {session_id} with {len(messages)} messages"
-            )
+            logger.debug(f"Ensuring session exists for {session_id}")
             session_obj_id = await self._ensure_session(session_id, messages[0])
             if session_obj_id:
                 stats.sessions_created += 1
-                logger.debug(f"Created new session with ID: {session_obj_id}")
+                logger.info(f"Created new session with ObjectId: {session_obj_id}")
             else:
                 stats.sessions_updated += 1
-                logger.debug("Using existing session")
+                logger.debug("Session already exists")
 
             # Get existing message hashes for deduplication
             existing_hashes = await self._get_existing_hashes(session_id)
+            logger.debug(f"Found {len(existing_hashes)} existing message hashes")
 
             # Process each message
             new_messages = []
-            for message in messages:
+            for i, message in enumerate(messages):
+                logger.debug(
+                    f"Processing message {i+1}/{len(messages)}: {message.uuid}"
+                )
+
                 # Generate hash for deduplication
                 message_hash = self._hash_message(message)
+                logger.debug(f"Message hash: {message_hash}")
 
                 if message_hash in existing_hashes:
                     stats.messages_skipped += 1
+                    logger.debug("Message skipped (duplicate)")
                     continue
 
                 # Convert to database model
                 try:
-                    logger.debug(f"Converting message {message.uuid} to doc")
                     message_doc = self._message_to_doc(message, session_id)
-                    logger.debug(
-                        f"Doc created, has content: {'content' in message_doc}"
-                    )
+                    logger.debug("Message converted to doc successfully")
+                    logger.debug(f"Doc has content field: {'content' in message_doc}")
+                    if "content" in message_doc:
+                        logger.debug(
+                            f"Content preview: {message_doc['content'][:100]}..."
+                        )
+
                     new_messages.append(message_doc)
                     existing_hashes.add(message_hash)
                 except Exception as e:
                     logger.error(f"Error processing message {message.uuid}: {e}")
-                    logger.exception("Full traceback:")
+                    logger.error(traceback.format_exc())
                     stats.messages_failed += 1
 
             # Bulk insert new messages
             if new_messages:
-                logger.debug(f"Inserting {len(new_messages)} messages to MongoDB")
+                logger.info(f"Inserting {len(new_messages)} new messages into MongoDB")
                 try:
                     result = await self.db.messages.insert_many(new_messages)
                     stats.messages_processed += len(result.inserted_ids)
-                    logger.debug(
+                    logger.info(
                         f"Successfully inserted {len(result.inserted_ids)} messages"
                     )
                 except Exception as e:
                     logger.error(f"MongoDB insert failed: {e}")
-                    logger.exception("Full traceback:")
+                    logger.error(traceback.format_exc())
                     stats.messages_failed += len(new_messages)
                     return
 
                 # Update session statistics
-                await self._update_session_stats(session_id)
+                try:
+                    await self._update_session_stats(session_id)
+                    logger.debug("Updated session statistics")
+                except Exception as e:
+                    logger.error(f"Failed to update session stats: {e}")
 
         except Exception as e:
             logger.error(f"Error processing session {session_id}: {e}")
+            logger.error(traceback.format_exc())
             stats.messages_failed += len(messages)
 
     async def _ensure_session(
         self, session_id: str, first_message: MessageIngest
     ) -> ObjectId | None:
         """Ensure session exists, create if needed."""
+        logger.debug(f"_ensure_session called for {session_id}")
+
         # Check cache first
         if session_id in self._session_cache:
+            logger.debug("Session found in cache")
             return None
 
         # Check database
         existing = await self.db.sessions.find_one({"sessionId": session_id})
         if existing:
+            logger.debug("Session found in database")
             self._session_cache[session_id] = existing["_id"]
             return None
+
+        logger.info(f"Creating new session {session_id}")
 
         # Extract project info from path
         project_path = None
         project_name = "Unknown Project"
 
         if first_message.cwd:
-            # The cwd should be the full project path
-            # Extract project name from the last part of the path
             project_path = first_message.cwd
             path_parts = project_path.rstrip("/").split("/")
             if path_parts:
                 project_name = path_parts[-1]
-
-            # Also check for Claude path format
-            # e.g., /Users/user/Library/Application Support/Claude/projects/my-project
-            if "projects" in path_parts:
-                idx = path_parts.index("projects")
-                if idx + 1 < len(path_parts):
-                    # Use the more specific project name if found
-                    project_name = path_parts[idx + 1]
+            logger.debug(f"Project path: {project_path}")
+            logger.debug(f"Project name: {project_name}")
 
         # Ensure project exists
         effective_path = project_path or first_message.cwd or "unknown"
         project_id = await self._ensure_project(effective_path, project_name)
+        logger.debug(f"Project ID: {project_id}")
 
         # Create session
         session_doc = {
@@ -209,28 +246,39 @@ class IngestService:
             "updatedAt": datetime.now(UTC),
         }
 
-        await self.db.sessions.insert_one(session_doc)
-        session_id_obj = session_doc["_id"]
-        assert isinstance(session_id_obj, ObjectId)
-        self._session_cache[session_id] = session_id_obj
-
-        return session_id_obj
+        try:
+            await self.db.sessions.insert_one(session_doc)
+            session_id_obj = session_doc["_id"]
+            assert isinstance(session_id_obj, ObjectId)
+            self._session_cache[session_id] = session_id_obj
+            logger.info(f"Session created successfully with ID: {session_id_obj}")
+            return session_id_obj
+        except Exception as e:
+            logger.error(f"Failed to create session: {e}")
+            raise
 
     async def _ensure_project(self, project_path: str, project_name: str) -> ObjectId:
         """Ensure project exists, create if needed."""
+        logger.debug(
+            f"_ensure_project called: path={project_path}, name={project_name}"
+        )
+
         # Check cache first
         if project_path in self._project_cache:
+            logger.debug("Project found in cache")
             return self._project_cache[project_path]
 
         # Check database
         existing = await self.db.projects.find_one({"path": project_path})
         if existing:
+            logger.debug(f"Project found in database: {existing['_id']}")
             self._project_cache[project_path] = existing["_id"]
             project_id = existing["_id"]
             assert isinstance(project_id, ObjectId)
             return project_id
 
         # Create project
+        logger.info(f"Creating new project: {project_name}")
         project_doc = {
             "_id": ObjectId(),
             "name": project_name,
@@ -240,12 +288,16 @@ class IngestService:
             "stats": {"message_count": 0, "session_count": 0},
         }
 
-        await self.db.projects.insert_one(project_doc)
-        project_id = project_doc["_id"]
-        assert isinstance(project_id, ObjectId)
-        self._project_cache[project_path] = project_id
-
-        return project_id
+        try:
+            await self.db.projects.insert_one(project_doc)
+            project_id = project_doc["_id"]
+            assert isinstance(project_id, ObjectId)
+            self._project_cache[project_path] = project_id
+            logger.info(f"Project created successfully with ID: {project_id}")
+            return project_id
+        except Exception as e:
+            logger.error(f"Failed to create project: {e}")
+            raise
 
     async def _get_existing_hashes(self, session_id: str) -> set[str]:
         """Get existing message hashes for a session."""
@@ -272,10 +324,8 @@ class IngestService:
         return hashlib.sha256(content.encode()).hexdigest()
 
     def _message_to_doc(self, message: MessageIngest, session_id: str) -> dict:
-        """Convert message to database document."""
-        logger.debug(
-            f"_message_to_doc: Converting {message.type} message {message.uuid}"
-        )
+        """Convert message to database document with debug logging."""
+        logger.debug(f"_message_to_doc called for message {message.uuid}")
 
         doc = {
             "_id": ObjectId(),
@@ -290,6 +340,8 @@ class IngestService:
 
         # Add message content - extract text content from message object
         if message.message:
+            logger.debug(f"Message has 'message' field, type: {type(message.message)}")
+
             # Handle different message formats
             if isinstance(message.message, dict):
                 content = ""
@@ -298,6 +350,7 @@ class IngestService:
                 if message.type == "user":
                     # User messages can have string or array content
                     raw_content = message.message.get("content", "")
+                    logger.debug(f"User message content type: {type(raw_content)}")
 
                     if isinstance(raw_content, str):
                         # Direct string content
@@ -321,6 +374,10 @@ class IngestService:
                 elif message.type == "assistant":
                     # Assistant messages with content array
                     content_parts = message.message.get("content", [])
+                    logger.debug(
+                        f"Assistant message content type: {type(content_parts)}"
+                    )
+
                     if isinstance(content_parts, list):
                         # Extract different content types
                         text_parts = []
@@ -369,15 +426,14 @@ class IngestService:
 
                 # Store the content as a simple string
                 doc["content"] = content or ""
-                logger.debug(
-                    f"Extracted content length: {len(content)}, preview: {content[:100]}..."
-                )
+                logger.debug(f"Extracted content length: {len(content)}")
 
                 # Store the full message object for reference
                 doc["messageData"] = message.message
             else:
                 # If message is already a string, use it directly
                 doc["content"] = str(message.message)
+                logger.debug(f"Message is string, content: {doc['content'][:100]}...")
 
         # Add optional fields
         optional_fields = [
@@ -403,6 +459,7 @@ class IngestService:
         if message.extra_fields:
             doc["metadata"] = message.extra_fields
 
+        logger.debug(f"Document created with fields: {list(doc.keys())}")
         return doc
 
     async def _update_session_stats(self, session_id: str) -> None:
