@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -15,6 +15,10 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import MessageList from '@/components/MessageList';
+import SearchBar from '@/components/SearchBar';
+import SessionFilters from '@/components/SessionFilters';
+import ActiveFilters from '@/components/ActiveFilters';
+import { useSessionFilters } from '@/hooks/useSessionFilters';
 
 export default function Sessions() {
   const { sessionId } = useParams();
@@ -28,20 +32,69 @@ export default function Sessions() {
 
 function SessionsList() {
   const navigate = useNavigate();
-  const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 20;
+  const {
+    filters,
+    updateFilters,
+    removeFilter,
+    clearAllFilters,
+    hasActiveFilters,
+  } = useSessionFilters();
+  const [pageSize] = useState(20);
 
-  // Get project_id from URL search params
-  const searchParams = new URLSearchParams(window.location.search);
-  const projectId = searchParams.get('project_id') || undefined;
+  // Calculate current page from skip/limit or default to 0
+  const currentPage = filters.skip ? Math.floor(filters.skip / pageSize) : 0;
 
+  // Use filters from URL with defaults
   const { data, isLoading, error } = useSessions({
-    projectId,
+    projectId: filters.projectId,
+    search: filters.search,
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    sortBy: filters.sortBy || 'started_at',
+    sortOrder: filters.sortOrder || 'desc',
     skip: currentPage * pageSize,
     limit: pageSize,
-    sortBy: 'started_at',
-    sortOrder: 'desc',
   });
+
+  // Handle search changes
+  const handleSearchChange = useCallback(
+    (search: string) => {
+      updateFilters({ search });
+    },
+    [updateFilters]
+  );
+
+  // Handle filter changes
+  const handleFilterChange = useCallback(
+    (newFilters: Partial<typeof filters>) => {
+      updateFilters(newFilters);
+    },
+    [updateFilters]
+  );
+
+  // Handle pagination
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      updateFilters({ skip: newPage * pageSize });
+    },
+    [pageSize, updateFilters]
+  );
+
+  // Auto-focus search on "/" key press
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (
+        e.key === '/' &&
+        !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)
+      ) {
+        e.preventDefault();
+        document.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   if (error) {
     return (
@@ -70,25 +123,79 @@ function SessionsList() {
         </p>
       </div>
 
+      <div className="space-y-4">
+        <SearchBar
+          value={filters.search || ''}
+          onChange={handleSearchChange}
+          placeholder="Search sessions..."
+          className="w-full"
+        />
+
+        <SessionFilters
+          filters={filters}
+          onChange={handleFilterChange}
+          hideProjectFilter={!!filters.projectId}
+        />
+
+        {hasActiveFilters && (
+          <ActiveFilters
+            filters={filters}
+            onRemoveFilter={removeFilter}
+            onClearAll={clearAllFilters}
+          />
+        )}
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Recent Sessions</CardTitle>
+          <CardTitle>
+            {hasActiveFilters ? 'Filtered Sessions' : 'Recent Sessions'}
+          </CardTitle>
           <CardDescription>
-            Your conversation history with Claude
+            {data && (
+              <span>
+                Showing {data.items.length > 0 ? currentPage * pageSize + 1 : 0}{' '}
+                - {Math.min((currentPage + 1) * pageSize, data.total)} of{' '}
+                {data.total} sessions
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-4 border rounded-lg animate-pulse"
+                >
+                  <div className="space-y-2 flex-1">
+                    <div className="h-4 w-3/4 bg-muted rounded"></div>
+                    <div className="h-3 w-1/2 bg-muted rounded"></div>
+                  </div>
+                  <div className="h-4 w-16 bg-muted rounded"></div>
+                </div>
+              ))}
             </div>
           ) : (
             <>
               <div className="space-y-4">
                 {data?.items.length === 0 ? (
-                  <p className="text-center py-8 text-muted-foreground">
-                    No sessions found
-                  </p>
+                  <div className="text-center py-12 space-y-4">
+                    <p className="text-muted-foreground">
+                      {hasActiveFilters
+                        ? 'No sessions found matching your filters'
+                        : 'No sessions found'}
+                    </p>
+                    {hasActiveFilters && (
+                      <button
+                        onClick={clearAllFilters}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Clear all filters
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   data?.items.map((session) => (
                     <div
@@ -121,22 +228,20 @@ function SessionsList() {
               {data && data.items.length > 0 && (
                 <div className="flex items-center justify-between mt-6">
                   <p className="text-sm text-muted-foreground">
-                    Showing {currentPage * pageSize + 1} to{' '}
-                    {Math.min((currentPage + 1) * pageSize, data.total)} of{' '}
-                    {data.total}
+                    Page {currentPage + 1} of {Math.ceil(data.total / pageSize)}
                   </p>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setCurrentPage(currentPage - 1)}
+                      onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 0}
-                      className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent"
+                      className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent transition-colors"
                     >
                       Previous
                     </button>
                     <button
-                      onClick={() => setCurrentPage(currentPage + 1)}
+                      onClick={() => handlePageChange(currentPage + 1)}
                       disabled={!data.has_more}
-                      className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent"
+                      className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent transition-colors"
                     >
                       Next
                     </button>
@@ -191,7 +296,7 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
       <div className="flex items-start justify-between">
         <div>
           <button
-            onClick={() => navigate('/sessions')}
+            onClick={() => navigate(-1)}
             className="text-sm text-muted-foreground hover:text-foreground mb-2 flex items-center gap-1"
           >
             ← Back to sessions
