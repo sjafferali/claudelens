@@ -275,14 +275,14 @@ export default function Analytics() {
       </div>
 
       {/* Session Selection Bar */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
         <CardContent className="py-4">
           <div className="flex items-center gap-4">
             <label className="text-sm font-medium">Filter by Session:</label>
             <select
               value={selectedSessionId || ''}
               onChange={(e) => setSelectedSessionId(e.target.value || null)}
-              className="flex h-9 w-[400px] rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              className="flex h-9 w-[400px] rounded-md border border-input bg-background dark:bg-background px-3 py-1 text-sm text-foreground ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             >
               <option value="">All Sessions (Overall Analytics)</option>
               {sessions?.items?.map((session: Session) => (
@@ -294,12 +294,12 @@ export default function Analytics() {
             </select>
             {selectedSessionId && (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-blue-700 font-medium">
+                <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
                   Viewing session-specific analytics
                 </span>
                 <button
                   onClick={() => setSelectedSessionId(null)}
-                  className="text-xs px-2 py-1 bg-blue-200 hover:bg-blue-300 rounded text-blue-800"
+                  className="text-xs px-2 py-1 bg-blue-200 dark:bg-blue-800 hover:bg-blue-300 dark:hover:bg-blue-700 rounded text-blue-800 dark:text-blue-200"
                 >
                   Clear Filter
                 </button>

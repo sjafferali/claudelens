@@ -9,6 +9,8 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  Wrench,
+  Terminal,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSession, useSessionMessages } from '@/hooks/useSessions';
@@ -41,6 +43,9 @@ export default function SessionDetail() {
   );
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [collapsedToolResults, setCollapsedToolResults] = useState<Set<string>>(
+    new Set()
+  );
+  const [expandedToolPairs, setExpandedToolPairs] = useState<Set<string>>(
     new Set()
   );
 
@@ -79,6 +84,18 @@ export default function SessionDetail() {
         newSet.delete(messageId);
       } else {
         newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleToolPairExpanded = (pairId: string) => {
+    setExpandedToolPairs((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(pairId)) {
+        newSet.delete(pairId);
+      } else {
+        newSet.add(pairId);
       }
       return newSet;
     });
@@ -282,9 +299,11 @@ export default function SessionDetail() {
                   messages={filteredMessages}
                   expandedMessages={expandedMessages}
                   collapsedToolResults={collapsedToolResults}
+                  expandedToolPairs={expandedToolPairs}
                   copiedId={copiedId}
                   onToggleExpanded={toggleExpanded}
                   onToggleToolResult={toggleToolResult}
+                  onToggleToolPairExpanded={toggleToolPairExpanded}
                   onCopy={copyToClipboard}
                   getMessageColors={getMessageColors}
                   getMessageLabel={getMessageLabel}
@@ -406,9 +425,11 @@ interface TimelineViewProps {
   messages: Message[];
   expandedMessages: Set<string>;
   collapsedToolResults: Set<string>;
+  expandedToolPairs: Set<string>;
   copiedId: string | null;
   onToggleExpanded: (messageId: string) => void;
   onToggleToolResult: (messageId: string) => void;
+  onToggleToolPairExpanded: (pairId: string) => void;
   onCopy: (text: string, messageId: string) => void;
   getMessageColors: (type: Message['type']) => { avatar: string; bg: string };
   getMessageLabel: (type: Message['type']) => string;
@@ -419,138 +440,322 @@ function TimelineView({
   messages,
   expandedMessages,
   collapsedToolResults,
+  expandedToolPairs,
   copiedId,
   onToggleExpanded,
   onToggleToolResult,
+  onToggleToolPairExpanded,
   onCopy,
   getMessageColors,
   getMessageLabel,
   getAvatarText,
 }: TimelineViewProps) {
+  // Group consecutive tool_use and tool_result messages into pairs
+  const messageGroups: Array<{
+    type: 'single' | 'tool_pair';
+    messages: Message[];
+  }> = [];
+
+  let i = 0;
+  while (i < messages.length) {
+    const message = messages[i];
+
+    if (message.type === 'tool_use') {
+      // Look for the corresponding tool_result
+      const toolUseMessage = message;
+      const nextMessage = messages[i + 1];
+
+      if (nextMessage && nextMessage.type === 'tool_result') {
+        // Found a tool_use/tool_result pair
+        messageGroups.push({
+          type: 'tool_pair',
+          messages: [toolUseMessage, nextMessage],
+        });
+        i += 2; // Skip both messages
+      } else {
+        // Tool use without result
+        messageGroups.push({
+          type: 'single',
+          messages: [toolUseMessage],
+        });
+        i++;
+      }
+    } else {
+      // Regular message
+      messageGroups.push({
+        type: 'single',
+        messages: [message],
+      });
+      i++;
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {messages.map((message: Message) => {
-        const isExpanded = expandedMessages.has(message._id);
-        const isToolResultCollapsed = collapsedToolResults.has(message._id);
-        const colors = getMessageColors(message.type);
+      {messageGroups.map((group) => {
+        if (group.type === 'single') {
+          const message = group.messages[0];
+          const isExpanded = expandedMessages.has(message._id);
+          const isToolResultCollapsed = collapsedToolResults.has(message._id);
+          const colors = getMessageColors(message.type);
 
-        return (
-          <div key={message._id} className="group">
-            <div
-              className={cn(
-                'rounded-xl p-4',
-                colors.bg,
-                'border border-secondary-c hover:border-primary-c transition-all'
-              )}
-            >
-              <div className="flex gap-4">
-                <div
-                  className={cn(
-                    'w-9 h-9 rounded-lg flex items-center justify-center text-white font-semibold flex-shrink-0',
-                    colors.avatar
-                  )}
-                >
-                  {getAvatarText(message.type)}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-primary-c">
-                        {getMessageLabel(message.type)}
-                      </span>
-                      {message.model && (
-                        <span className="text-xs px-2 py-0.5 bg-layer-tertiary rounded-full text-muted-c">
-                          {message.model}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-dim-c">
-                      {format(new Date(message.timestamp), 'MMM d, HH:mm:ss')}
-                    </span>
+          return (
+            <div key={message._id} className="group">
+              <div
+                className={cn(
+                  'rounded-xl p-4',
+                  colors.bg,
+                  'border border-secondary-c hover:border-primary-c transition-all'
+                )}
+              >
+                <div className="flex gap-4">
+                  <div
+                    className={cn(
+                      'w-9 h-9 rounded-lg flex items-center justify-center text-white font-semibold flex-shrink-0',
+                      colors.avatar
+                    )}
+                  >
+                    {getAvatarText(message.type)}
                   </div>
-
-                  {/* Tool Result - Collapsible */}
-                  {message.content.startsWith('[Tool Result:') &&
-                  isToolResultCollapsed ? (
-                    <div className="inline-flex items-center gap-2 bg-layer-tertiary px-3 py-1 rounded-md text-sm text-muted-c">
-                      <span>Tool Result</span>
-                      <button
-                        onClick={() => onToggleToolResult(message._id)}
-                        className="text-primary hover:text-primary-hover text-xs"
-                      >
-                        Show
-                      </button>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-primary-c">
+                          {getMessageLabel(message.type)}
+                        </span>
+                        {message.model && (
+                          <span className="text-xs px-2 py-0.5 bg-layer-tertiary rounded-full text-muted-c">
+                            {message.model}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-dim-c">
+                        {format(new Date(message.timestamp), 'MMM d, HH:mm:ss')}
+                      </span>
                     </div>
-                  ) : (
-                    <div className="text-secondary-c whitespace-pre-wrap break-words">
-                      {message.content.length > 500 && !isExpanded ? (
-                        <>
-                          {message.content.slice(0, 500)}...
-                          <button
-                            onClick={() => onToggleExpanded(message._id)}
-                            className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:text-primary-hover"
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                            Show more
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          {message.content}
-                          {message.content.length > 500 && (
+
+                    {/* Tool Result - Collapsible */}
+                    {message.content.startsWith('[Tool Result:') &&
+                    isToolResultCollapsed ? (
+                      <div className="inline-flex items-center gap-2 bg-layer-tertiary px-3 py-1 rounded-md text-sm text-muted-c">
+                        <span>Tool Result</span>
+                        <button
+                          onClick={() => onToggleToolResult(message._id)}
+                          className="text-primary hover:text-primary-hover text-xs"
+                        >
+                          Show
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-secondary-c whitespace-pre-wrap break-words">
+                        {message.content.length > 500 && !isExpanded ? (
+                          <>
+                            {message.content.slice(0, 500)}...
                             <button
                               onClick={() => onToggleExpanded(message._id)}
                               className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:text-primary-hover"
                             >
-                              <ChevronUp className="h-4 w-4" />
-                              Show less
+                              <ChevronDown className="h-4 w-4" />
+                              Show more
                             </button>
-                          )}
-                          {message.content.startsWith('[Tool Result:') && (
-                            <button
-                              onClick={() => onToggleToolResult(message._id)}
-                              className="mt-2 ml-4 text-sm text-primary hover:text-primary-hover"
-                            >
-                              Hide
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
+                          </>
+                        ) : (
+                          <>
+                            {message.content}
+                            {message.content.length > 500 && (
+                              <button
+                                onClick={() => onToggleExpanded(message._id)}
+                                className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:text-primary-hover"
+                              >
+                                <ChevronUp className="h-4 w-4" />
+                                Show less
+                              </button>
+                            )}
+                            {message.content.startsWith('[Tool Result:') && (
+                              <button
+                                onClick={() => onToggleToolResult(message._id)}
+                                className="mt-2 ml-4 text-sm text-primary hover:text-primary-hover"
+                              >
+                                Hide
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
 
-                  {/* Message Actions */}
-                  <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => onCopy(message.content, message._id)}
-                      className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1"
-                    >
-                      {copiedId === message._id ? (
-                        <>
-                          <Check className="h-3 w-3" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3 w-3" />
-                          Copy
-                        </>
-                      )}
-                    </button>
-                    <button className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1">
-                      <Pin className="h-3 w-3" />
-                      Pin
-                    </button>
-                    <button className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1">
-                      <Download className="h-3 w-3" />
-                      Export
-                    </button>
+                    {/* Message Actions */}
+                    <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => onCopy(message.content, message._id)}
+                        className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1"
+                      >
+                        {copiedId === message._id ? (
+                          <>
+                            <Check className="h-3 w-3" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+                      <button className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1">
+                        <Pin className="h-3 w-3" />
+                        Pin
+                      </button>
+                      <button className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1">
+                        <Download className="h-3 w-3" />
+                        Export
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        );
+          );
+        } else {
+          // Tool pair rendering
+          const [toolUseMessage, toolResultMessage] = group.messages;
+          const pairId = toolUseMessage._id;
+          const isPairExpanded = expandedToolPairs.has(pairId);
+
+          // Get preview of results (first line only for minimal preview)
+          const getResultPreview = (content: string) => {
+            const lines = content.split('\n');
+            const firstLine = lines[0] || '';
+            const previewText =
+              firstLine.length > 80
+                ? firstLine.slice(0, 80) + '...'
+                : firstLine;
+            const hasMore = lines.length > 1 || firstLine.length > 80;
+            return {
+              preview: previewText,
+              hasMore,
+              totalLines: lines.length,
+            };
+          };
+
+          const resultPreview = getResultPreview(toolResultMessage.content);
+
+          return (
+            <div key={pairId} className="group">
+              <div className="rounded-xl p-4 bg-layer-secondary border border-secondary-c hover:border-primary-c transition-all">
+                {/* Header with expand/collapse button */}
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-sm">
+                      <Wrench className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-primary-c">
+                          Tool Operation
+                        </span>
+                        {toolUseMessage.model && (
+                          <span className="text-xs px-2 py-0.5 bg-layer-tertiary rounded-full text-muted-c">
+                            {toolUseMessage.model}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Tool use content preview */}
+                      <div className="text-sm text-secondary-c mb-2">
+                        {(() => {
+                          try {
+                            const parsed = JSON.parse(toolUseMessage.content);
+                            return parsed.name || 'Tool call';
+                          } catch {
+                            return toolUseMessage.content.slice(0, 60) + '...';
+                          }
+                        })()}
+                      </div>
+
+                      {/* Result preview - Collapsed state */}
+                      {!isPairExpanded && (
+                        <div className="mt-2 p-2 bg-layer-tertiary/50 rounded-lg border border-secondary-c/50">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Terminal className="h-3 w-3 text-muted-c/70" />
+                            <span className="text-xs font-medium text-muted-c/70">
+                              Result preview (collapsed)
+                            </span>
+                          </div>
+                          <pre className="text-xs text-secondary-c/70 overflow-hidden whitespace-pre-wrap break-words font-mono">
+                            {resultPreview.preview}
+                            {resultPreview.hasMore && (
+                              <span className="text-muted-c/60 italic">
+                                {' '}
+                                ... ({resultPreview.totalLines} lines)
+                              </span>
+                            )}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => onToggleToolPairExpanded(pairId)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-primary hover:text-primary-hover bg-layer-tertiary hover:bg-border rounded-lg transition-all duration-200"
+                  >
+                    {isPairExpanded ? (
+                      <>
+                        <ChevronUp className="h-3.5 w-3.5" /> Collapse
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-3.5 w-3.5" /> Expand
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Expanded content */}
+                {isPairExpanded && (
+                  <div className="mt-4 space-y-3 border-t border-secondary-c pt-4">
+                    {/* Tool use full content */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Wrench className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium text-primary-c">
+                          Tool Call Details
+                        </span>
+                      </div>
+                      <div className="text-secondary-c whitespace-pre-wrap break-words bg-layer-primary p-3 rounded-lg border border-secondary-c">
+                        {toolUseMessage.content}
+                      </div>
+                    </div>
+
+                    {/* Tool result full content */}
+                    <div className="mt-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Terminal className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium text-primary-c">
+                          Full Result
+                        </span>
+                      </div>
+                      <div className="text-secondary-c whitespace-pre-wrap break-words bg-layer-primary p-3 rounded-lg border border-secondary-c">
+                        {toolResultMessage.content}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Metadata footer */}
+                <div className="flex items-center gap-4 mt-3 text-xs text-dim-c">
+                  <time dateTime={toolUseMessage.timestamp}>
+                    {format(
+                      new Date(toolUseMessage.timestamp),
+                      'MMM d, HH:mm:ss'
+                    )}
+                  </time>
+                </div>
+              </div>
+            </div>
+          );
+        }
       })}
     </div>
   );

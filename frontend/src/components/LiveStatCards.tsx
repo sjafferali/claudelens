@@ -218,9 +218,7 @@ export default function LiveStatCards({
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `/api/v1/analytics/session/live?session_id=${sessionId}`
-      );
+      const response = await fetch(`/ws/session/live?session_id=${sessionId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch live stats');
       }

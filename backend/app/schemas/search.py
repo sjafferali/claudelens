@@ -43,6 +43,9 @@ class SearchResult(BaseModel):
 
     message_id: str = Field(..., description="Message ID")
     session_id: str = Field(..., description="Session ID")
+    session_mongo_id: str | None = Field(
+        None, description="Session MongoDB ID for navigation"
+    )
     project_id: str = Field(..., description="Project ID")
     project_name: str = Field(..., description="Project name")
 

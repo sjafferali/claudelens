@@ -78,8 +78,9 @@ export default function Search() {
   };
 
   const handleResultClick = (result: SearchResult) => {
-    // Navigate to the session detail page
-    navigate(`/sessions/${result.session_id}`);
+    // Navigate to the session detail page using MongoDB _id if available, otherwise sessionId
+    const sessionIdForNav = result.session_mongo_id || result.session_id;
+    navigate(`/sessions/${sessionIdForNav}`);
   };
 
   const formatHighlights = (highlights: SearchResult['highlights']) => {

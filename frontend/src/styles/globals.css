@@ -44,6 +44,9 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 13%;
+
     --input: 214 20% 92%;
     --ring: 237 75% 58%;
 
@@ -90,6 +93,9 @@
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
+
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 100%;
 
     --input: 0 0% 16%;
     --ring: 234 89% 64%;

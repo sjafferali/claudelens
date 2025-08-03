@@ -222,9 +222,13 @@ class SearchService:
         self, doc: dict[str, Any], query: str, highlight: bool
     ) -> SearchResult:
         """Process a search result document."""
-        # Extract content
+        # Extract content - handle both message structures
         content = ""
-        if doc.get("message") and isinstance(doc["message"], dict):
+        # First check for direct content field (remote deployment structure)
+        if "content" in doc and isinstance(doc["content"], str):
+            content = doc["content"]
+        # Then check for nested message.content (local structure)
+        elif doc.get("message") and isinstance(doc["message"], dict):
             content = doc["message"].get("content", "")
         elif doc.get("message"):
             content = str(doc["message"])
@@ -240,6 +244,9 @@ class SearchService:
         return SearchResult(
             message_id=str(doc["_id"]),
             session_id=doc["sessionId"],
+            session_mongo_id=str(doc.get("session", {}).get("_id", ""))
+            if doc.get("session")
+            else None,
             project_id=str(doc.get("project", {}).get("_id", "")),
             project_name=doc.get("project", {}).get("name", "Unknown"),
             message_type=doc["type"],
@@ -248,9 +255,17 @@ class SearchService:
             highlights=highlights,
             score=doc.get("score", 0),
             session_summary=doc.get("session", {}).get("summary"),
-            model=doc.get("message", {}).get("model")
-            if isinstance(doc.get("message"), dict)
-            else None,
+            model=(
+                doc.get("model")  # Direct model field (remote structure)
+                or (
+                    doc.get("message", {}).get("model")
+                    if isinstance(doc.get("message"), dict)
+                    else None
+                )
+                or doc.get("messageData", {}).get("model")
+                if isinstance(doc.get("messageData"), dict)
+                else None
+            ),
             cost_usd=doc.get("costUsd"),
         )
 
@@ -290,8 +305,16 @@ class SearchService:
         """Create search highlights."""
         highlights = []
 
-        # Check message content
-        if doc.get("message") and isinstance(doc["message"], dict):
+        # Check direct content field (remote structure)
+        if "content" in doc and isinstance(doc["content"], str):
+            content = doc["content"]
+            if content and query.lower() in content.lower():
+                snippet = self._create_preview(content, query, max_length=150)
+                highlights.append(
+                    SearchHighlight(field="content", snippet=snippet, score=1.0)
+                )
+        # Check nested message content (local structure)
+        elif doc.get("message") and isinstance(doc["message"], dict):
             content = doc["message"].get("content", "")
             if content and query.lower() in content.lower():
                 snippet = self._create_preview(content, query, max_length=150)

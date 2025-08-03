@@ -69,15 +69,21 @@ class SessionService:
     async def get_session(
         self, session_id: str, include_messages: bool = False
     ) -> SessionDetail | None:
-        """Get a single session by its MongoDB _id."""
+        """Get a single session by its MongoDB _id or sessionId."""
+        doc = None
+
+        # First try as MongoDB ObjectId
         try:
             from bson import ObjectId
 
-            if not ObjectId.is_valid(session_id):
-                return None
-            doc = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
+            if ObjectId.is_valid(session_id):
+                doc = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
         except Exception:
-            return None
+            pass
+
+        # If not found, try as sessionId field
+        if not doc:
+            doc = await self.db.sessions.find_one({"sessionId": session_id})
 
         if not doc:
             return None

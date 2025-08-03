@@ -30,6 +30,7 @@ export interface SearchHighlight {
 export interface SearchResult {
   message_id: string;
   session_id: string;
+  session_mongo_id?: string;
   project_id: string;
   project_name: string;
   message_type: string;
