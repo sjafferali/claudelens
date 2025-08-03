@@ -165,4 +165,75 @@
   .border-secondary-c {
     border-color: hsl(var(--border-secondary));
   }
+
+  /* Real-time stat card animations */
+  @keyframes statPulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+      color: hsl(var(--accent));
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  .stat-value.updating {
+    animation: statPulse 0.3s ease;
+  }
+
+  /* Connection status indicator */
+  .connection-status {
+    @apply absolute top-2 right-2 flex items-center gap-1 text-xs;
+  }
+
+  .status-dot {
+    @apply w-1.5 h-1.5 rounded-full;
+    background-color: hsl(var(--text-muted));
+  }
+
+  .status-dot.active {
+    background-color: hsl(var(--success));
+    box-shadow: 0 0 4px hsl(var(--success));
+  }
+
+  .status-dot.connecting {
+    background-color: hsl(var(--accent));
+    animation: pulse 1s infinite;
+  }
+
+  .status-dot.error {
+    background-color: hsl(var(--destructive));
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  /* Smooth number transitions */
+  .stat-value {
+    transition: all 0.2s ease;
+  }
+
+  /* Hover effects for live stat cards */
+  .live-stat-card {
+    transition: all 0.2s ease;
+  }
+
+  .live-stat-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .dark .live-stat-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
 }

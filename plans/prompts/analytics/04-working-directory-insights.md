@@ -1,5 +1,16 @@
 # Working Directory Insights Implementation
 
+## Status: ✅ COMPLETED
+
+### Implementation Summary:
+- Backend endpoint created: `GET /api/v1/analytics/directory-usage` with hierarchical tree aggregation
+- Frontend components created: `DirectoryTreemap.tsx` (Recharts treemap), `DirectoryExplorer.tsx` (file tree), `DirectoryMetrics.tsx` (detailed panel)
+- Path normalization for cross-OS compatibility (Windows/Unix)
+- Interactive treemap with drill-down navigation and breadcrumbs
+- Toggle between cost/messages/sessions metrics with color coding
+- Search functionality and configurable depth (1-5 levels)
+- Integrated into Analytics page with view switching controls
+
 ## Context
 ClaudeLens tracks the working directory (`cwd` field) for each message, enabling analysis of which projects and directories consume the most AI resources.
 

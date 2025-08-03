@@ -14,6 +14,15 @@ import { format } from 'date-fns';
 import { useSession, useSessionMessages } from '@/hooks/useSessions';
 import { cn } from '@/utils/cn';
 import { Message } from '@/api/types';
+import ToolUsageStatCard from '@/components/ToolUsageStatCard';
+import ToolUsageDetails from '@/components/ToolUsageDetails';
+import SuccessRateCard from '@/components/SuccessRateCard';
+import ErrorDetailsPanel from '@/components/ErrorDetailsPanel';
+import TokenStatCard from '@/components/TokenStatCard';
+import TokenDetailsPanel from '@/components/TokenDetailsPanel';
+import CostStatCard from '@/components/CostStatCard';
+import CostDetailsPanel from '@/components/CostDetailsPanel';
+import SessionTopics from '@/components/SessionTopics';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -174,15 +183,6 @@ export default function SessionDetail() {
   const hours = Math.floor(duration / 3600);
   const minutes = Math.floor((duration % 3600) / 60);
   const seconds = duration % 60;
-
-  const toolsUsed = messages.messages.filter(
-    (msg) => msg.type === 'tool_use'
-  ).length;
-
-  const totalTokens = messages.messages.reduce(
-    (acc, msg) => acc + (msg.inputTokens || 0) + (msg.outputTokens || 0),
-    0
-  );
 
   return (
     <div className="flex flex-col h-screen bg-layer-primary">
@@ -357,65 +357,31 @@ export default function SessionDetail() {
                   </div>
                   <div className="text-xs text-muted-c">Messages</div>
                 </div>
-                <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center">
-                  <div className="text-2xl font-semibold text-primary">
-                    {toolsUsed}
-                  </div>
-                  <div className="text-xs text-muted-c">Tools Used</div>
-                </div>
-                <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center">
-                  <div className="text-2xl font-semibold text-primary">
-                    {Math.floor(totalTokens / 1000)}K
-                  </div>
-                  <div className="text-xs text-muted-c">Tokens</div>
-                </div>
-                <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center">
-                  <div className="text-2xl font-semibold text-primary">
-                    ${session.totalCost?.toFixed(2) || '0.00'}
-                  </div>
-                  <div className="text-xs text-muted-c">Cost</div>
-                </div>
+                <ToolUsageStatCard sessionId={sessionId} />
+                <SuccessRateCard sessionId={sessionId} />
+                <TokenStatCard sessionId={sessionId} />
+              </div>
+
+              {/* Additional Stats */}
+              <div className="mt-4 grid grid-cols-1 gap-4">
+                <CostStatCard sessionId={sessionId} />
               </div>
             </div>
 
             {/* Tools Used */}
-            <div>
-              <h3 className="text-base font-medium text-primary-c mb-4">
-                Tools Used
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-full text-xs text-tertiary-c">
-                  todoWrite × 12
-                </span>
-                <span className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-full text-xs text-tertiary-c">
-                  fileWrite × 4
-                </span>
-                <span className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-full text-xs text-tertiary-c">
-                  codeAnalysis × 2
-                </span>
-              </div>
-            </div>
+            <ToolUsageDetails sessionId={sessionId} />
+
+            {/* Token Usage Details */}
+            <TokenDetailsPanel sessionId={sessionId} />
+
+            {/* Cost Details */}
+            <CostDetailsPanel sessionId={sessionId} />
+
+            {/* Error Details */}
+            <ErrorDetailsPanel sessionId={sessionId} />
 
             {/* Topics */}
-            <div>
-              <h3 className="text-base font-medium text-primary-c mb-4">
-                Topics
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-full text-xs text-tertiary-c">
-                  Web Development
-                </span>
-                <span className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-full text-xs text-tertiary-c">
-                  Claude API
-                </span>
-                <span className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-full text-xs text-tertiary-c">
-                  Data Visualization
-                </span>
-                <span className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-full text-xs text-tertiary-c">
-                  React
-                </span>
-              </div>
-            </div>
+            <SessionTopics sessionId={sessionId!} />
           </div>
         </div>
       </div>

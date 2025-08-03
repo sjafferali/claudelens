@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thread Navigation Enhancement - Mockup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0a0a0a; color: #e5e5e5; }
+        .message-hover:hover { border-color: #3b82f6; }
+        .thread-line {
+            background: linear-gradient(to bottom, #3b82f6 0%, #3b82f6 50%, transparent 50%);
+            background-size: 2px 8px;
+        }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-2xl font-bold mb-2">Option 1: Thread Navigation Enhancement</h1>
+        <p class="text-gray-400 mb-8">Navigate between parent/child messages with visual thread indicators</p>
+
+        <!-- Thread Breadcrumb -->
+        <div class="bg-gray-900 rounded-lg p-4 mb-6 border border-gray-800">
+            <div class="flex items-center gap-2 text-sm">
+                <span class="text-gray-500">Thread Path:</span>
+                <button class="text-blue-400 hover:text-blue-300">Root Message</button>
+                <span class="text-gray-600">→</span>
+                <button class="text-blue-400 hover:text-blue-300">Question about API</button>
+                <span class="text-gray-600">→</span>
+                <span class="text-gray-300">Current Message</span>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="space-y-4">
+            <!-- Parent Message (faded) -->
+            <div class="opacity-50">
+                <div class="bg-gray-900 rounded-lg p-4 border border-gray-800 message-hover transition-all">
+                    <div class="flex gap-4">
+                        <div class="w-9 h-9 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold">Y</div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-medium">You</span>
+                                <span class="text-xs text-gray-500">2 minutes ago</span>
+                            </div>
+                            <p class="text-gray-300">How do I implement authentication in my API?</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thread Connection Line -->
+            <div class="ml-[18px] h-8 w-0.5 thread-line"></div>
+
+            <!-- Current Message (highlighted) -->
+            <div class="relative">
+                <div class="absolute -left-2 top-0 bottom-0 w-1 bg-blue-500 rounded"></div>
+                <div class="bg-gray-900 rounded-lg p-4 border-2 border-blue-500 message-hover transition-all">
+                    <div class="flex gap-4">
+                        <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold">C</div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium">Claude</span>
+                                    <span class="text-xs px-2 py-0.5 bg-gray-800 rounded-full text-gray-400">claude-3-opus</span>
+                                </div>
+                                <span class="text-xs text-gray-500">1 minute ago</span>
+                            </div>
+                            <p class="text-gray-300 mb-3">I'll help you implement authentication in your API. Here are the main approaches...</p>
+
+                            <!-- Thread Navigation Controls -->
+                            <div class="flex gap-2 mt-3">
+                                <button class="px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-md text-xs text-gray-300 flex items-center gap-1 transition-all">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                                    </svg>
+                                    Jump to Parent
+                                </button>
+                                <button class="px-3 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-md text-xs text-gray-300 flex items-center gap-1 transition-all">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                    View 3 Replies
+                                </button>
+                                <span class="text-xs text-gray-500 flex items-center gap-1 ml-2">
+                                    <kbd class="px-1.5 py-0.5 bg-gray-800 rounded text-xs">Alt</kbd>
+                                    <span>+</span>
+                                    <kbd class="px-1.5 py-0.5 bg-gray-800 rounded text-xs">↑/↓</kbd>
+                                    <span>to navigate</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thread Connection Lines to Children -->
+            <div class="ml-[18px] relative">
+                <div class="h-8 w-0.5 thread-line"></div>
+                <div class="absolute top-4 left-0 flex gap-4">
+                    <div class="w-8 h-0.5 bg-blue-500"></div>
+                    <span class="text-xs text-gray-500 -mt-2">3 replies below</span>
+                </div>
+            </div>
+
+            <!-- Child Messages (collapsed) -->
+            <div class="ml-12 space-y-2">
+                <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-800 opacity-50">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded flex items-center justify-center text-white text-xs font-semibold">Y</div>
+                        <span class="text-sm text-gray-400">What about JWT tokens?</span>
+                        <button class="ml-auto text-xs text-blue-400 hover:text-blue-300">Expand</button>
+                    </div>
+                </div>
+                <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-800 opacity-50">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 bg-gradient-to-br from-purple-500 to-purple-600 rounded flex items-center justify-center text-white text-xs font-semibold">Y</div>
+                        <span class="text-sm text-gray-400">Can you show me an example?</span>
+                        <button class="ml-auto text-xs text-blue-400 hover:text-blue-300">Expand</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature Highlights -->
+        <div class="mt-12 bg-gray-900 rounded-lg p-6 border border-gray-800">
+            <h3 class="text-lg font-semibold mb-4 text-blue-400">Key Features</h3>
+            <ul class="space-y-2 text-sm text-gray-300">
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Thread breadcrumb shows full conversation path</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Visual thread lines connect parent-child messages</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Quick navigation buttons to jump between messages</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Keyboard shortcuts (Alt+↑/↓) for power users</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Collapsed view of child messages with expand option</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

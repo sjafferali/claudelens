@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversation Fork Points - Mockup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0a0a0a; color: #e5e5e5; }
+        .fork-indicator {
+            background: conic-gradient(from 180deg, #3b82f6 0deg, #8b5cf6 120deg, #ec4899 240deg, #3b82f6 360deg);
+            padding: 2px;
+        }
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .fork-glow { animation: rotate 4s linear infinite; }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-2xl font-bold mb-2">Option 3: Conversation Fork Points</h1>
+        <p class="text-gray-400 mb-8">Identify and highlight where conversations branch into multiple paths</p>
+
+        <!-- Fork Summary Bar -->
+        <div class="bg-gray-900 rounded-lg p-4 mb-6 border border-gray-800">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-gray-400">Fork Points in Session:</span>
+                    <span class="text-lg font-semibold text-blue-400">2</span>
+                </div>
+                <button class="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    View Branch Tree
+                </button>
+            </div>
+        </div>
+
+        <!-- Messages with Fork Point -->
+        <div class="space-y-4">
+            <!-- Original Question -->
+            <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+                <div class="flex gap-4">
+                    <div class="w-9 h-9 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold">Y</div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-medium">You</span>
+                            <span class="text-xs text-gray-500">10 minutes ago</span>
+                        </div>
+                        <p class="text-gray-300">Should I use React or Vue for my new project?</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fork Point Message -->
+            <div class="relative">
+                <!-- Fork Indicator -->
+                <div class="absolute -left-3 top-1/2 -translate-y-1/2 fork-indicator rounded-full p-0.5 fork-glow">
+                    <div class="w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 rounded-lg p-4 border-2 border-blue-500/50">
+                    <div class="flex gap-4">
+                        <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold">C</div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium">Claude</span>
+                                    <span class="text-xs px-2 py-0.5 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full text-blue-400 border border-blue-500/30">
+                                        Fork Point
+                                    </span>
+                                </div>
+                                <span class="text-xs text-gray-500">9 minutes ago</span>
+                            </div>
+                            <p class="text-gray-300 mb-3">Let me help you decide. What type of project are you building?</p>
+
+                            <!-- Fork Indicator -->
+                            <div class="mt-4 p-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-500/30">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                                        </svg>
+                                        <span class="text-sm font-medium text-blue-400">3 Alternative Branches</span>
+                                    </div>
+                                    <button class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                                        View Branches
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Branch Preview Panel -->
+            <div class="ml-12 bg-gray-900/50 rounded-lg p-4 border border-gray-800">
+                <h4 class="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    Branch Preview
+                </h4>
+
+                <div class="space-y-2">
+                    <!-- Branch 1 -->
+                    <div class="flex items-start gap-3 p-2 rounded hover:bg-gray-800/50 cursor-pointer group">
+                        <div class="w-1 h-full bg-green-500 rounded"></div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs font-medium text-green-400">Branch 1</span>
+                                <span class="text-xs text-gray-500">Active</span>
+                            </div>
+                            <p class="text-xs text-gray-400 line-clamp-2">It's a SPA for a startup dashboard...</p>
+                            <span class="text-xs text-gray-600 group-hover:text-blue-400">Click to switch →</span>
+                        </div>
+                    </div>
+
+                    <!-- Branch 2 -->
+                    <div class="flex items-start gap-3 p-2 rounded hover:bg-gray-800/50 cursor-pointer group opacity-60">
+                        <div class="w-1 h-full bg-purple-500 rounded"></div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs font-medium text-purple-400">Branch 2</span>
+                                <span class="text-xs text-gray-500">Alternative</span>
+                            </div>
+                            <p class="text-xs text-gray-400 line-clamp-2">I need something with good SEO...</p>
+                            <span class="text-xs text-gray-600 group-hover:text-blue-400">Click to explore →</span>
+                        </div>
+                    </div>
+
+                    <!-- Branch 3 -->
+                    <div class="flex items-start gap-3 p-2 rounded hover:bg-gray-800/50 cursor-pointer group opacity-60">
+                        <div class="w-1 h-full bg-pink-500 rounded"></div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-xs font-medium text-pink-400">Branch 3</span>
+                                <span class="text-xs text-gray-500">Alternative</span>
+                            </div>
+                            <p class="text-xs text-gray-400 line-clamp-2">It's for a mobile app with React Native...</p>
+                            <span class="text-xs text-gray-600 group-hover:text-blue-400">Click to explore →</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comparison View -->
+                <button class="mt-3 w-full py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded text-xs text-blue-400 transition-all">
+                    Compare All Branches
+                </button>
+            </div>
+
+            <!-- Current Branch Continuation -->
+            <div class="bg-gray-900 rounded-lg p-4 border border-green-500/30">
+                <div class="flex gap-4">
+                    <div class="w-9 h-9 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold">Y</div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium">You</span>
+                                <span class="text-xs px-2 py-0.5 bg-green-500/20 rounded-full text-green-400">Current Branch</span>
+                            </div>
+                            <span class="text-xs text-gray-500">8 minutes ago</span>
+                        </div>
+                        <p class="text-gray-300">It's a SPA for a startup dashboard with real-time data</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+                <div class="flex gap-4">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold">C</div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-medium">Claude</span>
+                            <span class="text-xs text-gray-500">7 minutes ago</span>
+                        </div>
+                        <p class="text-gray-300">For a startup dashboard with real-time data, I'd recommend React. Here's why...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fork Tree Visualization -->
+        <div class="mt-8 bg-gray-900 rounded-lg p-6 border border-gray-800">
+            <h3 class="text-lg font-semibold mb-4 text-blue-400">Conversation Tree</h3>
+            <div class="flex items-center justify-center">
+                <svg width="400" height="200" class="text-gray-600">
+                    <!-- Root -->
+                    <circle cx="200" cy="30" r="4" fill="#8b5cf6"/>
+                    <text x="220" y="35" class="text-xs fill-gray-400">Original Question</text>
+
+                    <!-- Fork Point -->
+                    <line x1="200" y1="34" x2="200" y2="70" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="200" cy="75" r="6" fill="#3b82f6" stroke="#3b82f6" stroke-width="2" fill-opacity="0.3"/>
+
+                    <!-- Branches -->
+                    <line x1="200" y1="80" x2="100" y2="140" stroke="#10b981" stroke-width="2"/>
+                    <line x1="200" y1="80" x2="200" y2="140" stroke="#8b5cf6" stroke-width="2" stroke-dasharray="5,5" opacity="0.5"/>
+                    <line x1="200" y1="80" x2="300" y2="140" stroke="#ec4899" stroke-width="2" stroke-dasharray="5,5" opacity="0.5"/>
+
+                    <!-- Branch Endpoints -->
+                    <circle cx="100" cy="145" r="4" fill="#10b981"/>
+                    <text x="50" y="165" class="text-xs fill-gray-400">Active</text>
+
+                    <circle cx="200" cy="145" r="4" fill="#8b5cf6" opacity="0.5"/>
+                    <text x="160" y="165" class="text-xs fill-gray-400">Alternative</text>
+
+                    <circle cx="300" cy="145" r="4" fill="#ec4899" opacity="0.5"/>
+                    <text x="260" y="165" class="text-xs fill-gray-400">Alternative</text>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Feature Highlights -->
+        <div class="mt-8 bg-gray-900 rounded-lg p-6 border border-gray-800">
+            <h3 class="text-lg font-semibold mb-4 text-blue-400">Key Features</h3>
+            <ul class="space-y-2 text-sm text-gray-300">
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Visual fork indicators show where conversations branch</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Branch preview panel shows alternative conversation paths</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Easy switching between different branches</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Tree visualization for understanding conversation structure</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Compare branches side-by-side to see different outcomes</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

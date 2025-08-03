@@ -11,6 +11,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReplaceOne
 
 from app.schemas.ingest import IngestStats, MessageIngest
+from app.services.realtime_integration import get_integration_service
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +150,22 @@ class IngestService:
                         # Track inserts and updates separately
                         stats.messages_processed += bulk_result.inserted_count
                         stats.messages_updated += bulk_result.modified_count
+
+                        # Trigger real-time updates for new/updated messages
+                        if (
+                            bulk_result.inserted_count > 0
+                            or bulk_result.modified_count > 0
+                        ):
+                            integration_service = get_integration_service(self.db)
+                            for message in messages:
+                                if message.sessionId == session_id:
+                                    # Convert MessageIngest to dict for integration
+                                    message_dict = message.model_dump()
+                                    asyncio.create_task(
+                                        integration_service.on_message_ingested(
+                                            message_dict
+                                        )
+                                    )
                     except Exception as e:
                         logger.error(f"MongoDB bulk write failed: {e}")
                         stats.messages_failed += len(new_messages)
@@ -164,6 +181,19 @@ class IngestService:
                     try:
                         insert_result = await self.db.messages.insert_many(new_messages)
                         stats.messages_processed += len(insert_result.inserted_ids)
+
+                        # Trigger real-time updates for new messages
+                        if len(insert_result.inserted_ids) > 0:
+                            integration_service = get_integration_service(self.db)
+                            for message in messages:
+                                if message.sessionId == session_id:
+                                    # Convert MessageIngest to dict for integration
+                                    message_dict = message.model_dump()
+                                    asyncio.create_task(
+                                        integration_service.on_message_ingested(
+                                            message_dict
+                                        )
+                                    )
                     except Exception as e:
                         logger.error(f"MongoDB insert failed: {e}")
                         stats.messages_failed += len(new_messages)

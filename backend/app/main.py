@@ -9,6 +9,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.api_v1.api import api_router
+from app.api.api_v1.endpoints.websocket import router as websocket_router
 from app.core.config import settings
 from app.core.database import close_mongodb_connection, connect_to_mongodb, get_database
 from app.core.db_init import initialize_database
@@ -140,3 +141,6 @@ async def health_check() -> dict[str, str]:
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Include WebSocket endpoints at root level
+app.include_router(websocket_router, prefix="/ws", tags=["websocket"])

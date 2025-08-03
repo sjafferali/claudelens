@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sidechain Visualization & Navigation - Mockup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0a0a0a; color: #e5e5e5; }
+        .sidechain-line {
+            background-image: repeating-linear-gradient(
+                to bottom,
+                #f59e0b,
+                #f59e0b 4px,
+                transparent 4px,
+                transparent 8px
+            );
+            width: 2px;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        .sidechain-indicator { animation: pulse 2s infinite; }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-2xl font-bold mb-2">Option 2: Sidechain Visualization & Navigation</h1>
+        <p class="text-gray-400 mb-8">Highlight and navigate parallel task executions (sidechains)</p>
+
+        <!-- Sidechain Toggle -->
+        <div class="bg-gray-900 rounded-lg p-4 mb-6 border border-gray-800 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 text-amber-500 bg-gray-800 border-gray-600 rounded focus:ring-amber-500">
+                    <span class="text-sm">Show Sidechains</span>
+                </label>
+                <span class="text-xs text-gray-500">(13.3% of conversation)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+                <div class="flex items-center gap-1">
+                    <div class="w-3 h-3 bg-amber-500 rounded-full sidechain-indicator"></div>
+                    <span class="text-gray-400">Sidechain Active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages with Sidechain -->
+        <div class="space-y-4">
+            <!-- User Message -->
+            <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+                <div class="flex gap-4">
+                    <div class="w-9 h-9 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold">Y</div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-medium">You</span>
+                            <span class="text-xs text-gray-500">5 minutes ago</span>
+                        </div>
+                        <p class="text-gray-300">Analyze all Python files in my project and find potential security vulnerabilities</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Thread Response with Sidechain Branch -->
+            <div class="relative">
+                <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+                    <div class="flex gap-4">
+                        <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold">C</div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium">Claude</span>
+                                    <span class="text-xs px-2 py-0.5 bg-gray-800 rounded-full text-gray-400">Main Thread</span>
+                                </div>
+                                <span class="text-xs text-gray-500">4 minutes ago</span>
+                            </div>
+                            <p class="text-gray-300 mb-3">I'll analyze your Python files for security vulnerabilities. Let me start by scanning the project structure...</p>
+
+                            <!-- Sidechain Indicator -->
+                            <div class="mt-3 flex items-center gap-2 text-xs">
+                                <div class="flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-500 rounded-md">
+                                    <div class="w-2 h-2 bg-amber-500 rounded-full sidechain-indicator"></div>
+                                    <span>Spawned parallel task</span>
+                                </div>
+                                <button class="text-amber-400 hover:text-amber-300 underline">View Sidechain →</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidechain Branch Indicator -->
+                <div class="absolute left-[42px] top-full h-12 flex items-start">
+                    <div class="sidechain-line h-full"></div>
+                    <div class="ml-4 mt-4 text-xs text-amber-500 flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                        </svg>
+                        Parallel Execution
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidechain Section -->
+            <div class="ml-12 mt-8">
+                <div class="bg-amber-900/10 border border-amber-500/30 rounded-lg p-4 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 bg-amber-500 rounded-full sidechain-indicator"></div>
+                            <h3 class="text-sm font-medium text-amber-400">Sidechain: File Analysis Task</h3>
+                            <span class="text-xs text-gray-500">(8 messages)</span>
+                        </div>
+                        <button class="text-xs text-amber-400 hover:text-amber-300">Collapse</button>
+                    </div>
+
+                    <!-- Sidechain Messages -->
+                    <div class="space-y-2">
+                        <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-800/50 border-dashed">
+                            <div class="flex gap-3">
+                                <div class="w-7 h-7 bg-gradient-to-br from-amber-500 to-amber-600 rounded flex items-center justify-center text-white text-xs font-semibold">A</div>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-sm font-medium text-amber-400">Agent</span>
+                                        <span class="text-xs text-gray-500">Tool Use</span>
+                                    </div>
+                                    <p class="text-sm text-gray-400">Searching for Python files using glob pattern **/*.py</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-900/50 rounded-lg p-3 border border-gray-800/50 border-dashed">
+                            <div class="flex gap-3">
+                                <div class="w-7 h-7 bg-gradient-to-br from-amber-500 to-amber-600 rounded flex items-center justify-center text-white text-xs font-semibold">A</div>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-sm font-medium text-amber-400">Agent</span>
+                                        <span class="text-xs text-gray-500">Analysis</span>
+                                    </div>
+                                    <p class="text-sm text-gray-400">Found 47 Python files. Analyzing for common vulnerabilities...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="mt-2 p-2 bg-amber-500/10 rounded text-xs text-amber-400">
+                            Sidechain completed: Found 3 potential SQL injection vulnerabilities
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Return to Main Thread Indicator -->
+                <div class="flex items-center gap-2 ml-4 mb-4">
+                    <div class="w-8 h-0.5 bg-amber-500"></div>
+                    <span class="text-xs text-amber-500">Results merged back</span>
+                    <div class="w-8 h-0.5 bg-amber-500"></div>
+                </div>
+            </div>
+
+            <!-- Main Thread Continues -->
+            <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
+                <div class="flex gap-4">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-semibold">C</div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium">Claude</span>
+                                <span class="text-xs px-2 py-0.5 bg-gray-800 rounded-full text-gray-400">Main Thread</span>
+                            </div>
+                            <span class="text-xs text-gray-500">2 minutes ago</span>
+                        </div>
+                        <p class="text-gray-300">Based on my analysis, I found 3 potential security vulnerabilities in your Python code:</p>
+                        <ol class="list-decimal list-inside mt-2 text-gray-300 space-y-1">
+                            <li>SQL injection vulnerability in database.py:45</li>
+                            <li>Unvalidated user input in api.py:122</li>
+                            <li>Hardcoded credentials in config.py:15</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidechain Summary Panel -->
+        <div class="mt-8 bg-gray-900 rounded-lg p-6 border border-gray-800">
+            <h3 class="text-lg font-semibold mb-4 text-amber-400">Sidechain Summary</h3>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <span class="text-gray-400">Total Sidechains:</span>
+                    <span class="ml-2 text-gray-200">3</span>
+                </div>
+                <div>
+                    <span class="text-gray-400">Sidechain Messages:</span>
+                    <span class="ml-2 text-gray-200">24 (13.3%)</span>
+                </div>
+                <div>
+                    <span class="text-gray-400">Tools Used:</span>
+                    <span class="ml-2 text-gray-200">Glob, Read, Grep</span>
+                </div>
+                <div>
+                    <span class="text-gray-400">Parallel Tasks:</span>
+                    <span class="ml-2 text-gray-200">File Analysis, Code Search</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature Highlights -->
+        <div class="mt-8 bg-gray-900 rounded-lg p-6 border border-gray-800">
+            <h3 class="text-lg font-semibold mb-4 text-blue-400">Key Features</h3>
+            <ul class="space-y-2 text-sm text-gray-300">
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Toggle to show/hide sidechain conversations</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Visual indicators (dashed borders, amber colors) for sidechains</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Collapsible sidechain sections to reduce clutter</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Summary panel showing sidechain statistics</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Clear visual flow showing where sidechains branch and merge</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

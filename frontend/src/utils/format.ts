@@ -24,3 +24,37 @@ export function formatCurrency(amount: number): string {
 export function formatNumber(num: number): string {
   return new Intl.NumberFormat('en-US').format(num);
 }
+
+export function formatTokenCount(count: number): string {
+  /**
+   * Format token count for display with smart formatting.
+   * Examples: 45000 -> "45K", 1200000 -> "1.2M", 500 -> "500"
+   */
+  if (count >= 1_000_000) {
+    return `${(count / 1_000_000).toFixed(1)}M`;
+  }
+  if (count >= 1_000) {
+    return `${(count / 1_000).toFixed(0)}K`;
+  }
+  return count.toString();
+}
+
+export function formatCost(cost: number): string {
+  /**
+   * Format cost for display according to ClaudeLens requirements.
+   * Examples: 0 -> "$0.00", 0.005 -> "<$0.01", 0.45 -> "$0.45", 12.30 -> "$12.30"
+   */
+  if (cost === 0) {
+    return '$0.00';
+  }
+  if (cost < 0.01) {
+    return '<$0.01';
+  }
+  if (cost < 1) {
+    return `$${cost.toFixed(2)}`;
+  }
+  if (cost < 100) {
+    return `$${cost.toFixed(2)}`;
+  }
+  return `$${cost.toFixed(0)}`;
+}

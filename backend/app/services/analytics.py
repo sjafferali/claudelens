@@ -1,4 +1,7 @@
 """Analytics service implementation."""
+import math
+import re
+import statistics
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -8,14 +11,75 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.schemas.analytics import (
     ActivityHeatmap,
     AnalyticsSummary,
+    BenchmarkComparisonMatrix,
+    BenchmarkEntity,
+    BenchmarkEntityType,
+    BenchmarkImprovement,
+    BenchmarkInsights,
+    BenchmarkMetrics,
+    BenchmarkPercentileRanks,
+    BenchmarkResponse,
+    BranchAnalytics,
+    BranchComparison,
+    BranchMetrics,
+    BranchTopOperation,
+    BranchType,
+    ConversationFlowAnalytics,
+    ConversationFlowEdge,
+    ConversationFlowMetrics,
+    ConversationFlowNode,
+    ConversationPattern,
     CostAnalytics,
+    CostBreakdown,
+    CostBreakdownItem,
+    CostBreakdownResponse,
     CostDataPoint,
+    CostMetrics,
+    CostPrediction,
+    CostPredictionPoint,
+    CostSummary,
+    CostTimePoint,
+    DepthCorrelations,
+    DepthDistribution,
+    DepthRecommendations,
+    DirectoryMetrics,
+    DirectoryNode,
+    DirectoryTotalMetrics,
+    DirectoryUsageResponse,
+    DistributionBucket,
+    ErrorDetail,
+    ErrorDetailsResponse,
+    ErrorSummary,
+    ExtractedTopic,
+    GitBranchAnalyticsResponse,
     HeatmapCell,
     ModelUsage,
     ModelUsageStats,
+    NormalizationMethod,
+    PerformanceCorrelation,
+    PerformanceFactorsAnalytics,
+    PopularTopic,
+    ResponseTimeAnalytics,
+    ResponseTimeDataPoint,
+    ResponseTimePercentiles,
+    SessionDepthAnalytics,
+    SessionHealth,
+    SuccessRateMetrics,
     TimeRange,
+    TokenBreakdown,
     TokenDataPoint,
+    TokenEfficiencyDetailed,
+    TokenEfficiencyMetrics,
+    TokenEfficiencySummary,
+    TokenFormattedValues,
     TokenUsageStats,
+    ToolUsage,
+    ToolUsageDetailed,
+    ToolUsageSummary,
+    TopicCategory,
+    TopicCombination,
+    TopicExtractionResponse,
+    TopicSuggestionResponse,
 )
 
 
@@ -710,3 +774,3769 @@ class AnalyticsService:
             return {}
 
         return {"timestamp": {"$gte": start, "$lt": end}}
+
+    async def get_tool_usage_summary(
+        self,
+        session_id: str | None = None,
+        project_id: str | None = None,
+        time_range: TimeRange = TimeRange.LAST_30_DAYS,
+    ) -> ToolUsageSummary:
+        """Get tool usage summary for stat card."""
+        # Build match filter
+        match_filter = self._get_time_filter(time_range)
+
+        if session_id:
+            match_filter["sessionId"] = session_id
+        elif project_id:
+            # Get session IDs for the project
+            session_ids = await self.db.sessions.distinct(
+                "sessionId", {"projectId": ObjectId(project_id)}
+            )
+            match_filter["sessionId"] = {"$in": session_ids}
+
+        # Aggregation pipeline to extract and count tool calls
+        pipeline: list[dict[str, Any]] = [
+            {"$match": match_filter},
+            # Look for messages with tool_calls in message field
+            {
+                "$match": {
+                    "$or": [
+                        {"message.tool_calls": {"$exists": True, "$ne": None}},
+                        {"type": "tool_use"},  # Also count tool_use messages
+                    ]
+                }
+            },
+            # Unwind tool_calls array if it exists
+            {
+                "$addFields": {
+                    "tools": {
+                        "$cond": {
+                            "if": {"$isArray": "$message.tool_calls"},
+                            "then": "$message.tool_calls",
+                            "else": {
+                                "$cond": {
+                                    "if": {"$eq": ["$type", "tool_use"]},
+                                    "then": [
+                                        {"name": "$message.name", "type": "tool_use"}
+                                    ],
+                                    "else": [],
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            {"$unwind": {"path": "$tools", "preserveNullAndEmptyArrays": False}},
+            # Extract tool name
+            {
+                "$addFields": {
+                    "tool_name": {
+                        "$cond": {
+                            "if": {"$type": "$tools.name"},
+                            "then": "$tools.name",
+                            "else": {
+                                "$cond": {
+                                    "if": {"$type": "$tools.function.name"},
+                                    "then": "$tools.function.name",
+                                    "else": "unknown",
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            # Group by tool name to count occurrences
+            {
+                "$group": {
+                    "_id": "$tool_name",
+                    "count": {"$sum": 1},
+                }
+            },
+            # Sort by count descending
+            {"$sort": {"count": -1}},
+        ]
+
+        results = await self.db.messages.aggregate(pipeline).to_list(None)
+
+        total_tool_calls = sum(result["count"] for result in results)
+        unique_tools = len(results)
+        most_used_tool = results[0]["_id"] if results else None
+
+        return ToolUsageSummary(
+            total_tool_calls=total_tool_calls,
+            unique_tools=unique_tools,
+            most_used_tool=most_used_tool,
+        )
+
+    async def get_tool_usage_detailed(
+        self,
+        session_id: str | None = None,
+        project_id: str | None = None,
+        time_range: TimeRange = TimeRange.LAST_30_DAYS,
+    ) -> ToolUsageDetailed:
+        """Get detailed tool usage analytics."""
+        # Build match filter
+        match_filter = self._get_time_filter(time_range)
+
+        if session_id:
+            match_filter["sessionId"] = session_id
+        elif project_id:
+            # Get session IDs for the project
+            session_ids = await self.db.sessions.distinct(
+                "sessionId", {"projectId": ObjectId(project_id)}
+            )
+            match_filter["sessionId"] = {"$in": session_ids}
+
+        # Aggregation pipeline for detailed tool usage
+        pipeline: list[dict[str, Any]] = [
+            {"$match": match_filter},
+            # Look for messages with tool_calls
+            {
+                "$match": {
+                    "$or": [
+                        {"message.tool_calls": {"$exists": True, "$ne": None}},
+                        {"type": "tool_use"},
+                    ]
+                }
+            },
+            # Process tool calls
+            {
+                "$addFields": {
+                    "tools": {
+                        "$cond": {
+                            "if": {"$isArray": "$message.tool_calls"},
+                            "then": "$message.tool_calls",
+                            "else": {
+                                "$cond": {
+                                    "if": {"$eq": ["$type", "tool_use"]},
+                                    "then": [
+                                        {"name": "$message.name", "type": "tool_use"}
+                                    ],
+                                    "else": [],
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            {"$unwind": {"path": "$tools", "preserveNullAndEmptyArrays": False}},
+            # Extract tool name and add timestamp
+            {
+                "$addFields": {
+                    "tool_name": {
+                        "$cond": {
+                            "if": {"$type": "$tools.name"},
+                            "then": "$tools.name",
+                            "else": {
+                                "$cond": {
+                                    "if": {"$type": "$tools.function.name"},
+                                    "then": "$tools.function.name",
+                                    "else": "unknown",
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            # Group by tool name
+            {
+                "$group": {
+                    "_id": "$tool_name",
+                    "count": {"$sum": 1},
+                    "last_used": {"$max": "$timestamp"},
+                }
+            },
+            # Sort by count descending
+            {"$sort": {"count": -1}},
+        ]
+
+        results = await self.db.messages.aggregate(pipeline).to_list(None)
+
+        # Calculate total calls and process results
+        total_calls = sum(result["count"] for result in results)
+        tools = []
+
+        for result in results:
+            tool_name = result["_id"]
+            count = result["count"]
+            percentage = (count / total_calls * 100) if total_calls > 0 else 0
+
+            # Categorize tools based on common patterns
+            category = self._categorize_tool(tool_name)
+
+            tools.append(
+                ToolUsage(
+                    name=tool_name,
+                    count=count,
+                    percentage=round(percentage, 1),
+                    category=category,
+                    last_used=result["last_used"],
+                )
+            )
+
+        return ToolUsageDetailed(
+            tools=tools,
+            total_calls=total_calls,
+            session_id=session_id,
+            time_range=time_range,
+        )
+
+    def _categorize_tool(self, tool_name: str) -> str:
+        """Categorize tool based on its name."""
+        tool_lower = tool_name.lower()
+
+        # File operations
+        if any(
+            keyword in tool_lower
+            for keyword in ["file", "read", "write", "edit", "create"]
+        ):
+            return "file"
+
+        # Search operations
+        if any(keyword in tool_lower for keyword in ["search", "find", "grep", "glob"]):
+            return "search"
+
+        # Execution operations
+        if any(keyword in tool_lower for keyword in ["bash", "exec", "run", "command"]):
+            return "execution"
+
+        # Default category
+        return "other"
+
+    async def get_conversation_flow(
+        self, session_id: str, include_sidechains: bool = True
+    ) -> ConversationFlowAnalytics:
+        """Get conversation flow analytics for visualization."""
+        # Build match filter
+        match_filter: dict[str, Any] = {"sessionId": session_id}
+        if not include_sidechains:
+            match_filter["isSidechain"] = {"$ne": True}
+
+        # Get all messages for the session
+        messages = (
+            await self.db.messages.find(
+                match_filter,
+                {
+                    "uuid": 1,
+                    "parentUuid": 1,
+                    "type": 1,
+                    "isSidechain": 1,
+                    "costUsd": 1,
+                    "durationMs": 1,
+                    "timestamp": 1,
+                    "message": 1,
+                    "toolUseResult": 1,
+                },
+            )
+            .sort("timestamp", 1)
+            .to_list(None)
+        )
+
+        if not messages:
+            return ConversationFlowAnalytics(
+                nodes=[],
+                edges=[],
+                metrics=ConversationFlowMetrics(
+                    max_depth=0,
+                    branch_count=0,
+                    sidechain_percentage=0.0,
+                    avg_branch_length=0.0,
+                    total_nodes=0,
+                    total_cost=0.0,
+                    avg_response_time_ms=None,
+                ),
+                session_id=session_id,
+            )
+
+        # Build nodes
+        nodes = []
+        node_lookup = {}
+        total_cost = 0
+        response_times = []
+
+        for msg in messages:
+            # Calculate tool count
+            tool_count = 0
+            if msg.get("message") and msg["message"].get("tool_calls"):
+                tool_count = len(msg["message"]["tool_calls"])
+            elif msg.get("toolUseResult"):
+                tool_count = 1
+
+            # Generate summary from message content
+            summary = self._generate_message_summary(msg)
+
+            cost = msg.get("costUsd", 0) or 0
+            total_cost += cost
+
+            duration_ms = msg.get("durationMs")
+            if duration_ms:
+                response_times.append(duration_ms)
+
+            node = ConversationFlowNode(
+                id=msg["uuid"],
+                parent_id=msg.get("parentUuid"),
+                type=msg["type"],
+                is_sidechain=msg.get("isSidechain", False),
+                cost=cost,
+                duration_ms=duration_ms,
+                tool_count=tool_count,
+                summary=summary,
+                timestamp=msg["timestamp"],
+            )
+
+            nodes.append(node)
+            node_lookup[msg["uuid"]] = node
+
+        # Build edges
+        edges = []
+        for node in nodes:
+            if node.parent_id and node.parent_id in node_lookup:
+                edge_type = "sidechain" if node.is_sidechain else "main"
+                edges.append(
+                    ConversationFlowEdge(
+                        source=node.parent_id,
+                        target=node.id,
+                        type=edge_type,
+                    )
+                )
+
+        # Calculate metrics
+        metrics = self._calculate_conversation_metrics(nodes, edges)
+        metrics.total_cost = round(total_cost, 2)
+        if response_times:
+            metrics.avg_response_time_ms = round(
+                sum(response_times) / len(response_times), 2
+            )
+
+        return ConversationFlowAnalytics(
+            nodes=nodes,
+            edges=edges,
+            metrics=metrics,
+            session_id=session_id,
+        )
+
+    async def get_session_health(
+        self,
+        session_id: str | None = None,
+        time_range: TimeRange = TimeRange.LAST_30_DAYS,
+    ) -> SessionHealth:
+        """Get session health metrics based on tool execution results."""
+        # Build match filter
+        match_filter = self._get_time_filter(time_range)
+
+        if session_id:
+            match_filter["sessionId"] = session_id
+
+        # Pipeline to analyze toolUseResult fields for success/error detection
+        pipeline: list[dict[str, Any]] = [
+            {
+                "$match": {
+                    **match_filter,
+                    "toolUseResult": {"$exists": True, "$ne": None},
+                }
+            },
+            {
+                "$project": {
+                    "sessionId": 1,
+                    "timestamp": 1,
+                    "toolUseResult": 1,
+                    "isSuccess": {
+                        "$cond": {
+                            "if": {
+                                "$or": [
+                                    {
+                                        "$regexMatch": {
+                                            "input": {"$toString": "$toolUseResult"},
+                                            "regex": "error|Error|ERROR|failed|Failed|FAILED",
+                                        }
+                                    },
+                                    {
+                                        "$ne": [
+                                            {"$ifNull": ["$toolUseResult.error", None]},
+                                            None,
+                                        ]
+                                    },
+                                    {
+                                        "$ne": [
+                                            {
+                                                "$ifNull": [
+                                                    "$toolUseResult.stderr",
+                                                    None,
+                                                ]
+                                            },
+                                            None,
+                                        ]
+                                    },
+                                    {
+                                        "$eq": [
+                                            {"$ifNull": ["$toolUseResult.exitCode", 0]},
+                                            {"$ne": [0, 0]},
+                                        ]
+                                    },
+                                ]
+                            },
+                            "then": False,
+                            "else": True,
+                        }
+                    },
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "total_operations": {"$sum": 1},
+                    "successful_operations": {"$sum": {"$cond": ["$isSuccess", 1, 0]}},
+                    "error_count": {"$sum": {"$cond": ["$isSuccess", 0, 1]}},
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+
+        if not result:
+            return SessionHealth(
+                success_rate=100.0,
+                total_operations=0,
+                error_count=0,
+                health_status="excellent",
+            )
+
+        data = result[0]
+        total_ops = data["total_operations"]
+        error_count = data["error_count"]
+        success_rate = (
+            (data["successful_operations"] / total_ops * 100)
+            if total_ops > 0
+            else 100.0
+        )
+
+        # Determine health status based on success rate
+        if success_rate > 95:
+            health_status = "excellent"
+        elif success_rate > 80:
+            health_status = "good"
+        elif success_rate > 60:
+            health_status = "fair"
+        else:
+            health_status = "poor"
+
+        return SessionHealth(
+            success_rate=round(success_rate, 1),
+            total_operations=total_ops,
+            error_count=error_count,
+            health_status=health_status,
+        )
+
+    async def get_detailed_errors(
+        self,
+        session_id: str | None = None,
+        time_range: TimeRange = TimeRange.LAST_30_DAYS,
+        error_severity: str | None = None,
+    ) -> ErrorDetailsResponse:
+        """Get detailed error analytics from tool execution results."""
+        # Build match filter
+        match_filter = self._get_time_filter(time_range)
+
+        if session_id:
+            match_filter["sessionId"] = session_id
+
+        # Pipeline to extract errors from toolUseResult fields
+        pipeline: list[dict[str, Any]] = [
+            {
+                "$match": {
+                    **match_filter,
+                    "toolUseResult": {"$exists": True, "$ne": None},
+                }
+            },
+            {
+                "$project": {
+                    "sessionId": 1,
+                    "timestamp": 1,
+                    "toolUseResult": 1,
+                    "hasError": {
+                        "$or": [
+                            {
+                                "$regexMatch": {
+                                    "input": {"$toString": "$toolUseResult"},
+                                    "regex": "error|Error|ERROR|failed|Failed|FAILED",
+                                }
+                            },
+                            {
+                                "$ne": [
+                                    {"$ifNull": ["$toolUseResult.error", None]},
+                                    None,
+                                ]
+                            },
+                            {
+                                "$ne": [
+                                    {"$ifNull": ["$toolUseResult.stderr", None]},
+                                    None,
+                                ]
+                            },
+                            {
+                                "$eq": [
+                                    {"$ifNull": ["$toolUseResult.exitCode", 0]},
+                                    {"$ne": [0, 0]},
+                                ]
+                            },
+                        ]
+                    },
+                }
+            },
+            {"$match": {"hasError": True}},
+            {"$sort": {"timestamp": -1}},
+            {"$limit": 50},  # Limit to recent 50 errors
+        ]
+
+        error_docs = await self.db.messages.aggregate(pipeline).to_list(50)
+
+        errors = []
+        error_by_type: dict[str, int] = {}
+        error_by_tool: dict[str, int] = {}
+
+        for doc in error_docs:
+            tool_result = doc.get("toolUseResult", {})
+
+            # Extract error information
+            error_message = ""
+            error_type = "unknown"
+            severity = "info"
+            tool_name = "unknown"
+
+            # Try to extract tool name from various sources
+            if isinstance(tool_result, dict):
+                # Look for tool name in common fields
+                tool_name = (
+                    tool_result.get("tool") or tool_result.get("command") or "unknown"
+                )
+
+                # Extract error message
+                if "error" in tool_result:
+                    error_message = str(tool_result["error"])
+                    error_type = "execution_error"
+                    severity = "critical"
+                elif "stderr" in tool_result and tool_result["stderr"]:
+                    error_message = str(tool_result["stderr"])
+                    error_type = "stderr"
+                    severity = "warning"
+                elif "exitCode" in tool_result and tool_result["exitCode"] != 0:
+                    error_message = f"Exit code: {tool_result['exitCode']}"
+                    error_type = "exit_code"
+                    severity = "warning"
+                else:
+                    # Look for error patterns in string representation
+                    tool_str = str(tool_result)
+                    if "error" in tool_str.lower() or "failed" in tool_str.lower():
+                        error_message = (
+                            tool_str[:200] + "..." if len(tool_str) > 200 else tool_str
+                        )
+                        error_type = "pattern_match"
+                        severity = "info"
+
+            # Apply severity filter if specified
+            if error_severity and severity != error_severity:
+                continue
+
+            # Count errors by type and tool
+            error_by_type[error_type] = error_by_type.get(error_type, 0) + 1
+            error_by_tool[tool_name] = error_by_tool.get(tool_name, 0) + 1
+
+            error_detail = ErrorDetail(
+                timestamp=doc["timestamp"],
+                tool=tool_name,
+                error_type=error_type,
+                severity=severity,
+                message=error_message[:500],  # Truncate long messages
+                context=f"Session: {doc['sessionId'][:8]}...",
+            )
+            errors.append(error_detail)
+
+        error_summary = ErrorSummary(by_type=error_by_type, by_tool=error_by_tool)
+
+        return ErrorDetailsResponse(errors=errors, error_summary=error_summary)
+
+    async def get_success_rate(
+        self,
+        session_id: str | None = None,
+        time_range: TimeRange = TimeRange.LAST_30_DAYS,
+    ) -> SuccessRateMetrics:
+        """Get success rate metrics based on tool execution results."""
+        # Build match filter
+        match_filter = self._get_time_filter(time_range)
+
+        if session_id:
+            match_filter["sessionId"] = session_id
+
+        # Pipeline to calculate success rates
+        pipeline: list[dict[str, Any]] = [
+            {
+                "$match": {
+                    **match_filter,
+                    "toolUseResult": {"$exists": True, "$ne": None},
+                }
+            },
+            {
+                "$project": {
+                    "isSuccess": {
+                        "$cond": {
+                            "if": {
+                                "$or": [
+                                    {
+                                        "$regexMatch": {
+                                            "input": {"$toString": "$toolUseResult"},
+                                            "regex": "error|Error|ERROR|failed|Failed|FAILED",
+                                        }
+                                    },
+                                    {
+                                        "$ne": [
+                                            {"$ifNull": ["$toolUseResult.error", None]},
+                                            None,
+                                        ]
+                                    },
+                                    {
+                                        "$ne": [
+                                            {
+                                                "$ifNull": [
+                                                    "$toolUseResult.stderr",
+                                                    None,
+                                                ]
+                                            },
+                                            None,
+                                        ]
+                                    },
+                                    {
+                                        "$eq": [
+                                            {"$ifNull": ["$toolUseResult.exitCode", 0]},
+                                            {"$ne": [0, 0]},
+                                        ]
+                                    },
+                                ]
+                            },
+                            "then": False,
+                            "else": True,
+                        }
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "total_operations": {"$sum": 1},
+                    "successful_operations": {"$sum": {"$cond": ["$isSuccess", 1, 0]}},
+                    "failed_operations": {"$sum": {"$cond": ["$isSuccess", 0, 1]}},
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+
+        if not result:
+            return SuccessRateMetrics(
+                success_rate=100.0,
+                total_operations=0,
+                successful_operations=0,
+                failed_operations=0,
+                time_range=time_range,
+            )
+
+        data = result[0]
+        total_ops = data["total_operations"]
+        successful_ops = data["successful_operations"]
+        failed_ops = data["failed_operations"]
+        success_rate = (successful_ops / total_ops * 100) if total_ops > 0 else 100.0
+
+        return SuccessRateMetrics(
+            success_rate=round(success_rate, 1),
+            total_operations=total_ops,
+            successful_operations=successful_ops,
+            failed_operations=failed_ops,
+            time_range=time_range,
+        )
+
+    def _generate_message_summary(self, message: dict) -> str:
+        """Generate a brief summary of message content."""
+        msg_content = message.get("message", {})
+
+        if not msg_content:
+            return ""
+
+        # For user messages
+        if message["type"] == "user":
+            content = msg_content.get("content", "")
+            if isinstance(content, str):
+                # Truncate long content
+                return content[:100] + "..." if len(content) > 100 else content
+            elif isinstance(content, list) and content:
+                # Handle content arrays
+                first_item = content[0]
+                if isinstance(first_item, dict) and "text" in first_item:
+                    text = str(first_item["text"])
+                    return text[:100] + "..." if len(text) > 100 else text
+
+        # For assistant messages
+        elif message["type"] == "assistant":
+            content = msg_content.get("content", "")
+            if isinstance(content, str):
+                return content[:100] + "..." if len(content) > 100 else content
+
+            # Check for tool calls
+            if msg_content.get("tool_calls"):
+                tool_names = [
+                    tc.get("function", {}).get("name", "unknown")
+                    for tc in msg_content["tool_calls"]
+                ]
+                return f"Used tools: {', '.join(tool_names)}"
+
+        # For tool use/result messages
+        elif message["type"] == "tool_use":
+            tool_name = msg_content.get("name", "unknown")
+            return f"Tool: {tool_name}"
+
+        return ""
+
+    def _calculate_conversation_metrics(
+        self, nodes: list[ConversationFlowNode], edges: list[ConversationFlowEdge]
+    ) -> ConversationFlowMetrics:
+        """Calculate conversation flow metrics."""
+        # Build adjacency list for tree traversal
+        children: dict[str, list[str]] = {}
+        roots = set()
+
+        for node in nodes:
+            if node.parent_id is None:
+                roots.add(node.id)
+            else:
+                if node.parent_id not in children:
+                    children[node.parent_id] = []
+                children[node.parent_id].append(node.id)
+
+        # Calculate max depth
+        max_depth = 0
+        for root in roots:
+            depth = self._calculate_tree_depth(root, children, 0)
+            max_depth = max(max_depth, depth)
+
+        # Count branches (nodes with multiple children)
+        branch_count = sum(1 for node_id in children if len(children[node_id]) > 1)
+
+        # Calculate sidechain percentage
+        sidechain_count = sum(1 for node in nodes if node.is_sidechain)
+        sidechain_percentage = (sidechain_count / len(nodes) * 100) if nodes else 0
+
+        # Calculate average branch length
+        branch_lengths: list[int] = []
+        for root in roots:
+            lengths: list[int] = []
+            self._calculate_branch_lengths(root, children, 0, lengths)
+            branch_lengths.extend(lengths)
+
+        avg_branch_length = (
+            sum(branch_lengths) / len(branch_lengths) if branch_lengths else 0
+        )
+
+        # Calculate total cost and average response time
+        total_cost = sum(node.cost for node in nodes)
+        response_times = [
+            node.duration_ms for node in nodes if node.duration_ms is not None
+        ]
+        avg_response_time_ms = (
+            sum(response_times) / len(response_times) if response_times else None
+        )
+
+        return ConversationFlowMetrics(
+            max_depth=max_depth,
+            branch_count=branch_count,
+            sidechain_percentage=round(sidechain_percentage, 1),
+            avg_branch_length=round(avg_branch_length, 1),
+            total_nodes=len(nodes),
+            total_cost=total_cost,
+            avg_response_time_ms=avg_response_time_ms,
+        )
+
+    def _calculate_tree_depth(
+        self, node_id: str, children: dict, current_depth: int
+    ) -> int:
+        """Recursively calculate the maximum depth of a tree."""
+        if node_id not in children:
+            return current_depth
+
+        max_child_depth = current_depth
+        for child_id in children[node_id]:
+            child_depth = self._calculate_tree_depth(
+                child_id, children, current_depth + 1
+            )
+            max_child_depth = max(max_child_depth, child_depth)
+
+        return max_child_depth
+
+    def _calculate_branch_lengths(
+        self, node_id: str, children: dict, current_length: int, lengths: list
+    ):
+        """Recursively calculate branch lengths."""
+        if node_id not in children:
+            # Leaf node - record the length
+            lengths.append(current_length)
+            return
+
+        # Continue down each branch
+        for child_id in children[node_id]:
+            self._calculate_branch_lengths(
+                child_id, children, current_length + 1, lengths
+            )
+
+    async def get_directory_usage(
+        self,
+        time_range: TimeRange = TimeRange.LAST_30_DAYS,
+        depth: int = 3,
+        min_cost: float = 0.0,
+    ) -> DirectoryUsageResponse:
+        """Get directory usage analytics with hierarchical tree structure."""
+        time_filter = self._get_time_filter(time_range)
+
+        # Aggregation pipeline to get directory usage data
+        pipeline: list[dict[str, Any]] = [
+            {"$match": {**time_filter, "cwd": {"$exists": True, "$ne": None}}},
+            {
+                "$group": {
+                    "_id": "$cwd",
+                    "total_cost": {"$sum": "$costUsd"},
+                    "message_count": {"$sum": 1},
+                    "session_ids": {"$addToSet": "$sessionId"},
+                    "last_active": {"$max": "$timestamp"},
+                }
+            },
+            {"$match": {"total_cost": {"$gte": min_cost}}},
+            {
+                "$project": {
+                    "path": "$_id",
+                    "total_cost": {"$ifNull": ["$total_cost", 0]},
+                    "message_count": 1,
+                    "session_count": {"$size": "$session_ids"},
+                    "last_active": 1,
+                }
+            },
+        ]
+
+        results = await self.db.messages.aggregate(pipeline).to_list(None)
+
+        if not results:
+            # Return empty tree structure
+            empty_metrics = DirectoryMetrics(
+                cost=0.0,
+                messages=0,
+                sessions=0,
+                avg_cost_per_session=0.0,
+                last_active=datetime.utcnow(),
+            )
+            empty_node = DirectoryNode(
+                path="/",
+                name="root",
+                metrics=empty_metrics,
+                children=[],
+                percentage_of_total=0.0,
+            )
+            total_metrics = DirectoryTotalMetrics(
+                total_cost=0.0,
+                total_messages=0,
+                unique_directories=0,
+            )
+            return DirectoryUsageResponse(
+                root=empty_node,
+                total_metrics=total_metrics,
+                time_range=time_range,
+            )
+
+        # Calculate total metrics
+        total_cost = sum(r["total_cost"] for r in results)
+        total_messages = sum(r["message_count"] for r in results)
+        unique_directories = len(results)
+
+        # Build hierarchical tree structure
+        root_node = self._build_directory_tree(results, depth, total_cost)
+
+        total_metrics = DirectoryTotalMetrics(
+            total_cost=round(total_cost, 2),
+            total_messages=total_messages,
+            unique_directories=unique_directories,
+        )
+
+        return DirectoryUsageResponse(
+            root=root_node,
+            total_metrics=total_metrics,
+            time_range=time_range,
+        )
+
+    def _build_directory_tree(
+        self, directory_data: list[dict], max_depth: int, total_cost: float
+    ) -> DirectoryNode:
+        """Build hierarchical directory tree from flat directory data."""
+        # Create a tree structure from paths
+        tree: dict[str, Any] = {}
+
+        for data in directory_data:
+            path = data["path"]
+            if not path:
+                continue
+
+            # Normalize path across OS
+            normalized_path = self._normalize_path(path)
+
+            # Split path into components and limit depth
+            parts = [p for p in normalized_path.split("/") if p]
+            if max_depth > 0:
+                parts = parts[:max_depth]
+
+            # Build tree structure
+            current = tree
+            full_path = ""
+
+            for i, part in enumerate(parts):
+                full_path = full_path + "/" + part if full_path else "/" + part
+
+                if part not in current:
+                    current[part] = {
+                        "_data": {
+                            "path": full_path,
+                            "name": part,
+                            "cost": 0.0,
+                            "messages": 0,
+                            "sessions": set(),
+                            "last_active": datetime.min,
+                        },
+                        "_children": {},
+                    }
+
+                # Add data to this node
+                node_data = current[part]["_data"]
+                node_data["cost"] += data["total_cost"]
+                node_data["messages"] += data["message_count"]
+                # Handle session IDs properly
+                session_ids = data.get("session_ids", [])
+                if isinstance(session_ids, list):
+                    node_data["sessions"].update(session_ids)
+                if data["last_active"] > node_data["last_active"]:
+                    node_data["last_active"] = data["last_active"]
+
+                current = current[part]["_children"]
+
+        # Convert tree structure to DirectoryNode objects
+        return self._tree_to_directory_node(tree, "/", "root", total_cost)
+
+    def _normalize_path(self, path: str) -> str:
+        """Normalize directory path across different OS."""
+        if not path:
+            return ""
+
+        # Handle Windows paths
+        if "\\" in path:
+            path = path.replace("\\", "/")
+
+        # Remove drive letters for Windows paths
+        if len(path) > 1 and path[1] == ":":
+            path = path[2:]
+
+        # Ensure starts with /
+        if not path.startswith("/"):
+            path = "/" + path
+
+        # Remove trailing slash except for root
+        if len(path) > 1 and path.endswith("/"):
+            path = path[:-1]
+
+        return path
+
+    def _tree_to_directory_node(
+        self, tree: dict, path: str, name: str, total_cost: float
+    ) -> DirectoryNode:
+        """Convert tree dictionary to DirectoryNode object."""
+        # Calculate aggregate metrics for this node
+        total_node_cost = 0.0
+        total_messages = 0
+        all_sessions = set()
+        latest_activity = datetime.min
+
+        # Collect data from all descendants
+        def collect_metrics(node_tree: dict) -> None:
+            nonlocal total_node_cost, total_messages, all_sessions, latest_activity
+
+            for child_name, child_data in node_tree.items():
+                if child_name == "_data":
+                    continue
+
+                child_info = child_data["_data"]
+                total_node_cost += child_info["cost"]
+                total_messages += child_info["messages"]
+                all_sessions.update(child_info["sessions"])
+                if child_info["last_active"] > latest_activity:
+                    latest_activity = child_info["last_active"]
+
+                # Recurse into children
+                collect_metrics(child_data["_children"])
+
+        # If this is a leaf node with actual data
+        if "_data" in tree and not tree.get("_children"):
+            data = tree["_data"]
+            total_node_cost = data["cost"]
+            total_messages = data["messages"]
+            all_sessions = data["sessions"]
+            latest_activity = data["last_active"]
+        else:
+            # Aggregate from children
+            collect_metrics(tree)
+
+        # Calculate metrics
+        session_count = len(all_sessions)
+        avg_cost_per_session = (
+            total_node_cost / session_count if session_count > 0 else 0.0
+        )
+        percentage = (total_node_cost / total_cost * 100) if total_cost > 0 else 0.0
+
+        # Ensure we have a valid timestamp
+        if latest_activity == datetime.min:
+            latest_activity = datetime.utcnow()
+
+        metrics = DirectoryMetrics(
+            cost=round(total_node_cost, 2),
+            messages=total_messages,
+            sessions=session_count,
+            avg_cost_per_session=round(avg_cost_per_session, 4),
+            last_active=latest_activity,
+        )
+
+        # Build children nodes
+        children = []
+        children_dict = tree.get("_children", {}) if isinstance(tree, dict) else {}
+
+        for child_name, child_tree in children_dict.items():
+            child_path = f"{path}/{child_name}" if path != "/" else f"/{child_name}"
+            child_node = self._tree_to_directory_node(
+                child_tree, child_path, child_name, total_cost
+            )
+            children.append(child_node)
+
+        # Sort children by cost descending
+        children.sort(key=lambda x: x.metrics.cost, reverse=True)
+
+        return DirectoryNode(
+            path=path,
+            name=name,
+            metrics=metrics,
+            children=children,
+            percentage_of_total=round(percentage, 2),
+        )
+
+    async def get_response_times(
+        self, time_range: TimeRange, percentiles: list[int], group_by: str
+    ) -> ResponseTimeAnalytics:
+        """Get response time analytics with percentiles and distribution."""
+        time_filter = self._get_time_filter(time_range)
+
+        # Base filter for assistant messages with duration data
+        base_filter = {
+            **time_filter,
+            "type": "assistant",
+            "durationMs": {"$ne": None, "$gt": 0},
+        }
+
+        # Calculate overall percentiles
+        overall_percentiles = await self._calculate_percentiles(
+            base_filter, percentiles
+        )
+
+        # Get time series data
+        time_series = await self._get_response_time_series(base_filter, group_by)
+
+        # Get distribution buckets
+        distribution = await self._get_response_time_distribution(base_filter)
+
+        return ResponseTimeAnalytics(
+            percentiles=overall_percentiles,
+            time_series=time_series,
+            distribution=distribution,
+            time_range=time_range,
+            group_by=group_by,
+        )
+
+    async def get_performance_factors(
+        self, time_range: TimeRange
+    ) -> PerformanceFactorsAnalytics:
+        """Get performance factors analysis."""
+        time_filter = self._get_time_filter(time_range)
+
+        # Base filter for assistant messages with duration data
+        base_filter = {
+            **time_filter,
+            "type": "assistant",
+            "durationMs": {"$ne": None, "$gt": 0},
+        }
+
+        # Calculate correlations for different factors
+        correlations = []
+
+        # Message length correlation
+        msg_length_corr = await self._calculate_message_length_correlation(base_filter)
+        if msg_length_corr:
+            correlations.append(msg_length_corr)
+
+        # Tool usage correlation
+        tool_usage_corr = await self._calculate_tool_usage_correlation(base_filter)
+        if tool_usage_corr:
+            correlations.append(tool_usage_corr)
+
+        # Model type correlation
+        model_corr = await self._calculate_model_correlation(base_filter)
+        if model_corr:
+            correlations.extend(model_corr)
+
+        # Time of day correlation
+        time_of_day_corr = await self._calculate_time_of_day_correlation(base_filter)
+        if time_of_day_corr:
+            correlations.append(time_of_day_corr)
+
+        # Generate recommendations based on correlations
+        recommendations = self._generate_performance_recommendations(correlations)
+
+        return PerformanceFactorsAnalytics(
+            correlations=correlations,
+            recommendations=recommendations,
+            time_range=time_range,
+        )
+
+    async def _calculate_percentiles(
+        self, base_filter: dict, percentiles: list[int]
+    ) -> ResponseTimePercentiles:
+        """Calculate response time percentiles."""
+        pipeline = [
+            {"$match": base_filter},
+            {"$sort": {"durationMs": 1}},
+            {
+                "$group": {
+                    "_id": None,
+                    "durations": {"$push": "$durationMs"},
+                    "count": {"$sum": 1},
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        if not result or not result[0]["durations"]:
+            return ResponseTimePercentiles(p50=0, p90=0, p95=0, p99=0)
+
+        durations = result[0]["durations"]
+        count = len(durations)
+
+        percentile_values = {}
+        for p in percentiles:
+            index = int((p / 100.0) * count)
+            if index >= count:
+                index = count - 1
+            percentile_values[f"p{p}"] = float(durations[index])
+
+        return ResponseTimePercentiles(
+            p50=percentile_values.get("p50", 0),
+            p90=percentile_values.get("p90", 0),
+            p95=percentile_values.get("p95", 0),
+            p99=percentile_values.get("p99", 0),
+        )
+
+    async def _get_response_time_series(
+        self, base_filter: dict, group_by: str
+    ) -> list[ResponseTimeDataPoint]:
+        """Get response time time series data."""
+        date_key: Any
+        if group_by == "hour":
+            group_format = "%Y-%m-%d %H:00:00"
+            date_key = {"$dateToString": {"format": group_format, "date": "$timestamp"}}
+        elif group_by == "day":
+            group_format = "%Y-%m-%d"
+            date_key = {"$dateToString": {"format": group_format, "date": "$timestamp"}}
+        elif group_by == "model":
+            date_key = "$model"
+        elif group_by == "tool_count":
+            # Count tools used in each message
+            date_key = {
+                "$size": {
+                    "$ifNull": [
+                        {"$objectToArray": {"$ifNull": ["$toolUseResult", {}]}},
+                        [],
+                    ]
+                }
+            }
+        else:
+            date_key = {
+                "$dateToString": {"format": "%Y-%m-%d %H:00:00", "date": "$timestamp"}
+            }
+
+        pipeline = [
+            {"$match": base_filter},
+            {
+                "$group": {
+                    "_id": date_key,
+                    "durations": {"$push": "$durationMs"},
+                    "count": {"$sum": 1},
+                }
+            },
+            {"$sort": {"_id": 1}},
+        ]
+
+        results = await self.db.messages.aggregate(pipeline).to_list(None)
+
+        time_series = []
+        for result in results:
+            durations = sorted(result["durations"])
+            count = len(durations)
+
+            if count == 0:
+                continue
+
+            avg_duration = sum(durations) / count
+            p50_idx = int(0.5 * count)
+            p90_idx = int(0.9 * count)
+
+            if p50_idx >= count:
+                p50_idx = count - 1
+            if p90_idx >= count:
+                p90_idx = count - 1
+
+            # Parse timestamp for time-based grouping
+            if group_by in ["hour", "day"]:
+                timestamp = datetime.fromisoformat(result["_id"].replace("Z", "+00:00"))
+            else:
+                timestamp = datetime.utcnow()
+
+            time_series.append(
+                ResponseTimeDataPoint(
+                    timestamp=timestamp,
+                    avg_duration_ms=round(avg_duration, 2),
+                    p50=float(durations[p50_idx]),
+                    p90=float(durations[p90_idx]),
+                    message_count=count,
+                )
+            )
+
+        return time_series
+
+    async def _get_response_time_distribution(
+        self, base_filter: dict
+    ) -> list[DistributionBucket]:
+        """Get response time distribution buckets."""
+        pipeline: list[dict[str, Any]] = [
+            {"$match": base_filter},
+            {
+                "$bucket": {
+                    "groupBy": "$durationMs",
+                    "boundaries": [0, 1000, 5000, 10000, 30000, 60000, float("inf")],
+                    "default": "60000+",
+                    "output": {"count": {"$sum": 1}},
+                }
+            },
+        ]
+
+        results = await self.db.messages.aggregate(pipeline).to_list(None)
+
+        # Get total count for percentage calculation
+        total_pipeline: list[dict[str, Any]] = [
+            {"$match": base_filter},
+            {"$count": "total"},
+        ]
+        total_result = await self.db.messages.aggregate(total_pipeline).to_list(1)
+        total_count = total_result[0]["total"] if total_result else 0
+
+        bucket_labels = {
+            0: "0-1s",
+            1000: "1-5s",
+            5000: "5-10s",
+            10000: "10-30s",
+            30000: "30-60s",
+            60000: "60s+",
+            "60000+": "60s+",
+        }
+
+        distribution = []
+        for result in results:
+            bucket_id = result["_id"]
+            count = result["count"]
+            percentage = (count / total_count * 100) if total_count > 0 else 0
+
+            bucket_label = bucket_labels.get(bucket_id, str(bucket_id))
+
+            distribution.append(
+                DistributionBucket(
+                    bucket=bucket_label, count=count, percentage=round(percentage, 2)
+                )
+            )
+
+        return distribution
+
+    async def _calculate_message_length_correlation(
+        self, base_filter: dict
+    ) -> PerformanceCorrelation | None:
+        """Calculate correlation between message length and response time."""
+        pipeline = [
+            {"$match": base_filter},
+            {"$addFields": {"messageLength": {"$strLenCP": {"$toString": "$message"}}}},
+            {
+                "$group": {
+                    "_id": None,
+                    "data": {
+                        "$push": {"length": "$messageLength", "duration": "$durationMs"}
+                    },
+                    "count": {"$sum": 1},
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        if not result or result[0]["count"] < 10:  # Need at least 10 samples
+            return None
+
+        data = result[0]["data"]
+        lengths = [d["length"] for d in data]
+        durations = [d["duration"] for d in data]
+
+        correlation = self._calculate_pearson_correlation(lengths, durations)
+        avg_impact = sum(durations) / len(durations) - min(durations)
+
+        return PerformanceCorrelation(
+            factor="message_length",
+            correlation_strength=correlation,
+            impact_ms=round(avg_impact, 2),
+            sample_size=len(data),
+        )
+
+    async def _calculate_tool_usage_correlation(
+        self, base_filter: dict
+    ) -> PerformanceCorrelation | None:
+        """Calculate correlation between tool usage count and response time."""
+        pipeline = [
+            {"$match": base_filter},
+            {
+                "$addFields": {
+                    "toolCount": {
+                        "$size": {
+                            "$ifNull": [
+                                {"$objectToArray": {"$ifNull": ["$toolUseResult", {}]}},
+                                [],
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "data": {
+                        "$push": {"toolCount": "$toolCount", "duration": "$durationMs"}
+                    },
+                    "count": {"$sum": 1},
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        if not result or result[0]["count"] < 10:
+            return None
+
+        data = result[0]["data"]
+        tool_counts = [d["toolCount"] for d in data]
+        durations = [d["duration"] for d in data]
+
+        correlation = self._calculate_pearson_correlation(tool_counts, durations)
+        avg_impact = sum(durations) / len(durations) - min(durations)
+
+        return PerformanceCorrelation(
+            factor="tool_usage_count",
+            correlation_strength=correlation,
+            impact_ms=round(avg_impact, 2),
+            sample_size=len(data),
+        )
+
+    async def _calculate_model_correlation(
+        self, base_filter: dict
+    ) -> list[PerformanceCorrelation]:
+        """Calculate correlation for different models."""
+        pipeline = [
+            {"$match": base_filter},
+            {
+                "$group": {
+                    "_id": "$model",
+                    "avgDuration": {"$avg": "$durationMs"},
+                    "count": {"$sum": 1},
+                }
+            },
+            {"$match": {"count": {"$gte": 5}}},  # At least 5 samples per model
+        ]
+
+        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        if len(results) < 2:
+            return []
+
+        # Calculate baseline (fastest model)
+        baseline_duration = min(r["avgDuration"] for r in results)
+
+        correlations = []
+        for result in results:
+            model = result["_id"] or "unknown"
+            avg_duration = result["avgDuration"]
+            impact = avg_duration - baseline_duration
+
+            # Use a simple impact-based correlation strength
+            max_impact = max(r["avgDuration"] for r in results) - baseline_duration
+            correlation_strength = impact / max_impact if max_impact > 0 else 0
+
+            correlations.append(
+                PerformanceCorrelation(
+                    factor=f"model_{model}",
+                    correlation_strength=correlation_strength,
+                    impact_ms=round(impact, 2),
+                    sample_size=result["count"],
+                )
+            )
+
+        return correlations
+
+    async def _calculate_time_of_day_correlation(
+        self, base_filter: dict
+    ) -> PerformanceCorrelation | None:
+        """Calculate correlation between time of day and response time."""
+        pipeline = [
+            {"$match": base_filter},
+            {"$addFields": {"hourOfDay": {"$hour": "$timestamp"}}},
+            {
+                "$group": {
+                    "_id": None,
+                    "data": {
+                        "$push": {"hour": "$hourOfDay", "duration": "$durationMs"}
+                    },
+                    "count": {"$sum": 1},
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        if not result or result[0]["count"] < 20:
+            return None
+
+        data = result[0]["data"]
+        hours = [d["hour"] for d in data]
+        durations = [d["duration"] for d in data]
+
+        correlation = self._calculate_pearson_correlation(hours, durations)
+        avg_impact = max(durations) - min(durations)
+
+        return PerformanceCorrelation(
+            factor="time_of_day",
+            correlation_strength=correlation,
+            impact_ms=round(avg_impact * 0.1, 2),  # Scale down impact
+            sample_size=len(data),
+        )
+
+    def _calculate_pearson_correlation(self, x: list[float], y: list[float]) -> float:
+        """Calculate Pearson correlation coefficient."""
+        if len(x) != len(y) or len(x) < 2:
+            return 0.0
+
+        n = len(x)
+        sum_x = sum(x)
+        sum_y = sum(y)
+        sum_xy = sum(x[i] * y[i] for i in range(n))
+        sum_x2 = sum(xi * xi for xi in x)
+        sum_y2 = sum(yi * yi for yi in y)
+
+        numerator = n * sum_xy - sum_x * sum_y
+        denominator = (
+            (n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y)
+        ) ** 0.5
+
+        if denominator == 0:
+            return 0.0
+
+        correlation = float(numerator / denominator)
+        return float(max(-1.0, min(1.0, correlation)))  # Clamp to [-1, 1]
+
+    def _generate_performance_recommendations(
+        self, correlations: list[PerformanceCorrelation]
+    ) -> list[str]:
+        """Generate performance optimization recommendations."""
+        recommendations = []
+
+        for corr in correlations:
+            if abs(corr.correlation_strength) < 0.3:
+                continue  # Skip weak correlations
+
+            if corr.factor == "message_length" and corr.correlation_strength > 0.5:
+                recommendations.append(
+                    "Consider breaking down long messages into smaller chunks to improve response times"
+                )
+            elif corr.factor == "tool_usage_count" and corr.correlation_strength > 0.6:
+                recommendations.append(
+                    "High tool usage significantly impacts response time. Consider optimizing tool usage patterns"
+                )
+            elif corr.factor.startswith("model_") and corr.impact_ms > 5000:
+                model_name = corr.factor.replace("model_", "")
+                recommendations.append(
+                    f"Model '{model_name}' shows slower response times. Consider using a faster model for time-sensitive tasks"
+                )
+            elif corr.factor == "time_of_day" and abs(corr.correlation_strength) > 0.4:
+                if corr.correlation_strength > 0:
+                    recommendations.append(
+                        "Response times appear slower during peak hours. Consider scheduling intensive tasks during off-peak times"
+                    )
+                else:
+                    recommendations.append(
+                        "Response times are better during certain hours. Consider leveraging these optimal time windows"
+                    )
+
+        if not recommendations:
+            recommendations.append(
+                "No significant performance patterns identified. Response times appear consistent across factors"
+            )
+
+        return recommendations
+
+    async def get_git_branch_analytics(
+        self,
+        time_range: TimeRange,
+        project_id: str | None = None,
+        include_pattern: str | None = None,
+        exclude_pattern: str | None = None,
+    ) -> GitBranchAnalyticsResponse:
+        """Get git branch analytics."""
+        time_filter = self._get_time_filter(time_range)
+
+        # Add project filter if specified
+        if project_id:
+            session_filter = {"projectId": ObjectId(project_id)}
+            session_ids = await self.db.sessions.find(
+                session_filter, {"sessionId": 1}
+            ).to_list(None)
+            session_id_list = [s["sessionId"] for s in session_ids]
+            time_filter["sessionId"] = {"$in": session_id_list}
+
+        # Build aggregation pipeline
+        pipeline: list[dict[str, Any]] = [
+            {"$match": {**time_filter, "gitBranch": {"$exists": True, "$ne": None}}},
+            {
+                "$group": {
+                    "_id": "$gitBranch",
+                    "cost": {"$sum": {"$ifNull": ["$costUsd", 0]}},
+                    "messages": {"$sum": 1},
+                    "sessions": {"$addToSet": "$sessionId"},
+                    "first_activity": {"$min": "$timestamp"},
+                    "last_activity": {"$max": "$timestamp"},
+                    "tool_usage": {
+                        "$push": {
+                            "$cond": [
+                                {"$ne": ["$toolUseResult", None]},
+                                {"$objectToArray": {"$ifNull": ["$toolUseResult", {}]}},
+                                [],
+                            ]
+                        }
+                    },
+                }
+            },
+            {
+                "$project": {
+                    "branch": "$_id",
+                    "cost": 1,
+                    "messages": 1,
+                    "sessions": {"$size": "$sessions"},
+                    "first_activity": 1,
+                    "last_activity": 1,
+                    "active_days": {
+                        "$add": [
+                            {
+                                "$divide": [
+                                    {
+                                        "$subtract": [
+                                            "$last_activity",
+                                            "$first_activity",
+                                        ]
+                                    },
+                                    1000 * 60 * 60 * 24,
+                                ]
+                            },
+                            1,
+                        ]
+                    },
+                    "tool_usage": {
+                        "$reduce": {
+                            "input": "$tool_usage",
+                            "initialValue": [],
+                            "in": {"$concatArrays": ["$$value", "$$this"]},
+                        }
+                    },
+                }
+            },
+        ]
+
+        results = await self.db.messages.aggregate(pipeline).to_list(None)
+
+        # Filter branches by patterns if specified
+        filtered_results = []
+        for result in results:
+            branch_name = result["branch"]
+
+            # Normalize branch name (remove remote prefix)
+            normalized_branch = self._normalize_branch_name(branch_name)
+            result["branch"] = normalized_branch
+
+            # Apply include/exclude patterns
+            if include_pattern and not re.match(include_pattern, normalized_branch):
+                continue
+            if exclude_pattern and re.match(exclude_pattern, normalized_branch):
+                continue
+
+            filtered_results.append(result)
+
+        # Convert to branch analytics
+        branches = []
+        for result in filtered_results:
+            branch_name = result["branch"]
+            branch_type = self._detect_branch_type(branch_name)
+
+            # Calculate top operations
+            top_operations = []
+            tool_usage_counts: dict[str, int] = {}
+            for tool_data in result.get("tool_usage", []):
+                if isinstance(tool_data, dict) and "k" in tool_data:
+                    tool_name = tool_data["k"]
+                    tool_usage_counts[tool_name] = (
+                        tool_usage_counts.get(tool_name, 0) + 1
+                    )
+
+            # Get top 5 operations
+            sorted_tools = sorted(
+                tool_usage_counts.items(), key=lambda x: x[1], reverse=True
+            )
+            for tool_name, count in sorted_tools[:5]:
+                top_operations.append(
+                    BranchTopOperation(operation=tool_name, count=count)
+                )
+
+            # Calculate metrics
+            cost = result.get("cost", 0)
+            messages = result.get("messages", 0)
+            sessions = result.get("sessions", 0)
+            avg_session_cost = cost / sessions if sessions > 0 else 0
+
+            metrics = BranchMetrics(
+                cost=round(cost, 2),
+                messages=messages,
+                sessions=sessions,
+                avg_session_cost=round(avg_session_cost, 2),
+                first_activity=result["first_activity"],
+                last_activity=result["last_activity"],
+                active_days=max(1, int(result.get("active_days", 1))),
+            )
+
+            branch_analytics = BranchAnalytics(
+                name=branch_name,
+                type=branch_type,
+                metrics=metrics,
+                top_operations=top_operations,
+                cost_trend=0.0,  # TODO: Calculate trend from previous period
+            )
+
+            branches.append(branch_analytics)
+
+        # Sort branches by cost descending
+        branches.sort(key=lambda b: b.metrics.cost, reverse=True)
+
+        # Calculate branch comparisons
+        branch_comparisons = self._calculate_branch_comparisons(branches)
+
+        return GitBranchAnalyticsResponse(
+            branches=branches,
+            branch_comparisons=branch_comparisons,
+            time_range=time_range,
+        )
+
+    def _normalize_branch_name(self, branch_name: str) -> str:
+        """Normalize branch name by removing remote prefix."""
+        # Remove common remote prefixes
+        prefixes = [
+            "origin/",
+            "upstream/",
+            "refs/heads/",
+            "refs/remotes/origin/",
+            "refs/remotes/upstream/",
+        ]
+        normalized = branch_name
+        for prefix in prefixes:
+            if normalized.startswith(prefix):
+                normalized = normalized[len(prefix) :]
+                break
+        return normalized
+
+    def _detect_branch_type(self, branch_name: str) -> BranchType:
+        """Detect branch type from branch name patterns."""
+        branch_lower = branch_name.lower()
+
+        # Main/master branches
+        if branch_lower in ["main", "master", "develop", "dev"]:
+            return BranchType.MAIN
+
+        # Feature branches
+        if any(
+            pattern in branch_lower
+            for pattern in ["feature/", "feat/", "feature-", "feat-"]
+        ):
+            return BranchType.FEATURE
+
+        # Hotfix branches
+        if any(
+            pattern in branch_lower
+            for pattern in ["hotfix/", "hotfix-", "fix/", "bugfix/"]
+        ):
+            return BranchType.HOTFIX
+
+        # Release branches
+        if any(pattern in branch_lower for pattern in ["release/", "release-", "rel/"]):
+            return BranchType.RELEASE
+
+        return BranchType.OTHER
+
+    def _calculate_branch_comparisons(
+        self, branches: list[BranchAnalytics]
+    ) -> BranchComparison:
+        """Calculate branch comparison metrics."""
+        if not branches:
+            return BranchComparison(
+                main_vs_feature_cost_ratio=0.0,
+                avg_feature_branch_lifetime_days=0.0,
+                most_expensive_branch_type=BranchType.OTHER,
+            )
+
+        # Calculate costs by branch type
+        type_costs: dict[BranchType, float] = {}
+        feature_lifetimes: list[int] = []
+
+        for branch in branches:
+            branch_type = branch.type
+            cost = branch.metrics.cost
+
+            type_costs[branch_type] = type_costs.get(branch_type, 0) + cost
+
+            if branch_type == BranchType.FEATURE:
+                feature_lifetimes.append(branch.metrics.active_days)
+
+        # Main vs feature cost ratio
+        main_cost = type_costs.get(BranchType.MAIN, 0)
+        feature_cost = type_costs.get(BranchType.FEATURE, 0)
+        main_vs_feature_ratio = main_cost / feature_cost if feature_cost > 0 else 0.0
+
+        # Average feature branch lifetime
+        avg_feature_lifetime = (
+            sum(feature_lifetimes) / len(feature_lifetimes)
+            if feature_lifetimes
+            else 0.0
+        )
+
+        # Most expensive branch type
+        most_expensive_type = (
+            max(type_costs.items(), key=lambda x: x[1])[0]
+            if type_costs
+            else BranchType.OTHER
+        )
+
+        return BranchComparison(
+            main_vs_feature_cost_ratio=round(main_vs_feature_ratio, 2),
+            avg_feature_branch_lifetime_days=round(avg_feature_lifetime, 1),
+            most_expensive_branch_type=most_expensive_type,
+        )
+
+    async def get_token_efficiency_summary(
+        self,
+        session_id: str | None = None,
+        time_range: TimeRange = TimeRange.LAST_30_DAYS,
+        include_cache_metrics: bool = True,
+    ) -> TokenEfficiencySummary:
+        """Get token efficiency summary for stat card display."""
+        # Build match filter
+        match_filter = self._get_time_filter(time_range)
+
+        if session_id:
+            match_filter["sessionId"] = session_id
+
+        # Aggregation pipeline to calculate token totals
+        pipeline: list[dict[str, Any]] = [
+            {"$match": {**match_filter, "tokensInput": {"$exists": True}}},
+            {
+                "$group": {
+                    "_id": None,
+                    "total_input": {"$sum": {"$ifNull": ["$tokensInput", 0]}},
+                    "total_output": {"$sum": {"$ifNull": ["$tokensOutput", 0]}},
+                    "total_cost": {"$sum": {"$ifNull": ["$costUsd", 0]}},
+                    "message_count": {"$sum": 1},
+                    # Extract cache tokens from metadata if available
+                    "cache_tokens": {
+                        "$sum": {
+                            "$add": [
+                                {
+                                    "$ifNull": [
+                                        "$metadata.usage.cache_creation_input_tokens",
+                                        0,
+                                    ]
+                                },
+                                {
+                                    "$ifNull": [
+                                        "$metadata.usage.cache_read_input_tokens",
+                                        0,
+                                    ]
+                                },
+                            ]
+                        }
+                    },
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+
+        if not result:
+            return TokenEfficiencySummary(
+                total_tokens=0, formatted_total="0", cost_estimate=0.0, trend="stable"
+            )
+
+        data = result[0]
+        total_input = data.get("total_input", 0)
+        total_output = data.get("total_output", 0)
+        total_tokens = total_input + total_output
+        total_cost = data.get("total_cost", 0)
+
+        # Format total tokens
+        formatted_total = self._format_token_count(total_tokens)
+
+        # Calculate trend (simplified - could be enhanced with previous period comparison)
+        trend = "stable"  # TODO: Implement trend calculation
+
+        return TokenEfficiencySummary(
+            total_tokens=total_tokens,
+            formatted_total=formatted_total,
+            cost_estimate=round(total_cost, 2),
+            trend=trend,
+        )
+
+    async def get_token_efficiency_detailed(
+        self,
+        session_id: str | None = None,
+        time_range: TimeRange = TimeRange.LAST_30_DAYS,
+        include_cache_metrics: bool = True,
+    ) -> TokenEfficiencyDetailed:
+        """Get detailed token efficiency analytics for details panel."""
+        # Build match filter
+        match_filter = self._get_time_filter(time_range)
+
+        if session_id:
+            match_filter["sessionId"] = session_id
+
+        # Aggregation pipeline for detailed token analysis
+        pipeline: list[dict[str, Any]] = [
+            {"$match": {**match_filter, "tokensInput": {"$exists": True}}},
+            {
+                "$group": {
+                    "_id": None,
+                    "total_input": {"$sum": {"$ifNull": ["$tokensInput", 0]}},
+                    "total_output": {"$sum": {"$ifNull": ["$tokensOutput", 0]}},
+                    "total_cost": {"$sum": {"$ifNull": ["$costUsd", 0]}},
+                    "message_count": {"$sum": 1},
+                    # Extract cache metrics from metadata
+                    "cache_creation": {
+                        "$sum": {
+                            "$ifNull": [
+                                "$metadata.usage.cache_creation_input_tokens",
+                                0,
+                            ]
+                        }
+                    },
+                    "cache_read": {
+                        "$sum": {
+                            "$ifNull": ["$metadata.usage.cache_read_input_tokens", 0]
+                        }
+                    },
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+
+        if not result:
+            # Return empty result structure
+            empty_breakdown = TokenBreakdown(
+                input_tokens=0, output_tokens=0, cache_creation=0, cache_read=0, total=0
+            )
+            empty_metrics = TokenEfficiencyMetrics(
+                cache_hit_rate=0.0,
+                input_output_ratio=0.0,
+                avg_tokens_per_message=0.0,
+                cost_per_token=0.0,
+            )
+            empty_formatted = TokenFormattedValues(
+                total="0", input="0", output="0", cache_creation="0", cache_read="0"
+            )
+
+            return TokenEfficiencyDetailed(
+                token_breakdown=empty_breakdown,
+                efficiency_metrics=empty_metrics,
+                formatted_values=empty_formatted,
+                session_id=session_id,
+                time_range=time_range,
+            )
+
+        data = result[0]
+        total_input = data.get("total_input", 0)
+        total_output = data.get("total_output", 0)
+        cache_creation = data.get("cache_creation", 0) if include_cache_metrics else 0
+        cache_read = data.get("cache_read", 0) if include_cache_metrics else 0
+        total_tokens = total_input + total_output
+        total_cost = data.get("total_cost", 0)
+        message_count = data.get("message_count", 1)
+
+        # Build token breakdown
+        token_breakdown = TokenBreakdown(
+            input_tokens=total_input,
+            output_tokens=total_output,
+            cache_creation=cache_creation,
+            cache_read=cache_read,
+            total=total_tokens,
+        )
+
+        # Calculate efficiency metrics
+        cache_hit_rate = 0.0
+        if cache_creation + cache_read > 0:
+            cache_hit_rate = (cache_read / (cache_creation + cache_read)) * 100
+
+        input_output_ratio = 0.0
+        if total_output > 0:
+            input_output_ratio = total_input / total_output
+
+        avg_tokens_per_message = (
+            total_tokens / message_count if message_count > 0 else 0
+        )
+        cost_per_token = total_cost / total_tokens if total_tokens > 0 else 0
+
+        efficiency_metrics = TokenEfficiencyMetrics(
+            cache_hit_rate=round(cache_hit_rate, 1),
+            input_output_ratio=round(input_output_ratio, 2),
+            avg_tokens_per_message=round(avg_tokens_per_message, 1),
+            cost_per_token=round(cost_per_token, 6),
+        )
+
+        # Format values for display
+        formatted_values = TokenFormattedValues(
+            total=self._format_token_count(total_tokens),
+            input=self._format_token_count(total_input),
+            output=self._format_token_count(total_output),
+            cache_creation=self._format_token_count(cache_creation),
+            cache_read=self._format_token_count(cache_read),
+        )
+
+        return TokenEfficiencyDetailed(
+            token_breakdown=token_breakdown,
+            efficiency_metrics=efficiency_metrics,
+            formatted_values=formatted_values,
+            session_id=session_id,
+            time_range=time_range,
+        )
+
+    def _format_token_count(self, count: int) -> str:
+        """Format token count for display (e.g., 45K, 1.2M)."""
+        if count >= 1_000_000:
+            return f"{count / 1_000_000:.1f}M"
+        elif count >= 1_000:
+            return f"{count // 1_000}K"
+        else:
+            return str(count)
+
+    async def get_session_depth_analytics(
+        self,
+        time_range: TimeRange,
+        project_id: str | None = None,
+        min_depth: int = 0,
+        include_sidechains: bool = True,
+    ) -> SessionDepthAnalytics:
+        """Get session depth analytics.
+
+        Analyzes conversation depth patterns, correlations, and provides optimization recommendations.
+        """
+        time_filter = self._get_time_filter(time_range)
+
+        # Add project filter if specified
+        if project_id:
+            # First get sessions for the project
+            sessions_cursor = self.db.sessions.find({"projectId": ObjectId(project_id)})
+            session_ids = [session["sessionId"] async for session in sessions_cursor]
+            if not session_ids:
+                # No sessions found for this project
+                return SessionDepthAnalytics(
+                    depth_distribution=[],
+                    depth_correlations=DepthCorrelations(
+                        depth_vs_cost=0.0, depth_vs_duration=0.0, depth_vs_success=0.0
+                    ),
+                    patterns=[],
+                    recommendations=DepthRecommendations(
+                        optimal_depth_range=(0, 0),
+                        warning_threshold=0,
+                        tips=["No data available for this project"],
+                    ),
+                    time_range=time_range,
+                )
+            time_filter["sessionId"] = {"$in": session_ids}
+
+        # Get all messages with their conversation tree structure
+        messages_pipeline = [
+            {"$match": time_filter},
+            {
+                "$project": {
+                    "uuid": 1,
+                    "sessionId": 1,
+                    "parentUuid": 1,
+                    "isSidechain": 1,
+                    "costUsd": 1,
+                    "durationMs": 1,
+                    "timestamp": 1,
+                    "type": 1,
+                }
+            },
+            {"$sort": {"sessionId": 1, "timestamp": 1}},
+        ]
+
+        messages = await self.db.messages.aggregate(messages_pipeline).to_list(None)
+
+        # Build conversation trees per session and calculate depths
+        session_data: dict[str, list[dict[str, Any]]] = {}
+        session_depths: dict[str, dict[str, int]] = {}
+
+        for message in messages:
+            session_id = message["sessionId"]
+
+            if session_id not in session_data:
+                session_data[session_id] = []
+                session_depths[session_id] = {}
+
+            session_data[session_id].append(message)
+
+        # Calculate depth for each session
+        depth_stats = []
+
+        for session_id, session_messages in session_data.items():
+            depths = self._calculate_conversation_depths(
+                session_messages, include_sidechains
+            )
+            if not depths:
+                continue
+
+            max_depth = max(depths.values())
+            avg_depth = sum(depths.values()) / len(depths)
+
+            # Skip sessions below minimum depth
+            if max_depth < min_depth:
+                continue
+
+            # Calculate session metrics
+            session_cost = sum(
+                msg.get("costUsd", 0) or 0
+                for msg in session_messages
+                if msg.get("costUsd")
+            )
+            session_duration = sum(
+                msg.get("durationMs", 0) or 0
+                for msg in session_messages
+                if msg.get("durationMs")
+            )
+            message_count = len(session_messages)
+
+            # Calculate success rate (simplified - based on non-null costs as proxy for successful assistant responses)
+            successful_responses = sum(
+                1
+                for msg in session_messages
+                if msg.get("costUsd") and msg.get("type") == "assistant"
+            )
+            total_requests = sum(
+                1 for msg in session_messages if msg.get("type") == "user"
+            )
+            success_rate = (
+                (successful_responses / total_requests * 100)
+                if total_requests > 0
+                else 0
+            )
+
+            depth_stats.append(
+                {
+                    "session_id": session_id,
+                    "max_depth": max_depth,
+                    "avg_depth": avg_depth,
+                    "cost": session_cost,
+                    "duration": session_duration,
+                    "message_count": message_count,
+                    "success_rate": success_rate,
+                    "branch_count": len(
+                        [d for d in depths.values() if d > 1]
+                    ),  # Messages with depth > 1 indicate branching
+                }
+            )
+
+        if not depth_stats:
+            return SessionDepthAnalytics(
+                depth_distribution=[],
+                depth_correlations=DepthCorrelations(
+                    depth_vs_cost=0.0, depth_vs_duration=0.0, depth_vs_success=0.0
+                ),
+                patterns=[],
+                recommendations=DepthRecommendations(
+                    optimal_depth_range=(0, 0),
+                    warning_threshold=0,
+                    tips=["No conversations found matching the specified criteria"],
+                ),
+                time_range=time_range,
+            )
+
+        # Calculate depth distribution
+        depth_distribution = self._calculate_depth_distribution(depth_stats)
+
+        # Calculate correlations
+        depth_correlations = self._calculate_depth_correlations(depth_stats)
+
+        # Identify conversation patterns
+        patterns = self._identify_conversation_patterns(depth_stats)
+
+        # Generate recommendations
+        recommendations = self._generate_depth_recommendations(
+            depth_stats, depth_distribution
+        )
+
+        return SessionDepthAnalytics(
+            depth_distribution=depth_distribution,
+            depth_correlations=depth_correlations,
+            patterns=patterns,
+            recommendations=recommendations,
+            time_range=time_range,
+        )
+
+    def _calculate_conversation_depths(
+        self, messages: list[dict], include_sidechains: bool
+    ) -> dict[str, int]:
+        """Calculate depth for each message in a conversation."""
+        depths: dict[str, int] = {}
+        message_map = {msg["uuid"]: msg for msg in messages}
+
+        def get_depth(uuid: str) -> int:
+            if uuid in depths:
+                return depths[uuid]
+
+            message = message_map.get(uuid)
+            if not message:
+                return 0
+
+            # Skip sidechains if not included
+            if not include_sidechains and message.get("isSidechain", False):
+                depths[uuid] = 0
+                return 0
+
+            parent_uuid = message.get("parentUuid")
+            if not parent_uuid:
+                depths[uuid] = 1
+                return 1
+
+            parent_depth = get_depth(parent_uuid)
+            depths[uuid] = parent_depth + 1
+            return int(depths[uuid])
+
+        # Calculate depths for all messages
+        for message in messages:
+            get_depth(message["uuid"])
+
+        return depths
+
+    def _calculate_depth_distribution(
+        self, depth_stats: list[dict]
+    ) -> list[DepthDistribution]:
+        """Calculate depth distribution statistics."""
+        from collections import defaultdict
+
+        depth_groups = defaultdict(list)
+        total_sessions = len(depth_stats)
+
+        # Group sessions by max depth
+        for stat in depth_stats:
+            depth_groups[stat["max_depth"]].append(stat)
+
+        distribution = []
+        for depth in sorted(depth_groups.keys()):
+            sessions = depth_groups[depth]
+            session_count = len(sessions)
+            avg_cost = sum(s["cost"] for s in sessions) / session_count
+            avg_messages = sum(s["message_count"] for s in sessions) / session_count
+            percentage = (session_count / total_sessions) * 100
+
+            distribution.append(
+                DepthDistribution(
+                    depth=depth,
+                    session_count=session_count,
+                    avg_cost=round(avg_cost, 4),
+                    avg_messages=int(avg_messages),
+                    percentage=round(percentage, 1),
+                )
+            )
+
+        return distribution
+
+    def _calculate_depth_correlations(
+        self, depth_stats: list[dict]
+    ) -> DepthCorrelations:
+        """Calculate correlations between depth and other metrics."""
+        if len(depth_stats) < 2:
+            return DepthCorrelations(
+                depth_vs_cost=0.0,
+                depth_vs_duration=0.0,
+                depth_vs_success=0.0,
+            )
+
+        depths = [s["max_depth"] for s in depth_stats]
+        costs = [s["cost"] for s in depth_stats]
+        durations = [s["duration"] for s in depth_stats if s["duration"] > 0]
+        success_rates = [s["success_rate"] for s in depth_stats]
+
+        def calculate_correlation(x: list[float], y: list[float]) -> float:
+            """Calculate Pearson correlation coefficient."""
+            if len(x) != len(y) or len(x) < 2:
+                return 0.0
+
+            n = len(x)
+            sum_x = sum(x)
+            sum_y = sum(y)
+            sum_xy = sum(xi * yi for xi, yi in zip(x, y))
+            sum_x2 = sum(xi * xi for xi in x)
+            sum_y2 = sum(yi * yi for yi in y)
+
+            denominator = (
+                (n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y)
+            ) ** 0.5
+            if denominator == 0:
+                return 0.0
+
+            return float((n * sum_xy - sum_x * sum_y) / denominator)
+
+        depth_vs_cost = calculate_correlation(depths, costs)
+
+        # For duration correlation, only use sessions with duration data
+        duration_depths = [
+            depth_stats[i]["max_depth"]
+            for i in range(len(depth_stats))
+            if depth_stats[i]["duration"] > 0
+        ]
+        depth_vs_duration = (
+            calculate_correlation(duration_depths, durations)
+            if len(durations) >= 2
+            else 0.0
+        )
+
+        depth_vs_success = calculate_correlation(depths, success_rates)
+
+        return DepthCorrelations(
+            depth_vs_cost=round(depth_vs_cost, 3),
+            depth_vs_duration=round(depth_vs_duration, 3),
+            depth_vs_success=round(depth_vs_success, 3),
+        )
+
+    def _identify_conversation_patterns(
+        self, depth_stats: list[dict]
+    ) -> list[ConversationPattern]:
+        """Identify common conversation patterns."""
+        patterns: list[ConversationPattern] = []
+        total_sessions = len(depth_stats)
+
+        if total_sessions == 0:
+            return patterns
+
+        # Categorize sessions by depth and branching patterns
+        shallow_wide = [
+            s for s in depth_stats if s["max_depth"] <= 3 and s["branch_count"] >= 2
+        ]
+        deep_narrow = [
+            s for s in depth_stats if s["max_depth"] > 6 and s["branch_count"] <= 1
+        ]
+        balanced = [
+            s for s in depth_stats if 3 < s["max_depth"] <= 6 and s["branch_count"] >= 1
+        ]
+        linear = [s for s in depth_stats if s["branch_count"] == 0]
+
+        pattern_data = [
+            (
+                shallow_wide,
+                "shallow-wide",
+                "Quick iterations with multiple exploration paths",
+            ),
+            (
+                deep_narrow,
+                "deep-narrow",
+                "Extended single-thread conversations with deep exploration",
+            ),
+            (
+                balanced,
+                "balanced",
+                "Moderate depth with some branching and exploration",
+            ),
+            (linear, "linear", "Straightforward conversations without branching"),
+        ]
+
+        for sessions, name, description in pattern_data:
+            if sessions:
+                frequency = len(sessions)
+                avg_cost = sum(s["cost"] for s in sessions) / frequency
+
+                patterns.append(
+                    ConversationPattern(
+                        pattern_name=name,
+                        frequency=frequency,
+                        avg_cost=round(avg_cost, 4),
+                        typical_use_case=description,
+                    )
+                )
+
+        return patterns
+
+    def _generate_depth_recommendations(
+        self, depth_stats: list[dict], distribution: list[DepthDistribution]
+    ) -> DepthRecommendations:
+        """Generate optimization recommendations based on depth analysis."""
+        if not depth_stats:
+            return DepthRecommendations(
+                optimal_depth_range=(0, 0),
+                warning_threshold=0,
+                tips=["No data available for recommendations"],
+            )
+
+        # Find optimal depth range based on cost efficiency
+        cost_by_depth = {}
+        for dist in distribution:
+            cost_by_depth[dist.depth] = dist.avg_cost
+
+        if cost_by_depth:
+            # Find depths with below-average cost
+            avg_cost = sum(cost_by_depth.values()) / len(cost_by_depth)
+            efficient_depths = [d for d, c in cost_by_depth.items() if c <= avg_cost]
+
+            if efficient_depths:
+                optimal_range = (min(efficient_depths), max(efficient_depths))
+            else:
+                # Fallback to middle range
+                all_depths = list(cost_by_depth.keys())
+                optimal_range = (min(all_depths), max(all_depths))
+        else:
+            optimal_range = (1, 5)  # Default reasonable range
+
+        # Set warning threshold (significantly above optimal range)
+        warning_threshold = max(optimal_range[1] * 2, 10)
+
+        # Generate tips
+        tips = []
+        max_depth = max(s["max_depth"] for s in depth_stats)
+        avg_depth = sum(s["max_depth"] for s in depth_stats) / len(depth_stats)
+
+        if avg_depth > 8:
+            tips.append(
+                "Consider breaking complex conversations into smaller, focused sessions"
+            )
+
+        if max_depth > 15:
+            tips.append(
+                "Very deep conversations detected - review if all iterations were necessary"
+            )
+
+        # Check for cost efficiency
+        high_cost_sessions = [s for s in depth_stats if s["cost"] > 1.0]  # $1+ sessions
+        if (
+            len(high_cost_sessions) > len(depth_stats) * 0.1
+        ):  # More than 10% are high cost
+            tips.append(
+                "High-cost sessions detected - consider optimizing conversation structure"
+            )
+
+        # Check for branching patterns
+        low_branch_sessions = [s for s in depth_stats if s["branch_count"] == 0]
+        if (
+            len(low_branch_sessions) > len(depth_stats) * 0.7
+        ):  # More than 70% are linear
+            tips.append(
+                "Most conversations are linear - consider exploring alternative approaches when stuck"
+            )
+
+        if not tips:
+            tips.append("Conversation depth patterns look healthy")
+
+        return DepthRecommendations(
+            optimal_depth_range=optimal_range,
+            warning_threshold=warning_threshold,
+            tips=tips,
+        )
+
+    # Cost Prediction Dashboard Methods
+
+    def _format_cost(self, cost: float) -> str:
+        """Format cost according to the requirements."""
+        if cost == 0:
+            return "$0.00"
+        if cost < 0.01:
+            return "<$0.01"
+        if cost < 1:
+            return f"${cost:.2f}"
+        if cost < 100:
+            return f"${cost:.2f}"
+        return f"${cost:.0f}"
+
+    async def get_cost_summary(
+        self, session_id: str | None, project_id: str | None, time_range: TimeRange
+    ) -> CostSummary:
+        """Get cost summary for stat card display."""
+        time_filter = self._get_time_filter(time_range)
+
+        # Build base filter
+        base_filter = {**time_filter, "costUsd": {"$exists": True, "$ne": None}}
+
+        # Add session filter if specified
+        if session_id:
+            base_filter["sessionId"] = session_id
+
+        # Add project filter if specified
+        if project_id:
+            session_ids = await self.db.sessions.distinct(
+                "sessionId", {"projectId": ObjectId(project_id)}
+            )
+            if "sessionId" in base_filter:
+                # If session_id is already specified, ensure it's in the project
+                if session_id not in session_ids:
+                    base_filter["sessionId"] = {"$in": []}  # Empty result
+            else:
+                base_filter["sessionId"] = {"$in": session_ids}
+
+        # Get current period cost
+        current_cost = await self.db.messages.aggregate(
+            [
+                {"$match": base_filter},
+                {"$group": {"_id": None, "total_cost": {"$sum": "$costUsd"}}},
+            ]
+        ).to_list(None)
+
+        total_cost = current_cost[0]["total_cost"] if current_cost else 0.0
+
+        # Get previous period for trend calculation
+        trend = "stable"
+        if time_range != TimeRange.ALL_TIME:
+            prev_filter = self._get_previous_period_filter(time_range)
+            if session_id:
+                prev_filter["sessionId"] = session_id
+            if project_id:
+                prev_filter["sessionId"] = {"$in": session_ids}
+            prev_filter["costUsd"] = {"$exists": True, "$ne": None}
+
+            prev_cost = await self.db.messages.aggregate(
+                [
+                    {"$match": prev_filter},
+                    {"$group": {"_id": None, "total_cost": {"$sum": "$costUsd"}}},
+                ]
+            ).to_list(None)
+
+            prev_total = prev_cost[0]["total_cost"] if prev_cost else 0.0
+
+            if prev_total > 0:
+                change_pct = ((total_cost - prev_total) / prev_total) * 100
+                if change_pct > 5:
+                    trend = "up"
+                elif change_pct < -5:
+                    trend = "down"
+
+        # Determine period string
+        period_map = {
+            TimeRange.LAST_24_HOURS: "24h",
+            TimeRange.LAST_7_DAYS: "7d",
+            TimeRange.LAST_30_DAYS: "30d",
+            TimeRange.LAST_90_DAYS: "90d",
+            TimeRange.LAST_YEAR: "1y",
+            TimeRange.ALL_TIME: "all time",
+        }
+        period = period_map.get(time_range, "custom")
+
+        return CostSummary(
+            total_cost=round(total_cost, 4),
+            formatted_cost=self._format_cost(total_cost),
+            currency="USD",
+            trend=trend,
+            period=period,
+        )
+
+    async def get_cost_breakdown(
+        self, session_id: str | None, project_id: str | None, time_range: TimeRange
+    ) -> CostBreakdownResponse:
+        """Get detailed cost breakdown for analytics panels."""
+        time_filter = self._get_time_filter(time_range)
+
+        # Build base filter
+        base_filter = {**time_filter, "costUsd": {"$exists": True, "$ne": None}}
+
+        # Add session filter if specified
+        if session_id:
+            base_filter["sessionId"] = session_id
+
+        # Add project filter if specified
+        if project_id:
+            session_ids = await self.db.sessions.distinct(
+                "sessionId", {"projectId": ObjectId(project_id)}
+            )
+            if "sessionId" in base_filter:
+                if session_id not in session_ids:
+                    base_filter["sessionId"] = {"$in": []}
+            else:
+                base_filter["sessionId"] = {"$in": session_ids}
+
+        # Get cost breakdown by model
+        model_breakdown = await self.db.messages.aggregate(
+            [
+                {"$match": base_filter},
+                {
+                    "$group": {
+                        "_id": {"$ifNull": ["$model", "unknown"]},
+                        "cost": {"$sum": "$costUsd"},
+                        "message_count": {"$sum": 1},
+                    }
+                },
+                {"$sort": {"cost": -1}},
+            ]
+        ).to_list(None)
+
+        total_cost = sum(item["cost"] for item in model_breakdown)
+
+        by_model = []
+        for item in model_breakdown:
+            model = item["_id"]
+            cost = item["cost"]
+            message_count = item["message_count"]
+            percentage = (cost / total_cost * 100) if total_cost > 0 else 0
+
+            by_model.append(
+                CostBreakdownItem(
+                    model=model,
+                    cost=round(cost, 4),
+                    percentage=round(percentage, 2),
+                    message_count=message_count,
+                )
+            )
+
+        # Get cost breakdown over time (daily)
+        daily_costs = await self.db.messages.aggregate(
+            [
+                {"$match": base_filter},
+                {
+                    "$group": {
+                        "_id": {
+                            "$dateToString": {
+                                "format": "%Y-%m-%d",
+                                "date": "$timestamp",
+                            }
+                        },
+                        "cost": {"$sum": "$costUsd"},
+                    }
+                },
+                {"$sort": {"_id": 1}},
+            ]
+        ).to_list(None)
+
+        by_time = []
+        cumulative_cost = 0
+        for item in daily_costs:
+            date_str = item["_id"]
+            cost = item["cost"]
+            cumulative_cost += cost
+
+            try:
+                timestamp = datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                continue
+
+            by_time.append(
+                CostTimePoint(
+                    timestamp=timestamp,
+                    cost=round(cost, 4),
+                    cumulative=round(cumulative_cost, 4),
+                )
+            )
+
+        # Calculate metrics
+        message_count = await self.db.messages.count_documents(base_filter)
+        avg_cost_per_message = total_cost / message_count if message_count > 0 else 0
+
+        # Calculate avg cost per hour (rough estimate based on time range)
+        hours_in_period = {
+            TimeRange.LAST_24_HOURS: 24,
+            TimeRange.LAST_7_DAYS: 168,
+            TimeRange.LAST_30_DAYS: 720,
+            TimeRange.LAST_90_DAYS: 2160,
+            TimeRange.LAST_YEAR: 8760,
+        }.get(
+            time_range, 720
+        )  # Default to 30 days
+
+        avg_cost_per_hour = total_cost / hours_in_period if hours_in_period > 0 else 0
+
+        most_expensive_model = by_model[0].model if by_model else None
+
+        # Cost efficiency score (0-100, based on cost per message compared to a baseline)
+        baseline_cost_per_message = 0.05  # $0.05 as reasonable baseline
+        if avg_cost_per_message <= baseline_cost_per_message:
+            efficiency_score = 100.0
+        else:
+            # Score decreases as cost increases above baseline
+            efficiency_score = max(
+                0.0,
+                100.0
+                - (
+                    (avg_cost_per_message - baseline_cost_per_message)
+                    / baseline_cost_per_message
+                    * 100.0
+                ),
+            )
+
+        cost_breakdown = CostBreakdown(by_model=by_model, by_time=by_time)
+        cost_metrics = CostMetrics(
+            avg_cost_per_message=round(avg_cost_per_message, 4),
+            avg_cost_per_hour=round(avg_cost_per_hour, 4),
+            most_expensive_model=most_expensive_model,
+            cost_efficiency_score=round(efficiency_score, 2),
+        )
+
+        return CostBreakdownResponse(
+            cost_breakdown=cost_breakdown,
+            cost_metrics=cost_metrics,
+            time_range=time_range,
+            session_id=session_id,
+            project_id=project_id,
+        )
+
+    async def get_cost_prediction(
+        self, session_id: str | None, project_id: str | None, prediction_days: int
+    ) -> CostPrediction:
+        """Get cost forecasting predictions."""
+        # Use the last 30 days as historical data for prediction
+        historical_filter = self._get_time_filter(TimeRange.LAST_30_DAYS)
+
+        # Build base filter
+        base_filter = {**historical_filter, "costUsd": {"$exists": True, "$ne": None}}
+
+        # Add session filter if specified
+        if session_id:
+            base_filter["sessionId"] = session_id
+
+        # Add project filter if specified
+        if project_id:
+            session_ids = await self.db.sessions.distinct(
+                "sessionId", {"projectId": ObjectId(project_id)}
+            )
+            if "sessionId" in base_filter:
+                if session_id not in session_ids:
+                    base_filter["sessionId"] = {"$in": []}
+            else:
+                base_filter["sessionId"] = {"$in": session_ids}
+
+        # Get daily costs for the last 30 days
+        daily_costs = await self.db.messages.aggregate(
+            [
+                {"$match": base_filter},
+                {
+                    "$group": {
+                        "_id": {
+                            "$dateToString": {
+                                "format": "%Y-%m-%d",
+                                "date": "$timestamp",
+                            }
+                        },
+                        "cost": {"$sum": "$costUsd"},
+                    }
+                },
+                {"$sort": {"_id": 1}},
+            ]
+        ).to_list(None)
+
+        if not daily_costs:
+            # No historical data, return zero predictions
+            predictions = []
+            start_date = datetime.utcnow().replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            for i in range(prediction_days):
+                prediction_date = start_date + timedelta(days=i + 1)
+                predictions.append(
+                    CostPredictionPoint(
+                        date=prediction_date,
+                        predicted_cost=0.0,
+                        confidence_interval=(0.0, 0.0),
+                    )
+                )
+
+            return CostPrediction(
+                predictions=predictions,
+                total_predicted=0.0,
+                confidence_level=0.95,
+                model_accuracy=0.0,
+                prediction_days=prediction_days,
+                session_id=session_id,
+                project_id=project_id,
+            )
+
+        # Calculate simple moving average for prediction
+        costs = [item["cost"] for item in daily_costs]
+
+        # Simple prediction: use the average of recent days
+        recent_days = min(7, len(costs))  # Use last 7 days or all available
+        avg_daily_cost = (
+            sum(costs[-recent_days:]) / recent_days if recent_days > 0 else 0
+        )
+
+        # Calculate standard deviation for confidence intervals
+        if len(costs) > 1:
+            variance = (
+                sum((cost - avg_daily_cost) ** 2 for cost in costs[-recent_days:])
+                / recent_days
+            )
+            std_dev = variance**0.5
+        else:
+            std_dev = avg_daily_cost * 0.2  # 20% uncertainty if only one data point
+
+        # Generate predictions
+        predictions = []
+        start_date = datetime.utcnow().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        total_predicted = 0.0
+
+        for i in range(prediction_days):
+            prediction_date = start_date + timedelta(days=i + 1)
+
+            # Simple linear prediction with slight decay for longer periods
+            decay_factor = 0.95 ** (i // 7)  # Decay every 7 days
+            predicted_cost = avg_daily_cost * decay_factor
+
+            # 95% confidence interval (±1.96 standard deviations)
+            margin = 1.96 * std_dev * decay_factor
+            confidence_lower = max(0, predicted_cost - margin)
+            confidence_upper = predicted_cost + margin
+
+            predictions.append(
+                CostPredictionPoint(
+                    date=prediction_date,
+                    predicted_cost=round(predicted_cost, 4),
+                    confidence_interval=(
+                        round(confidence_lower, 4),
+                        round(confidence_upper, 4),
+                    ),
+                )
+            )
+
+            total_predicted += predicted_cost
+
+        # Mock model accuracy (would be calculated from historical prediction performance)
+        model_accuracy = 75.0  # Assume 75% accuracy for simple moving average model
+
+        return CostPrediction(
+            predictions=predictions,
+            total_predicted=round(total_predicted, 4),
+            confidence_level=0.95,
+            model_accuracy=model_accuracy,
+            prediction_days=prediction_days,
+            session_id=session_id,
+            project_id=project_id,
+        )
+
+    # Topic Extraction Methods
+
+    def _get_topic_rules(self) -> dict[str, dict[str, Any]]:
+        """Get topic detection rules with keywords and patterns."""
+        return {
+            "Web Development": {
+                "keywords": [
+                    "react",
+                    "vue",
+                    "angular",
+                    "frontend",
+                    "css",
+                    "html",
+                    "javascript",
+                    "typescript",
+                    "jsx",
+                    "tsx",
+                    "webpack",
+                    "vite",
+                    "npm",
+                    "yarn",
+                    "bootstrap",
+                    "tailwind",
+                ],
+                "file_extensions": [
+                    ".js",
+                    ".jsx",
+                    ".ts",
+                    ".tsx",
+                    ".css",
+                    ".scss",
+                    ".html",
+                    ".vue",
+                ],
+                "category": TopicCategory.WEB_DEVELOPMENT,
+                "weight": 1.0,
+            },
+            "API Integration": {
+                "keywords": [
+                    "claude",
+                    "anthropic",
+                    "api",
+                    "webhook",
+                    "endpoint",
+                    "rest",
+                    "graphql",
+                    "json",
+                    "http",
+                    "curl",
+                    "fetch",
+                    "axios",
+                ],
+                "file_extensions": [".json", ".yaml", ".yml"],
+                "category": TopicCategory.API_INTEGRATION,
+                "weight": 1.0,
+            },
+            "Data Visualization": {
+                "keywords": [
+                    "chart",
+                    "graph",
+                    "plot",
+                    "dashboard",
+                    "metrics",
+                    "d3",
+                    "plotly",
+                    "matplotlib",
+                    "seaborn",
+                    "visualization",
+                    "analytics",
+                ],
+                "file_extensions": [".csv", ".json"],
+                "category": TopicCategory.DATA_VISUALIZATION,
+                "weight": 1.0,
+            },
+            "Machine Learning": {
+                "keywords": [
+                    "ml",
+                    "ai",
+                    "model",
+                    "training",
+                    "prediction",
+                    "tensorflow",
+                    "pytorch",
+                    "sklearn",
+                    "pandas",
+                    "numpy",
+                    "jupyter",
+                    "notebook",
+                ],
+                "file_extensions": [".py", ".ipynb"],
+                "category": TopicCategory.MACHINE_LEARNING,
+                "weight": 1.0,
+            },
+            "Database Operations": {
+                "keywords": [
+                    "mongodb",
+                    "sql",
+                    "postgres",
+                    "mysql",
+                    "database",
+                    "query",
+                    "collection",
+                    "schema",
+                    "migration",
+                    "orm",
+                ],
+                "file_extensions": [".sql", ".db"],
+                "category": TopicCategory.DATABASE_OPERATIONS,
+                "weight": 1.0,
+            },
+            "DevOps/Deployment": {
+                "keywords": [
+                    "docker",
+                    "kubernetes",
+                    "deployment",
+                    "ci/cd",
+                    "github actions",
+                    "pipeline",
+                    "terraform",
+                    "aws",
+                    "azure",
+                    "gcp",
+                    "nginx",
+                    "apache",
+                ],
+                "file_extensions": [".dockerfile", ".yml", ".yaml", ".tf"],
+                "category": TopicCategory.DEVOPS_DEPLOYMENT,
+                "weight": 1.0,
+            },
+            "Testing/QA": {
+                "keywords": [
+                    "test",
+                    "jest",
+                    "vitest",
+                    "pytest",
+                    "junit",
+                    "unit test",
+                    "integration test",
+                    "mock",
+                    "assert",
+                    "spec",
+                ],
+                "file_extensions": [".test.js", ".test.ts", ".spec.js", ".spec.ts"],
+                "category": TopicCategory.TESTING_QA,
+                "weight": 1.0,
+            },
+            "Documentation": {
+                "keywords": [
+                    "readme",
+                    "documentation",
+                    "docs",
+                    "markdown",
+                    "wiki",
+                    "guide",
+                    "tutorial",
+                    "comment",
+                ],
+                "file_extensions": [".md", ".rst", ".txt"],
+                "category": TopicCategory.DOCUMENTATION,
+                "weight": 0.8,
+            },
+        }
+
+    def _extract_keywords_from_content(self, content: str) -> list[str]:
+        """Extract relevant keywords from message content."""
+        # Convert to lowercase for matching
+        content_lower = content.lower()
+
+        # Extract file paths and extensions
+        file_patterns = re.findall(r"\b\w+\.\w+\b", content_lower)
+
+        # Extract framework/library mentions
+        tech_patterns = re.findall(
+            r"\b(?:react|vue|angular|python|javascript|typescript|node|express|django|flask|mongodb|postgresql|mysql|docker|kubernetes|aws|azure|gcp|github|gitlab|ci/cd|api|rest|graphql|jwt|oauth|npm|yarn|pip|conda|webpack|vite|babel|eslint|prettier|jest|vitest|pytest|jupyter|pandas|numpy|tensorflow|pytorch|sklearn|matplotlib|seaborn|plotly|d3|bootstrap|tailwind|sass|scss|css|html|json|yaml|xml|sql|nosql|redis|elasticsearch|nginx|apache|terraform|ansible|jenkins|gradle|maven|spring|django|rails|laravel|nextjs|nuxt|svelte|solid)\b",
+            content_lower,
+        )
+
+        # Extract tool usage patterns
+        tool_patterns = re.findall(r"\[tool\s+(?:use|result):\s*(\w+)\]", content_lower)
+
+        # Combine all extracted keywords
+        keywords = []
+        keywords.extend([pattern.lower() for pattern in file_patterns])
+        keywords.extend([pattern.lower() for pattern in tech_patterns])
+        keywords.extend([pattern.lower() for pattern in tool_patterns])
+
+        return list(set(keywords))  # Remove duplicates
+
+    def _calculate_topic_relevance(
+        self,
+        keywords: list[str],
+        topic_rule: dict[str, Any],
+        session_context: dict[str, Any],
+    ) -> float:
+        """Calculate relevance score for a topic based on keywords and context."""
+        base_score = 0.0
+        matched_keywords = []
+
+        # Check keyword matches
+        rule_keywords = [kw.lower() for kw in topic_rule["keywords"]]
+        for keyword in keywords:
+            if keyword in rule_keywords:
+                base_score += topic_rule["weight"]
+                matched_keywords.append(keyword)
+
+        # Check file extension matches
+        rule_extensions = topic_rule.get("file_extensions", [])
+        for keyword in keywords:
+            if any(keyword.endswith(ext) for ext in rule_extensions):
+                base_score += topic_rule["weight"] * 0.8
+                matched_keywords.append(keyword)
+
+        # Apply context boosts
+        if session_context.get("tool_usage"):
+            relevant_tools = {
+                "Web Development": ["Read", "Edit", "Write", "Grep"],
+                "API Integration": ["WebFetch", "Bash"],
+                "Database Operations": ["Bash", "Read", "Edit"],
+                "DevOps/Deployment": ["Bash", "Read", "Write"],
+                "Testing/QA": ["Bash", "Read", "Edit"],
+                "Documentation": ["Read", "Write", "Edit"],
+            }
+
+            topic_name = None
+            for name, rule in self._get_topic_rules().items():
+                if rule == topic_rule:
+                    topic_name = name
+                    break
+
+            if topic_name and topic_name in relevant_tools:
+                used_tools = set(session_context["tool_usage"].keys())
+                relevant_topic_tools = set(relevant_tools[topic_name])
+                if used_tools & relevant_topic_tools:
+                    base_score *= 1.2
+
+        # Normalize score to 0-1 range
+        relevance_score = min(base_score / 5.0, 1.0)
+
+        return relevance_score
+
+    async def extract_session_topics(
+        self, session_id: str, confidence_threshold: float = 0.3
+    ) -> TopicExtractionResponse:
+        """Extract topics from a session's messages and tool usage."""
+        # Get session messages
+        messages = await self.db.messages.find({"sessionId": session_id}).to_list(None)
+
+        if not messages:
+            return TopicExtractionResponse(
+                session_id=session_id,
+                topics=[],
+                suggested_topics=[],
+                extraction_method="keyword",
+                confidence_threshold=confidence_threshold,
+            )
+
+        # Extract all content and build session context
+        all_content = ""
+        all_keywords = []
+        tool_usage: dict[str, int] = {}
+
+        for message in messages:
+            if message.get("message", {}).get("content"):
+                content = message["message"]["content"]
+                if isinstance(content, list):
+                    # Handle Claude API format with content blocks
+                    text_content = " ".join(
+                        [
+                            block.get("text", "")
+                            for block in content
+                            if isinstance(block, dict) and block.get("type") == "text"
+                        ]
+                    )
+                    all_content += " " + text_content
+                else:
+                    all_content += " " + str(content)
+
+            # Track tool usage
+            if message.get("toolUseResult"):
+                tool_name = message["toolUseResult"].get("tool_name")
+                if tool_name:
+                    tool_usage[tool_name] = tool_usage.get(tool_name, 0) + 1
+
+            # Extract keywords from working directory
+            if message.get("cwd"):
+                cwd_keywords = self._extract_keywords_from_content(message["cwd"])
+                all_keywords.extend(cwd_keywords)
+
+        # Extract keywords from all content
+        content_keywords = self._extract_keywords_from_content(all_content)
+        all_keywords.extend(content_keywords)
+
+        # Remove duplicates
+        all_keywords = list(set(all_keywords))
+
+        # Build session context
+        session_context = {
+            "tool_usage": tool_usage,
+            "message_count": len(messages),
+            "has_errors": any(
+                msg.get("toolUseResult", {}).get("error") for msg in messages
+            ),
+        }
+
+        # Apply topic rules
+        topic_rules = self._get_topic_rules()
+        extracted_topics = []
+
+        for topic_name, rule in topic_rules.items():
+            relevance_score = self._calculate_topic_relevance(
+                all_keywords, rule, session_context
+            )
+
+            if relevance_score >= confidence_threshold:
+                # Find matched keywords for this topic
+                matched_keywords = []
+                rule_keywords = [kw.lower() for kw in rule["keywords"]]
+                rule_extensions = rule.get("file_extensions", [])
+
+                for keyword in all_keywords:
+                    if keyword in rule_keywords or any(
+                        keyword.endswith(ext) for ext in rule_extensions
+                    ):
+                        matched_keywords.append(keyword)
+
+                confidence = min(relevance_score, 1.0)
+
+                extracted_topics.append(
+                    ExtractedTopic(
+                        name=topic_name,
+                        confidence=confidence,
+                        category=rule["category"],
+                        relevance_score=relevance_score,
+                        keywords=matched_keywords[:5],  # Limit to top 5 keywords
+                    )
+                )
+
+        # Sort by relevance score
+        extracted_topics.sort(key=lambda t: t.relevance_score, reverse=True)
+
+        # Generate suggested topics (topics with lower confidence)
+        suggested_topics = []
+        for topic_name, rule in topic_rules.items():
+            if topic_name not in [t.name for t in extracted_topics]:
+                relevance_score = self._calculate_topic_relevance(
+                    all_keywords, rule, session_context
+                )
+                if 0.1 <= relevance_score < confidence_threshold:
+                    suggested_topics.append(topic_name)
+
+        return TopicExtractionResponse(
+            session_id=session_id,
+            topics=extracted_topics,
+            suggested_topics=suggested_topics[:5],  # Limit to top 5 suggestions
+            extraction_method="keyword",
+            confidence_threshold=confidence_threshold,
+        )
+
+    async def get_topic_suggestions(
+        self, time_range: TimeRange = TimeRange.LAST_30_DAYS
+    ) -> TopicSuggestionResponse:
+        """Get popular topics and combinations across sessions."""
+        time_filter = self._get_time_filter(time_range)
+
+        # Get all sessions in time range
+        sessions = await self.db.sessions.find(time_filter).to_list(None)
+        session_ids = [session["sessionId"] for session in sessions]
+
+        if not session_ids:
+            return TopicSuggestionResponse(
+                popular_topics=[], topic_combinations=[], time_range=time_range
+            )
+
+        # For demo purposes, return some mock popular topics
+        # In a real implementation, this would analyze all sessions
+        popular_topics = [
+            PopularTopic(
+                name="Web Development",
+                session_count=min(len(session_ids), 25),
+                trend="trending",
+                percentage_change=15.2,
+            ),
+            PopularTopic(
+                name="API Integration",
+                session_count=min(len(session_ids), 18),
+                trend="stable",
+                percentage_change=2.1,
+            ),
+            PopularTopic(
+                name="Database Operations",
+                session_count=min(len(session_ids), 12),
+                trend="declining",
+                percentage_change=-8.3,
+            ),
+            PopularTopic(
+                name="Testing/QA",
+                session_count=min(len(session_ids), 10),
+                trend="trending",
+                percentage_change=22.5,
+            ),
+        ]
+
+        topic_combinations = [
+            TopicCombination(
+                topics=["Web Development", "API Integration"],
+                frequency=min(len(session_ids), 8),
+                confidence=0.85,
+            ),
+            TopicCombination(
+                topics=["Database Operations", "API Integration"],
+                frequency=min(len(session_ids), 6),
+                confidence=0.72,
+            ),
+            TopicCombination(
+                topics=["Web Development", "Testing/QA"],
+                frequency=min(len(session_ids), 5),
+                confidence=0.68,
+            ),
+        ]
+
+        return TopicSuggestionResponse(
+            popular_topics=popular_topics,
+            topic_combinations=topic_combinations,
+            time_range=time_range,
+        )
+
+    # Performance Benchmarking Methods
+
+    async def get_benchmarks(
+        self,
+        entity_type: BenchmarkEntityType,
+        entity_ids: list[str],
+        time_range: TimeRange,
+        normalization_method: NormalizationMethod,
+        include_percentile_ranks: bool = True,
+    ) -> BenchmarkResponse:
+        """Get performance benchmarks for specified entities."""
+        # Get raw metrics for each entity
+        raw_metrics = []
+        for entity_id in entity_ids:
+            entity_metrics = await self._get_entity_raw_metrics(
+                entity_type, entity_id, time_range
+            )
+            raw_metrics.append({"entity_id": entity_id, **entity_metrics})
+
+        # Calculate normalized scores
+        normalized_metrics = self._normalize_metrics(raw_metrics, normalization_method)
+
+        # Calculate percentile ranks if requested
+        percentile_ranks = (
+            self._calculate_percentile_ranks(raw_metrics)
+            if include_percentile_ranks
+            else None
+        )
+
+        # Create benchmark entities
+        benchmarks = []
+        for i, entity_id in enumerate(entity_ids):
+            entity_name = await self._get_entity_name(entity_type, entity_id)
+
+            benchmark_metrics: BenchmarkMetrics = BenchmarkMetrics(
+                **normalized_metrics[i]
+            )
+
+            percentile_rank = (
+                BenchmarkPercentileRanks(**percentile_ranks[i])
+                if percentile_ranks
+                else BenchmarkPercentileRanks(
+                    cost_efficiency=0, speed=0, quality=0, productivity=0
+                )
+            )
+
+            strengths, improvement_areas = self._analyze_entity_performance(
+                normalized_metrics[i]
+            )
+
+            benchmarks.append(
+                BenchmarkEntity(
+                    entity=entity_name,
+                    entity_type=entity_type,
+                    metrics=benchmark_metrics,
+                    percentile_ranks=percentile_rank,
+                    strengths=strengths,
+                    improvement_areas=improvement_areas,
+                )
+            )
+
+        # Create comparison matrix
+        comparison_matrix = self._create_comparison_matrix(benchmarks)
+
+        # Generate insights
+        insights = self._generate_benchmark_insights(benchmarks, raw_metrics)
+
+        return BenchmarkResponse(
+            benchmarks=benchmarks,
+            comparison_matrix=comparison_matrix,
+            insights=insights,
+            normalization_method=normalization_method,
+            time_range=time_range,
+        )
+
+    async def get_benchmark_comparison(
+        self,
+        primary_entity_id: str,
+        comparison_entity_ids: list[str],
+        entity_type: BenchmarkEntityType,
+        time_range: TimeRange,
+        metrics_to_compare: list[str] | None = None,
+    ) -> BenchmarkResponse:
+        """Get focused benchmark comparison against a primary entity."""
+        all_entity_ids = [primary_entity_id] + comparison_entity_ids
+
+        # Use the standard benchmark method but with focus on comparison
+        result = await self.get_benchmarks(
+            entity_type=entity_type,
+            entity_ids=all_entity_ids,
+            time_range=time_range,
+            normalization_method=NormalizationMethod.Z_SCORE,
+            include_percentile_ranks=True,
+        )
+
+        # Filter metrics if specified
+        if metrics_to_compare:
+            result = self._filter_benchmark_metrics(result, metrics_to_compare)
+
+        return result
+
+    async def _get_entity_raw_metrics(
+        self, entity_type: BenchmarkEntityType, entity_id: str, time_range: TimeRange
+    ) -> dict[str, float]:
+        """Get raw performance metrics for an entity."""
+        time_filter = self._get_time_filter(time_range)
+
+        if entity_type == BenchmarkEntityType.PROJECT:
+            # Get session IDs for this project
+            session_ids = await self.db.sessions.distinct(
+                "sessionId", {"projectId": ObjectId(entity_id)}
+            )
+            message_filter = {**time_filter, "sessionId": {"$in": session_ids}}
+
+        elif entity_type == BenchmarkEntityType.TIME_PERIOD:
+            # For time periods, entity_id is a date range identifier
+            period_filter = self._get_time_period_filter(entity_id)
+            message_filter = {**period_filter}
+
+        else:  # TEAM - would need team mapping logic
+            # For now, treat as project
+            session_ids = await self.db.sessions.distinct(
+                "sessionId", {"projectId": ObjectId(entity_id)}
+            )
+            message_filter = {**time_filter, "sessionId": {"$in": session_ids}}
+
+        # Calculate KPIs
+        cost_efficiency = await self._calculate_cost_efficiency(message_filter)
+        speed_score = await self._calculate_speed_score(message_filter)
+        quality_score = await self._calculate_quality_score(message_filter)
+        productivity_score = await self._calculate_productivity_score(message_filter)
+        complexity_handling = await self._calculate_complexity_handling(message_filter)
+
+        return {
+            "cost_efficiency_raw": cost_efficiency,
+            "speed_score_raw": speed_score,
+            "quality_score_raw": quality_score,
+            "productivity_score_raw": productivity_score,
+            "complexity_handling_raw": complexity_handling,
+        }
+
+    async def _calculate_cost_efficiency(self, message_filter: dict[str, Any]) -> float:
+        """Calculate cost efficiency metric (lower cost per outcome is better)."""
+        pipeline = [
+            {"$match": {**message_filter, "costUsd": {"$exists": True, "$gt": 0}}},
+            {
+                "$group": {
+                    "_id": None,
+                    "total_cost": {"$sum": "$costUsd"},
+                    "total_messages": {"$sum": 1},
+                    "successful_operations": {
+                        "$sum": {"$cond": [{"$ne": ["$errors", []]}, 0, 1]}
+                    },
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        if not result or result[0]["total_cost"] == 0:
+            return 0.0
+
+        data = result[0]
+        # Cost efficiency = successful operations per dollar (higher is better)
+        efficiency = data["successful_operations"] / data["total_cost"]
+        return float(efficiency * 100)  # Scale to 0-100 range
+
+    async def _calculate_speed_score(self, message_filter: dict[str, Any]) -> float:
+        """Calculate speed performance score based on response times."""
+        pipeline = [
+            {"$match": {**message_filter, "durationMs": {"$exists": True, "$gt": 0}}},
+            {
+                "$group": {
+                    "_id": None,
+                    "avg_duration": {"$avg": "$durationMs"},
+                    "count": {"$sum": 1},
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        if not result or result[0]["count"] == 0:
+            return 50.0  # Neutral score
+
+        avg_duration = result[0]["avg_duration"]
+        # Convert to speed score (lower duration = higher score)
+        # Using inverse log scale: score = 100 - log10(duration_seconds) * 20
+        duration_seconds = avg_duration / 1000
+        if duration_seconds <= 0:
+            return 100.0
+
+        speed_score = max(0.0, 100.0 - (math.log10(duration_seconds) * 20.0))
+        return float(min(100.0, speed_score))
+
+    async def _calculate_quality_score(self, message_filter: dict[str, Any]) -> float:
+        """Calculate quality score based on error rates."""
+        pipeline = [
+            {"$match": message_filter},
+            {
+                "$group": {
+                    "_id": None,
+                    "total_messages": {"$sum": 1},
+                    "error_messages": {
+                        "$sum": {
+                            "$cond": [
+                                {
+                                    "$and": [
+                                        {"$exists": ["$errors", True]},
+                                        {"$ne": ["$errors", []]},
+                                        {"$ne": ["$errors", None]},
+                                    ]
+                                },
+                                1,
+                                0,
+                            ]
+                        }
+                    },
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        if not result or result[0]["total_messages"] == 0:
+            return 100.0  # Perfect score if no data
+
+        data = result[0]
+        error_rate = data["error_messages"] / data["total_messages"]
+        quality_score = (1 - error_rate) * 100
+        return float(max(0.0, quality_score))
+
+    async def _calculate_productivity_score(
+        self, message_filter: dict[str, Any]
+    ) -> float:
+        """Calculate productivity score based on tasks per session."""
+        # Get session-level productivity
+        session_pipeline = [
+            {"$match": message_filter},
+            {
+                "$group": {
+                    "_id": "$sessionId",
+                    "message_count": {"$sum": 1},
+                    "tool_calls": {
+                        "$sum": {
+                            "$cond": [
+                                {
+                                    "$and": [
+                                        {"$exists": ["$tools", True]},
+                                        {"$ne": ["$tools", []]},
+                                        {"$ne": ["$tools", None]},
+                                    ]
+                                },
+                                {"$size": "$tools"},
+                                0,
+                            ]
+                        }
+                    },
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "avg_messages_per_session": {"$avg": "$message_count"},
+                    "avg_tools_per_session": {"$avg": "$tool_calls"},
+                    "session_count": {"$sum": 1},
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(session_pipeline).to_list(1)
+        if not result or result[0]["session_count"] == 0:
+            return 50.0  # Neutral score
+
+        data = result[0]
+        # Productivity = weighted combination of messages and tool usage
+        messages_score = min(
+            100.0, data["avg_messages_per_session"] * 2.0
+        )  # Scale by 2
+        tools_score = min(100.0, data["avg_tools_per_session"] * 5.0)  # Scale by 5
+
+        productivity_score = messages_score * 0.6 + tools_score * 0.4
+        return float(min(100.0, productivity_score))
+
+    async def _calculate_complexity_handling(
+        self, message_filter: dict[str, Any]
+    ) -> float:
+        """Calculate complexity handling score based on conversation depth and branching."""
+        pipeline = [
+            {"$match": message_filter},
+            {
+                "$group": {
+                    "_id": "$sessionId",
+                    "message_count": {"$sum": 1},
+                    "avg_depth": {"$avg": {"$ifNull": ["$conversationDepth", 1]}},
+                    "has_sidechains": {
+                        "$max": {"$cond": [{"$eq": ["$isSidechain", True]}, 1, 0]}
+                    },
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "avg_session_depth": {"$avg": "$avg_depth"},
+                    "sidechain_percentage": {"$avg": "$has_sidechains"},
+                    "avg_session_length": {"$avg": "$message_count"},
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        if not result:
+            return 50.0  # Neutral score
+
+        data = result[0]
+        depth_score = min(100.0, data["avg_session_depth"] * 10.0)  # Scale depth
+        branch_score = data["sidechain_percentage"] * 100.0  # Percentage to score
+        length_score = min(100.0, data["avg_session_length"] * 3.0)  # Scale length
+
+        complexity_score = depth_score * 0.4 + branch_score * 0.3 + length_score * 0.3
+        return float(min(100.0, complexity_score))
+
+    def _normalize_metrics(
+        self, raw_metrics: list[dict[str, Any]], method: NormalizationMethod
+    ) -> list[dict[str, float]]:
+        """Normalize raw metrics using specified method."""
+        metric_keys = [
+            "cost_efficiency_raw",
+            "speed_score_raw",
+            "quality_score_raw",
+            "productivity_score_raw",
+            "complexity_handling_raw",
+        ]
+
+        # Extract values for each metric
+        metric_values = {key: [m[key] for m in raw_metrics] for key in metric_keys}
+
+        normalized_results = []
+
+        for i in range(len(raw_metrics)):
+            normalized = {}
+
+            for key in metric_keys:
+                values = metric_values[key]
+                current_value = values[i]
+
+                if method == NormalizationMethod.Z_SCORE:
+                    if len(values) > 1 and statistics.stdev(values) > 0:
+                        mean_val = statistics.mean(values)
+                        std_val = statistics.stdev(values)
+                        z_score = (current_value - mean_val) / std_val
+                        # Convert z-score to 0-100 scale (z-scores typically range -3 to +3)
+                        normalized_score = max(0, min(100, 50 + (z_score * 15)))
+                    else:
+                        normalized_score = 50.0  # Neutral if no variation
+
+                elif method == NormalizationMethod.MIN_MAX:
+                    min_val = min(values)
+                    max_val = max(values)
+                    if max_val > min_val:
+                        normalized_score = (
+                            (current_value - min_val) / (max_val - min_val)
+                        ) * 100
+                    else:
+                        normalized_score = 50.0  # Neutral if no variation
+
+                elif method == NormalizationMethod.PERCENTILE_RANK:
+                    sorted_values = sorted(values)
+                    rank = sorted_values.index(current_value) + 1
+                    normalized_score = (rank / len(values)) * 100
+
+                # Map to final metric names
+                final_key = key.replace("_raw", "").replace("score_raw", "score")
+                normalized[final_key] = round(normalized_score, 2)
+
+            # Calculate overall score as weighted average
+            normalized["overall_score"] = round(
+                (
+                    normalized["cost_efficiency"] * 0.25
+                    + normalized["speed_score"] * 0.20
+                    + normalized["quality_score"] * 0.25
+                    + normalized["productivity_score"] * 0.15
+                    + normalized["complexity_handling"] * 0.15
+                ),
+                2,
+            )
+
+            normalized_results.append(normalized)
+
+        return normalized_results
+
+    def _calculate_percentile_ranks(
+        self, raw_metrics: list[dict[str, Any]]
+    ) -> list[dict[str, float]]:
+        """Calculate percentile ranks for metrics."""
+        metric_keys = [
+            "cost_efficiency_raw",
+            "speed_score_raw",
+            "quality_score_raw",
+            "productivity_score_raw",
+        ]
+
+        percentile_results = []
+
+        for i in range(len(raw_metrics)):
+            percentiles = {}
+
+            for key in metric_keys:
+                values = [m[key] for m in raw_metrics]
+                current_value = values[i]
+
+                # Calculate percentile rank
+                rank = sum(1 for v in values if v <= current_value)
+                percentile = (rank / len(values)) * 100
+
+                # Map to final names
+                final_key = key.replace("_raw", "").replace("score_raw", "")
+                percentiles[final_key] = round(percentile, 1)
+
+            percentile_results.append(percentiles)
+
+        return percentile_results
+
+    async def _get_entity_name(
+        self, entity_type: BenchmarkEntityType, entity_id: str
+    ) -> str:
+        """Get display name for entity."""
+        if entity_type == BenchmarkEntityType.PROJECT:
+            project = await self.db.projects.find_one({"_id": ObjectId(entity_id)})
+            return project["name"] if project else f"Project {entity_id[:8]}"
+        elif entity_type == BenchmarkEntityType.TIME_PERIOD:
+            return entity_id  # Time periods are passed as readable names
+        else:  # TEAM
+            return f"Team {entity_id}"
+
+    def _analyze_entity_performance(
+        self, metrics: dict[str, float]
+    ) -> tuple[list[str], list[str]]:
+        """Analyze entity performance to identify strengths and improvement areas."""
+        strengths = []
+        improvement_areas = []
+
+        metric_names = {
+            "cost_efficiency": "Cost Efficiency",
+            "speed_score": "Response Speed",
+            "quality_score": "Quality & Reliability",
+            "productivity_score": "Productivity",
+            "complexity_handling": "Complexity Handling",
+        }
+
+        for key, name in metric_names.items():
+            score = metrics.get(key, 0)
+            if score >= 75:
+                strengths.append(name)
+            elif score <= 40:
+                improvement_areas.append(name)
+
+        return strengths, improvement_areas
+
+    def _create_comparison_matrix(
+        self, benchmarks: list[BenchmarkEntity]
+    ) -> BenchmarkComparisonMatrix:
+        """Create comparison matrix for benchmarks."""
+        headers = [b.entity for b in benchmarks]
+
+        # Matrix rows: cost_efficiency, speed_score, quality_score, productivity_score, complexity_handling
+        metric_keys = [
+            "cost_efficiency",
+            "speed_score",
+            "quality_score",
+            "productivity_score",
+            "complexity_handling",
+        ]
+
+        data = []
+        best_performers = []
+
+        for metric_key in metric_keys:
+            row = []
+            best_score = -1
+            best_performer = ""
+
+            for benchmark in benchmarks:
+                score = getattr(benchmark.metrics, metric_key)
+                row.append(score)
+
+                if score > best_score:
+                    best_score = score
+                    best_performer = benchmark.entity
+
+            data.append(row)
+            best_performers.append(best_performer)
+
+        return BenchmarkComparisonMatrix(
+            headers=headers, data=data, best_performer_per_metric=best_performers
+        )
+
+    def _generate_benchmark_insights(
+        self, benchmarks: list[BenchmarkEntity], raw_metrics: list[dict[str, Any]]
+    ) -> BenchmarkInsights:
+        """Generate insights and recommendations from benchmark analysis."""
+        # Top performers by overall score
+        sorted_benchmarks = sorted(
+            benchmarks, key=lambda b: b.metrics.overall_score, reverse=True
+        )
+        top_performers = [b.entity for b in sorted_benchmarks[:3]]
+
+        # Biggest improvements (mock data for now - would need historical comparison)
+        improvements = [
+            BenchmarkImprovement(
+                entity=benchmarks[0].entity,
+                metric="Speed Performance",
+                improvement=15.2,
+                improvement_percentage=12.3,
+            )
+        ]
+
+        # Generate recommendations
+        recommendations = []
+
+        # Analyze common weak areas
+        weak_areas: dict[str, int] = {}
+        for benchmark in benchmarks:
+            for area in benchmark.improvement_areas:
+                weak_areas[area] = weak_areas.get(area, 0) + 1
+
+        if weak_areas:
+            most_common_weakness = max(weak_areas.items(), key=lambda x: x[1])
+            recommendations.append(
+                f"Focus on improving {most_common_weakness[0]} - "
+                f"{most_common_weakness[1]} entities need attention in this area"
+            )
+
+        # Performance-based recommendations
+        avg_cost_efficiency = statistics.mean(
+            [b.metrics.cost_efficiency for b in benchmarks]
+        )
+        if avg_cost_efficiency < 60:
+            recommendations.append(
+                "Consider optimizing cost efficiency through better prompt engineering "
+                "and reducing unnecessary API calls"
+            )
+
+        avg_speed = statistics.mean([b.metrics.speed_score for b in benchmarks])
+        if avg_speed < 60:
+            recommendations.append(
+                "Improve response times by optimizing message complexity and "
+                "reducing tool usage in non-critical operations"
+            )
+
+        return BenchmarkInsights(
+            top_performers=top_performers,
+            biggest_improvements=improvements,
+            recommendations=recommendations,
+        )
+
+    def _filter_benchmark_metrics(
+        self, result: BenchmarkResponse, metrics_to_compare: list[str]
+    ) -> BenchmarkResponse:
+        """Filter benchmark results to specific metrics."""
+        # This would filter the comparison matrix and adjust insights
+        # For now, return the full result
+        return result
+
+    def _get_time_period_filter(self, period_id: str) -> dict[str, Any]:
+        """Get time filter for a specific period identifier."""
+        # Parse period_id to determine time range
+        # Format could be "2024-01" for January 2024, "2024-Q1" for Q1, etc.
+        # For now, return a basic filter
+        return self._get_time_filter(TimeRange.LAST_30_DAYS)

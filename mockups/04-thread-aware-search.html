@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thread-Aware Search & Filtering - Mockup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0a0a0a; color: #e5e5e5; }
+        .highlight { background: #fef08a; color: #1a1a1a; padding: 0 2px; }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-2xl font-bold mb-2">Option 4: Thread-Aware Search & Filtering</h1>
+        <p class="text-gray-400 mb-8">Enhanced search that understands message relationships and context</p>
+
+        <!-- Advanced Search Bar -->
+        <div class="bg-gray-900 rounded-lg p-4 mb-6 border border-gray-800">
+            <div class="flex gap-4 mb-4">
+                <div class="flex-1 relative">
+                    <svg class="absolute left-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input
+                        type="text"
+                        value="authentication"
+                        class="w-full pl-10 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                        placeholder="Search messages..."
+                    />
+                </div>
+                <button class="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 rounded-lg font-medium transition-all">
+                    Search
+                </button>
+            </div>
+
+            <!-- Search Options -->
+            <div class="flex items-center gap-6 text-sm">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked class="w-4 h-4 text-blue-500 bg-gray-800 border-gray-600 rounded">
+                    <span>Search in thread</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="thread-type" checked class="w-4 h-4 text-blue-500 bg-gray-800 border-gray-600">
+                    <span>All messages</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="thread-type" class="w-4 h-4 text-blue-500 bg-gray-800 border-gray-600">
+                    <span>Main thread only</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="thread-type" class="w-4 h-4 text-blue-500 bg-gray-800 border-gray-600">
+                    <span>Sidechains only</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Search Results Summary -->
+        <div class="bg-gray-900 rounded-lg p-4 mb-6 border border-gray-800">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-gray-400">Found</span>
+                    <span class="text-lg font-semibold text-blue-400">12 results</span>
+                    <span class="text-sm text-gray-400">in 3 conversation threads</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button class="text-sm text-blue-400 hover:text-blue-300">Clear filters</button>
+                    <span class="text-gray-600">|</span>
+                    <button class="text-sm text-blue-400 hover:text-blue-300">Export results</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Results with Thread Context -->
+        <div class="space-y-6">
+            <!-- Thread Group 1 -->
+            <div class="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+                <div class="bg-gray-800/50 px-4 py-3 border-b border-gray-800">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            <span class="font-medium text-gray-200">Thread: API Implementation Discussion</span>
+                            <span class="text-xs text-gray-500">(5 results)</span>
+                        </div>
+                        <button class="text-xs text-blue-400 hover:text-blue-300">Expand all</button>
+                    </div>
+                </div>
+
+                <!-- Thread Path -->
+                <div class="px-4 py-2 bg-gray-900/50 text-xs text-gray-500 flex items-center gap-2">
+                    <span>Thread path:</span>
+                    <span class="text-gray-400">Initial question</span>
+                    <span>→</span>
+                    <span class="text-blue-400">Authentication discussion</span>
+                    <span>→</span>
+                    <span class="text-gray-400">Implementation details</span>
+                </div>
+
+                <!-- Search Results in Thread -->
+                <div class="divide-y divide-gray-800">
+                    <!-- Result 1 -->
+                    <div class="p-4 hover:bg-gray-800/30 transition-all">
+                        <div class="flex gap-3">
+                            <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">Y</div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-sm font-medium text-gray-300">You</span>
+                                    <span class="text-xs text-gray-500">10 minutes ago</span>
+                                    <span class="text-xs px-2 py-0.5 bg-blue-500/20 rounded text-blue-400">Match 1/5</span>
+                                </div>
+                                <p class="text-sm text-gray-400">
+                                    How do I implement <span class="highlight">authentication</span> in my API?
+                                </p>
+                                <div class="mt-2 flex items-center gap-3 text-xs">
+                                    <button class="text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                        </svg>
+                                        Show in context
+                                    </button>
+                                    <button class="text-blue-400 hover:text-blue-300">Expand thread</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Result 2 (with context) -->
+                    <div class="p-4 hover:bg-gray-800/30 transition-all">
+                        <div class="flex gap-3">
+                            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">C</div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-sm font-medium text-gray-300">Claude</span>
+                                    <span class="text-xs text-gray-500">9 minutes ago</span>
+                                    <span class="text-xs px-2 py-0.5 bg-blue-500/20 rounded text-blue-400">Match 2/5</span>
+                                </div>
+                                <p class="text-sm text-gray-400 mb-2">
+                                    For API <span class="highlight">authentication</span>, you have several options:
+                                </p>
+
+                                <!-- Context Preview -->
+                                <div class="ml-4 pl-4 border-l-2 border-gray-700 text-xs text-gray-500">
+                                    <p class="mb-1">← Replying to: "How do I implement authentication..."</p>
+                                    <p>→ Has 3 follow-up messages in thread</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thread Group 2 (Sidechain) -->
+            <div class="bg-gray-900 rounded-lg border border-amber-500/30 overflow-hidden">
+                <div class="bg-amber-900/20 px-4 py-3 border-b border-amber-500/30">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 bg-amber-500 rounded-full"></div>
+                            <span class="font-medium text-amber-400">Sidechain: Security Analysis</span>
+                            <span class="text-xs text-gray-500">(3 results)</span>
+                        </div>
+                        <button class="text-xs text-amber-400 hover:text-amber-300">Expand all</button>
+                    </div>
+                </div>
+
+                <div class="p-4">
+                    <p class="text-sm text-gray-400 mb-3">
+                        Found 3 matches in parallel task analyzing security implications of <span class="highlight">authentication</span> methods
+                    </p>
+                    <button class="text-sm text-amber-400 hover:text-amber-300 flex items-center gap-1">
+                        View sidechain results
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Isolated Result -->
+            <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    <span class="text-sm font-medium text-gray-300">Isolated Match</span>
+                    <span class="text-xs text-gray-500">(no thread context)</span>
+                </div>
+                <p class="text-sm text-gray-400">
+                    Remember to always use HTTPS for <span class="highlight">authentication</span> endpoints
+                </p>
+                <button class="mt-2 text-xs text-blue-400 hover:text-blue-300">Jump to message</button>
+            </div>
+        </div>
+
+        <!-- Search Insights -->
+        <div class="mt-8 bg-gray-900 rounded-lg p-6 border border-gray-800">
+            <h3 class="text-lg font-semibold mb-4 text-blue-400">Search Insights</h3>
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <h4 class="text-sm font-medium text-gray-300 mb-2">Distribution</h4>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Main thread:</span>
+                            <span class="text-gray-200">9 results (75%)</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Sidechains:</span>
+                            <span class="text-gray-200">3 results (25%)</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-medium text-gray-300 mb-2">Related Terms</h4>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-2 py-1 bg-gray-800 rounded text-xs text-gray-300">JWT</span>
+                        <span class="px-2 py-1 bg-gray-800 rounded text-xs text-gray-300">OAuth</span>
+                        <span class="px-2 py-1 bg-gray-800 rounded text-xs text-gray-300">security</span>
+                        <span class="px-2 py-1 bg-gray-800 rounded text-xs text-gray-300">API keys</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature Highlights -->
+        <div class="mt-8 bg-gray-900 rounded-lg p-6 border border-gray-800">
+            <h3 class="text-lg font-semibold mb-4 text-blue-400">Key Features</h3>
+            <ul class="space-y-2 text-sm text-gray-300">
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Filter search by thread type (main thread, sidechains, or all)</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Results grouped by conversation thread with context</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Thread path visualization for each result</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>"Search in thread" option to find within a conversation branch</span>
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="text-green-400 mt-0.5">✓</span>
+                    <span>Search insights showing distribution and related terms</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
