@@ -23,8 +23,12 @@ export interface AnalyticsSummary {
 }
 
 export interface ActivityHeatmap {
-  data: HeatmapCell[];
+  cells: HeatmapCell[];
+  total_messages: number;
   time_range: TimeRange;
+  timezone: string;
+  peak_hour: number | null;
+  peak_day: number | null;
 }
 
 export interface HeatmapCell {
@@ -36,9 +40,13 @@ export interface HeatmapCell {
 }
 
 export interface CostAnalytics {
-  data: CostDataPoint[];
-  total: number;
+  data_points: CostDataPoint[];
+  total_cost: number;
+  average_cost_per_message: number;
   time_range: TimeRange;
+  group_by: string;
+  cost_by_model: Record<string, number>;
+  cost_by_project?: Record<string, number>;
 }
 
 export interface CostDataPoint {
@@ -49,16 +57,21 @@ export interface CostDataPoint {
 
 export interface ModelUsageStats {
   models: ModelUsage[];
+  total_models: number;
   time_range: TimeRange;
+  most_used: string | null;
+  least_used: string | null;
 }
 
 export interface ModelUsage {
   model: string;
   message_count: number;
   total_cost: number;
-  avg_response_time: number;
-  input_tokens: number;
-  output_tokens: number;
+  avg_cost_per_message: number;
+  avg_response_time_ms?: number | null;
+  avg_tokens_input?: number | null;
+  avg_tokens_output?: number | null;
+  trend_percentage?: number | null;
 }
 
 export const analyticsApi = {

@@ -83,21 +83,22 @@ export default function Analytics() {
   };
 
   const getDayName = (dayNum: number) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    // Backend uses 0=Monday, 6=Sunday
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return days[dayNum];
   };
 
   const processHeatmapData = () => {
-    if (!heatmap) return [];
+    if (!heatmap?.cells || heatmap.cells.length === 0) return [];
 
-    const maxCount = Math.max(...heatmap.data.map((d) => d.count));
+    const maxCount = Math.max(...heatmap.cells.map((d) => d.count));
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const days = Array.from({ length: 7 }, (_, i) => i);
 
     const grid = [];
     for (const day of days) {
       for (const hour of hours) {
-        const cell = heatmap.data.find(
+        const cell = heatmap.cells.find(
           (d) => d.day_of_week === day && d.hour === hour
         );
         grid.push({
@@ -112,8 +113,8 @@ export default function Analytics() {
   };
 
   const processCostData = () => {
-    if (!costData) return [];
-    return costData.data.map((item) => ({
+    if (!costData?.data_points || costData.data_points.length === 0) return [];
+    return costData.data_points.map((item) => ({
       date: new Date(item.timestamp).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -124,7 +125,7 @@ export default function Analytics() {
   };
 
   const processModelData = () => {
-    if (!modelUsage) return [];
+    if (!modelUsage?.models || modelUsage.models.length === 0) return [];
     return modelUsage.models.map((model) => ({
       name: model.model.split('/').pop() || model.model,
       value: model.message_count,
