@@ -29,6 +29,9 @@ export default function MessageList({ messages }: MessageListProps) {
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
   );
+  const [expandedToolGroups, setExpandedToolGroups] = useState<Set<string>>(
+    new Set()
+  );
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const toggleExpanded = (messageId: string) => {
@@ -38,6 +41,18 @@ export default function MessageList({ messages }: MessageListProps) {
         newSet.delete(messageId);
       } else {
         newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleToolGroupExpanded = (groupId: string) => {
+    setExpandedToolGroups((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId);
+      } else {
+        newSet.add(groupId);
       }
       return newSet;
     });
@@ -389,6 +404,53 @@ export default function MessageList({ messages }: MessageListProps) {
     );
   };
 
+  // Group consecutive tool_use and tool_result messages
+  const messageGroups: Array<{
+    type: 'single' | 'tool_group';
+    messages: Message[];
+  }> = [];
+  let currentGroup: Message[] = [];
+  let inToolGroup = false;
+
+  messages.forEach((message, index) => {
+    if (message.type === 'tool_use') {
+      if (!inToolGroup) {
+        if (currentGroup.length > 0) {
+          messageGroups.push({ type: 'single', messages: currentGroup });
+          currentGroup = [];
+        }
+        inToolGroup = true;
+      }
+      currentGroup.push(message);
+    } else if (message.type === 'tool_result' && inToolGroup) {
+      currentGroup.push(message);
+      // Check if next message is also tool_use
+      const nextMessage = messages[index + 1];
+      if (!nextMessage || nextMessage.type !== 'tool_use') {
+        messageGroups.push({ type: 'tool_group', messages: currentGroup });
+        currentGroup = [];
+        inToolGroup = false;
+      }
+    } else {
+      if (inToolGroup) {
+        messageGroups.push({ type: 'tool_group', messages: currentGroup });
+        currentGroup = [];
+        inToolGroup = false;
+      }
+      currentGroup.push(message);
+      messageGroups.push({ type: 'single', messages: [message] });
+      currentGroup = [];
+    }
+  });
+
+  // Handle any remaining messages
+  if (currentGroup.length > 0) {
+    messageGroups.push({
+      type: inToolGroup ? 'tool_group' : 'single',
+      messages: currentGroup,
+    });
+  }
+
   if (messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-6">
@@ -407,124 +469,288 @@ export default function MessageList({ messages }: MessageListProps) {
 
   return (
     <div className="space-y-1 py-6 max-w-5xl mx-auto">
-      {messages.map((message, index) => {
-        const isExpanded = expandedMessages.has(message._id);
-        const isFirstMessage = index === 0;
-        const previousMessage = index > 0 ? messages[index - 1] : null;
-        const isDifferentSender = previousMessage?.type !== message.type;
-        const colors = getMessageColors(message.type);
+      {messageGroups.map((group) => {
+        if (group.type === 'single') {
+          const message = group.messages[0];
+          const index = messages.indexOf(message);
+          const isExpanded = expandedMessages.has(message._id);
+          const isFirstMessage = index === 0;
+          const previousMessage = index > 0 ? messages[index - 1] : null;
+          const isDifferentSender = previousMessage?.type !== message.type;
+          const colors = getMessageColors(message.type);
 
-        return (
-          <div
-            key={message._id}
-            className={cn(
-              'relative transition-all duration-200',
-              isDifferentSender && !isFirstMessage && 'mt-8'
-            )}
-          >
-            {/* Message Header - Only show for first message or different sender */}
-            {(isFirstMessage || isDifferentSender) && (
-              <div className="flex items-center gap-4 px-6 py-3 mb-2">
-                <div
-                  className={cn(
-                    'flex items-center justify-center w-10 h-10 rounded-xl transition-transform duration-200 hover:scale-105',
-                    colors.avatar
-                  )}
-                >
-                  {getMessageIcon(message.type)}
-                </div>
-                <div className="flex items-center gap-3 flex-1">
-                  <span className={cn('text-base font-semibold', colors.label)}>
-                    {getMessageLabel(message.type)}
-                  </span>
-                  {message.model && (
-                    <span className="text-xs px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full font-medium border border-slate-200 dark:border-slate-700">
-                      {message.model}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() =>
-                    copyToClipboard(message.content, `message-${message._id}`)
-                  }
-                  className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
-                  title="Copy message"
-                >
-                  {copiedId === `message-${message._id}` ? (
-                    <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  ) : (
-                    <Copy className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                  )}
-                </button>
-              </div>
-            )}
-
-            {/* Message Content */}
+          return (
             <div
+              key={message._id}
               className={cn(
-                'group rounded-xl mx-3 px-6 py-5 transition-all duration-200 border backdrop-blur-sm relative',
-                colors.background,
-                colors.hover,
-                'border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md'
+                'relative transition-all duration-200',
+                isDifferentSender && !isFirstMessage && 'mt-8'
               )}
             >
-              {/* Copy button for messages without header */}
-              {!isFirstMessage && !isDifferentSender && (
-                <button
-                  onClick={() =>
-                    copyToClipboard(message.content, `message-${message._id}`)
-                  }
-                  className="absolute top-4 right-4 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 backdrop-blur-sm shadow-md border border-slate-200/50 dark:border-slate-600/50"
-                  title="Copy message"
-                >
-                  {copiedId === `message-${message._id}` ? (
-                    <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  ) : (
-                    <Copy className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-                  )}
-                </button>
-              )}
-              <div className="max-w-none">
-                {/* Metadata - Show on hover with better styling */}
-                <div className="flex items-center gap-4 mb-3 opacity-60 group-hover:opacity-100 transition-all duration-200">
-                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                    <Clock className="h-3.5 w-3.5" />
-                    <time dateTime={message.timestamp}>
-                      {format(new Date(message.timestamp), 'MMM d, HH:mm:ss')}
-                    </time>
+              {/* Message Header - Only show for first message or different sender */}
+              {(isFirstMessage || isDifferentSender) && (
+                <div className="flex items-center gap-4 px-6 py-3 mb-2">
+                  <div
+                    className={cn(
+                      'flex items-center justify-center w-10 h-10 rounded-xl transition-transform duration-200 hover:scale-105',
+                      colors.avatar
+                    )}
+                  >
+                    {getMessageIcon(message.type)}
                   </div>
-                  {message.totalCost && (
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                      <Coins className="h-3.5 w-3.5" />
-                      <span>${message.totalCost.toFixed(4)}</span>
-                    </div>
-                  )}
-                  {message.inputTokens && message.outputTokens && (
-                    <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                      <Hash className="h-3.5 w-3.5" />
-                      <span>
-                        {(
-                          message.inputTokens + message.outputTokens
-                        ).toLocaleString()}{' '}
-                        tokens
+                  <div className="flex items-center gap-3 flex-1">
+                    <span
+                      className={cn('text-base font-semibold', colors.label)}
+                    >
+                      {getMessageLabel(message.type)}
+                    </span>
+                    {message.model && (
+                      <span className="text-xs px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full font-medium border border-slate-200 dark:border-slate-700">
+                        {message.model}
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <button
+                    onClick={() =>
+                      copyToClipboard(message.content, `message-${message._id}`)
+                    }
+                    className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
+                    title="Copy message"
+                  >
+                    {copiedId === `message-${message._id}` ? (
+                      <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <Copy className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                    )}
+                  </button>
                 </div>
+              )}
 
-                {/* Message Content */}
-                <div className="prose prose-slate dark:prose-invert max-w-none">
-                  {formatContent(
-                    message.content,
-                    message.type,
-                    isExpanded,
-                    message._id
-                  )}
+              {/* Message Content */}
+              <div
+                className={cn(
+                  'group rounded-xl mx-3 px-6 py-5 transition-all duration-200 border backdrop-blur-sm relative',
+                  colors.background,
+                  colors.hover,
+                  'border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md'
+                )}
+              >
+                {/* Copy button for messages without header */}
+                {!isFirstMessage && !isDifferentSender && (
+                  <button
+                    onClick={() =>
+                      copyToClipboard(message.content, `message-${message._id}`)
+                    }
+                    className="absolute top-4 right-4 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 backdrop-blur-sm shadow-md border border-slate-200/50 dark:border-slate-600/50"
+                    title="Copy message"
+                  >
+                    {copiedId === `message-${message._id}` ? (
+                      <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <Copy className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                    )}
+                  </button>
+                )}
+                <div className="max-w-none">
+                  {/* Metadata - Show on hover with better styling */}
+                  <div className="flex items-center gap-4 mb-3 opacity-60 group-hover:opacity-100 transition-all duration-200">
+                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                      <Clock className="h-3.5 w-3.5" />
+                      <time dateTime={message.timestamp}>
+                        {format(new Date(message.timestamp), 'MMM d, HH:mm:ss')}
+                      </time>
+                    </div>
+                    {message.totalCost && (
+                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                        <Coins className="h-3.5 w-3.5" />
+                        <span>${message.totalCost.toFixed(4)}</span>
+                      </div>
+                    )}
+                    {message.inputTokens && message.outputTokens && (
+                      <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                        <Hash className="h-3.5 w-3.5" />
+                        <span>
+                          {(
+                            message.inputTokens + message.outputTokens
+                          ).toLocaleString()}{' '}
+                          tokens
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Message Content */}
+                  <div className="prose prose-slate dark:prose-invert max-w-none">
+                    {formatContent(
+                      message.content,
+                      message.type,
+                      isExpanded,
+                      message._id
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        );
+          );
+        } else {
+          // Tool group rendering
+          const groupId = group.messages[0]._id;
+          const isGroupExpanded = expandedToolGroups.has(groupId);
+          const toolUseMessages = group.messages.filter(
+            (m) => m.type === 'tool_use'
+          );
+
+          // Get preview of results (first few lines)
+          const getResultPreview = (content: string) => {
+            const lines = content.split('\n');
+            const previewLines = lines.slice(0, 3);
+            const hasMore = lines.length > 3;
+            return {
+              preview: previewLines.join('\n'),
+              hasMore,
+              totalLines: lines.length,
+            };
+          };
+
+          return (
+            <div
+              key={groupId}
+              className="relative transition-all duration-200 mt-8"
+            >
+              {/* Tool Group Header */}
+              <div className="flex items-center gap-4 px-6 py-3 mb-2">
+                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md">
+                  <Wrench className="h-5 w-5" />
+                </div>
+                <div className="flex items-center gap-3 flex-1">
+                  <span className="text-base font-semibold text-violet-700 dark:text-violet-300">
+                    Tool Operations ({toolUseMessages.length} calls)
+                  </span>
+                </div>
+                <button
+                  onClick={() => toggleToolGroupExpanded(groupId)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-violet-600 hover:text-violet-900 dark:text-violet-400 dark:hover:text-violet-100 bg-violet-100 hover:bg-violet-200 dark:bg-violet-900/30 dark:hover:bg-violet-800/30 rounded-lg transition-all duration-200"
+                >
+                  {isGroupExpanded ? (
+                    <>
+                      <ChevronUp className="h-4 w-4" /> Collapse
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4" /> Expand all
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Tool Group Content */}
+              <div className="space-y-2">
+                {group.messages.map((message, messageIndex) => {
+                  const isToolUse = message.type === 'tool_use';
+                  const isToolResult = message.type === 'tool_result';
+                  const colors = getMessageColors(message.type);
+
+                  // For collapsed view, only show tool_use messages and preview of results
+                  if (!isGroupExpanded && isToolResult) {
+                    const resultPreview = getResultPreview(message.content);
+                    const prevMessage = group.messages[messageIndex - 1];
+                    const isFirstResult =
+                      messageIndex === 0 || prevMessage?.type !== 'tool_result';
+
+                    if (isFirstResult) {
+                      return (
+                        <div
+                          key={message._id}
+                          className="ml-14 mr-3 px-4 py-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-lg border border-slate-200/50 dark:border-slate-700/50"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <Code className="h-4 w-4 text-slate-500" />
+                            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                              Results preview
+                            </span>
+                          </div>
+                          <pre className="text-xs text-slate-600 dark:text-slate-400 overflow-hidden">
+                            {resultPreview.preview}
+                            {resultPreview.hasMore && (
+                              <span className="text-slate-400 dark:text-slate-500">
+                                {'\n'}... ({resultPreview.totalLines} lines
+                                total)
+                              </span>
+                            )}
+                          </pre>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }
+
+                  // For expanded view or tool_use messages, show full content
+                  return (
+                    <div
+                      key={message._id}
+                      className={cn(
+                        'group rounded-xl mx-3 px-6 py-5 transition-all duration-200 border backdrop-blur-sm relative',
+                        colors.background,
+                        colors.hover,
+                        'border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md',
+                        isToolResult && 'ml-14'
+                      )}
+                    >
+                      <div className="max-w-none">
+                        {/* Metadata */}
+                        <div className="flex items-center gap-4 mb-3 opacity-60 group-hover:opacity-100 transition-all duration-200">
+                          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                            <Clock className="h-3.5 w-3.5" />
+                            <time dateTime={message.timestamp}>
+                              {format(
+                                new Date(message.timestamp),
+                                'MMM d, HH:mm:ss'
+                              )}
+                            </time>
+                          </div>
+                          {message.totalCost && (
+                            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                              <Coins className="h-3.5 w-3.5" />
+                              <span>${message.totalCost.toFixed(4)}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Content Label for Tool Messages */}
+                        {isToolUse && (
+                          <div className="flex items-center gap-2 mb-3">
+                            <Wrench className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                            <span className="text-sm font-medium text-violet-700 dark:text-violet-300">
+                              Tool Call
+                            </span>
+                          </div>
+                        )}
+                        {isToolResult && (
+                          <div className="flex items-center gap-2 mb-3">
+                            <Code className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                            <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                              Tool Result
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Message Content */}
+                        <div className="prose prose-slate dark:prose-invert max-w-none">
+                          {formatContent(
+                            message.content,
+                            message.type,
+                            expandedMessages.has(message._id),
+                            message._id
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
       })}
     </div>
   );
