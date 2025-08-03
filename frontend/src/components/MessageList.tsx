@@ -11,11 +11,13 @@ import {
   Wrench,
   Copy,
   Check,
+  Clock,
+  Coins,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface MessageListProps {
   messages: Message[];
@@ -71,7 +73,7 @@ export default function MessageList({ messages }: MessageListProps) {
       case 'user':
         return 'User';
       case 'assistant':
-        return 'Assistant';
+        return 'Claude';
       case 'system':
         return 'System';
       case 'tool_use':
@@ -102,53 +104,54 @@ export default function MessageList({ messages }: MessageListProps) {
             <div
               className={cn(
                 'overflow-hidden transition-all duration-300',
-                !isExpanded && shouldShowToggle && 'max-h-[200px]'
+                !isExpanded && shouldShowToggle && 'max-h-[300px]'
               )}
             >
               <div className="relative group">
                 <button
                   onClick={() => copyToClipboard(formatted, messageId)}
-                  className="absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-gray-700 hover:bg-gray-600 z-10"
+                  className="absolute top-2 right-2 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 z-10"
                   title="Copy to clipboard"
                 >
                   {copiedId === messageId ? (
-                    <Check className="h-3.5 w-3.5 text-green-400" />
+                    <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                   ) : (
-                    <Copy className="h-3.5 w-3.5 text-gray-300" />
+                    <Copy className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
                   )}
                 </button>
-                <SyntaxHighlighter
-                  language="json"
-                  style={tomorrow}
-                  customStyle={{
-                    margin: 0,
-                    borderRadius: '0.375rem',
-                    fontSize: '0.8125rem',
-                    padding: '1rem',
-                    backgroundColor: '#1e1e1e',
-                  }}
-                  wrapLines={true}
-                  wrapLongLines={true}
-                >
-                  {formatted}
-                </SyntaxHighlighter>
+                <div className="bg-gray-50 dark:bg-gray-900 rounded-md p-4 border border-gray-200 dark:border-gray-700">
+                  <SyntaxHighlighter
+                    language="json"
+                    style={oneDark}
+                    customStyle={{
+                      margin: 0,
+                      padding: 0,
+                      background: 'transparent',
+                      fontSize: '0.8125rem',
+                    }}
+                    wrapLines={true}
+                    wrapLongLines={true}
+                  >
+                    {formatted}
+                  </SyntaxHighlighter>
+                </div>
               </div>
               {!isExpanded && shouldShowToggle && (
-                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#1e1e1e] to-transparent pointer-events-none" />
+                <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white dark:from-gray-950 via-white/80 dark:via-gray-950/80 to-transparent pointer-events-none" />
               )}
             </div>
             {shouldShowToggle && (
               <button
                 onClick={() => toggleExpanded(messageId)}
-                className="mt-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1 transition-colors"
+                className="mt-3 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 flex items-center gap-1 transition-colors"
               >
                 {isExpanded ? (
                   <>
-                    <ChevronUp className="h-3.5 w-3.5" /> Show less
+                    <ChevronUp className="h-4 w-4" /> Show less
                   </>
                 ) : (
                   <>
-                    <ChevronDown className="h-3.5 w-3.5" /> Show more
+                    <ChevronDown className="h-4 w-4" /> Show more
                   </>
                 )}
               </button>
@@ -175,7 +178,7 @@ export default function MessageList({ messages }: MessageListProps) {
             formattedParts.push(
               <div
                 key={i}
-                className="whitespace-pre-wrap break-words text-sm leading-relaxed"
+                className="whitespace-pre-wrap break-words text-[0.9375rem] leading-relaxed text-gray-700 dark:text-gray-300"
               >
                 {parts[i]}
               </div>
@@ -187,35 +190,40 @@ export default function MessageList({ messages }: MessageListProps) {
           const code = parts[i + 1];
           if (code) {
             formattedParts.push(
-              <div key={i} className="relative group my-3">
+              <div key={i} className="relative group my-4">
                 <button
                   onClick={() =>
                     copyToClipboard(code.trim(), `${messageId}-${i}`)
                   }
-                  className="absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-gray-700 hover:bg-gray-600 z-10"
+                  className="absolute top-2 right-2 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 z-10"
                   title="Copy to clipboard"
                 >
                   {copiedId === `${messageId}-${i}` ? (
-                    <Check className="h-3.5 w-3.5 text-green-400" />
+                    <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                   ) : (
-                    <Copy className="h-3.5 w-3.5 text-gray-300" />
+                    <Copy className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
                   )}
                 </button>
-                <SyntaxHighlighter
-                  language={language}
-                  style={tomorrow}
-                  customStyle={{
-                    margin: 0,
-                    borderRadius: '0.375rem',
-                    fontSize: '0.8125rem',
-                    padding: '1rem',
-                    backgroundColor: '#1e1e1e',
-                  }}
-                  wrapLines={true}
-                  wrapLongLines={true}
-                >
-                  {code.trim()}
-                </SyntaxHighlighter>
+                <div className="bg-gray-50 dark:bg-gray-900 rounded-md p-1 border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <div className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-400 font-mono">
+                    {language}
+                  </div>
+                  <SyntaxHighlighter
+                    language={language}
+                    style={oneDark}
+                    customStyle={{
+                      margin: 0,
+                      padding: '1rem',
+                      background: 'transparent',
+                      fontSize: '0.8125rem',
+                      lineHeight: '1.5',
+                    }}
+                    wrapLines={true}
+                    wrapLongLines={true}
+                  >
+                    {code.trim()}
+                  </SyntaxHighlighter>
+                </div>
               </div>
             );
           }
@@ -227,27 +235,27 @@ export default function MessageList({ messages }: MessageListProps) {
         <div className="relative">
           <div
             className={cn(
-              'max-w-none overflow-hidden transition-all duration-300',
-              !isExpanded && shouldShowToggle && 'max-h-[200px]'
+              'overflow-hidden transition-all duration-300',
+              !isExpanded && shouldShowToggle && 'max-h-[300px]'
             )}
           >
             {formattedParts}
             {!isExpanded && shouldShowToggle && (
-              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-gray-900 to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white dark:from-gray-950 via-white/80 dark:via-gray-950/80 to-transparent pointer-events-none" />
             )}
           </div>
           {shouldShowToggle && (
             <button
               onClick={() => toggleExpanded(messageId)}
-              className="mt-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1 transition-colors"
+              className="mt-3 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 flex items-center gap-1 transition-colors"
             >
               {isExpanded ? (
                 <>
-                  <ChevronUp className="h-3.5 w-3.5" /> Show less
+                  <ChevronUp className="h-4 w-4" /> Show less
                 </>
               ) : (
                 <>
-                  <ChevronDown className="h-3.5 w-3.5" /> Show more
+                  <ChevronDown className="h-4 w-4" /> Show more
                 </>
               )}
             </button>
@@ -261,29 +269,29 @@ export default function MessageList({ messages }: MessageListProps) {
       <div className="relative">
         <div
           className={cn(
-            'max-w-none overflow-hidden transition-all duration-300',
-            !isExpanded && shouldShowToggle && 'max-h-[200px]'
+            'overflow-hidden transition-all duration-300',
+            !isExpanded && shouldShowToggle && 'max-h-[300px]'
           )}
         >
-          <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+          <div className="whitespace-pre-wrap break-words text-[0.9375rem] leading-relaxed text-gray-700 dark:text-gray-300">
             {content}
           </div>
           {!isExpanded && shouldShowToggle && (
-            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-gray-900 to-transparent pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white dark:from-gray-950 via-white/80 dark:via-gray-950/80 to-transparent pointer-events-none" />
           )}
         </div>
         {shouldShowToggle && (
           <button
             onClick={() => toggleExpanded(messageId)}
-            className="mt-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1 transition-colors"
+            className="mt-3 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 flex items-center gap-1 transition-colors"
           >
             {isExpanded ? (
               <>
-                <ChevronUp className="h-3.5 w-3.5" /> Show less
+                <ChevronUp className="h-4 w-4" /> Show less
               </>
             ) : (
               <>
-                <ChevronDown className="h-3.5 w-3.5" /> Show more
+                <ChevronDown className="h-4 w-4" /> Show more
               </>
             )}
           </button>
@@ -301,78 +309,102 @@ export default function MessageList({ messages }: MessageListProps) {
   }
 
   return (
-    <div className="space-y-3 px-4 py-4 max-w-5xl mx-auto">
-      {messages.map((message) => {
+    <div className="space-y-0.5 py-4">
+      {messages.map((message, index) => {
         const isExpanded = expandedMessages.has(message._id);
+        const isFirstMessage = index === 0;
+        const isLastMessage = index === messages.length - 1;
+        const previousMessage = index > 0 ? messages[index - 1] : null;
+        const isDifferentSender = previousMessage?.type !== message.type;
+
         return (
           <div
             key={message._id}
             className={cn(
-              'flex gap-3 p-4 rounded-lg border transition-all duration-200 shadow-sm',
-              message.type === 'user' &&
-                'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700',
-              message.type === 'assistant' &&
-                'bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700',
-              message.type === 'system' &&
-                'bg-amber-50/50 dark:bg-amber-900/10 border-amber-200/50 dark:border-amber-800/30',
-              message.type === 'tool_use' &&
-                'bg-violet-50/50 dark:bg-violet-900/10 border-violet-200/50 dark:border-violet-800/30',
-              message.type === 'tool_result' &&
-                'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200/50 dark:border-blue-800/30'
+              'relative',
+              isDifferentSender && !isFirstMessage && 'mt-4'
             )}
           >
-            <div className="flex-shrink-0">
-              <div
-                className={cn(
-                  'p-2 rounded-lg',
-                  message.type === 'user' &&
-                    'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
-                  message.type === 'assistant' &&
-                    'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300',
-                  message.type === 'system' &&
-                    'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300',
-                  message.type === 'tool_use' &&
-                    'bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300',
-                  message.type === 'tool_result' &&
-                    'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-                )}
-              >
-                {getMessageIcon(message.type)}
-              </div>
-            </div>
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex items-start justify-between flex-wrap gap-2">
+            {/* Message Header - Only show for first message or different sender */}
+            {(isFirstMessage || isDifferentSender) && (
+              <div className="flex items-center gap-3 px-6 py-2">
+                <div
+                  className={cn(
+                    'flex items-center justify-center w-8 h-8 rounded-full',
+                    message.type === 'user' &&
+                      'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+                    message.type === 'assistant' &&
+                      'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+                    message.type === 'system' &&
+                      'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+                    message.type === 'tool_use' &&
+                      'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+                    message.type === 'tool_result' &&
+                      'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                  )}
+                >
+                  {getMessageIcon(message.type)}
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                     {getMessageLabel(message.type)}
                   </span>
                   {message.model && (
-                    <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
+                    <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">
                       {message.model}
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+              </div>
+            )}
+
+            {/* Message Content */}
+            <div
+              className={cn(
+                'group px-6 py-3 hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors',
+                message.type === 'user' && 'bg-white dark:bg-gray-950',
+                message.type === 'assistant' &&
+                  'bg-gray-50/50 dark:bg-gray-900/30',
+                message.type === 'system' &&
+                  'bg-amber-50/30 dark:bg-amber-900/10',
+                message.type === 'tool_use' &&
+                  'bg-purple-50/30 dark:bg-purple-900/10',
+                message.type === 'tool_result' &&
+                  'bg-emerald-50/30 dark:bg-emerald-900/10',
+                isLastMessage && 'rounded-b-lg'
+              )}
+            >
+              <div className="max-w-4xl">
+                {/* Metadata - Show on hover */}
+                <div className="flex items-center gap-3 mb-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <Clock className="h-3 w-3" />
+                    <time dateTime={message.timestamp}>
+                      {format(new Date(message.timestamp), 'HH:mm:ss')}
+                    </time>
+                  </div>
                   {message.totalCost && (
-                    <span>${message.totalCost.toFixed(4)}</span>
+                    <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      <Coins className="h-3 w-3" />
+                      <span>${message.totalCost.toFixed(4)}</span>
+                    </div>
                   )}
                   {message.inputTokens && message.outputTokens && (
-                    <span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {message.inputTokens + message.outputTokens} tokens
                     </span>
                   )}
-                  <time dateTime={message.timestamp}>
-                    {format(new Date(message.timestamp), 'HH:mm:ss')}
-                  </time>
                 </div>
-              </div>
-              <div className="mt-3 overflow-x-auto">
-                {formatContent(
-                  message.content,
-                  message.type,
-                  isExpanded,
-                  message._id
-                )}
+
+                {/* Message Content */}
+                <div>
+                  {formatContent(
+                    message.content,
+                    message.type,
+                    isExpanded,
+                    message._id
+                  )}
+                </div>
               </div>
             </div>
           </div>
