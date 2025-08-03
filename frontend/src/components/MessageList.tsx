@@ -6,7 +6,6 @@ import {
   Terminal,
   ChevronDown,
   ChevronUp,
-  Code,
   MessageSquare,
   Wrench,
   Copy,
@@ -79,7 +78,7 @@ export default function MessageList({ messages }: MessageListProps) {
       case 'tool_use':
         return <Wrench className="h-5 w-5" />;
       case 'tool_result':
-        return <Code className="h-5 w-5" />;
+        return <Terminal className="h-5 w-5" />;
       default:
         return <MessageSquare className="h-5 w-5" />;
     }
@@ -96,7 +95,7 @@ export default function MessageList({ messages }: MessageListProps) {
       case 'tool_use':
         return 'Tool Use';
       case 'tool_result':
-        return 'Tool Result';
+        return 'System Response';
       default:
         return type;
     }
@@ -664,9 +663,9 @@ export default function MessageList({ messages }: MessageListProps) {
                           className="ml-14 mr-3 px-4 py-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-lg border border-slate-200/50 dark:border-slate-700/50"
                         >
                           <div className="flex items-center gap-2 mb-2">
-                            <Code className="h-4 w-4 text-slate-500" />
+                            <Terminal className="h-4 w-4 text-slate-500" />
                             <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                              Results preview
+                              System response preview
                             </span>
                           </div>
                           <pre className="text-xs text-slate-600 dark:text-slate-400 overflow-hidden">
@@ -727,9 +726,9 @@ export default function MessageList({ messages }: MessageListProps) {
                         )}
                         {isToolResult && (
                           <div className="flex items-center gap-2 mb-3">
-                            <Code className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                            <Terminal className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                             <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-                              Tool Result
+                              System Response
                             </span>
                           </div>
                         )}
