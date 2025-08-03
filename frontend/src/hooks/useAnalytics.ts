@@ -107,3 +107,65 @@ export function useSessionDepthAnalytics(
     staleTime: 300000, // 5 minutes
   });
 }
+
+export function useCostSummary(
+  timeRange: TimeRange = TimeRange.LAST_30_DAYS,
+  sessionId?: string | null,
+  projectId?: string
+) {
+  return useQuery({
+    queryKey: ['analytics', 'cost-summary', timeRange, sessionId, projectId],
+    queryFn: () =>
+      analyticsApi.getCostSummary(sessionId || undefined, projectId, timeRange),
+    staleTime: 60000, // 1 minute
+  });
+}
+
+export function useCostBreakdown(
+  timeRange: TimeRange = TimeRange.LAST_30_DAYS,
+  sessionId?: string | null,
+  projectId?: string
+) {
+  return useQuery({
+    queryKey: ['analytics', 'cost-breakdown', timeRange, sessionId, projectId],
+    queryFn: () =>
+      analyticsApi.getCostBreakdown(
+        sessionId || undefined,
+        projectId,
+        timeRange
+      ),
+    staleTime: 300000, // 5 minutes
+  });
+}
+
+export function useToolUsage(
+  timeRange: TimeRange = TimeRange.LAST_30_DAYS,
+  sessionId?: string | null,
+  projectId?: string
+) {
+  return useQuery({
+    queryKey: ['analytics', 'tool-usage', timeRange, sessionId, projectId],
+    queryFn: () =>
+      analyticsApi.getToolUsageDetailed(
+        sessionId || undefined,
+        projectId,
+        timeRange
+      ),
+    staleTime: 300000, // 5 minutes
+  });
+}
+
+export function useTokenEfficiency(
+  timeRange: TimeRange = TimeRange.LAST_30_DAYS,
+  sessionId?: string | null
+) {
+  return useQuery({
+    queryKey: ['analytics', 'token-efficiency', timeRange, sessionId],
+    queryFn: () =>
+      analyticsApi.getTokenEfficiencyDetailed(
+        sessionId || undefined,
+        timeRange
+      ),
+    staleTime: 300000, // 5 minutes
+  });
+}

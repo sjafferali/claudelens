@@ -14,6 +14,10 @@ import {
   useConversationFlow,
   useResponseTimes,
   useSessionDepthAnalytics,
+  useCostSummary,
+  useCostBreakdown,
+  useToolUsage,
+  useTokenEfficiency,
 } from '@/hooks/useAnalytics';
 import { useSessions } from '@/hooks/useSessions';
 import { useDirectoryAnalytics } from '@/hooks/useDirectoryAnalytics';
@@ -125,6 +129,7 @@ export default function Analytics() {
   const [depthMinDepth, setDepthMinDepth] = useState(0);
   const [depthIncludeSidechains, setDepthIncludeSidechains] = useState(true);
 
+  // General analytics (when no session is selected)
   const { data: summary, isLoading: summaryLoading } =
     useAnalyticsSummary(timeRange);
   const { data: heatmap, isLoading: heatmapLoading } =
@@ -135,6 +140,21 @@ export default function Analytics() {
   );
   const { data: modelUsage, isLoading: modelLoading } =
     useModelUsage(timeRange);
+
+  // Session-specific analytics
+  const { data: sessionCostSummary } = useCostSummary(
+    timeRange,
+    selectedSessionId
+  );
+  const { data: sessionCostBreakdown, isLoading: sessionCostBreakdownLoading } =
+    useCostBreakdown(timeRange, selectedSessionId);
+  const { data: sessionToolUsage, isLoading: sessionToolUsageLoading } =
+    useToolUsage(timeRange, selectedSessionId);
+  const { data: sessionTokenEfficiency } = useTokenEfficiency(
+    timeRange,
+    selectedSessionId
+  );
+
   const { data: sessions } = useSessions({ limit: 50 });
   const { data: conversationFlow, isLoading: flowLoading } =
     useConversationFlow(selectedSessionId);
@@ -254,67 +274,187 @@ export default function Analytics() {
         </select>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Sessions
-            </CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {summary?.total_sessions.toLocaleString() || 0}
-            </div>
-            {summary && formatTrend(summary.messages_trend)}
-          </CardContent>
-        </Card>
+      {/* Session Selection Bar */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-medium">Filter by Session:</label>
+            <select
+              value={selectedSessionId || ''}
+              onChange={(e) => setSelectedSessionId(e.target.value || null)}
+              className="flex h-9 w-[400px] rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              <option value="">All Sessions (Overall Analytics)</option>
+              {sessions?.items?.map((session: Session) => (
+                <option key={session.sessionId} value={session.sessionId}>
+                  {session.sessionId.slice(0, 8)}... - {session.messageCount}{' '}
+                  messages - {formatCost(session.totalCost || 0)}
+                </option>
+              ))}
+            </select>
+            {selectedSessionId && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-blue-700 font-medium">
+                  Viewing session-specific analytics
+                </span>
+                <button
+                  onClick={() => setSelectedSessionId(null)}
+                  className="text-xs px-2 py-1 bg-blue-200 hover:bg-blue-300 rounded text-blue-800"
+                >
+                  Clear Filter
+                </button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Messages
-            </CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {summary?.total_messages.toLocaleString() || 0}
-            </div>
-            {summary && formatTrend(summary.messages_trend)}
-          </CardContent>
-        </Card>
+      {/* Metric Cards - Show session-specific data when a session is selected */}
+      {selectedSessionId ? (
+        // Session-specific metrics
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Session Messages
+              </CardTitle>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {sessionCostBreakdown?.cost_metrics?.avg_cost_per_message &&
+                sessionCostSummary?.total_cost
+                  ? Math.round(
+                      sessionCostSummary.total_cost /
+                        sessionCostBreakdown.cost_metrics.avg_cost_per_message
+                    ).toLocaleString()
+                  : 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                In selected session
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {summary ? formatCost(summary.total_cost) : '$0.00'}
-            </div>
-            {summary && formatTrend(summary.cost_trend)}
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Session Cost
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {sessionCostSummary
+                  ? formatCost(sessionCostSummary.total_cost)
+                  : '$0.00'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {sessionCostSummary?.period || timeRange}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Most Used Model
-            </CardTitle>
-            <Brain className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold">
-              {summary?.most_used_model?.split('/').pop() || 'N/A'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {summary?.total_projects} active projects
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Tool Calls</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {sessionToolUsage?.total_calls.toLocaleString() || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {sessionToolUsage?.tools?.length || 0} unique tools
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Token Usage</CardTitle>
+              <Brain className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold">
+                {sessionTokenEfficiency?.formatted_values?.total || 'N/A'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Cache hit rate:{' '}
+                {sessionTokenEfficiency?.efficiency_metrics?.cache_hit_rate
+                  ? `${(
+                      sessionTokenEfficiency.efficiency_metrics.cache_hit_rate *
+                      100
+                    ).toFixed(1)}%`
+                  : 'N/A'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        // Overall metrics
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Sessions
+              </CardTitle>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {summary?.total_sessions.toLocaleString() || 0}
+              </div>
+              {summary && formatTrend(summary.messages_trend)}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Messages
+              </CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {summary?.total_messages.toLocaleString() || 0}
+              </div>
+              {summary && formatTrend(summary.messages_trend)}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {summary ? formatCost(summary.total_cost) : '$0.00'}
+              </div>
+              {summary && formatTrend(summary.cost_trend)}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Most Used Model
+              </CardTitle>
+              <Brain className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold">
+                {summary?.most_used_model?.split('/').pop() || 'N/A'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {summary?.total_projects} active projects
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Live Stats Section */}
       <Card>
@@ -371,138 +511,262 @@ export default function Analytics() {
         </CardContent>
       </Card>
 
+      {/* Cost and Model Usage Charts */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Cost Over Time</CardTitle>
-            <CardDescription>Daily cost breakdown</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {costLoading ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={processCostData()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis tickFormatter={(value) => `$${value}`} />
-                  <Tooltip
-                    formatter={(value) => formatCost(value as number)}
-                    labelFormatter={(label) => `Date: ${label}`}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="cost"
-                    stroke="#8884d8"
-                    strokeWidth={2}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Model Usage</CardTitle>
-            <CardDescription>Message distribution by model</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {modelLoading ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={processModelData()}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) =>
-                      name
-                        ? `${name} ${((percent || 0) * 100).toFixed(0)}%`
-                        : ''
-                    }
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {processModelData().map((_, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
+        {selectedSessionId ? (
+          // Session-specific charts
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Session Cost Breakdown</CardTitle>
+                <CardDescription>
+                  Cost distribution for selected session
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {sessionCostBreakdownLoading ? (
+                  <div className="flex h-64 items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : sessionCostBreakdown?.cost_breakdown?.by_model ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={sessionCostBreakdown.cost_breakdown.by_model.map(
+                          (item) => ({
+                            name: item.model.split('/').pop() || item.model,
+                            value: item.cost,
+                            messages: item.message_count,
+                          })
+                        )}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) =>
+                          name
+                            ? `${name} ${((percent || 0) * 100).toFixed(0)}%`
+                            : ''
+                        }
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {sessionCostBreakdown.cost_breakdown.by_model.map(
+                          (_, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={COLORS[index % COLORS.length]}
+                            />
+                          )
+                        )}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => formatCost(value as number)}
                       />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-64 items-center justify-center text-muted-foreground">
+                    <p>No cost breakdown data available</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Tool Usage</CardTitle>
+                <CardDescription>
+                  Tools used in selected session
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {sessionToolUsageLoading ? (
+                  <div className="flex h-64 items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : sessionToolUsage?.tools &&
+                  sessionToolUsage.tools.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="text-sm text-muted-foreground">
+                      Total calls: {sessionToolUsage.total_calls}
+                    </div>
+                    <div className="space-y-2">
+                      {sessionToolUsage.tools
+                        .sort((a, b) => b.count - a.count)
+                        .slice(0, 10)
+                        .map((tool) => (
+                          <div
+                            key={tool.name}
+                            className="flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">
+                                {tool.name}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                ({tool.category})
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">
+                                {tool.count} calls
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {tool.percentage.toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-64 items-center justify-center text-muted-foreground">
+                    <p>No tool usage data available</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          // Overall charts
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Cost Over Time</CardTitle>
+                <CardDescription>Daily cost breakdown</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {costLoading ? (
+                  <div className="flex h-64 items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={processCostData()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis tickFormatter={(value) => `$${value}`} />
+                      <Tooltip
+                        formatter={(value) => formatCost(value as number)}
+                        labelFormatter={(label) => `Date: ${label}`}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="cost"
+                        stroke="#8884d8"
+                        strokeWidth={2}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Model Usage</CardTitle>
+                <CardDescription>Message distribution by model</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {modelLoading ? (
+                  <div className="flex h-64 items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={processModelData()}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) =>
+                          name
+                            ? `${name} ${((percent || 0) * 100).toFixed(0)}%`
+                            : ''
+                        }
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {processModelData().map((_, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Activity Heatmap</CardTitle>
-          <CardDescription>
-            Message activity by day and hour (timezone:{' '}
-            {Intl.DateTimeFormat().resolvedOptions().timeZone})
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {heatmapLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <div className="min-w-[800px]">
-                <div className="flex">
-                  <div className="w-12" />
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 text-center text-xs text-muted-foreground"
-                    >
-                      {i}
+      {/* Activity Heatmap - Only show for overall analytics */}
+      {!selectedSessionId && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Activity Heatmap</CardTitle>
+            <CardDescription>
+              Message activity by day and hour (timezone:{' '}
+              {Intl.DateTimeFormat().resolvedOptions().timeZone})
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {heatmapLoading ? (
+              <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="min-w-[800px]">
+                  <div className="flex">
+                    <div className="w-12" />
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 text-center text-xs text-muted-foreground"
+                      >
+                        {i}
+                      </div>
+                    ))}
+                  </div>
+                  {Array.from({ length: 7 }, (_, day) => (
+                    <div key={day} className="flex items-center">
+                      <div className="w-12 text-xs text-muted-foreground">
+                        {getDayName(day)}
+                      </div>
+                      {Array.from({ length: 24 }, (_, hour) => {
+                        const cell = processHeatmapData().find(
+                          (c) => c.day === day && c.hour === hour
+                        );
+                        const intensity = cell?.intensity || 0;
+                        return (
+                          <div
+                            key={`${day}-${hour}`}
+                            className="flex-1 aspect-square m-0.5 rounded-sm transition-opacity hover:opacity-80"
+                            style={{
+                              backgroundColor: `rgba(99, 102, 241, ${intensity})`,
+                            }}
+                            title={`${getDayName(day)} ${hour}:00 - ${
+                              cell?.count || 0
+                            } messages`}
+                          />
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
-                {Array.from({ length: 7 }, (_, day) => (
-                  <div key={day} className="flex items-center">
-                    <div className="w-12 text-xs text-muted-foreground">
-                      {getDayName(day)}
-                    </div>
-                    {Array.from({ length: 24 }, (_, hour) => {
-                      const cell = processHeatmapData().find(
-                        (c) => c.day === day && c.hour === hour
-                      );
-                      const intensity = cell?.intensity || 0;
-                      return (
-                        <div
-                          key={`${day}-${hour}`}
-                          className="flex-1 aspect-square m-0.5 rounded-sm transition-opacity hover:opacity-80"
-                          style={{
-                            backgroundColor: `rgba(99, 102, 241, ${intensity})`,
-                          }}
-                          title={`${getDayName(day)} ${hour}:00 - ${
-                            cell?.count || 0
-                          } messages`}
-                        />
-                      );
-                    })}
-                  </div>
-                ))}
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

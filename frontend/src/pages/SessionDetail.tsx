@@ -185,9 +185,9 @@ export default function SessionDetail() {
   const seconds = duration % 60;
 
   return (
-    <div className="flex flex-col h-screen bg-layer-primary">
+    <div className="flex flex-col h-screen bg-layer-primary overflow-hidden">
       {/* Header */}
-      <div className="bg-layer-secondary border-b border-primary-c px-6 py-4">
+      <div className="bg-layer-secondary border-b border-primary-c px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2 text-muted-c text-sm mb-2">
@@ -230,9 +230,9 @@ export default function SessionDetail() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Conversation Panel */}
-        <div className="flex-1 flex flex-col bg-layer-primary">
+        <div className="flex-1 flex flex-col bg-layer-primary overflow-hidden">
           <div className="bg-layer-secondary px-6 py-4 border-b border-primary-c flex items-center justify-between">
             <h3 className="text-base font-medium text-primary-c">
               Conversation
@@ -275,27 +275,31 @@ export default function SessionDetail() {
           </div>
 
           {/* Messages Container */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin min-h-0">
+          <div className="flex-1 overflow-hidden flex flex-col">
             {viewMode === 'timeline' && (
-              <TimelineView
-                messages={filteredMessages}
-                expandedMessages={expandedMessages}
-                collapsedToolResults={collapsedToolResults}
-                copiedId={copiedId}
-                onToggleExpanded={toggleExpanded}
-                onToggleToolResult={toggleToolResult}
-                onCopy={copyToClipboard}
-                getMessageColors={getMessageColors}
-                getMessageLabel={getMessageLabel}
-                getAvatarText={getAvatarText}
-              />
+              <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin">
+                <TimelineView
+                  messages={filteredMessages}
+                  expandedMessages={expandedMessages}
+                  collapsedToolResults={collapsedToolResults}
+                  copiedId={copiedId}
+                  onToggleExpanded={toggleExpanded}
+                  onToggleToolResult={toggleToolResult}
+                  onCopy={copyToClipboard}
+                  getMessageColors={getMessageColors}
+                  getMessageLabel={getMessageLabel}
+                  getAvatarText={getAvatarText}
+                />
+              </div>
             )}
             {viewMode === 'compact' && (
-              <CompactView
-                messages={filteredMessages}
-                getMessageLabel={getMessageLabel}
-                getMessageColors={getMessageColors}
-              />
+              <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin">
+                <CompactView
+                  messages={filteredMessages}
+                  getMessageLabel={getMessageLabel}
+                  getMessageColors={getMessageColors}
+                />
+              </div>
             )}
             {viewMode === 'raw' && (
               <RawView
@@ -308,80 +312,88 @@ export default function SessionDetail() {
         </div>
 
         {/* Details Panel */}
-        <div className="w-80 bg-layer-secondary border-l border-primary-c p-6 overflow-y-auto scrollbar-thin">
-          <div className="space-y-8">
-            {/* Session Details */}
-            <div>
-              <h3 className="text-base font-medium text-primary-c mb-4">
-                Session Details
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between py-2 border-b border-secondary-c">
-                  <span className="text-sm text-muted-c">Session ID</span>
-                  <span className="text-sm text-secondary-c font-mono">
-                    {session.sessionId.slice(0, 12)}...
-                  </span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-secondary-c">
-                  <span className="text-sm text-muted-c">Started</span>
-                  <span className="text-sm text-secondary-c font-mono">
-                    {format(new Date(session.startedAt), 'M/d/yyyy, h:mm:ss a')}
-                  </span>
-                </div>
-                {session.endedAt && (
+        <div className="w-80 bg-layer-secondary border-l border-primary-c overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
+            <div className="space-y-8">
+              {/* Session Details */}
+              <div>
+                <h3 className="text-base font-medium text-primary-c mb-4">
+                  Session Details
+                </h3>
+                <div className="space-y-3">
                   <div className="flex justify-between py-2 border-b border-secondary-c">
-                    <span className="text-sm text-muted-c">Ended</span>
+                    <span className="text-sm text-muted-c">Session ID</span>
                     <span className="text-sm text-secondary-c font-mono">
-                      {format(new Date(session.endedAt), 'M/d/yyyy, h:mm:ss a')}
+                      {session.sessionId.slice(0, 12)}...
                     </span>
                   </div>
-                )}
-                <div className="flex justify-between py-2 border-b border-secondary-c">
-                  <span className="text-sm text-muted-c">Duration</span>
-                  <span className="text-sm text-secondary-c font-mono">
-                    {hours}h {minutes}m {seconds}s
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Statistics */}
-            <div>
-              <h3 className="text-base font-medium text-primary-c mb-4">
-                Statistics
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center">
-                  <div className="text-2xl font-semibold text-primary">
-                    {session.messageCount}
+                  <div className="flex justify-between py-2 border-b border-secondary-c">
+                    <span className="text-sm text-muted-c">Started</span>
+                    <span className="text-sm text-secondary-c font-mono">
+                      {format(
+                        new Date(session.startedAt),
+                        'M/d/yyyy, h:mm:ss a'
+                      )}
+                    </span>
                   </div>
-                  <div className="text-xs text-muted-c">Messages</div>
+                  {session.endedAt && (
+                    <div className="flex justify-between py-2 border-b border-secondary-c">
+                      <span className="text-sm text-muted-c">Ended</span>
+                      <span className="text-sm text-secondary-c font-mono">
+                        {format(
+                          new Date(session.endedAt),
+                          'M/d/yyyy, h:mm:ss a'
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-2 border-b border-secondary-c">
+                    <span className="text-sm text-muted-c">Duration</span>
+                    <span className="text-sm text-secondary-c font-mono">
+                      {hours}h {minutes}m {seconds}s
+                    </span>
+                  </div>
                 </div>
-                <ToolUsageStatCard sessionId={sessionId} />
-                <SuccessRateCard sessionId={sessionId} />
-                <TokenStatCard sessionId={sessionId} />
               </div>
 
-              {/* Additional Stats */}
-              <div className="mt-4 grid grid-cols-1 gap-4">
-                <CostStatCard sessionId={sessionId} />
+              {/* Statistics */}
+              <div>
+                <h3 className="text-base font-medium text-primary-c mb-4">
+                  Statistics
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center">
+                    <div className="text-2xl font-semibold text-primary">
+                      {session.messageCount}
+                    </div>
+                    <div className="text-xs text-muted-c">Messages</div>
+                  </div>
+                  <ToolUsageStatCard sessionId={sessionId} />
+                  <SuccessRateCard sessionId={sessionId} />
+                  <TokenStatCard sessionId={sessionId} />
+                </div>
+
+                {/* Additional Stats */}
+                <div className="mt-4 grid grid-cols-1 gap-4">
+                  <CostStatCard sessionId={sessionId} />
+                </div>
               </div>
+
+              {/* Tools Used */}
+              <ToolUsageDetails sessionId={sessionId} />
+
+              {/* Token Usage Details */}
+              <TokenDetailsPanel sessionId={sessionId} />
+
+              {/* Cost Details */}
+              <CostDetailsPanel sessionId={sessionId} />
+
+              {/* Error Details */}
+              <ErrorDetailsPanel sessionId={sessionId} />
+
+              {/* Topics */}
+              <SessionTopics sessionId={sessionId!} />
             </div>
-
-            {/* Tools Used */}
-            <ToolUsageDetails sessionId={sessionId} />
-
-            {/* Token Usage Details */}
-            <TokenDetailsPanel sessionId={sessionId} />
-
-            {/* Cost Details */}
-            <CostDetailsPanel sessionId={sessionId} />
-
-            {/* Error Details */}
-            <ErrorDetailsPanel sessionId={sessionId} />
-
-            {/* Topics */}
-            <SessionTopics sessionId={sessionId!} />
           </div>
         </div>
       </div>
@@ -602,6 +614,8 @@ interface RawViewProps {
 }
 
 function RawView({ messages, onCopy, copiedId }: RawViewProps) {
+  const [scrollRef, setScrollRef] = useState<HTMLDivElement | null>(null);
+
   const rawContent = messages
     .map((msg: Message) => {
       const model = msg.model ? ` (${msg.model})` : '';
@@ -612,30 +626,53 @@ function RawView({ messages, onCopy, copiedId }: RawViewProps) {
     })
     .join('\n\n');
 
+  const scrollToEnd = () => {
+    if (scrollRef) {
+      scrollRef.scrollTop = scrollRef.scrollHeight;
+    }
+  };
+
   return (
-    <div className="relative h-full flex flex-col">
-      <div className="absolute top-2 right-2 z-10">
-        <button
-          onClick={() => onCopy(rawContent, 'raw-content')}
-          className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1"
-        >
-          {copiedId === 'raw-content' ? (
-            <>
-              <Check className="h-3 w-3" />
-              Copied!
-            </>
-          ) : (
-            <>
-              <Copy className="h-3 w-3" />
-              Copy All
-            </>
-          )}
-        </button>
+    <div className="flex-1 flex flex-col p-6 overflow-hidden">
+      <div className="flex justify-between items-center mb-4">
+        <h4 className="text-sm font-medium text-primary-c">
+          Raw Conversation Data
+        </h4>
+        <div className="flex gap-2">
+          <button
+            onClick={scrollToEnd}
+            className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1"
+          >
+            <ChevronDown className="h-3 w-3" />
+            Jump to End
+          </button>
+          <button
+            onClick={() => onCopy(rawContent, 'raw-content')}
+            className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1"
+          >
+            {copiedId === 'raw-content' ? (
+              <>
+                <Check className="h-3 w-3" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3" />
+                Copy All
+              </>
+            )}
+          </button>
+        </div>
       </div>
-      <div className="flex-1 overflow-auto scrollbar-thin">
-        <pre className="bg-layer-tertiary border border-secondary-c rounded-lg p-6 text-secondary-c font-mono text-sm whitespace-pre-wrap break-words">
-          {rawContent}
-        </pre>
+      <div className="flex-1 overflow-hidden bg-layer-tertiary border border-secondary-c rounded-lg relative">
+        <div
+          ref={setScrollRef}
+          className="h-full overflow-auto scrollbar-thin scroll-smooth"
+        >
+          <pre className="p-6 text-secondary-c font-mono text-sm whitespace-pre-wrap break-words min-w-0">
+            {rawContent}
+          </pre>
+        </div>
       </div>
     </div>
   );
