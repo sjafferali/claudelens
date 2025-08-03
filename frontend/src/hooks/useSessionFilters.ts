@@ -52,28 +52,28 @@ export function useSessionFilters() {
             key === 'startDate'
               ? 'start_date'
               : key === 'endDate'
-              ? 'end_date'
-              : key === 'sortBy'
-              ? 'sort_by'
-              : key === 'sortOrder'
-              ? 'sort_order'
-              : key === 'projectId'
-              ? 'project_id'
-              : key
+                ? 'end_date'
+                : key === 'sortBy'
+                  ? 'sort_by'
+                  : key === 'sortOrder'
+                    ? 'sort_order'
+                    : key === 'projectId'
+                      ? 'project_id'
+                      : key
           );
         } else {
           const paramKey =
             key === 'startDate'
               ? 'start_date'
               : key === 'endDate'
-              ? 'end_date'
-              : key === 'sortBy'
-              ? 'sort_by'
-              : key === 'sortOrder'
-              ? 'sort_order'
-              : key === 'projectId'
-              ? 'project_id'
-              : key;
+                ? 'end_date'
+                : key === 'sortBy'
+                  ? 'sort_by'
+                  : key === 'sortOrder'
+                    ? 'sort_order'
+                    : key === 'projectId'
+                      ? 'project_id'
+                      : key;
           newParams.set(paramKey, String(value));
         }
       });
@@ -96,14 +96,14 @@ export function useSessionFilters() {
         filterKey === 'startDate'
           ? 'start_date'
           : filterKey === 'endDate'
-          ? 'end_date'
-          : filterKey === 'sortBy'
-          ? 'sort_by'
-          : filterKey === 'sortOrder'
-          ? 'sort_order'
-          : filterKey === 'projectId'
-          ? 'project_id'
-          : filterKey;
+            ? 'end_date'
+            : filterKey === 'sortBy'
+              ? 'sort_by'
+              : filterKey === 'sortOrder'
+                ? 'sort_order'
+                : filterKey === 'projectId'
+                  ? 'project_id'
+                  : filterKey;
 
       newParams.delete(paramKey);
 
