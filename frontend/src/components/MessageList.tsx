@@ -9,11 +9,13 @@ import {
   Code,
   MessageSquare,
   Wrench,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface MessageListProps {
   messages: Message[];
@@ -23,6 +25,7 @@ export default function MessageList({ messages }: MessageListProps) {
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
   );
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const toggleExpanded = (messageId: string) => {
     setExpandedMessages((prev) => {
@@ -35,28 +38,31 @@ export default function MessageList({ messages }: MessageListProps) {
       return newSet;
     });
   };
+
+  const copyToClipboard = async (text: string, messageId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(messageId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   const getMessageIcon = (type: Message['type']) => {
     switch (type) {
       case 'user':
-        return <User className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
+        return <User className="h-4 w-4" />;
       case 'assistant':
-        return <Bot className="h-5 w-5 text-green-600 dark:text-green-400" />;
+        return <Bot className="h-4 w-4" />;
       case 'system':
-        return (
-          <Terminal className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-        );
+        return <Terminal className="h-4 w-4" />;
       case 'tool_use':
-        return (
-          <Wrench className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-        );
+        return <Wrench className="h-4 w-4" />;
       case 'tool_result':
-        return (
-          <Code className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-        );
+        return <Code className="h-4 w-4" />;
       default:
-        return (
-          <MessageSquare className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-        );
+        return <MessageSquare className="h-4 w-4" />;
     }
   };
 
@@ -99,35 +105,50 @@ export default function MessageList({ messages }: MessageListProps) {
                 !isExpanded && shouldShowToggle && 'max-h-[200px]'
               )}
             >
-              <SyntaxHighlighter
-                language="json"
-                style={oneDark}
-                customStyle={{
-                  margin: 0,
-                  borderRadius: '0.375rem',
-                  fontSize: '0.875rem',
-                }}
-                wrapLines={true}
-                wrapLongLines={true}
-              >
-                {formatted}
-              </SyntaxHighlighter>
+              <div className="relative group">
+                <button
+                  onClick={() => copyToClipboard(formatted, messageId)}
+                  className="absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-gray-700 hover:bg-gray-600 z-10"
+                  title="Copy to clipboard"
+                >
+                  {copiedId === messageId ? (
+                    <Check className="h-3.5 w-3.5 text-green-400" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5 text-gray-300" />
+                  )}
+                </button>
+                <SyntaxHighlighter
+                  language="json"
+                  style={tomorrow}
+                  customStyle={{
+                    margin: 0,
+                    borderRadius: '0.375rem',
+                    fontSize: '0.8125rem',
+                    padding: '1rem',
+                    backgroundColor: '#1e1e1e',
+                  }}
+                  wrapLines={true}
+                  wrapLongLines={true}
+                >
+                  {formatted}
+                </SyntaxHighlighter>
+              </div>
               {!isExpanded && shouldShowToggle && (
-                <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#282c34] to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#1e1e1e] to-transparent pointer-events-none" />
               )}
             </div>
             {shouldShowToggle && (
               <button
                 onClick={() => toggleExpanded(messageId)}
-                className="mt-2 text-sm text-primary hover:text-primary/80 flex items-center gap-1"
+                className="mt-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1 transition-colors"
               >
                 {isExpanded ? (
                   <>
-                    <ChevronUp className="h-4 w-4" /> Show less
+                    <ChevronUp className="h-3.5 w-3.5" /> Show less
                   </>
                 ) : (
                   <>
-                    <ChevronDown className="h-4 w-4" /> Show more
+                    <ChevronDown className="h-3.5 w-3.5" /> Show more
                   </>
                 )}
               </button>
@@ -152,12 +173,12 @@ export default function MessageList({ messages }: MessageListProps) {
           // Regular text
           if (parts[i]) {
             formattedParts.push(
-              <pre
+              <div
                 key={i}
-                className="whitespace-pre-wrap break-words font-sans"
+                className="whitespace-pre-wrap break-words text-sm leading-relaxed"
               >
                 {parts[i]}
-              </pre>
+              </div>
             );
           }
         } else if (i % 3 === 1) {
@@ -166,20 +187,36 @@ export default function MessageList({ messages }: MessageListProps) {
           const code = parts[i + 1];
           if (code) {
             formattedParts.push(
-              <SyntaxHighlighter
-                key={i}
-                language={language}
-                style={oneDark}
-                customStyle={{
-                  margin: '0.5rem 0',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.875rem',
-                }}
-                wrapLines={true}
-                wrapLongLines={true}
-              >
-                {code.trim()}
-              </SyntaxHighlighter>
+              <div key={i} className="relative group my-3">
+                <button
+                  onClick={() =>
+                    copyToClipboard(code.trim(), `${messageId}-${i}`)
+                  }
+                  className="absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity bg-gray-700 hover:bg-gray-600 z-10"
+                  title="Copy to clipboard"
+                >
+                  {copiedId === `${messageId}-${i}` ? (
+                    <Check className="h-3.5 w-3.5 text-green-400" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5 text-gray-300" />
+                  )}
+                </button>
+                <SyntaxHighlighter
+                  language={language}
+                  style={tomorrow}
+                  customStyle={{
+                    margin: 0,
+                    borderRadius: '0.375rem',
+                    fontSize: '0.8125rem',
+                    padding: '1rem',
+                    backgroundColor: '#1e1e1e',
+                  }}
+                  wrapLines={true}
+                  wrapLongLines={true}
+                >
+                  {code.trim()}
+                </SyntaxHighlighter>
+              </div>
             );
           }
           i++; // Skip the code content as we've already processed it
@@ -190,27 +227,27 @@ export default function MessageList({ messages }: MessageListProps) {
         <div className="relative">
           <div
             className={cn(
-              'prose prose-sm dark:prose-invert max-w-none overflow-hidden transition-all duration-300',
+              'max-w-none overflow-hidden transition-all duration-300',
               !isExpanded && shouldShowToggle && 'max-h-[200px]'
             )}
           >
             {formattedParts}
             {!isExpanded && shouldShowToggle && (
-              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white dark:from-gray-950 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-gray-900 to-transparent pointer-events-none" />
             )}
           </div>
           {shouldShowToggle && (
             <button
               onClick={() => toggleExpanded(messageId)}
-              className="mt-2 text-sm text-primary hover:text-primary/80 flex items-center gap-1"
+              className="mt-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1 transition-colors"
             >
               {isExpanded ? (
                 <>
-                  <ChevronUp className="h-4 w-4" /> Show less
+                  <ChevronUp className="h-3.5 w-3.5" /> Show less
                 </>
               ) : (
                 <>
-                  <ChevronDown className="h-4 w-4" /> Show more
+                  <ChevronDown className="h-3.5 w-3.5" /> Show more
                 </>
               )}
             </button>
@@ -224,29 +261,29 @@ export default function MessageList({ messages }: MessageListProps) {
       <div className="relative">
         <div
           className={cn(
-            'prose prose-sm dark:prose-invert max-w-none overflow-hidden transition-all duration-300',
+            'max-w-none overflow-hidden transition-all duration-300',
             !isExpanded && shouldShowToggle && 'max-h-[200px]'
           )}
         >
-          <pre className="whitespace-pre-wrap break-words font-sans">
+          <div className="whitespace-pre-wrap break-words text-sm leading-relaxed">
             {content}
-          </pre>
+          </div>
           {!isExpanded && shouldShowToggle && (
-            <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white dark:from-gray-950 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-gray-900 to-transparent pointer-events-none" />
           )}
         </div>
         {shouldShowToggle && (
           <button
             onClick={() => toggleExpanded(messageId)}
-            className="mt-2 text-sm text-primary hover:text-primary/80 flex items-center gap-1"
+            className="mt-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1 transition-colors"
           >
             {isExpanded ? (
               <>
-                <ChevronUp className="h-4 w-4" /> Show less
+                <ChevronUp className="h-3.5 w-3.5" /> Show less
               </>
             ) : (
               <>
-                <ChevronDown className="h-4 w-4" /> Show more
+                <ChevronDown className="h-3.5 w-3.5" /> Show more
               </>
             )}
           </button>
@@ -264,71 +301,58 @@ export default function MessageList({ messages }: MessageListProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 px-4 py-4 max-w-5xl mx-auto">
       {messages.map((message) => {
         const isExpanded = expandedMessages.has(message._id);
         return (
           <div
             key={message._id}
             className={cn(
-              'flex gap-3 p-4 rounded-lg border-2 transition-all duration-200',
+              'flex gap-3 p-4 rounded-lg border transition-all duration-200 shadow-sm',
               message.type === 'user' &&
-                'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800',
+                'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700',
               message.type === 'assistant' &&
-                'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800',
+                'bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700',
               message.type === 'system' &&
-                'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800',
+                'bg-amber-50/50 dark:bg-amber-900/10 border-amber-200/50 dark:border-amber-800/30',
               message.type === 'tool_use' &&
-                'bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800',
+                'bg-violet-50/50 dark:bg-violet-900/10 border-violet-200/50 dark:border-violet-800/30',
               message.type === 'tool_result' &&
-                'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800'
+                'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200/50 dark:border-blue-800/30'
             )}
           >
             <div className="flex-shrink-0">
               <div
                 className={cn(
-                  'p-2 rounded-full',
-                  message.type === 'user' && 'bg-blue-100 dark:bg-blue-900',
+                  'p-2 rounded-lg',
+                  message.type === 'user' &&
+                    'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300',
                   message.type === 'assistant' &&
-                    'bg-green-100 dark:bg-green-900',
+                    'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300',
                   message.type === 'system' &&
-                    'bg-orange-100 dark:bg-orange-900',
+                    'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300',
                   message.type === 'tool_use' &&
-                    'bg-purple-100 dark:bg-purple-900',
+                    'bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300',
                   message.type === 'tool_result' &&
-                    'bg-indigo-100 dark:bg-indigo-900'
+                    'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
                 )}
               >
                 {getMessageIcon(message.type)}
               </div>
             </div>
-            <div className="flex-1 space-y-2">
-              <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex items-start justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      'font-semibold',
-                      message.type === 'user' &&
-                        'text-blue-700 dark:text-blue-300',
-                      message.type === 'assistant' &&
-                        'text-green-700 dark:text-green-300',
-                      message.type === 'system' &&
-                        'text-orange-700 dark:text-orange-300',
-                      message.type === 'tool_use' &&
-                        'text-purple-700 dark:text-purple-300',
-                      message.type === 'tool_result' &&
-                        'text-indigo-700 dark:text-indigo-300'
-                    )}
-                  >
+                  <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
                     {getMessageLabel(message.type)}
                   </span>
                   {message.model && (
-                    <span className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded-full">
+                    <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
                       {message.model}
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                   {message.totalCost && (
                     <span>${message.totalCost.toFixed(4)}</span>
                   )}
@@ -342,7 +366,7 @@ export default function MessageList({ messages }: MessageListProps) {
                   </time>
                 </div>
               </div>
-              <div className="text-sm mt-2">
+              <div className="mt-3 overflow-x-auto">
                 {formatContent(
                   message.content,
                   message.type,
