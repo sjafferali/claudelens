@@ -48,6 +48,19 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
   // Transform directory tree to treemap data format
   const treemapData = useMemo(() => {
     const transformNode = (node: DirectoryNode, depth = 0): TreemapData => {
+      if (!node || !node.metrics) {
+        return {
+          name: 'Unknown',
+          size: 0.01,
+          path: '',
+          cost: 0,
+          messages: 0,
+          sessions: 0,
+          percentage: 0,
+          originalNode: node,
+        };
+      }
+
       const size =
         metric === 'cost'
           ? node.metrics.cost
@@ -56,13 +69,13 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
             : node.metrics.sessions;
 
       const transformedNode: TreemapData = {
-        name: node.name,
+        name: node.name || 'Unknown',
         size: Math.max(size, 0.01), // Ensure positive size for rendering
-        path: node.path,
-        cost: node.metrics.cost,
-        messages: node.metrics.messages,
-        sessions: node.metrics.sessions,
-        percentage: node.percentage_of_total,
+        path: node.path || '',
+        cost: node.metrics.cost || 0,
+        messages: node.metrics.messages || 0,
+        sessions: node.metrics.sessions || 0,
+        percentage: node.percentage_of_total || 0,
         originalNode: node,
       };
 
@@ -78,6 +91,14 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
     return [transformNode(currentNode)];
   }, [currentNode, metric]);
 
+  if (!data) {
+    return (
+      <div className="flex h-64 items-center justify-center text-muted-foreground">
+        <p>No directory data available</p>
+      </div>
+    );
+  }
+
   const handleNodeClick = (data: TreemapData) => {
     if (data && data.originalNode) {
       const node = data.originalNode as DirectoryNode;
@@ -85,7 +106,7 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
       // If the node has children, drill down
       if (node.children && node.children.length > 0) {
         setCurrentNode(node);
-        setBreadcrumbs((prev) => [...prev, node.name]);
+        setBreadcrumbs((prev) => [...prev, node.name || 'Unknown']);
       }
 
       // Also call the external click handler
@@ -122,32 +143,38 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
       payload: TreemapData;
     }>;
   }) => {
-    if (active && payload && payload.length) {
+    if (active && payload && payload.length && payload[0]?.payload) {
       const data = payload[0].payload;
       return (
         <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">{data.name}</p>
-          <p className="text-sm text-gray-600 mb-2">{data.path}</p>
+          <p className="font-semibold text-gray-900">
+            {data.name || 'Unknown'}
+          </p>
+          <p className="text-sm text-gray-600 mb-2">{data.path || ''}</p>
           <div className="space-y-1 text-sm">
             <p>
               Cost:{' '}
-              <span className="font-medium">{formatCurrency(data.cost)}</span>
+              <span className="font-medium">
+                {formatCurrency(data.cost || 0)}
+              </span>
             </p>
             <p>
               Messages:{' '}
               <span className="font-medium">
-                {data.messages.toLocaleString()}
+                {(data.messages || 0).toLocaleString()}
               </span>
             </p>
             <p>
               Sessions:{' '}
               <span className="font-medium">
-                {data.sessions.toLocaleString()}
+                {(data.sessions || 0).toLocaleString()}
               </span>
             </p>
             <p>
               Percentage:{' '}
-              <span className="font-medium">{data.percentage.toFixed(1)}%</span>
+              <span className="font-medium">
+                {(data.percentage || 0).toFixed(1)}%
+              </span>
             </p>
           </div>
         </div>
@@ -200,7 +227,7 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
             className="pointer-events-none"
           >
             <tspan x={x + width / 2} dy="0">
-              {payload.name}
+              {payload?.name || 'Unknown'}
             </tspan>
             {showFullPath && (
               <tspan
@@ -253,20 +280,23 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">
-            {currentNode.name === 'root' ? 'All Directories' : currentNode.name}
+            {currentNode?.name === 'root'
+              ? 'All Directories'
+              : currentNode?.name || 'Unknown'}
           </h3>
-          <p className="text-sm text-gray-600">{currentNode.path}</p>
+          <p className="text-sm text-gray-600">{currentNode?.path || ''}</p>
         </div>
         <div className="text-right text-sm">
           <div className="font-medium">
-            {metric === 'cost' && formatCurrency(currentNode.metrics.cost)}
+            {metric === 'cost' &&
+              formatCurrency(currentNode?.metrics?.cost || 0)}
             {metric === 'messages' &&
-              `${currentNode.metrics.messages.toLocaleString()} messages`}
+              `${(currentNode?.metrics?.messages || 0).toLocaleString()} messages`}
             {metric === 'sessions' &&
-              `${currentNode.metrics.sessions.toLocaleString()} sessions`}
+              `${(currentNode?.metrics?.sessions || 0).toLocaleString()} sessions`}
           </div>
           <div className="text-gray-600">
-            {currentNode.percentage_of_total.toFixed(1)}% of total
+            {(currentNode?.percentage_of_total || 0).toFixed(1)}% of total
           </div>
         </div>
       </div>

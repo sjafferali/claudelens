@@ -423,7 +423,9 @@ export default function Analytics() {
                     cy="50%"
                     labelLine={false}
                     label={({ name, percent }) =>
-                      `${name} ${((percent || 0) * 100).toFixed(0)}%`
+                      name
+                        ? `${name} ${((percent || 0) * 100).toFixed(0)}%`
+                        : ''
                     }
                     outerRadius={80}
                     fill="#8884d8"
@@ -808,17 +810,27 @@ export default function Analytics() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   {directoryView === 'treemap' ? (
-                    <DirectoryTreemap
-                      data={directoryData.root}
-                      metric={directoryMetric}
-                      onNodeClick={setSelectedDirectoryNode}
-                    />
-                  ) : (
+                    directoryData.root ? (
+                      <DirectoryTreemap
+                        data={directoryData.root}
+                        metric={directoryMetric}
+                        onNodeClick={setSelectedDirectoryNode}
+                      />
+                    ) : (
+                      <div className="flex h-64 items-center justify-center text-muted-foreground">
+                        <p>No directory data available</p>
+                      </div>
+                    )
+                  ) : directoryData.root ? (
                     <DirectoryExplorer
                       data={directoryData.root}
                       selectedNode={selectedDirectoryNode || undefined}
                       onNodeSelect={setSelectedDirectoryNode}
                     />
+                  ) : (
+                    <div className="flex h-64 items-center justify-center text-muted-foreground">
+                      <p>No directory data available</p>
+                    </div>
                   )}
                 </div>
                 <div>

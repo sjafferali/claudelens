@@ -443,18 +443,47 @@ export default function MessageList({ messages }: MessageListProps) {
                     </span>
                   )}
                 </div>
+                <button
+                  onClick={() =>
+                    copyToClipboard(message.content, `message-${message._id}`)
+                  }
+                  className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
+                  title="Copy message"
+                >
+                  {copiedId === `message-${message._id}` ? (
+                    <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <Copy className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                  )}
+                </button>
               </div>
             )}
 
             {/* Message Content */}
             <div
               className={cn(
-                'group rounded-xl mx-3 px-6 py-5 transition-all duration-200 border backdrop-blur-sm',
+                'group rounded-xl mx-3 px-6 py-5 transition-all duration-200 border backdrop-blur-sm relative',
                 colors.background,
                 colors.hover,
                 'border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md'
               )}
             >
+              {/* Copy button for messages without header */}
+              {!isFirstMessage && !isDifferentSender && (
+                <button
+                  onClick={() =>
+                    copyToClipboard(message.content, `message-${message._id}`)
+                  }
+                  className="absolute top-4 right-4 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 backdrop-blur-sm shadow-md border border-slate-200/50 dark:border-slate-600/50"
+                  title="Copy message"
+                >
+                  {copiedId === `message-${message._id}` ? (
+                    <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <Copy className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                  )}
+                </button>
+              )}
               <div className="max-w-none">
                 {/* Metadata - Show on hover with better styling */}
                 <div className="flex items-center gap-4 mb-3 opacity-60 group-hover:opacity-100 transition-all duration-200">

@@ -6,11 +6,14 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Button,
+  ConfirmDialog,
 } from '@/components/common';
-import { useProjects, useProject } from '@/hooks/useProjects';
+import { useProjects, useProject, useDeleteProject } from '@/hooks/useProjects';
 import { useSessions } from '@/hooks/useSessions';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, FolderOpen, MessageSquare } from 'lucide-react';
+import { Loader2, FolderOpen, MessageSquare, Trash2 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export default function Projects() {
   const { projectId } = useParams();
@@ -157,6 +160,7 @@ function ProjectsList() {
 
 function ProjectDetail({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { data: project, isLoading: projectLoading } = useProject(projectId);
   const { data: sessions, isLoading: sessionsLoading } = useSessions({
     projectId,
@@ -164,6 +168,19 @@ function ProjectDetail({ projectId }: { projectId: string }) {
     sortBy: 'started_at',
     sortOrder: 'desc',
   });
+  const deleteProject = useDeleteProject();
+
+  const handleDelete = async () => {
+    try {
+      await deleteProject.mutateAsync({ projectId, cascade: true });
+      toast.success('Project deleted successfully');
+      navigate('/projects');
+    } catch (error) {
+      toast.error('Failed to delete project');
+      console.error('Delete project error:', error);
+    }
+    setShowDeleteDialog(false);
+  };
 
   if (projectLoading) {
     return (
@@ -203,14 +220,27 @@ function ProjectDetail({ projectId }: { projectId: string }) {
         >
           ← Back to projects
         </button>
-        <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-          <FolderOpen className="h-8 w-8" />
-          {project.name}
-        </h2>
-        <p className="text-muted-foreground">{project.path}</p>
-        {project.description && (
-          <p className="mt-2 text-sm">{project.description}</p>
-        )}
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <FolderOpen className="h-8 w-8" />
+              {project.name}
+            </h2>
+            <p className="text-muted-foreground">{project.path}</p>
+            {project.description && (
+              <p className="mt-2 text-sm">{project.description}</p>
+            )}
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowDeleteDialog(true)}
+            className="flex items-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Project
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -312,6 +342,28 @@ function ProjectDetail({ projectId }: { projectId: string }) {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        title="Delete Project"
+        message={
+          <div>
+            <p>Are you sure you want to delete the project "{project.name}"?</p>
+            <p className="mt-2 text-sm">This will permanently delete:</p>
+            <ul className="mt-1 ml-4 text-sm list-disc">
+              <li>All {project.stats?.session_count || 0} sessions</li>
+              <li>All {project.stats?.message_count || 0} messages</li>
+              <li>The project configuration</li>
+            </ul>
+            <p className="mt-2 text-sm font-semibold">
+              This action cannot be undone.
+            </p>
+          </div>
+        }
+        confirmLabel="Delete Project"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
     </div>
   );
 }

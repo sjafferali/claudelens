@@ -37,4 +37,14 @@ export const projectsApi = {
   async getProject(projectId: string): Promise<ProjectDetail> {
     return apiClient.get<ProjectDetail>(`/projects/${projectId}`);
   },
+
+  async deleteProject(
+    projectId: string,
+    cascade: boolean = true
+  ): Promise<void> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('cascade', cascade.toString());
+
+    return apiClient.delete(`/projects/${projectId}?${queryParams.toString()}`);
+  },
 };
