@@ -123,6 +123,10 @@ class IngestStats(BaseModel):
 
     duration_ms: int = Field(0, description="Processing duration in milliseconds")
 
+    error_details: list[str] = Field(
+        default_factory=list, description="Details of any errors that occurred"
+    )
+
 
 class BatchIngestResponse(BaseModel):
     """Response from batch ingestion."""

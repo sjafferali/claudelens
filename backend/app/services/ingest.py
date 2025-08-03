@@ -133,10 +133,12 @@ class IngestService:
                     # Use bulk write with upserts
                     operations = []
                     for msg in new_messages:
+                        # Remove _id from replacement document to avoid immutable field error
+                        replacement_doc = {k: v for k, v in msg.items() if k != "_id"}
                         operations.append(
                             ReplaceOne(
                                 filter={"uuid": msg["uuid"]},
-                                replacement=msg,
+                                replacement=replacement_doc,
                                 upsert=True,
                             )
                         )
@@ -149,6 +151,12 @@ class IngestService:
                     except Exception as e:
                         logger.error(f"MongoDB bulk write failed: {e}")
                         stats.messages_failed += len(new_messages)
+                        # Add error detail for the response
+                        error_msg = (
+                            f"Bulk write failed for session {session_id}: {str(e)}"
+                        )
+                        if hasattr(stats, "error_details"):
+                            stats.error_details.append(error_msg)
                         return
                 else:
                     # Original insert behavior
@@ -158,6 +166,10 @@ class IngestService:
                     except Exception as e:
                         logger.error(f"MongoDB insert failed: {e}")
                         stats.messages_failed += len(new_messages)
+                        # Add error detail for the response
+                        error_msg = f"Insert failed for session {session_id}: {str(e)}"
+                        if hasattr(stats, "error_details"):
+                            stats.error_details.append(error_msg)
                         return
 
                 # Update session statistics

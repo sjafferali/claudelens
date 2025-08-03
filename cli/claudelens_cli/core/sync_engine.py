@@ -255,7 +255,20 @@ class SyncEngine:
             # Upload batch when it reaches configured size
             if len(batch) >= self.config.config.batch_size:
                 if not dry_run:
-                    await self._upload_batch(batch)
+                    response_stats = await self._upload_batch(batch)
+                    if response_stats:
+                        # Update counts based on actual server response
+                        stats.messages_synced += response_stats.get(
+                            "messages_processed", 0
+                        )
+                        stats.messages_skipped += response_stats.get(
+                            "messages_skipped", 0
+                        )
+                        stats.errors += response_stats.get("messages_failed", 0)
+                    else:
+                        # Fallback to counting all as synced if no stats returned
+                        stats.messages_synced += len(batch)
+
                     # Update state only when actually syncing
                     self.state.update_project_state(
                         project_key,
@@ -263,7 +276,8 @@ class SyncEngine:
                         last_line=line_number,
                         new_messages=batch_hashes,
                     )
-                stats.messages_synced += len(batch)
+                else:
+                    stats.messages_synced += len(batch)
 
                 # Clear batch
                 batch = []
@@ -275,7 +289,16 @@ class SyncEngine:
         # Upload remaining messages
         if batch:
             if not dry_run:
-                await self._upload_batch(batch)
+                response_stats = await self._upload_batch(batch)
+                if response_stats:
+                    # Update counts based on actual server response
+                    stats.messages_synced += response_stats.get("messages_processed", 0)
+                    stats.messages_skipped += response_stats.get("messages_skipped", 0)
+                    stats.errors += response_stats.get("messages_failed", 0)
+                else:
+                    # Fallback to counting all as synced if no stats returned
+                    stats.messages_synced += len(batch)
+
                 # Update state only when actually syncing
                 self.state.update_project_state(
                     project_key,
@@ -283,7 +306,8 @@ class SyncEngine:
                     last_line=line_number,
                     new_messages=batch_hashes,
                 )
-            stats.messages_synced += len(batch)
+            else:
+                stats.messages_synced += len(batch)
 
     async def _read_jsonl_messages(
         self, file_path: Path, start_line: int = 0
@@ -439,7 +463,32 @@ class SyncEngine:
                         )
 
                 if response.status_code == 200:
-                    return
+                    # Parse response to check actual results
+                    try:
+                        result = response.json()
+                        if "stats" in result:
+                            response_stats = result["stats"]
+                            messages_failed = response_stats.get("messages_failed", 0)
+
+                            if messages_failed > 0:
+                                console.print(
+                                    f"[red]Warning: {messages_failed} messages failed to sync[/red]"
+                                )
+                                # Show error details if available
+                                error_details = response_stats.get("error_details", [])
+                                if error_details and self.debug:
+                                    console.print("[red]Error details:[/red]")
+                                    for error in error_details[
+                                        :5
+                                    ]:  # Show first 5 errors
+                                        console.print(f"[red]  - {error}[/red]")
+
+                            # Return the stats so caller can update totals
+                            return response_stats
+                    except (ValueError, KeyError):
+                        # If we can't parse response, assume success
+                        pass
+                    return None
                 elif response.status_code == 429:  # Rate limited
                     wait_time = int(response.headers.get("Retry-After", 5))
                     console.print(
