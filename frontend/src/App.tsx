@@ -5,6 +5,7 @@ import Dashboard from '@/pages/Dashboard';
 import Projects from '@/pages/Projects';
 import Sessions from '@/pages/Sessions';
 import Search from '@/pages/Search';
+import Analytics from '@/pages/Analytics';
 import NotFound from '@/pages/NotFound';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
           <Route path="/sessions" element={<Sessions />} />
           <Route path="/sessions/:sessionId" element={<Sessions />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Layout>
