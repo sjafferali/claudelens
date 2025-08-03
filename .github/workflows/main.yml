@@ -25,11 +25,11 @@ jobs:
         python-version: '3.11'
 
     - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: 1.6.1
-        virtualenvs-create: true
-        virtualenvs-in-project: true
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install poetry==1.6.1
+        python -m poetry config virtualenvs.create true
+        python -m poetry config virtualenvs.in-project true
 
     - name: Cache dependencies
       uses: actions/cache@v4
@@ -72,11 +72,11 @@ jobs:
         python-version: '3.11'
 
     - name: Install Poetry
-      uses: snok/install-poetry@v1
-      with:
-        version: 1.6.1
-        virtualenvs-create: true
-        virtualenvs-in-project: true
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install poetry==1.6.1
+        python -m poetry config virtualenvs.create true
+        python -m poetry config virtualenvs.in-project true
 
     - name: Cache dependencies
       uses: actions/cache@v4
@@ -178,11 +178,11 @@ jobs:
         ruff check . --output-format=github
 
     - name: Install Poetry for MyPy
-      uses: snok/install-poetry@v1
-      with:
-        version: 1.6.1
-        virtualenvs-create: true
-        virtualenvs-in-project: true
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install poetry==1.6.1
+        python -m poetry config virtualenvs.create true
+        python -m poetry config virtualenvs.in-project true
 
     - name: Run MyPy on Backend
       run: |
@@ -382,7 +382,11 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Install Poetry
-      uses: snok/install-poetry@v1
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install poetry==1.6.1
+        python -m poetry config virtualenvs.create true
+        python -m poetry config virtualenvs.in-project true
 
     - name: Build CLI
       run: |
