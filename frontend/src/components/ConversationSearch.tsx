@@ -116,10 +116,10 @@ export default function ConversationSearch({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-2 sm:top-4 left-1/2 -translate-x-1/2 w-[calc(100%-1rem)] sm:w-full max-w-2xl z-50 px-2 sm:px-4">
-      <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-lg shadow-2xl border border-gray-200 dark:border-slate-600 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-        <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 border-b border-gray-200 dark:border-slate-700">
-          <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 w-full max-w-2xl z-50 px-4">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-gray-200 dark:border-slate-600 overflow-hidden">
+        <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-slate-700">
+          <Search className="h-5 w-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
           <input
             ref={searchInputRef}
             type="text"
@@ -134,27 +134,24 @@ export default function ConversationSearch({
             )}
           />
           {matches.length > 0 && (
-            <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-              <span className="font-medium hidden sm:inline">
+            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <span className="font-medium">
                 {currentMatchIndex + 1} of {matches.length}
               </span>
-              <span className="font-medium sm:hidden">
-                {currentMatchIndex + 1}/{matches.length}
-              </span>
-              <div className="flex items-center gap-0.5 sm:gap-1">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => navigateToMatch(currentMatchIndex - 1)}
-                  className="p-0.5 sm:p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
                   title="Previous match (↑)"
                 >
-                  <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <ChevronUp className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => navigateToMatch(currentMatchIndex + 1)}
-                  className="p-0.5 sm:p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
                   title="Next match (↓)"
                 >
-                  <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <ChevronDown className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -164,59 +161,28 @@ export default function ConversationSearch({
             className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
             title="Close search (Esc)"
           >
-            <X className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 dark:text-gray-400" />
+            <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
         {searchQuery && matches.length === 0 && (
-          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-slate-900/50">
+          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
             No matches found for "{searchQuery}"
           </div>
         )}
 
         {matches.length > 0 && (
-          <>
-            <div className="max-h-48 overflow-y-auto border-t border-gray-200 dark:border-slate-700">
-              {matches.slice(0, 5).map((match, idx) => {
-                const messagePreview = match.item.content
-                  .substring(0, 150)
-                  .trim();
-                const isCurrentMatch = idx === currentMatchIndex % 5;
-                return (
-                  <div
-                    key={match.item._id}
-                    onClick={() => navigateToMatch(idx)}
-                    className={cn(
-                      'px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors',
-                      isCurrentMatch && 'bg-[#FFF4B3] dark:bg-[#FFF4B3]/20'
-                    )}
-                  >
-                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {match.item.type === 'user'
-                        ? 'You'
-                        : match.item.type === 'assistant'
-                          ? 'Claude'
-                          : match.item.type}
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                      {messagePreview}...
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-slate-900/50 border-t border-gray-200 dark:border-slate-700">
-              Press{' '}
-              <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-slate-700 rounded text-xs">
-                Enter
-              </kbd>{' '}
-              for next,{' '}
-              <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-slate-700 rounded text-xs">
-                Shift+Enter
-              </kbd>{' '}
-              for previous
-            </div>
-          </>
+          <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-slate-900/50">
+            Press{' '}
+            <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-slate-700 rounded text-xs">
+              Enter
+            </kbd>{' '}
+            for next,{' '}
+            <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-slate-700 rounded text-xs">
+              Shift+Enter
+            </kbd>{' '}
+            for previous
+          </div>
         )}
       </div>
     </div>

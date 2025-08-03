@@ -11,6 +11,8 @@ import {
   Wrench,
   Copy,
   Check,
+  Clock,
+  Coins,
   Hash,
   Zap,
 } from 'lucide-react';
@@ -22,7 +24,6 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 interface MessageItemProps {
   message: Message;
   isExpanded: boolean;
-  isCollapsedByDefault?: boolean;
   isFirstMessage: boolean;
   isDifferentSender: boolean;
   copiedId: string | null;
@@ -50,12 +51,7 @@ const MessageItem = memo(function MessageItem({
       case 'tool_use':
         return <Wrench className="h-5 w-5" />;
       case 'tool_result':
-        return (
-          <>
-            <span className="mr-1">🛠️</span>
-            <Code className="h-5 w-5" />
-          </>
-        );
+        return <Code className="h-5 w-5" />;
       default:
         return <MessageSquare className="h-5 w-5" />;
     }
@@ -72,7 +68,7 @@ const MessageItem = memo(function MessageItem({
       case 'tool_use':
         return 'Tool Use';
       case 'tool_result':
-        return '🛠️ Tool Result';
+        return 'Tool Result';
       default:
         return type;
     }
@@ -84,24 +80,18 @@ const MessageItem = memo(function MessageItem({
         return {
           avatar:
             'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md',
-          background:
-            'bg-[#E6F2FF] dark:bg-[#D6ECFF]/10 border-l-4 border-l-[#3366FF]',
-          label: 'text-[#1A1A1A] dark:text-blue-300 font-semibold',
-          textColor: 'text-[#1A1A1A] dark:text-slate-200',
-          fontWeight: 'font-semibold',
-          hover: 'hover:bg-[#D6ECFF] dark:hover:bg-[#D6ECFF]/20',
+          background: 'bg-white dark:bg-slate-900 border-l-4 border-l-blue-500',
+          label: 'text-blue-700 dark:text-blue-300 font-semibold',
+          hover: 'hover:bg-blue-50/50 dark:hover:bg-blue-950/20',
         };
       case 'assistant':
         return {
           avatar:
-            'bg-gradient-to-br from-cyan-500 to-cyan-600 text-white shadow-md',
+            'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md',
           background:
-            'bg-[#F0F4F8] dark:bg-[#F0F4F8]/10 border-l-4 border-l-[#00B8D9]',
-          label: 'text-[#333] dark:text-cyan-300 font-medium',
-          textColor: 'text-[#333] dark:text-slate-200',
-          fontWeight: 'font-medium',
-          fontStyle: 'italic',
-          hover: 'hover:bg-[#E3EDF5] dark:hover:bg-[#F0F4F8]/20',
+            'bg-emerald-50/50 dark:bg-emerald-950/20 border-l-4 border-l-emerald-500',
+          label: 'text-emerald-700 dark:text-emerald-300 font-semibold',
+          hover: 'hover:bg-emerald-100/50 dark:hover:bg-emerald-950/30',
         };
       case 'system':
         return {
@@ -110,22 +100,25 @@ const MessageItem = memo(function MessageItem({
           background:
             'bg-amber-50/50 dark:bg-amber-950/20 border-l-4 border-l-amber-500',
           label: 'text-amber-700 dark:text-amber-300 font-semibold',
-          textColor: 'text-slate-800 dark:text-slate-200',
-          fontWeight: 'font-normal',
           hover: 'hover:bg-amber-100/50 dark:hover:bg-amber-950/30',
         };
       case 'tool_use':
+        return {
+          avatar:
+            'bg-gradient-to-br from-purple-500 to-violet-600 text-white shadow-md',
+          background:
+            'bg-purple-50/50 dark:bg-purple-950/20 border-l-4 border-l-purple-500',
+          label: 'text-purple-700 dark:text-purple-300 font-semibold',
+          hover: 'hover:bg-purple-100/50 dark:hover:bg-purple-950/30',
+        };
       case 'tool_result':
         return {
           avatar:
-            'bg-gradient-to-br from-slate-600 to-slate-700 text-white shadow-md',
+            'bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-md',
           background:
-            'bg-[#1E293B] dark:bg-[#1E293B] border-l-4 border-l-slate-500',
-          label: 'text-[#C5D2E2] dark:text-[#C5D2E2] font-medium',
-          textColor: 'text-[#C5D2E2] dark:text-[#C5D2E2]',
-          fontWeight: 'font-normal',
-          fontFamily: 'font-mono',
-          hover: 'hover:bg-[#2A3444] dark:hover:bg-[#2A3444]',
+            'bg-indigo-50/50 dark:bg-indigo-950/20 border-l-4 border-l-indigo-500',
+          label: 'text-indigo-700 dark:text-indigo-300 font-semibold',
+          hover: 'hover:bg-indigo-100/50 dark:hover:bg-indigo-950/30',
         };
       default:
         return {
@@ -134,8 +127,6 @@ const MessageItem = memo(function MessageItem({
           background:
             'bg-gray-50/50 dark:bg-gray-900/50 border-l-4 border-l-gray-500',
           label: 'text-gray-700 dark:text-gray-300 font-semibold',
-          textColor: 'text-slate-800 dark:text-slate-200',
-          fontWeight: 'font-normal',
           hover: 'hover:bg-gray-100/50 dark:hover:bg-gray-900/30',
         };
     }
@@ -147,15 +138,8 @@ const MessageItem = memo(function MessageItem({
     isExpanded: boolean,
     messageId: string
   ) => {
-    // For tool results, always show toggle and collapse by default
     const shouldShowToggle =
-      type === 'tool_result' ||
-      content.length > 800 ||
-      content.split('\n').length > 15;
-
-    // Override expansion state for tool results
-    const effectiveIsExpanded =
-      type === 'tool_result' ? isExpanded : isExpanded;
+      content.length > 800 || content.split('\n').length > 15;
 
     // For tool messages, try to parse and format JSON
     if (type === 'tool_use' || type === 'tool_result') {
@@ -167,9 +151,7 @@ const MessageItem = memo(function MessageItem({
             <div
               className={cn(
                 'overflow-hidden transition-all duration-300 ease-in-out',
-                !effectiveIsExpanded &&
-                  shouldShowToggle &&
-                  (type === 'tool_result' ? 'max-h-[250px]' : 'max-h-[400px]')
+                !isExpanded && shouldShowToggle && 'max-h-[400px]'
               )}
             >
               <div className="relative group">
@@ -404,23 +386,21 @@ const MessageItem = memo(function MessageItem({
     >
       {/* Message Header - Only show for first message or different sender */}
       {(isFirstMessage || isDifferentSender) && (
-        <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-6 py-2 sm:py-3 mb-1 sm:mb-2">
+        <div className="flex items-center gap-4 px-6 py-3 mb-2">
           <div
             className={cn(
-              'flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl transition-transform duration-200 hover:scale-105',
+              'flex items-center justify-center w-10 h-10 rounded-xl transition-transform duration-200 hover:scale-105',
               colors.avatar
             )}
           >
             {getMessageIcon(message.type)}
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 flex-1">
-            <span
-              className={cn('text-sm sm:text-base font-semibold', colors.label)}
-            >
+          <div className="flex items-center gap-3 flex-1">
+            <span className={cn('text-base font-semibold', colors.label)}>
               {getMessageLabel(message.type)}
             </span>
             {message.model && (
-              <span className="hidden sm:inline text-xs px-2 sm:px-3 py-0.5 sm:py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full font-medium border border-slate-200 dark:border-slate-700">
+              <span className="text-xs px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full font-medium border border-slate-200 dark:border-slate-700">
                 {message.model}
               </span>
             )}
@@ -428,52 +408,45 @@ const MessageItem = memo(function MessageItem({
         </div>
       )}
 
-      {/* Message Card */}
+      {/* Message Content */}
       <div
         className={cn(
-          'message-card group rounded-lg mx-4 mb-2 transition-all duration-200',
+          'group rounded-xl mx-3 px-6 py-5 transition-all duration-200 border backdrop-blur-sm',
           colors.background,
           colors.hover,
-          'shadow-sm hover:shadow-md'
+          'border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-md'
         )}
       >
-        {/* Message Header */}
-        <div className="message-header flex items-center justify-between px-4 py-2 text-xs text-gray-600 dark:text-gray-400 border-b border-gray-200/30 dark:border-gray-700/30">
-          <div className="flex items-center gap-2">
-            <span className={cn('font-medium', colors.label)}>
-              {getMessageLabel(message.type)}
-            </span>
-            {message.model && (
-              <span className="text-gray-500 dark:text-gray-400">
-                ({message.model})
-              </span>
+        <div className="max-w-none">
+          {/* Metadata - Show on hover with better styling */}
+          <div className="flex items-center gap-4 mb-3 opacity-60 group-hover:opacity-100 transition-all duration-200">
+            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
+              <Clock className="h-3.5 w-3.5" />
+              <time dateTime={message.timestamp}>
+                {format(new Date(message.timestamp), 'MMM d, HH:mm:ss')}
+              </time>
+            </div>
+            {message.totalCost && (
+              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                <Coins className="h-3.5 w-3.5" />
+                <span>${message.totalCost.toFixed(4)}</span>
+              </div>
             )}
-          </div>
-          <div className="flex items-center gap-3">
-            <time dateTime={message.timestamp}>
-              {format(new Date(message.timestamp), 'MMM d, HH:mm:ss')}
-            </time>
-            {message.totalCost && <span>${message.totalCost.toFixed(4)}</span>}
             {message.inputTokens && message.outputTokens && (
-              <span>
-                {(message.inputTokens + message.outputTokens).toLocaleString()}{' '}
-                tokens
-              </span>
+              <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                <Hash className="h-3.5 w-3.5" />
+                <span>
+                  {(
+                    message.inputTokens + message.outputTokens
+                  ).toLocaleString()}{' '}
+                  tokens
+                </span>
+              </div>
             )}
           </div>
-        </div>
 
-        {/* Message Body */}
-        <div className="message-body px-4 py-3">
-          <div
-            className={cn(
-              'prose prose-slate dark:prose-invert max-w-none whitespace-pre-wrap',
-              colors.textColor,
-              colors.fontWeight,
-              colors.fontStyle,
-              colors.fontFamily
-            )}
-          >
+          {/* Message Content */}
+          <div className="prose prose-slate dark:prose-invert max-w-none">
             {formatContent(
               message.content,
               message.type,
