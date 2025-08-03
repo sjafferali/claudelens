@@ -36,6 +36,11 @@ console = Console()
     help="Claude data directory to sync from (can be specified multiple times)",
 )
 @click.option("--debug", is_flag=True, help="Enable debug output for troubleshooting")
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    help="Update existing messages on UUID conflicts instead of failing",
+)
 def sync(
     watch: bool,
     project: Path,
@@ -43,6 +48,7 @@ def sync(
     dry_run: bool,
     claude_dir: tuple[Path],
     debug: bool,
+    overwrite: bool,
 ):
     """Sync Claude conversations to ClaudeLens server.
 
@@ -57,7 +63,9 @@ def sync(
 
     # Initialize components
     state_manager = StateManager()
-    sync_engine = SyncEngine(config_manager, state_manager, debug=debug)
+    sync_engine = SyncEngine(
+        config_manager, state_manager, debug=debug, overwrite_mode=overwrite
+    )
 
     # Show current configuration
     console.print(f"[dim]API URL: {config_manager.config.api_url}[/dim]")
@@ -84,6 +92,11 @@ def sync(
         else:
             state_manager.state.projects.clear()
             state_manager.save()
+
+    if overwrite:
+        console.print(
+            "[yellow]Overwrite mode enabled - existing messages will be updated on conflicts[/yellow]"
+        )
 
     try:
         if watch:

@@ -46,8 +46,10 @@ async def ingest_batch(
     ingest_service = IngestService(db)
 
     try:
-        # Process messages
-        stats = await ingest_service.ingest_messages(request.messages)
+        # Process messages with overwrite mode if specified
+        stats = await ingest_service.ingest_messages(
+            request.messages, overwrite_mode=request.overwrite_mode
+        )
 
         # Schedule background tasks
         if stats.projects_created:
@@ -76,7 +78,9 @@ async def ingest_single(
     Convenience endpoint for ingesting individual messages.
     """
     return await ingest_batch(
-        BatchIngestRequest(messages=[message], todos=[], config=None),
+        BatchIngestRequest(
+            messages=[message], todos=[], config=None, overwrite_mode=False
+        ),
         BackgroundTasks(),
         db,
         api_key,

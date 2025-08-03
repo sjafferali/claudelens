@@ -97,6 +97,10 @@ class BatchIngestRequest(BaseModel):
     config: ConfigIngest | None = Field(
         None, description="Configuration data to ingest"
     )
+    overwrite_mode: bool = Field(
+        False,
+        description="Update existing messages on UUID conflicts instead of failing",
+    )
 
 
 class IngestStats(BaseModel):

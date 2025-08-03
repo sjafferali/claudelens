@@ -53,13 +53,20 @@ class SyncStats:
 class SyncEngine:
     """Main sync engine for Claude conversations."""
 
-    def __init__(self, config: ConfigManager, state: StateManager, debug: bool = False):
+    def __init__(
+        self,
+        config: ConfigManager,
+        state: StateManager,
+        debug: bool = False,
+        overwrite_mode: bool = False,
+    ):
         self.config = config
         self.state = state
         self.parser = ClaudeMessageParser()
         self.http_client: httpx.AsyncClient | None = None
         self._observer: BaseObserver | None = None
         self.debug = debug
+        self.overwrite_mode = overwrite_mode
 
     async def _get_http_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -409,7 +416,7 @@ class SyncEngine:
             try:
                 response = await client.post(
                     "/ingest/batch",  # Remove trailing slash - nginx adds it
-                    json={"messages": messages},
+                    json={"messages": messages, "overwrite_mode": self.overwrite_mode},
                     timeout=60.0,
                 )
 
@@ -423,7 +430,12 @@ class SyncEngine:
                         parsed = urlparse(location)
                         new_path = parsed.path
                         response = await client.post(
-                            new_path, json={"messages": messages}, timeout=60.0
+                            new_path,
+                            json={
+                                "messages": messages,
+                                "overwrite_mode": self.overwrite_mode,
+                            },
+                            timeout=60.0,
                         )
 
                 if response.status_code == 200:

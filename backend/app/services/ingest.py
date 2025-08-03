@@ -8,20 +8,11 @@ from typing import Any
 
 from bson import Decimal128, ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo import ReplaceOne
 
 from app.schemas.ingest import IngestStats, MessageIngest
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-# Temporary debug handler
-_debug_handler = logging.StreamHandler()
-_debug_handler.setLevel(logging.DEBUG)
-_debug_formatter = logging.Formatter(
-    "%(asctime)s - INGEST_DEBUG - %(levelname)s - %(message)s"
-)
-_debug_handler.setFormatter(_debug_formatter)
-logger.addHandler(_debug_handler)
 
 
 class IngestService:
@@ -32,9 +23,18 @@ class IngestService:
         self._project_cache: dict[str, ObjectId] = {}
         self._session_cache: dict[str, ObjectId] = {}
 
-    async def ingest_messages(self, messages: list[MessageIngest]) -> IngestStats:
-        """Ingest a batch of messages."""
-        logger.debug(f"=== Starting ingest_messages with {len(messages)} messages ===")
+    async def ingest_messages(
+        self, messages: list[MessageIngest], overwrite_mode: bool = False
+    ) -> IngestStats:
+        """Ingest a batch of messages.
+
+        Args:
+            messages: List of messages to ingest
+            overwrite_mode: If True, update existing messages on UUID conflicts
+        """
+        logger.info(
+            f"Starting ingest of {len(messages)} messages (overwrite={overwrite_mode})"
+        )
 
         start_time = datetime.now(UTC)
         stats = IngestStats(
@@ -49,14 +49,6 @@ class IngestService:
             duration_ms=0,
         )
 
-        # Log first message details
-        if messages:
-            first = messages[0]
-            logger.debug(
-                f"First message: type={first.type}, uuid={first.uuid}, sessionId={first.sessionId}"
-            )
-            logger.debug(f"Has message field: {hasattr(first, 'message')}")
-
         # Group messages by session
         sessions_map: dict[str, list[MessageIngest]] = {}
         for message in messages:
@@ -68,7 +60,9 @@ class IngestService:
         # Process each session
         tasks = []
         for session_id, session_messages in sessions_map.items():
-            task = self._process_session_messages(session_id, session_messages, stats)
+            task = self._process_session_messages(
+                session_id, session_messages, stats, overwrite_mode
+            )
             tasks.append(task)
 
         # Run all sessions in parallel
@@ -79,13 +73,11 @@ class IngestService:
         stats.duration_ms = int(duration)
 
         # Log final stats
-        logger.debug("=== Ingestion completed ===")
-        logger.debug(f"Messages received: {stats.messages_received}")
-        logger.debug(f"Messages processed: {stats.messages_processed}")
-        logger.debug(f"Messages failed: {stats.messages_failed}")
-        logger.debug(f"Messages skipped: {stats.messages_skipped}")
-        logger.debug(f"Sessions created: {stats.sessions_created}")
-        logger.debug(f"Duration: {stats.duration_ms}ms")
+        logger.info(
+            f"Ingestion completed: {stats.messages_processed} processed, "
+            f"{stats.messages_skipped} skipped, {stats.messages_failed} failed "
+            f"({stats.duration_ms}ms)"
+        )
 
         # Log ingestion
         await self._log_ingestion(stats)
@@ -93,21 +85,20 @@ class IngestService:
         return stats
 
     async def _process_session_messages(
-        self, session_id: str, messages: list[MessageIngest], stats: IngestStats
+        self,
+        session_id: str,
+        messages: list[MessageIngest],
+        stats: IngestStats,
+        overwrite_mode: bool = False,
     ) -> None:
         """Process messages for a single session."""
         try:
             # Ensure session exists
-            logger.debug(
-                f"Processing session {session_id} with {len(messages)} messages"
-            )
             session_obj_id = await self._ensure_session(session_id, messages[0])
             if session_obj_id:
                 stats.sessions_created += 1
-                logger.debug(f"Created new session with ID: {session_obj_id}")
             else:
                 stats.sessions_updated += 1
-                logger.debug("Using existing session")
 
             # Get existing message hashes for deduplication
             existing_hashes = await self._get_existing_hashes(session_id)
@@ -124,32 +115,45 @@ class IngestService:
 
                 # Convert to database model
                 try:
-                    logger.debug(f"Converting message {message.uuid} to doc")
                     message_doc = self._message_to_doc(message, session_id)
-                    logger.debug(
-                        f"Doc created, has content: {'content' in message_doc}"
-                    )
                     new_messages.append(message_doc)
                     existing_hashes.add(message_hash)
                 except Exception as e:
                     logger.error(f"Error processing message {message.uuid}: {e}")
-                    logger.exception("Full traceback:")
                     stats.messages_failed += 1
 
-            # Bulk insert new messages
+            # Bulk insert/update messages
             if new_messages:
-                logger.debug(f"Inserting {len(new_messages)} messages to MongoDB")
-                try:
-                    result = await self.db.messages.insert_many(new_messages)
-                    stats.messages_processed += len(result.inserted_ids)
-                    logger.debug(
-                        f"Successfully inserted {len(result.inserted_ids)} messages"
-                    )
-                except Exception as e:
-                    logger.error(f"MongoDB insert failed: {e}")
-                    logger.exception("Full traceback:")
-                    stats.messages_failed += len(new_messages)
-                    return
+                if overwrite_mode:
+                    # Use bulk write with upserts
+                    operations = []
+                    for msg in new_messages:
+                        operations.append(
+                            ReplaceOne(
+                                filter={"uuid": msg["uuid"]},
+                                replacement=msg,
+                                upsert=True,
+                            )
+                        )
+
+                    try:
+                        bulk_result = await self.db.messages.bulk_write(operations)
+                        stats.messages_processed += (
+                            bulk_result.inserted_count + bulk_result.modified_count
+                        )
+                    except Exception as e:
+                        logger.error(f"MongoDB bulk write failed: {e}")
+                        stats.messages_failed += len(new_messages)
+                        return
+                else:
+                    # Original insert behavior
+                    try:
+                        insert_result = await self.db.messages.insert_many(new_messages)
+                        stats.messages_processed += len(insert_result.inserted_ids)
+                    except Exception as e:
+                        logger.error(f"MongoDB insert failed: {e}")
+                        stats.messages_failed += len(new_messages)
+                        return
 
                 # Update session statistics
                 await self._update_session_stats(session_id)
@@ -273,9 +277,6 @@ class IngestService:
 
     def _message_to_doc(self, message: MessageIngest, session_id: str) -> dict:
         """Convert message to database document."""
-        logger.debug(
-            f"_message_to_doc: Converting {message.type} message {message.uuid}"
-        )
 
         doc = {
             "_id": ObjectId(),
@@ -369,9 +370,6 @@ class IngestService:
 
                 # Store the content as a simple string
                 doc["content"] = content or ""
-                logger.debug(
-                    f"Extracted content length: {len(content)}, preview: {content[:100]}..."
-                )
 
                 # Store the full message object for reference
                 doc["messageData"] = message.message
