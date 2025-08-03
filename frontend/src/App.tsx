@@ -14,7 +14,11 @@ function App() {
   const { theme } = useStore((state) => state.ui);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, [theme]);
 
   return (
