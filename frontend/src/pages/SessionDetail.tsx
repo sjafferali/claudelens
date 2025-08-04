@@ -768,6 +768,43 @@ function TimelineView({
       return `🔧 ${message.content}`;
     }
 
+    // Final check: if content looks like JSON structure, try to extract meaningful text
+    if (
+      message.content.startsWith('1→') ||
+      message.content.includes('"type":') ||
+      message.content.includes('"content":')
+    ) {
+      // This might be improperly formatted content
+      try {
+        // Try to parse as JSON first
+        const parsed = JSON.parse(message.content);
+        if (parsed.content) {
+          if (typeof parsed.content === 'string') {
+            return parsed.content;
+          } else if (Array.isArray(parsed.content)) {
+            // Extract text from content array
+            const textParts = parsed.content
+              .filter((part: { type?: string }) => part.type === 'text')
+              .map((part: { text?: string }) => part.text || '')
+              .join('\n');
+            return textParts || message.content;
+          }
+        }
+      } catch {
+        // If JSON parsing fails, try to extract content between quotes
+        const match = message.content.match(/"content"\s*:\s*"([^"]+)"/);
+        if (match && match[1]) {
+          return match[1];
+        }
+
+        // Look for actual message text patterns
+        const textMatch = message.content.match(/"text"\s*:\s*"([^"]+)"/);
+        if (textMatch && textMatch[1]) {
+          return textMatch[1];
+        }
+      }
+    }
+
     return message.content;
   };
   // Group consecutive tool_use and tool_result messages into pairs

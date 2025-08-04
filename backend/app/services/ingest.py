@@ -656,8 +656,22 @@ class IngestService:
                     # Summary messages don't have standard message format
                     content = message.message.get("summary", "")
                 else:
-                    # For other types, convert to string
-                    content = str(message.message)
+                    # For other types, try to extract content field
+                    if "content" in message.message:
+                        content = message.message.get("content", "")
+                        if isinstance(content, list):
+                            # Extract text from content array
+                            text_parts = []
+                            for part in content:
+                                if (
+                                    isinstance(part, dict)
+                                    and part.get("type") == "text"
+                                ):
+                                    text_parts.append(part.get("text", ""))
+                            content = "\n".join(text_parts)
+                    else:
+                        # Last resort - convert to string
+                        content = str(message.message)
 
                 # Store the content as a simple string
                 doc["content"] = content or ""
