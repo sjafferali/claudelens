@@ -34,6 +34,10 @@ class SyncStats:
         self.messages_skipped = 0
         self.errors = 0
         self.start_time = datetime.utcnow()
+        # Additional stats that may be set during sync
+        self.sessions_processed = 0
+        self.unique_messages_found = 0
+        self.duplicate_messages = 0
 
     @property
     def duration(self) -> float:
@@ -42,7 +46,8 @@ class SyncStats:
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
-        return {
+        # Include all attributes, not just the predefined ones
+        result = {
             "projects_scanned": self.projects_scanned,
             "files_processed": self.files_processed,
             "messages_synced": self.messages_synced,
@@ -51,6 +56,17 @@ class SyncStats:
             "errors": self.errors,
             "duration": f"{self.duration:.2f}",
         }
+
+        # Add any dynamically added attributes
+        for attr in [
+            "sessions_processed",
+            "unique_messages_found",
+            "duplicate_messages",
+        ]:
+            if hasattr(self, attr):
+                result[attr] = getattr(self, attr)
+
+        return result
 
 
 class SyncEngine:
@@ -178,7 +194,8 @@ class SyncEngine:
         progress_callback: Callable[[str], None] | None = None,
     ):
         """Sync a single project."""
-        project_key = str(project_path)
+        # Normalize project path by removing trailing slash for consistent state management
+        project_key = str(project_path).rstrip("/")
         project_state = self.state.get_project_state(project_key)
 
         # Find JSONL files
@@ -197,8 +214,12 @@ class SyncEngine:
             )
 
         # Phase 1: Collect all messages from all files
+        if progress_callback:
+            progress_callback(f"Reading {len(jsonl_files)} conversation files...")
+
         all_messages = {}  # uuid -> (message, file_path, line_number)
         session_messages = defaultdict(list)  # session_id -> list of messages
+        duplicate_count = 0
 
         for jsonl_file in jsonl_files:
             # Skip file modification check for now - we need to read all files
@@ -247,6 +268,7 @@ class SyncEngine:
                         # Still add it to the session's message list
                         existing_msg, _, _ = all_messages[uuid]
                         session_messages[session_id].append(existing_msg)
+                        duplicate_count += 1
 
                         if self.debug:
                             console.print(
@@ -256,18 +278,45 @@ class SyncEngine:
 
             stats.files_processed += 1
 
+        # Report Phase 1 results
+        total_message_refs = sum(len(msgs) for msgs in session_messages.values())
+        if progress_callback:
+            progress_callback(
+                f"Found {len(all_messages)} unique messages across {len(session_messages)} sessions"
+            )
+            if duplicate_count > 0:
+                progress_callback(
+                    f"  ({duplicate_count} shared messages from forked conversations)"
+                )
+
         if self.debug:
             console.print(
                 f"[cyan]DEBUG: Collected {len(all_messages)} unique messages[/cyan]"
+            )
+            console.print(
+                f"[cyan]DEBUG: Total message references: {total_message_refs}[/cyan]"
+            )
+            console.print(
+                f"[cyan]DEBUG: Shared messages (forks): {duplicate_count}[/cyan]"
             )
             for session_id, messages in session_messages.items():
                 console.print(
                     f"[cyan]DEBUG: Session {session_id}: {len(messages)} messages[/cyan]"
                 )
 
+        if self.debug:
+            console.print(
+                "[cyan]DEBUG: Phase 2 - Processing messages by session[/cyan]"
+            )
+
+        # Phase 2 progress
+        if progress_callback:
+            progress_callback(f"Processing {len(session_messages)} sessions...")
+
         # Phase 2: Process messages by session
+        sessions_processed = 0
         for session_id, messages in session_messages.items():
-            await self._sync_session_messages(
+            session_stats = await self._sync_session_messages(
                 session_id,
                 messages,
                 project_key,
@@ -276,6 +325,21 @@ class SyncEngine:
                 dry_run,
                 progress_callback,
             )
+            sessions_processed += 1
+
+            if self.debug and session_stats["new_messages"] > 0:
+                console.print(
+                    f"[green]  Session {session_id}: {session_stats['new_messages']} new messages[/green]"
+                )
+
+        # Update session count
+        stats.sessions_processed += sessions_processed
+
+        # Store unique message count for reporting
+        stats.unique_messages_found += len(all_messages)
+
+        # Store duplicate count for reporting
+        stats.duplicate_messages += duplicate_count
 
     async def _sync_session_messages(
         self,
@@ -286,10 +350,16 @@ class SyncEngine:
         stats: SyncStats,
         dry_run: bool,
         progress_callback: Callable[[str], None] | None = None,
-    ):
-        """Sync messages for a specific session."""
+    ) -> dict:
+        """Sync messages for a specific session. Returns session-level statistics."""
         batch = []
         batch_hashes = set()
+        session_stats = {
+            "total_messages": len(messages),
+            "new_messages": 0,
+            "skipped_messages": 0,
+            "failed_messages": 0,
+        }
 
         for message in messages:
             # Generate hash
@@ -298,11 +368,17 @@ class SyncEngine:
             # Skip if already synced (only in non-dry-run mode)
             if not dry_run and self.state.is_message_synced(project_key, message_hash):
                 stats.messages_skipped += 1
+                session_stats["skipped_messages"] += 1
+                if self.debug and stats.messages_skipped <= 5:  # Show first few skips
+                    console.print(
+                        f"[yellow]DEBUG: Skipping already synced message: {message_hash[:8]}...[/yellow]"
+                    )
                 continue
 
             # Add to batch
             batch.append(message)
             batch_hashes.add(message_hash)
+            session_stats["new_messages"] += 1
 
             # Upload batch when it reaches configured size
             if len(batch) >= self.config.config.batch_size:
@@ -364,6 +440,8 @@ class SyncEngine:
                 )
             else:
                 stats.messages_synced += len(batch)
+
+        return session_stats
 
     async def _sync_file(
         self,
@@ -667,7 +745,13 @@ class SyncEngine:
 
                             if self.debug:
                                 console.print(
-                                    f"[dim]Server response: {messages_processed} processed, {messages_failed} failed[/dim]"
+                                    f"[dim]Server response: {messages_processed} processed, "
+                                    f"{response_stats.get('messages_updated', 0)} updated, "
+                                    f"{response_stats.get('messages_skipped', 0)} skipped, "
+                                    f"{messages_failed} failed[/dim]"
+                                )
+                                console.print(
+                                    f"[dim]Full response stats: {json.dumps(response_stats, indent=2)}[/dim]"
                                 )
 
                             if messages_failed > 0:

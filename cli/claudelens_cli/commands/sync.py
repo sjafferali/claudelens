@@ -88,8 +88,16 @@ def sync(
             "[yellow]Force sync enabled - all data will be re-synced[/yellow]"
         )
         if project:
-            state_manager.clear_project(str(project))
+            # Normalize project path by removing trailing slash
+            project_str = str(project).rstrip("/")
+            if debug:
+                console.print(
+                    f"[dim]DEBUG: Clearing state for project: {project_str}[/dim]"
+                )
+            state_manager.clear_project(project_str)
         else:
+            if debug:
+                console.print("[dim]DEBUG: Clearing all project states[/dim]")
             state_manager.state.projects.clear()
             state_manager.save()
 
@@ -142,10 +150,55 @@ def _show_sync_stats(stats: dict):
     console.print("\n[bold]Sync Statistics:[/bold]")
     console.print(f"  Projects scanned: {stats.get('projects_scanned', 0)}")
     console.print(f"  Files processed: {stats.get('files_processed', 0)}")
-    console.print(f"  Messages synced: {stats.get('messages_synced', 0)}")
-    messages_updated = stats.get("messages_updated", 0)
-    if messages_updated > 0:
-        console.print(f"  Messages updated: {messages_updated}")
-    console.print(f"  Messages skipped: {stats.get('messages_skipped', 0)}")
-    console.print(f"  Errors: {stats.get('errors', 0)}")
-    console.print(f"  Duration: {stats.get('duration', '0')}s")
+
+    # Session statistics
+    sessions_processed = stats.get("sessions_processed", 0)
+    if sessions_processed > 0:
+        console.print(f"  Sessions processed: {sessions_processed}")
+
+    # Message statistics
+    unique_messages = stats.get("unique_messages_found", 0)
+    duplicate_messages = stats.get("duplicate_messages", 0)
+
+    if (
+        unique_messages > 0
+        or stats.get("messages_synced", 0) > 0
+        or stats.get("messages_skipped", 0) > 0
+    ):
+        console.print("\n[bold]Message Statistics:[/bold]")
+
+        # Show discovery stats if available
+        if unique_messages > 0:
+            console.print(f"  Unique messages found: {unique_messages}")
+            if duplicate_messages > 0:
+                console.print(
+                    f"  Forked messages: {duplicate_messages} [dim](shared across sessions)[/dim]"
+                )
+
+        # Show sync results
+        messages_synced = stats.get("messages_synced", 0)
+        messages_updated = stats.get("messages_updated", 0)
+        messages_skipped = stats.get("messages_skipped", 0)
+
+        if messages_synced > 0:
+            console.print(f"  New messages synced: [green]{messages_synced}[/green]")
+
+        if messages_updated > 0:
+            console.print(f"  Messages updated: [yellow]{messages_updated}[/yellow]")
+
+        if messages_skipped > 0:
+            console.print(f"  Already synced: [dim]{messages_skipped}[/dim]")
+
+        if messages_synced == 0 and messages_updated == 0:
+            console.print(
+                f"  [dim]No new messages to sync - all {messages_skipped} messages already up to date[/dim]"
+            )
+
+        errors = stats.get("errors", 0)
+        if errors > 0:
+            console.print(f"  [red]Errors: {errors}[/red]")
+    else:
+        console.print("\n[bold]Message Statistics:[/bold]")
+        console.print("  [dim]No messages found[/dim]")
+
+    console.print(f"\n  Duration: {stats.get('duration', '0')}s")
