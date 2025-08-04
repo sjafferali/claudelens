@@ -146,11 +146,13 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
     if (active && payload && payload.length && payload[0]?.payload) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">
+        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-900 dark:text-gray-100">
             {data.name || 'Unknown'}
           </p>
-          <p className="text-sm text-gray-600 mb-2">{data.path || ''}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+            {data.path || ''}
+          </p>
           <div className="space-y-1 text-sm">
             <p>
               Cost:{' '}
@@ -254,19 +256,19 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
         <nav className="flex items-center space-x-2 text-sm">
           <button
             onClick={() => navigateToBreadcrumb(-1)}
-            className="text-blue-600 hover:text-blue-800 hover:underline"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
           >
             Root
           </button>
           {breadcrumbs.map((crumb, index) => (
             <React.Fragment key={index}>
-              <span className="text-gray-400">/</span>
+              <span className="text-gray-400 dark:text-gray-600">/</span>
               <button
                 onClick={() => navigateToBreadcrumb(index)}
                 className={`hover:underline ${
                   index === breadcrumbs.length - 1
-                    ? 'text-gray-900 font-medium'
-                    : 'text-blue-600 hover:text-blue-800'
+                    ? 'text-gray-900 dark:text-gray-100 font-medium'
+                    : 'text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300'
                 }`}
               >
                 {crumb}
@@ -279,12 +281,14 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
       {/* Current Directory Info */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {currentNode?.name === 'root'
               ? 'All Directories'
               : currentNode?.name || 'Unknown'}
           </h3>
-          <p className="text-sm text-gray-600">{currentNode?.path || ''}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {currentNode?.path || ''}
+          </p>
         </div>
         <div className="text-right text-sm">
           <div className="font-medium">
@@ -295,14 +299,14 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
             {metric === 'sessions' &&
               `${(currentNode?.metrics?.sessions || 0).toLocaleString()} sessions`}
           </div>
-          <div className="text-gray-600">
+          <div className="text-gray-600 dark:text-gray-400">
             {(currentNode?.percentage_of_total || 0).toFixed(1)}% of total
           </div>
         </div>
       </div>
 
       {/* Treemap Visualization */}
-      <div className="h-96 border border-gray-200 rounded-lg overflow-hidden">
+      <div className="h-96 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <ResponsiveContainer width="100%" height="100%">
           <Treemap
             data={treemapData}
@@ -319,7 +323,7 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
       </div>
 
       {/* Instructions */}
-      <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+      <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
         <p>
           💡 <strong>How to use:</strong> Click on any directory to drill down
           and explore subdirectories. Use the breadcrumb navigation above to go

@@ -117,6 +117,32 @@ class AnalyticsService:
 
         return {"timestamp": {"$gte": start}}
 
+    async def _resolve_session_id(self, session_id: str) -> str | None:
+        """Resolve session ID from either MongoDB _id or sessionId UUID format."""
+        if not session_id:
+            return None
+
+        # First try as MongoDB ObjectId
+        try:
+            if ObjectId.is_valid(session_id):
+                doc = await self.db.sessions.find_one(
+                    {"_id": ObjectId(session_id)}, {"sessionId": 1}
+                )
+                if doc:
+                    return str(doc.get("sessionId"))
+        except Exception:
+            pass
+
+        # If not found or not valid ObjectId, assume it's already a sessionId UUID
+        # Verify it exists
+        doc = await self.db.sessions.find_one(
+            {"sessionId": session_id}, {"sessionId": 1}
+        )
+        if doc:
+            return session_id
+
+        return None
+
     async def get_summary(self, time_range: TimeRange) -> AnalyticsSummary:
         """Get analytics summary."""
         time_filter = self._get_time_filter(time_range)
@@ -813,7 +839,16 @@ class AnalyticsService:
         match_filter = self._get_time_filter(time_range)
 
         if session_id:
-            match_filter["sessionId"] = session_id
+            resolved_id = await self._resolve_session_id(session_id)
+            if resolved_id:
+                match_filter["sessionId"] = resolved_id
+            else:
+                # Session not found, return empty result
+                return ToolUsageSummary(
+                    total_tool_calls=0,
+                    unique_tools=0,
+                    most_used_tool=None,
+                )
         elif project_id:
             # Get session IDs for the project
             session_ids = await self.db.sessions.distinct(
@@ -909,7 +944,17 @@ class AnalyticsService:
         match_filter = self._get_time_filter(time_range)
 
         if session_id:
-            match_filter["sessionId"] = session_id
+            resolved_id = await self._resolve_session_id(session_id)
+            if resolved_id:
+                match_filter["sessionId"] = resolved_id
+            else:
+                # Session not found, return empty result
+                return ToolUsageDetailed(
+                    tools=[],
+                    total_calls=0,
+                    session_id=session_id,
+                    time_range=time_range,
+                )
         elif project_id:
             # Get session IDs for the project
             session_ids = await self.db.sessions.distinct(
@@ -1050,8 +1095,26 @@ class AnalyticsService:
         self, session_id: str, include_sidechains: bool = True
     ) -> ConversationFlowAnalytics:
         """Get conversation flow analytics for visualization."""
+        # Resolve session ID
+        resolved_id = await self._resolve_session_id(session_id)
+        if not resolved_id:
+            return ConversationFlowAnalytics(
+                nodes=[],
+                edges=[],
+                metrics=ConversationFlowMetrics(
+                    max_depth=0,
+                    branch_count=0,
+                    sidechain_percentage=0.0,
+                    avg_branch_length=0.0,
+                    total_nodes=0,
+                    total_cost=0.0,
+                    avg_response_time_ms=None,
+                ),
+                session_id=session_id,
+            )
+
         # Build match filter
-        match_filter: dict[str, Any] = {"sessionId": session_id}
+        match_filter: dict[str, Any] = {"sessionId": resolved_id}
         if not include_sidechains:
             match_filter["isSidechain"] = {"$ne": True}
 
@@ -1288,7 +1351,15 @@ class AnalyticsService:
         match_filter = self._get_time_filter(time_range)
 
         if session_id:
-            match_filter["sessionId"] = session_id
+            resolved_id = await self._resolve_session_id(session_id)
+            if resolved_id:
+                match_filter["sessionId"] = resolved_id
+            else:
+                # Session not found, return empty result
+                return ErrorDetailsResponse(
+                    errors=[],
+                    error_summary=ErrorSummary(by_type={}, by_tool={}),
+                )
 
         # Pipeline to extract errors from toolUseResult fields
         pipeline: list[dict[str, Any]] = [
@@ -2724,7 +2795,35 @@ class AnalyticsService:
         match_filter = self._get_time_filter(time_range)
 
         if session_id:
-            match_filter["sessionId"] = session_id
+            resolved_id = await self._resolve_session_id(session_id)
+            if resolved_id:
+                match_filter["sessionId"] = resolved_id
+            else:
+                # Session not found, return empty result
+                empty_breakdown = TokenBreakdown(
+                    input_tokens=0,
+                    output_tokens=0,
+                    cache_creation=0,
+                    cache_read=0,
+                    total=0,
+                )
+                empty_metrics = TokenEfficiencyMetrics(
+                    cache_hit_rate=0.0,
+                    input_output_ratio=0.0,
+                    avg_tokens_per_message=0.0,
+                    cost_per_token=0.0,
+                )
+                empty_formatted = TokenFormattedValues(
+                    total="0", input="0", output="0", cache_creation="0", cache_read="0"
+                )
+                return TokenEfficiencyDetailed(
+                    token_breakdown=empty_breakdown,
+                    efficiency_metrics=empty_metrics,
+                    formatted_values=empty_formatted,
+                    session_id=session_id,
+                    time_range=time_range,
+                    generated_at=datetime.utcnow(),
+                )
 
         # Aggregation pipeline for detailed token analysis
         pipeline: list[dict[str, Any]] = [
@@ -3402,7 +3501,23 @@ class AnalyticsService:
 
         # Add session filter if specified
         if session_id:
-            base_filter["sessionId"] = session_id
+            resolved_id = await self._resolve_session_id(session_id)
+            if resolved_id:
+                base_filter["sessionId"] = resolved_id
+            else:
+                # Session not found, return empty result
+                return CostBreakdownResponse(
+                    cost_breakdown=CostBreakdown(by_model=[], by_time=[]),
+                    cost_metrics=CostMetrics(
+                        avg_cost_per_message=0.0,
+                        avg_cost_per_hour=0.0,
+                        most_expensive_model=None,
+                        cost_efficiency_score=0.0,
+                    ),
+                    time_range=time_range,
+                    session_id=session_id,
+                    project_id=project_id,
+                )
 
         # Add project filter if specified
         if project_id:
@@ -3916,12 +4031,23 @@ class AnalyticsService:
         self, session_id: str, confidence_threshold: float = 0.3
     ) -> TopicExtractionResponse:
         """Extract topics from a session's messages and tool usage."""
+        # Resolve session ID
+        resolved_id = await self._resolve_session_id(session_id)
+        if not resolved_id:
+            return TopicExtractionResponse(
+                session_id=session_id,
+                topics=[],
+                suggested_topics=[],
+                extraction_method="keyword",
+                confidence_threshold=confidence_threshold,
+            )
+
         # Get session messages
-        messages = await self.db.messages.find({"sessionId": session_id}).to_list(None)
+        messages = await self.db.messages.find({"sessionId": resolved_id}).to_list(None)
 
         if not messages:
             return TopicExtractionResponse(
-                session_id=session_id,
+                session_id=resolved_id,
                 topics=[],
                 suggested_topics=[],
                 extraction_method="keyword",

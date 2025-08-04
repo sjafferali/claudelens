@@ -125,7 +125,7 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
   if (!data || data.branches.length === 0) {
     return (
       <Card className="p-6">
-        <div className="text-center text-gray-500">
+        <div className="text-center text-gray-500 dark:text-gray-400">
           <p>No git branch data available for the selected time range.</p>
           <p className="text-sm mt-1">
             Make sure your Claude sessions include git branch information.
@@ -182,10 +182,10 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Branch Comparison Matrix
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Compare metrics across selected branches (
               {selectedBranches.length} selected)
             </p>
@@ -204,7 +204,7 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
                     | 'active_days'
                 )
               }
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
               <option value="cost">Sort by Cost</option>
               <option value="messages">Sort by Messages</option>
@@ -215,7 +215,7 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
               <option value="desc">Descending</option>
               <option value="asc">Ascending</option>
@@ -225,7 +225,7 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
               <select
                 value={timeRange}
                 onChange={(e) => onTimeRangeChange(e.target.value as TimeRange)}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 <option value={TimeRange.LAST_24_HOURS}>Last 24 Hours</option>
                 <option value={TimeRange.LAST_7_DAYS}>Last 7 Days</option>
@@ -239,7 +239,10 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
         {/* Branch Type Overview */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           {Object.entries(branchTypeStats).map(([type, stats]) => (
-            <div key={type} className="p-3 bg-gray-50 rounded-lg">
+            <div
+              key={type}
+              className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+            >
               <div className="flex items-center space-x-2 mb-2">
                 <div
                   className="w-3 h-3 rounded"
@@ -249,7 +252,7 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
                 ></div>
                 <span className="text-sm font-medium capitalize">{type}</span>
               </div>
-              <div className="space-y-1 text-xs text-gray-600">
+              <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
                 <div>Count: {stats.count}</div>
                 <div>Cost: {formatCurrency(stats.totalCost)}</div>
                 <div>Messages: {stats.totalMessages}</div>
@@ -260,10 +263,10 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
 
         {/* Branch Selection */}
         <div>
-          <h4 className="text-sm font-medium text-gray-900 mb-2">
+          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
             Select branches to compare:
           </h4>
-          <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2">
+          <div className="max-h-32 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md p-2 bg-white dark:bg-gray-900">
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
               {sortedBranches.slice(0, 20).map((branch) => (
                 <label
@@ -274,7 +277,7 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
                     type="checkbox"
                     checked={selectedBranches.includes(branch.name)}
                     onChange={() => toggleBranchSelection(branch.name)}
-                    className="rounded border-gray-300"
+                    className="rounded border-gray-300 dark:border-gray-600"
                   />
                   <div className="flex items-center space-x-1 flex-1 min-w-0">
                     <div
@@ -294,7 +297,7 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
             </div>
           </div>
           {data.branches.length > 20 && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Showing top 20 branches. Total: {data.branches.length}
             </p>
           )}
@@ -303,31 +306,31 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
         {/* Comparison Table */}
         {comparisonBranches.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-200">
+            <table className="w-full border-collapse border border-gray-200 dark:border-gray-700">
               <thead>
-                <tr className="bg-gray-50">
-                  <th className="border border-gray-200 px-3 py-2 text-left text-sm font-medium text-gray-900">
+                <tr className="bg-gray-50 dark:bg-gray-800">
+                  <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-sm font-medium text-gray-900 dark:text-gray-100">
                     Branch
                   </th>
-                  <th className="border border-gray-200 px-3 py-2 text-left text-sm font-medium text-gray-900">
+                  <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-sm font-medium text-gray-900 dark:text-gray-100">
                     Type
                   </th>
-                  <th className="border border-gray-200 px-3 py-2 text-right text-sm font-medium text-gray-900">
+                  <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-right text-sm font-medium text-gray-900 dark:text-gray-100">
                     Cost
                   </th>
-                  <th className="border border-gray-200 px-3 py-2 text-right text-sm font-medium text-gray-900">
+                  <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-right text-sm font-medium text-gray-900 dark:text-gray-100">
                     Messages
                   </th>
-                  <th className="border border-gray-200 px-3 py-2 text-right text-sm font-medium text-gray-900">
+                  <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-right text-sm font-medium text-gray-900 dark:text-gray-100">
                     Sessions
                   </th>
-                  <th className="border border-gray-200 px-3 py-2 text-right text-sm font-medium text-gray-900">
+                  <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-right text-sm font-medium text-gray-900 dark:text-gray-100">
                     Active Days
                   </th>
-                  <th className="border border-gray-200 px-3 py-2 text-right text-sm font-medium text-gray-900">
+                  <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-right text-sm font-medium text-gray-900 dark:text-gray-100">
                     Avg Cost/Session
                   </th>
-                  <th className="border border-gray-200 px-3 py-2 text-left text-sm font-medium text-gray-900">
+                  <th className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-left text-sm font-medium text-gray-900 dark:text-gray-100">
                     Top Operations
                   </th>
                 </tr>
@@ -336,9 +339,13 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
                 {comparisonBranches.map((branch, index) => (
                   <tr
                     key={branch.name}
-                    className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                    className={
+                      index % 2 === 0
+                        ? 'bg-white dark:bg-gray-900'
+                        : 'bg-gray-50 dark:bg-gray-800'
+                    }
                   >
-                    <td className="border border-gray-200 px-3 py-2 text-sm">
+                    <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-gray-100">
                       <div className="flex items-center space-x-2">
                         <div
                           className="w-3 h-3 rounded"
@@ -371,12 +378,12 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
                     <td className="border border-gray-200 px-3 py-2 text-sm text-right font-mono">
                       {formatCurrency(branch.metrics.avg_session_cost)}
                     </td>
-                    <td className="border border-gray-200 px-3 py-2 text-sm">
+                    <td className="border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm dark:text-gray-100">
                       <div className="flex flex-wrap gap-1">
                         {branch.top_operations.slice(0, 3).map((op, idx) => (
                           <span
                             key={idx}
-                            className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
+                            className="inline-block px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded"
                             title={`${op.operation}: ${op.count} uses`}
                           >
                             {op.operation}
@@ -392,34 +399,44 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
         )}
 
         {/* Summary Statistics */}
-        <div className="grid grid-cols-3 gap-4 p-4 bg-blue-50 rounded-lg">
+        <div className="grid grid-cols-3 gap-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
           <div className="text-center">
-            <p className="text-sm text-blue-600">Main vs Feature Ratio</p>
-            <p className="text-lg font-semibold text-blue-900">
+            <p className="text-sm text-blue-600 dark:text-blue-400">
+              Main vs Feature Ratio
+            </p>
+            <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
               {data.branch_comparisons.main_vs_feature_cost_ratio.toFixed(1)}:1
             </p>
-            <p className="text-xs text-blue-600">cost ratio</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              cost ratio
+            </p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-blue-600">Avg Feature Lifetime</p>
-            <p className="text-lg font-semibold text-blue-900">
+            <p className="text-sm text-blue-600 dark:text-blue-400">
+              Avg Feature Lifetime
+            </p>
+            <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
               {data.branch_comparisons.avg_feature_branch_lifetime_days.toFixed(
                 0
               )}
             </p>
-            <p className="text-xs text-blue-600">days</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400">days</p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-blue-600">Most Expensive Type</p>
-            <p className="text-lg font-semibold text-blue-900 capitalize">
+            <p className="text-sm text-blue-600 dark:text-blue-400">
+              Most Expensive Type
+            </p>
+            <p className="text-lg font-semibold text-blue-900 dark:text-blue-100 capitalize">
               {data.branch_comparisons.most_expensive_branch_type}
             </p>
-            <p className="text-xs text-blue-600">branch type</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              branch type
+            </p>
           </div>
         </div>
 
         {selectedBranches.length === 0 && (
-          <div className="text-center text-gray-500 py-8">
+          <div className="text-center text-gray-500 dark:text-gray-400 py-8">
             <p>Select branches above to see detailed comparison.</p>
           </div>
         )}

@@ -536,20 +536,18 @@ export default function SessionDetail() {
 
         {/* Details Panel */}
         <div className="w-80 bg-layer-secondary border-l border-primary-c flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto scrollbar-thin p-6 min-h-0">
-            <div className="space-y-8">
+          <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0">
+            <div className="space-y-6">
               {/* Session Details */}
-              <div>
-                <h3 className="text-base font-medium text-primary-c mb-4">
+              <div className="px-6 pt-6">
+                <h3 className="text-lg font-semibold text-primary-c mb-4 flex items-center gap-2">
+                  <div className="w-1 h-5 bg-blue-500 rounded-full"></div>
                   Session Details
                 </h3>
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-secondary-c">
-                    <span className="text-sm text-muted-c">Session ID</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-secondary-c font-mono text-xs">
-                        {session.sessionId}
-                      </span>
+                  <div className="py-2 border-b border-secondary-c">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-muted-c">Session ID</span>
                       <button
                         onClick={() =>
                           copyToClipboard(session.sessionId, 'session-id')
@@ -564,65 +562,94 @@ export default function SessionDetail() {
                         )}
                       </button>
                     </div>
-                  </div>
-                  <div className="flex justify-between py-2 border-b border-secondary-c">
-                    <span className="text-sm text-muted-c">Started</span>
-                    <span className="text-sm text-secondary-c font-mono">
-                      {format(
-                        new Date(session.startedAt),
-                        'M/d/yyyy, h:mm:ss a'
-                      )}
-                    </span>
-                  </div>
-                  {session.endedAt && (
-                    <div className="flex justify-between py-2 border-b border-secondary-c">
-                      <span className="text-sm text-muted-c">Ended</span>
-                      <span className="text-sm text-secondary-c font-mono">
-                        {format(
-                          new Date(session.endedAt),
-                          'M/d/yyyy, h:mm:ss a'
-                        )}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="text-xs text-secondary-c font-mono truncate block w-full"
+                        title={session.sessionId}
+                      >
+                        {session.sessionId}
                       </span>
                     </div>
+                  </div>
+                  <div className="py-2 border-b border-secondary-c">
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm text-muted-c">Started</span>
+                      <span className="text-sm text-secondary-c text-right">
+                        {format(new Date(session.startedAt), 'M/d/yyyy')}
+                        <br />
+                        <span className="text-xs">
+                          {format(new Date(session.startedAt), 'h:mm:ss a')}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  {session.endedAt && (
+                    <div className="py-2 border-b border-secondary-c">
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm text-muted-c">Ended</span>
+                        <span className="text-sm text-secondary-c text-right">
+                          {format(new Date(session.endedAt), 'M/d/yyyy')}
+                          <br />
+                          <span className="text-xs">
+                            {format(new Date(session.endedAt), 'h:mm:ss a')}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
                   )}
-                  <div className="flex justify-between py-2 border-b border-secondary-c">
-                    <span className="text-sm text-muted-c">Duration</span>
-                    <span className="text-sm text-secondary-c font-mono">
-                      {hours}h {minutes}m {seconds}s
-                    </span>
+                  <div className="py-2 border-b border-secondary-c">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-c">Duration</span>
+                      <span className="text-sm text-secondary-c font-medium">
+                        {hours}h {minutes}m {seconds}s
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Statistics */}
-              <div>
-                <h3 className="text-base font-medium text-primary-c mb-4">
+              <div className="px-6">
+                <h3 className="text-lg font-semibold text-primary-c mb-4 flex items-center gap-2">
+                  <div className="w-1 h-5 bg-green-500 rounded-full"></div>
                   Statistics
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <SessionStatCards session={session} />
-                </div>
+                <div className="bg-layer-tertiary rounded-lg p-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <SessionStatCards session={session} />
+                  </div>
 
-                {/* Additional Stats */}
-                <div className="mt-4 grid grid-cols-1 gap-4">
-                  <SessionCostCard session={session} />
+                  {/* Additional Stats */}
+                  <div className="pt-3 border-t border-secondary-c">
+                    <SessionCostCard session={session} />
+                  </div>
                 </div>
               </div>
 
               {/* Tools Used */}
-              <ToolUsageDetails sessionId={sessionId || undefined} />
+              <div className="px-6">
+                <ToolUsageDetails sessionId={sessionId || undefined} />
+              </div>
 
               {/* Token Usage Details */}
-              <TokenDetailsPanel sessionId={sessionId || undefined} />
+              <div className="px-6">
+                <TokenDetailsPanel sessionId={sessionId || undefined} />
+              </div>
 
               {/* Cost Details */}
-              <CostDetailsPanel sessionId={sessionId || undefined} />
+              <div className="px-6">
+                <CostDetailsPanel sessionId={sessionId || undefined} />
+              </div>
 
               {/* Error Details */}
-              <ErrorDetailsPanel sessionId={sessionId || undefined} />
+              <div className="px-6">
+                <ErrorDetailsPanel sessionId={sessionId || undefined} />
+              </div>
 
               {/* Topics */}
-              <SessionTopics sessionId={sessionId || ''} />
+              <div className="px-6 pb-6">
+                <SessionTopics sessionId={sessionId || ''} />
+              </div>
             </div>
           </div>
         </div>

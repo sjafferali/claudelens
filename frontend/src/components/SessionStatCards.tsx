@@ -8,40 +8,33 @@ export function SessionStatCards({ session }: SessionStatCardsProps) {
   return (
     <>
       {/* Messages Count */}
-      <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center">
-        <div className="text-2xl font-semibold text-primary">
+      <div className="text-center">
+        <div className="text-2xl font-bold text-blue-500">
           {session.messageCount}
         </div>
-        <div className="text-xs text-muted-c">Messages</div>
+        <div className="text-xs text-muted-c font-medium">Messages</div>
       </div>
 
       {/* Tools Used */}
-      <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center transition-all duration-300 hover:border-primary-c">
-        <div className="text-2xl font-semibold text-primary stat-value">
+      <div className="text-center">
+        <div className="text-2xl font-bold text-purple-500">
           {session.toolsUsed || 0}
         </div>
-        <div className="text-xs text-muted-c stat-label">Tools Used</div>
+        <div className="text-xs text-muted-c font-medium">Tools Used</div>
       </div>
 
       {/* Success Rate - placeholder for now */}
-      <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center transition-all duration-300 hover:border-primary-c">
-        <div className="text-2xl font-semibold text-primary stat-value">
-          100%
-        </div>
-        <div className="text-xs text-muted-c stat-label">Success Rate</div>
+      <div className="text-center">
+        <div className="text-2xl font-bold text-green-500">100%</div>
+        <div className="text-xs text-muted-c font-medium">Success Rate</div>
       </div>
 
       {/* Tokens */}
-      <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center transition-all duration-300 hover:border-primary-c">
-        <div className="text-2xl font-semibold text-primary stat-value">
+      <div className="text-center">
+        <div className="text-2xl font-bold text-orange-500">
           {formatTokenCount(session.totalTokens || 0)}
         </div>
-        <div className="text-xs text-muted-c stat-label">Tokens</div>
-        {session.totalCost && (
-          <div className="mt-1 text-xs text-tertiary-c">
-            ${session.totalCost.toFixed(2)} estimated
-          </div>
-        )}
+        <div className="text-xs text-muted-c font-medium">Tokens</div>
       </div>
     </>
   );
@@ -58,11 +51,11 @@ function formatTokenCount(count: number): string {
 
 export function SessionCostCard({ session }: { session: Session }) {
   return (
-    <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center transition-all duration-300 hover:border-primary-c">
-      <div className="text-2xl font-semibold text-primary stat-value font-mono">
+    <div className="text-center">
+      <div className="text-3xl font-bold text-primary font-mono">
         ${session.totalCost?.toFixed(2) || '0.00'}
       </div>
-      <div className="text-xs text-muted-c stat-label">Cost</div>
+      <div className="text-sm text-muted-c font-medium">Cost</div>
     </div>
   );
 }

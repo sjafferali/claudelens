@@ -253,10 +253,10 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Git Branch Activity
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Resource usage across git branches ({data.branches.length} total
               branches)
             </p>
@@ -272,7 +272,7 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
                     e.target.value as 'cost' | 'messages' | 'sessions'
                   )
                 }
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 <option value="cost">By Cost</option>
                 <option value="messages">By Messages</option>
@@ -285,7 +285,7 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
                   onChange={(e) =>
                     onTimeRangeChange(e.target.value as TimeRange)
                   }
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value={TimeRange.LAST_24_HOURS}>Last 24 Hours</option>
                   <option value={TimeRange.LAST_7_DAYS}>Last 7 Days</option>
@@ -302,14 +302,14 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
                 placeholder="Include pattern (regex)"
                 value={includePattern}
                 onChange={(e) => setIncludePattern(e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded-md text-sm w-40"
+                className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm w-40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
               />
               <input
                 type="text"
                 placeholder="Exclude pattern (regex)"
                 value={excludePattern}
                 onChange={(e) => setExcludePattern(e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded-md text-sm w-40"
+                className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm w-40 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
               />
             </div>
           </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { ResponseTimePercentiles } from '../api/types';
+import { useStore } from '@/store';
 
 interface PercentileRibbonProps {
   percentiles: ResponseTimePercentiles;
@@ -10,6 +11,8 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
   percentiles,
   className = '',
 }) => {
+  const theme = useStore((state) => state.ui.theme);
+  const isDark = theme === 'dark';
   const formatDuration = (ms: number) => {
     if (ms < 1000) return `${ms.toFixed(0)}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
@@ -24,10 +27,10 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
   };
 
   const getPerformanceTextColor = (duration: number) => {
-    if (duration < 2000) return 'text-green-700';
-    if (duration < 5000) return 'text-yellow-700';
-    if (duration < 10000) return 'text-orange-700';
-    return 'text-red-700';
+    if (duration < 2000) return isDark ? 'text-green-400' : 'text-green-700';
+    if (duration < 5000) return isDark ? 'text-yellow-400' : 'text-yellow-700';
+    if (duration < 10000) return isDark ? 'text-orange-400' : 'text-orange-700';
+    return isDark ? 'text-red-400' : 'text-red-700';
   };
 
   const getPerformanceLabel = (duration: number) => {
@@ -66,10 +69,10 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
 
   return (
     <div
-      className={`bg-white rounded-lg border border-gray-200 p-4 ${className}`}
+      className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 ${className}`}
     >
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold text-gray-900">
+        <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
           Response Time Percentiles
         </h4>
         <span
@@ -82,24 +85,34 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
       {/* Ribbon visualization */}
       <div className="relative mb-4">
         {/* Background scale */}
-        <div className="h-8 bg-gradient-to-r from-green-200 via-yellow-200 via-orange-200 to-red-200 rounded-md relative overflow-hidden">
+        <div
+          className={`h-8 rounded-md relative overflow-hidden ${isDark ? 'bg-gradient-to-r from-green-900/30 via-yellow-900/30 via-orange-900/30 to-red-900/30' : 'bg-gradient-to-r from-green-200 via-yellow-200 via-orange-200 to-red-200'}`}
+        >
           {/* Zone markers */}
-          <div className="absolute left-0 top-0 h-full w-1/5 bg-gradient-to-r from-green-300 to-green-200"></div>
-          <div className="absolute left-1/5 top-0 h-full w-1/5 bg-gradient-to-r from-yellow-300 to-yellow-200"></div>
-          <div className="absolute left-2/5 top-0 h-full w-1/5 bg-gradient-to-r from-orange-300 to-orange-200"></div>
-          <div className="absolute left-3/5 top-0 h-full w-2/5 bg-gradient-to-r from-red-300 to-red-200"></div>
+          <div
+            className={`absolute left-0 top-0 h-full w-1/5 bg-gradient-to-r ${isDark ? 'from-green-800/40 to-green-900/30' : 'from-green-300 to-green-200'}`}
+          ></div>
+          <div
+            className={`absolute left-1/5 top-0 h-full w-1/5 bg-gradient-to-r ${isDark ? 'from-yellow-800/40 to-yellow-900/30' : 'from-yellow-300 to-yellow-200'}`}
+          ></div>
+          <div
+            className={`absolute left-2/5 top-0 h-full w-1/5 bg-gradient-to-r ${isDark ? 'from-orange-800/40 to-orange-900/30' : 'from-orange-300 to-orange-200'}`}
+          ></div>
+          <div
+            className={`absolute left-3/5 top-0 h-full w-2/5 bg-gradient-to-r ${isDark ? 'from-red-800/40 to-red-900/30' : 'from-red-300 to-red-200'}`}
+          ></div>
 
           {/* Percentile markers */}
           {percentileData.map((percentile) => (
             <div
               key={percentile.label}
-              className="absolute top-0 h-full w-0.5 bg-gray-800 flex items-center"
+              className={`absolute top-0 h-full w-0.5 ${isDark ? 'bg-gray-400' : 'bg-gray-800'} flex items-center`}
               style={{ left: `${Math.min(percentile.position, 95)}%` }}
             >
-              <div className="absolute -top-8 -left-6 text-xs font-semibold text-gray-700 bg-white px-1 rounded shadow-sm border">
+              <div className="absolute -top-8 -left-6 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 px-1 rounded shadow-sm border border-gray-200 dark:border-gray-700">
                 {percentile.label}
               </div>
-              <div className="absolute -bottom-8 -left-8 text-xs text-gray-600 bg-white px-1 rounded shadow-sm border">
+              <div className="absolute -bottom-8 -left-8 text-xs text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-1 rounded shadow-sm border border-gray-200 dark:border-gray-700">
                 {formatDuration(percentile.value)}
               </div>
             </div>
@@ -107,7 +120,7 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
         </div>
 
         {/* Scale labels */}
-        <div className="flex justify-between text-xs text-gray-500 mt-2">
+        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
           <span>0ms</span>
           <span>Fast</span>
           <span>Normal</span>
@@ -121,9 +134,9 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
         {percentileData.map((percentile) => (
           <div
             key={percentile.label}
-            className="text-center p-2 bg-gray-50 rounded-lg border"
+            className="text-center p-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700"
           >
-            <div className="text-xs font-semibold text-gray-600 uppercase">
+            <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">
               {percentile.label}
             </div>
             <div
@@ -131,7 +144,7 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
             >
               {formatDuration(percentile.value)}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
               {Math.round(percentile.position)}%
             </div>
           </div>
@@ -139,11 +152,11 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
       </div>
 
       {/* Performance insights */}
-      <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
         <div className="flex items-start space-x-2">
           <div className="w-4 h-4 mt-0.5">
             <svg
-              className="w-4 h-4 text-blue-600"
+              className="w-4 h-4 text-blue-600 dark:text-blue-400"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -155,10 +168,10 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
             </svg>
           </div>
           <div className="flex-1">
-            <div className="text-sm font-medium text-blue-900">
+            <div className="text-sm font-medium text-blue-900 dark:text-blue-100">
               Performance Insight
             </div>
-            <div className="text-xs text-blue-700 mt-1">
+            <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
               {percentiles.p90 < 2000 &&
                 'Excellent performance! 90% of responses are under 2 seconds.'}
               {percentiles.p90 >= 2000 &&

@@ -19,6 +19,7 @@ import {
   PerformanceCorrelation,
 } from '../api/types';
 import Loading from './common/Loading';
+import { useStore } from '@/store';
 
 interface PerformanceFactorsProps {
   timeRange?: TimeRange;
@@ -29,12 +30,21 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
   timeRange = TimeRange.LAST_30_DAYS,
   onTimeRangeChange,
 }) => {
+  const theme = useStore((state) => state.ui.theme);
+  const isDark = theme === 'dark';
   const [data, setData] = useState<PerformanceFactorsAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedView, setSelectedView] = useState<
     'correlations' | 'recommendations'
   >('correlations');
+
+  // Theme-aware colors
+  const chartColors = {
+    grid: isDark ? '#374151' : '#e5e7eb',
+    text: isDark ? '#9ca3af' : '#6b7280',
+    background: isDark ? '#111827' : '#ffffff',
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -116,7 +126,7 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
   if (!data) {
     return (
       <Card className="p-6">
-        <div className="text-center text-gray-500">
+        <div className="text-center text-muted-foreground">
           <p>
             No performance factors data available for the selected time range.
           </p>
@@ -165,10 +175,12 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <p className="font-semibold">{data.factorFormatted || data.factor}</p>
           <p className="text-sm">
-            <span className="text-gray-600">Correlation: </span>
+            <span className="text-gray-600 dark:text-gray-400">
+              Correlation:{' '}
+            </span>
             {(data.correlation_strength || data.correlation)?.toFixed(3)}
             <span className="ml-1 text-xs">
               (
@@ -179,14 +191,16 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
             </span>
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Impact: </span>
+            <span className="text-gray-600 dark:text-gray-400">Impact: </span>
             {formatDuration(data.impact_ms || data.y || 0)}
             <span className="ml-1 text-xs">
               ({getImpactLevel(data.impact_ms || data.y || 0)})
             </span>
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Sample Size: </span>
+            <span className="text-gray-600 dark:text-gray-400">
+              Sample Size:{' '}
+            </span>
             {data.sample_size || data.sampleSize}
           </p>
         </div>
@@ -201,23 +215,23 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Performance Factors Analysis
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Factors affecting response times and optimization recommendations
             </p>
           </div>
 
           <div className="flex space-x-2">
             {/* View Toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-1">
+            <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
               <button
                 onClick={() => setSelectedView('correlations')}
                 className={`px-3 py-1 text-sm rounded-md transition-colors ${
                   selectedView === 'correlations'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
               >
                 Correlations
@@ -226,8 +240,8 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
                 onClick={() => setSelectedView('recommendations')}
                 className={`px-3 py-1 text-sm rounded-md transition-colors ${
                   selectedView === 'recommendations'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
               >
                 Recommendations
@@ -239,7 +253,7 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
               <select
                 value={timeRange}
                 onChange={(e) => onTimeRangeChange(e.target.value as TimeRange)}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 <option value={TimeRange.LAST_24_HOURS}>Last 24 Hours</option>
                 <option value={TimeRange.LAST_7_DAYS}>Last 7 Days</option>
@@ -254,26 +268,39 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
           <div className="space-y-6">
             {/* Correlation Strength Chart */}
             <div>
-              <h4 className="text-md font-medium text-gray-800 mb-3">
+              <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">
                 Correlation Strength by Factor
               </h4>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={correlationData} layout="horizontal">
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={chartColors.grid}
+                      opacity={0.3}
+                    />
                     <XAxis
                       type="number"
                       domain={[0, 1]}
                       tickFormatter={(value) => value.toFixed(1)}
                       tick={{ fontSize: 12 }}
+                      stroke={chartColors.text}
                     />
                     <YAxis
                       type="category"
                       dataKey="factorFormatted"
                       tick={{ fontSize: 12 }}
                       width={120}
+                      stroke={chartColors.text}
                     />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      contentStyle={{
+                        backgroundColor: chartColors.background,
+                        border: `1px solid ${chartColors.grid}`,
+                        borderRadius: '4px',
+                      }}
+                    />
                     <Bar dataKey="absCorrelation" radius={[0, 4, 4, 0]}>
                       {correlationData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
@@ -286,13 +313,17 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
 
             {/* Impact vs Correlation Scatter Plot */}
             <div>
-              <h4 className="text-md font-medium text-gray-800 mb-3">
+              <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">
                 Impact vs Correlation Strength
               </h4>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={chartColors.grid}
+                      opacity={0.3}
+                    />
                     <XAxis
                       type="number"
                       dataKey="x"
@@ -300,6 +331,7 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
                       domain={[0, 1]}
                       tickFormatter={(value) => value.toFixed(1)}
                       tick={{ fontSize: 12 }}
+                      stroke={chartColors.text}
                     />
                     <YAxis
                       type="number"
@@ -307,8 +339,16 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
                       name="Impact (ms)"
                       tickFormatter={formatDuration}
                       tick={{ fontSize: 12 }}
+                      stroke={chartColors.text}
                     />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      contentStyle={{
+                        backgroundColor: chartColors.background,
+                        border: `1px solid ${chartColors.grid}`,
+                        borderRadius: '4px',
+                      }}
+                    />
                     <Scatter data={scatterData} fill="#8884d8">
                       {scatterData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
@@ -321,31 +361,34 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
 
             {/* Correlation Details Table */}
             <div>
-              <h4 className="text-md font-medium text-gray-800 mb-3">
+              <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">
                 Detailed Analysis
               </h4>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 dark:bg-gray-800">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Factor
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Correlation
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Impact
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Samples
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                     {data.correlations.map((corr, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-4 py-4 text-sm font-medium text-gray-900">
+                      <tr
+                        key={index}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        <td className="px-4 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                           {formatFactor(corr.factor)}
                         </td>
                         <td className="px-4 py-4 text-sm">
@@ -359,20 +402,20 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
                               }}
                             ></div>
                             <span>{corr.correlation_strength.toFixed(3)}</span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               ({getCorrelationLabel(corr.correlation_strength)})
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-900">
+                        <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">
                           <div className="flex items-center space-x-2">
                             <span>{formatDuration(corr.impact_ms)}</span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               ({getImpactLevel(corr.impact_ms)})
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-500">
+                        <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
                           {corr.sample_size.toLocaleString()}
                         </td>
                       </tr>
@@ -386,12 +429,12 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
 
         {selectedView === 'recommendations' && (
           <div className="space-y-4">
-            <h4 className="text-md font-medium text-gray-800">
+            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200">
               Optimization Recommendations
             </h4>
 
             {data.recommendations.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                 <p>
                   No specific recommendations available based on current data.
                 </p>
@@ -401,7 +444,7 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
                 {data.recommendations.map((recommendation, index) => (
                   <div
                     key={index}
-                    className="flex items-start p-4 bg-blue-50 border border-blue-200 rounded-lg"
+                    className="flex items-start p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg"
                   >
                     <div className="flex-shrink-0 mr-3">
                       <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
@@ -411,7 +454,9 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
                       </div>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-blue-900">{recommendation}</p>
+                      <p className="text-sm text-blue-900 dark:text-blue-100">
+                        {recommendation}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -419,8 +464,8 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
             )}
 
             {/* Legend */}
-            <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-              <h5 className="text-sm font-medium text-gray-800 mb-2">
+            <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <h5 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
                 Correlation Strength Legend
               </h5>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">

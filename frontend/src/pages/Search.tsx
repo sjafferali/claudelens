@@ -94,8 +94,8 @@ export default function Search() {
   };
 
   const handleResultClick = (result: SearchResult) => {
-    // Navigate to the session detail page using MongoDB _id if available, otherwise sessionId
-    const sessionIdForNav = result.session_mongo_id || result.session_id;
+    // Navigate to the session detail page using sessionId (UUID format)
+    const sessionIdForNav = result.session_id;
     // Include the message ID as a query parameter to scroll to it
     navigate(`/sessions/${sessionIdForNav}?messageId=${result.message_id}`);
   };

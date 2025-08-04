@@ -37,6 +37,12 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
   className = '',
 }) => {
   // Prepare data for charts
+  // Chart colors
+  const chartColors = {
+    grid: '#e5e7eb',
+    text: '#6b7280',
+    background: '#ffffff',
+  };
   const childrenData =
     selectedNode?.children?.slice(0, 10).map((child) => ({
       name:
@@ -78,8 +84,8 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900">
+        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-900 dark:text-gray-100">
             {data.fullName || label}
           </p>
           <div className="space-y-1 text-sm">
@@ -116,8 +122,10 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
 
   if (!selectedNode) {
     return (
-      <div className={`p-8 text-center text-gray-500 ${className}`}>
-        <Folder className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+      <div
+        className={`p-8 text-center text-gray-500 dark:text-gray-400 ${className}`}
+      >
+        <Folder className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
         <p className="text-lg font-medium mb-2">No Directory Selected</p>
         <p>
           Select a directory from the treemap or explorer to view detailed
@@ -132,13 +140,15 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 flex items-center">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
             <Folder className="w-5 h-5 mr-2 text-blue-500" />
             {selectedNode.name === 'root'
               ? 'All Directories'
               : selectedNode.name}
           </h2>
-          <p className="text-sm text-gray-600 mt-1">{selectedNode.path}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            {selectedNode.path}
+          </p>
         </div>
       </div>
 
@@ -147,7 +157,9 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Cost</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Total Cost
+              </p>
               <p className="text-2xl font-bold text-green-600">
                 {formatCurrency(selectedNode.metrics?.cost || 0)}
               </p>
@@ -159,21 +171,25 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
             <span className="text-green-600 font-medium">
               {(selectedNode.percentage_of_total || 0).toFixed(1)}%
             </span>
-            <span className="text-gray-600 ml-1">of total</span>
+            <span className="text-gray-600 dark:text-gray-400 ml-1">
+              of total
+            </span>
           </div>
         </Card>
 
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Messages</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Messages
+              </p>
               <p className="text-2xl font-bold text-blue-600">
                 {(selectedNode.metrics?.messages || 0).toLocaleString()}
               </p>
             </div>
             <MessageSquare className="w-8 h-8 text-blue-500" />
           </div>
-          <div className="mt-2 text-sm text-gray-600">
+          <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Avg cost per message:{' '}
             {formatCurrency(
               selectedNode.metrics?.messages
@@ -187,14 +203,16 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Sessions</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Sessions
+              </p>
               <p className="text-2xl font-bold text-purple-600">
                 {(selectedNode.metrics?.sessions || 0).toLocaleString()}
               </p>
             </div>
             <Users className="w-8 h-8 text-purple-500" />
           </div>
-          <div className="mt-2 text-sm text-gray-600">
+          <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Avg cost per session:{' '}
             {formatCurrency(selectedNode.metrics?.avg_cost_per_session || 0)}
           </div>
@@ -203,8 +221,10 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Last Active</p>
-              <p className="text-lg font-bold text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Last Active
+              </p>
+              <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
                 {formatDate(
                   selectedNode.metrics?.last_active || new Date().toISOString()
                 )}
@@ -212,7 +232,7 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
             </div>
             <Clock className="w-8 h-8 text-gray-500" />
           </div>
-          <div className="mt-2 text-sm text-gray-600">
+          <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             {selectedNode.children?.length || 0} subdirectories
           </div>
         </Card>
@@ -223,7 +243,7 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Bar Chart */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Subdirectory Cost Distribution
             </h3>
             <div className="h-64">
@@ -232,19 +252,31 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
                   data={childrenData}
                   margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={chartColors.grid}
+                  />
                   <XAxis
                     dataKey="name"
                     angle={-45}
                     textAnchor="end"
                     height={80}
                     fontSize={12}
+                    stroke={chartColors.text}
                   />
                   <YAxis
                     tickFormatter={(value) => `$${value.toFixed(2)}`}
                     fontSize={12}
+                    stroke={chartColors.text}
                   />
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip
+                    content={<CustomTooltip />}
+                    contentStyle={{
+                      backgroundColor: chartColors.background,
+                      border: `1px solid ${chartColors.grid}`,
+                      borderRadius: '4px',
+                    }}
+                  />
                   <Bar dataKey="cost" fill="#8884d8" />
                 </BarChart>
               </ResponsiveContainer>
@@ -253,7 +285,7 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
 
           {/* Pie Chart */}
           <Card className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Top 5 Directories by Cost
             </h3>
             <div className="h-64">
@@ -288,26 +320,26 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
       {/* Detailed Table */}
       {childrenData.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Subdirectory Details
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-2 font-medium text-gray-700">
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-3 px-2 font-medium text-gray-700 dark:text-gray-300">
                     Directory
                   </th>
-                  <th className="text-right py-3 px-2 font-medium text-gray-700">
+                  <th className="text-right py-3 px-2 font-medium text-gray-700 dark:text-gray-300">
                     Cost
                   </th>
-                  <th className="text-right py-3 px-2 font-medium text-gray-700">
+                  <th className="text-right py-3 px-2 font-medium text-gray-700 dark:text-gray-300">
                     Messages
                   </th>
-                  <th className="text-right py-3 px-2 font-medium text-gray-700">
+                  <th className="text-right py-3 px-2 font-medium text-gray-700 dark:text-gray-300">
                     Sessions
                   </th>
-                  <th className="text-right py-3 px-2 font-medium text-gray-700">
+                  <th className="text-right py-3 px-2 font-medium text-gray-700 dark:text-gray-300">
                     Share
                   </th>
                 </tr>
@@ -316,9 +348,9 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
                 {childrenData.map((item, index) => (
                   <tr
                     key={index}
-                    className="border-b border-gray-100 hover:bg-gray-50"
+                    className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
-                    <td className="py-3 px-2 font-medium text-gray-900">
+                    <td className="py-3 px-2 font-medium text-gray-900 dark:text-gray-100">
                       {item.fullName}
                     </td>
                     <td className="py-3 px-2 text-right text-green-600">
@@ -342,12 +374,16 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
       )}
 
       {/* Summary */}
-      <Card className="p-6 bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Summary</h3>
+      <Card className="p-6 bg-gray-50 dark:bg-gray-800">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Summary
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
           <div>
-            <p className="font-medium text-gray-900 mb-2">Resource Usage</p>
-            <ul className="space-y-1 text-gray-600">
+            <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+              Resource Usage
+            </p>
+            <ul className="space-y-1 text-gray-600 dark:text-gray-400">
               <li>
                 • Total cost: {formatCurrency(selectedNode.metrics?.cost || 0)}
               </li>
@@ -365,8 +401,10 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
             </ul>
           </div>
           <div>
-            <p className="font-medium text-gray-900 mb-2">Activity</p>
-            <ul className="space-y-1 text-gray-600">
+            <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+              Activity
+            </p>
+            <ul className="space-y-1 text-gray-600 dark:text-gray-400">
               <li>
                 • {(selectedNode.metrics?.messages || 0).toLocaleString()} total
                 messages
@@ -384,8 +422,10 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
             </ul>
           </div>
           <div>
-            <p className="font-medium text-gray-900 mb-2">Global Context</p>
-            <ul className="space-y-1 text-gray-600">
+            <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+              Global Context
+            </p>
+            <ul className="space-y-1 text-gray-600 dark:text-gray-400">
               <li>
                 • {totalMetrics?.unique_directories || 0} total directories
               </li>

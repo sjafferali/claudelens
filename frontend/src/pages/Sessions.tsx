@@ -192,7 +192,9 @@ function SessionsList() {
                       data?.items.map((session) => (
                         <div
                           key={session._id}
-                          onClick={() => navigate(`/sessions/${session._id}`)}
+                          onClick={() =>
+                            navigate(`/sessions/${session.sessionId}`)
+                          }
                           className="flex items-center justify-between p-4 bg-layer-tertiary border border-secondary-c rounded-lg hover:border-primary-c hover:bg-layer-tertiary/80 cursor-pointer transition-all"
                         >
                           <div className="space-y-1 flex-1">

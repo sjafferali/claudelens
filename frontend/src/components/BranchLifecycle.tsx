@@ -18,6 +18,7 @@ import {
   GitBranchAnalyticsResponse,
 } from '../api/analytics';
 import Loading from './common/Loading';
+import { useStore } from '@/store';
 
 interface BranchLifecycleProps {
   timeRange?: TimeRange;
@@ -30,10 +31,19 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
   onTimeRangeChange,
   projectId,
 }) => {
+  const theme = useStore((state) => state.ui.theme);
+  const isDark = theme === 'dark';
   const [data, setData] = useState<GitBranchAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<BranchType | 'all'>('all');
+
+  // Theme-aware colors
+  const chartColors = {
+    grid: isDark ? '#374151' : '#e5e7eb',
+    text: isDark ? '#9ca3af' : '#6b7280',
+    background: isDark ? '#111827' : '#ffffff',
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -113,7 +123,7 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
   if (!data || data.branches.length === 0) {
     return (
       <Card className="p-6">
-        <div className="text-center text-gray-500">
+        <div className="text-center text-gray-500 dark:text-gray-400">
           <p>No git branch data available for the selected time range.</p>
           <p className="text-sm mt-1">
             Make sure your Claude sessions include git branch information.
@@ -182,36 +192,40 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <p className="font-semibold">{data.name}</p>
           <p className="text-sm capitalize">
-            <span className="text-gray-600">Type: </span>
+            <span className="text-gray-600 dark:text-gray-400">Type: </span>
             <span style={{ color: data.color }} className="font-medium">
               {data.type}
             </span>
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Duration: </span>
+            <span className="text-gray-600 dark:text-gray-400">Duration: </span>
             {data.duration} days
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">First Activity: </span>
+            <span className="text-gray-600 dark:text-gray-400">
+              First Activity:{' '}
+            </span>
             {data.firstActivity}
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Last Activity: </span>
+            <span className="text-gray-600 dark:text-gray-400">
+              Last Activity:{' '}
+            </span>
             {data.lastActivity}
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Cost: </span>
+            <span className="text-gray-600 dark:text-gray-400">Cost: </span>
             {formatCurrency(data.cost)}
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Messages: </span>
+            <span className="text-gray-600 dark:text-gray-400">Messages: </span>
             {data.messages}
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Sessions: </span>
+            <span className="text-gray-600 dark:text-gray-400">Sessions: </span>
             {data.sessions}
           </p>
         </div>
@@ -291,10 +305,10 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Branch Lifecycle Timeline
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Branch activity periods and lifespans ({filteredBranches.length}{' '}
               branches shown)
             </p>
@@ -307,7 +321,7 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
               onChange={(e) =>
                 setFilterType(e.target.value as BranchType | 'all')
               }
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
               <option value="all">All Types</option>
               <option value={BranchType.MAIN}>Main</option>
@@ -321,7 +335,7 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
               <select
                 value={timeRange}
                 onChange={(e) => onTimeRangeChange(e.target.value as TimeRange)}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm"
+                className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 <option value={TimeRange.LAST_24_HOURS}>Last 24 Hours</option>
                 <option value={TimeRange.LAST_7_DAYS}>Last 7 Days</option>
@@ -352,12 +366,17 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
               data={timelineData}
               margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
             >
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={chartColors.grid}
+                opacity={0.3}
+              />
               <XAxis
                 type="number"
                 dataKey="x"
                 domain={[0, maxDay + 1]}
                 tick={{ fontSize: 12 }}
+                stroke={chartColors.text}
                 label={{
                   value: 'Days from start',
                   position: 'insideBottom',
@@ -369,6 +388,7 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
                 dataKey="y"
                 domain={[0, maxY]}
                 tick={{ fontSize: 12 }}
+                stroke={chartColors.text}
                 tickFormatter={(value) => {
                   const branch = chartData.find((b) => b.yPosition === value);
                   return branch
@@ -379,7 +399,14 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
                 }}
                 width={120}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip
+                content={<CustomTooltip />}
+                contentStyle={{
+                  backgroundColor: chartColors.background,
+                  border: `1px solid ${chartColors.grid}`,
+                  borderRadius: '4px',
+                }}
+              />
 
               {/* Render timeline segments as connected points */}
               <Scatter dataKey="x" fill="#8884d8">
@@ -419,9 +446,11 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
         </div>
 
         {/* Summary Statistics */}
-        <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+        <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div>
-            <p className="text-sm text-gray-600">Average Branch Lifetime</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Average Branch Lifetime
+            </p>
             <p className="text-lg font-semibold">
               {(
                 filteredBranches.reduce(
@@ -433,7 +462,9 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Most Active Branch</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Most Active Branch
+            </p>
             <p className="text-lg font-semibold">
               {filteredBranches
                 .reduce(
