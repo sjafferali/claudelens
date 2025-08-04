@@ -89,6 +89,15 @@ class AnalyticsService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
+    def _safe_float(self, value: Any) -> float:
+        """Safely convert a value to float, handling Decimal128."""
+        if value is None:
+            return 0.0
+        if hasattr(value, "to_decimal"):
+            # It's a Decimal128 object
+            return float(str(value))
+        return float(value)
+
     def _get_time_filter(self, time_range: TimeRange) -> dict[str, Any]:
         """Convert time range to MongoDB filter."""
         now = datetime.utcnow()
@@ -333,13 +342,13 @@ class AnalyticsService:
             data_points.append(
                 CostDataPoint(
                     timestamp=timestamp,
-                    cost=round(result["totalCost"], 4),
+                    cost=round(self._safe_float(result["totalCost"]), 4),
                     message_count=result["messageCount"],
                     cost_by_model=cost_by_model,
                 )
             )
 
-            total_cost += result["totalCost"]
+            total_cost += self._safe_float(result["totalCost"])
             total_messages += result["messageCount"]
 
         avg_cost = total_cost / total_messages if total_messages > 0 else 0
@@ -394,7 +403,7 @@ class AnalyticsService:
         for result in results:
             model = result["_id"]
             count = result["count"]
-            total_cost = result["totalCost"] or 0
+            total_cost = self._safe_float(result.get("totalCost", 0))
 
             # Track most/least used
             if count > max_count:
@@ -550,7 +559,7 @@ class AnalyticsService:
             project_id = str(result["_id"])
             project_name = project_map.get(project_id, "Unknown")
             message_count = result["messageCount"]
-            total_cost = result["totalCost"] or 0
+            total_cost = self._safe_float(result.get("totalCost", 0))
             avg_response = result["avgResponseTime"] or 0
 
             # Track extremes
@@ -702,6 +711,16 @@ class AnalyticsService:
 
     def _calculate_trend(self, current: float, previous: float) -> float:
         """Calculate percentage change."""
+        # Convert Decimal128 to float if needed
+        if hasattr(current, "to_decimal"):
+            current = float(str(current))
+        if hasattr(previous, "to_decimal"):
+            previous = float(str(previous))
+
+        # Ensure we have numeric values
+        current = float(current) if current is not None else 0.0
+        previous = float(previous) if previous is not None else 0.0
+
         if previous == 0:
             return 100.0 if current > 0 else 0.0
         return round(((current - previous) / previous) * 100, 2)
@@ -744,11 +763,17 @@ class AnalyticsService:
         cost_result = await self.db.messages.aggregate(cost_pipeline).to_list(1)
         total_cost = cost_result[0]["totalCost"] if cost_result else 0
 
+        # Convert Decimal128 to float if needed
+        if hasattr(total_cost, "to_decimal"):
+            total_cost = float(str(total_cost))
+        else:
+            total_cost = float(total_cost) if total_cost is not None else 0.0
+
         return {
             "total_messages": message_count,
             "total_sessions": session_count,
             "total_projects": project_count,
-            "total_cost": total_cost or 0,
+            "total_cost": total_cost,
         }
 
     def _get_previous_period_filter(self, time_range: TimeRange) -> dict[str, Any]:
@@ -1079,7 +1104,7 @@ class AnalyticsService:
             # Generate summary from message content
             summary = self._generate_message_summary(msg)
 
-            cost = msg.get("costUsd", 0) or 0
+            cost = self._safe_float(msg.get("costUsd", 0))
             total_cost += cost
 
             duration_ms = msg.get("durationMs")
@@ -1661,7 +1686,7 @@ class AnalyticsService:
             )
 
         # Calculate total metrics
-        total_cost = sum(r["total_cost"] for r in results)
+        total_cost = sum(self._safe_float(r.get("total_cost", 0)) for r in results)
         total_messages = sum(r["message_count"] for r in results)
         unique_directories = len(results)
 
@@ -1722,7 +1747,7 @@ class AnalyticsService:
 
                 # Add data to this node
                 node_data = current[part]["_data"]
-                node_data["cost"] += data["total_cost"]
+                node_data["cost"] += self._safe_float(data.get("total_cost", 0))
                 node_data["messages"] += data["message_count"]
                 # Handle session IDs properly
                 session_ids = data.get("session_ids", [])
@@ -2617,7 +2642,7 @@ class AnalyticsService:
         total_input = data.get("total_input", 0)
         total_output = data.get("total_output", 0)
         total_tokens = total_input + total_output
-        total_cost = data.get("total_cost", 0)
+        total_cost = self._safe_float(data.get("total_cost", 0))
 
         # Format total tokens
         formatted_total = self._format_token_count(total_tokens)
@@ -2704,7 +2729,7 @@ class AnalyticsService:
         cache_creation = data.get("cache_creation", 0) if include_cache_metrics else 0
         cache_read = data.get("cache_read", 0) if include_cache_metrics else 0
         total_tokens = total_input + total_output
-        total_cost = data.get("total_cost", 0)
+        total_cost = self._safe_float(data.get("total_cost", 0))
         message_count = data.get("message_count", 1)
 
         # Build token breakdown
@@ -2850,9 +2875,9 @@ class AnalyticsService:
 
             # Calculate session metrics
             session_cost = sum(
-                msg.get("costUsd", 0) or 0
+                self._safe_float(msg.get("costUsd", 0))
                 for msg in session_messages
-                if msg.get("costUsd")
+                if msg.get("costUsd") is not None
             )
             session_duration = sum(
                 msg.get("durationMs", 0) or 0
@@ -3233,7 +3258,9 @@ class AnalyticsService:
             ]
         ).to_list(None)
 
-        total_cost = current_cost[0]["total_cost"] if current_cost else 0.0
+        total_cost = (
+            self._safe_float(current_cost[0]["total_cost"]) if current_cost else 0.0
+        )
 
         # Get previous period for trend calculation
         trend = "stable"
@@ -3252,7 +3279,9 @@ class AnalyticsService:
                 ]
             ).to_list(None)
 
-            prev_total = prev_cost[0]["total_cost"] if prev_cost else 0.0
+            prev_total = (
+                self._safe_float(prev_cost[0]["total_cost"]) if prev_cost else 0.0
+            )
 
             if prev_total > 0:
                 change_pct = ((total_cost - prev_total) / prev_total) * 100
@@ -4145,12 +4174,16 @@ class AnalyticsService:
         ]
 
         result = await self.db.messages.aggregate(pipeline).to_list(1)
-        if not result or result[0]["total_cost"] == 0:
+        if not result:
             return 0.0
 
         data = result[0]
+        total_cost = self._safe_float(data.get("total_cost", 0))
+        if total_cost == 0:
+            return 0.0
+
         # Cost efficiency = successful operations per dollar (higher is better)
-        efficiency = data["successful_operations"] / data["total_cost"]
+        efficiency = data["successful_operations"] / total_cost
         return float(efficiency * 100)  # Scale to 0-100 range
 
     async def _calculate_speed_score(self, message_filter: dict[str, Any]) -> float:
