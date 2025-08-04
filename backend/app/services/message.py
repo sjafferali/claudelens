@@ -220,7 +220,15 @@ class MessageService:
 
         result = await self.db.messages.aggregate(pipeline).to_list(1)
         if result:
-            total_cost = float(result[0]["totalCost"])
+            # Handle Decimal128 from MongoDB aggregation
+            total_cost_value = result[0]["totalCost"]
+            if hasattr(total_cost_value, "to_decimal"):
+                # It's a Decimal128 object
+                total_cost = float(str(total_cost_value))
+            else:
+                # It's already a numeric type
+                total_cost = float(total_cost_value)
+
             await self.db.sessions.update_one(
                 {"sessionId": session_id}, {"$set": {"totalCost": total_cost}}
             )

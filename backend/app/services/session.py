@@ -158,16 +158,47 @@ class SessionService:
 
         messages = []
         async for doc in cursor:
+            # Get cost and usage information
+            cost_usd = doc.get("costUsd")
+            if cost_usd:
+                cost_usd = (
+                    float(cost_usd.to_decimal())
+                    if hasattr(cost_usd, "to_decimal")
+                    else float(cost_usd)
+                )
+
+            # Extract usage data
+            usage = doc.get("usage")
+            input_tokens = None
+            output_tokens = None
+            if usage:
+                input_tokens = usage.get("input_tokens")
+                output_tokens = usage.get("output_tokens")
+
             message_data = {
                 "_id": str(doc["_id"]),
                 "uuid": doc["uuid"],
+                "messageUuid": doc[
+                    "uuid"
+                ],  # Add messageUuid for frontend compatibility
                 "type": doc["type"],
                 "session_id": doc["sessionId"],
+                "sessionId": doc[
+                    "sessionId"
+                ],  # Add sessionId for frontend compatibility
                 "content": doc.get("content"),
                 "timestamp": doc["timestamp"],
                 "model": doc.get("model"),
                 "parent_uuid": doc.get("parentUuid"),
+                "parentUuid": doc.get(
+                    "parentUuid"
+                ),  # Add parentUuid for frontend compatibility
                 "created_at": doc["createdAt"],
+                "totalCost": cost_usd,
+                "cost_usd": cost_usd,
+                "inputTokens": input_tokens,
+                "outputTokens": output_tokens,
+                "usage": usage,
             }
             messages.append(Message(**message_data))
 
