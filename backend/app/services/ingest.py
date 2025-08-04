@@ -745,10 +745,54 @@ class IngestService:
                             ]
                         }
                     },
-                    "inputTokens": {"$sum": {"$ifNull": ["$inputTokens", 0]}},
-                    "outputTokens": {"$sum": {"$ifNull": ["$outputTokens", 0]}},
+                    # Aggregate input tokens from all possible fields
+                    "inputTokens": {
+                        "$sum": {
+                            "$add": [
+                                {"$ifNull": ["$tokensInput", 0]},
+                                {"$ifNull": ["$inputTokens", 0]},
+                                {"$ifNull": ["$metadata.usage.input_tokens", 0]},
+                                {
+                                    "$ifNull": [
+                                        "$metadata.usage.cache_creation_input_tokens",
+                                        0,
+                                    ]
+                                },
+                                {
+                                    "$ifNull": [
+                                        "$metadata.usage.cache_read_input_tokens",
+                                        0,
+                                    ]
+                                },
+                            ]
+                        }
+                    },
+                    # Aggregate output tokens from all possible fields
+                    "outputTokens": {
+                        "$sum": {
+                            "$add": [
+                                {"$ifNull": ["$tokensOutput", 0]},
+                                {"$ifNull": ["$outputTokens", 0]},
+                                {"$ifNull": ["$metadata.usage.output_tokens", 0]},
+                            ]
+                        }
+                    },
+                    # Count tool usage from both tool_use messages and tool_calls array
                     "toolUseCount": {
-                        "$sum": {"$cond": [{"$eq": ["$type", "tool_use"]}, 1, 0]}
+                        "$sum": {
+                            "$add": [
+                                # Count tool_use type messages
+                                {"$cond": [{"$eq": ["$type", "tool_use"]}, 1, 0]},
+                                # Count tool_calls in message field
+                                {
+                                    "$cond": [
+                                        {"$isArray": "$message.tool_calls"},
+                                        {"$size": "$message.tool_calls"},
+                                        0,
+                                    ]
+                                },
+                            ]
+                        }
                     },
                     "startTime": {"$min": "$timestamp"},
                     "endTime": {"$max": "$timestamp"},

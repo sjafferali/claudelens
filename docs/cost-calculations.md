@@ -38,21 +38,24 @@ When syncing data, the backend automatically calculates costs:
 
 ### 3. Calculation Method
 
-The cost calculation follows this approach (inspired by [ccusage](https://github.com/ryoppippi/ccusage)):
+The cost calculation follows the same approach as [ccusage](https://github.com/ryoppippi/ccusage):
 
 ```python
-# Primary method: Use LiteLLM's cost calculator
-cost = cost_calculator.completion_cost(completion_response)
-
-# Fallback: Manual calculation if LiteLLM returns negative value
-if cost < 0:
-    cost = (
-        input_tokens * input_rate +
-        output_tokens * output_rate +
-        cache_creation_tokens * cache_creation_rate +
-        cache_read_tokens * cache_read_rate
-    )
+# Direct calculation without LiteLLM's cost_calculator
+cost = (
+    input_tokens * input_cost_per_token +
+    output_tokens * output_cost_per_token +
+    cache_creation_tokens * cache_creation_cost_per_token +
+    cache_read_tokens * cache_read_cost_per_token
+)
 ```
+
+This approach:
+- Fetches pricing data directly from [LiteLLM's pricing JSON](https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json)
+- Calculates costs manually as a simple sum of tokens × rates
+- Avoids the negative cost bug entirely (no subtraction of "savings")
+- Provides complete control over the calculation
+- Caches pricing data for performance
 
 ### 4. Pricing Rates
 
@@ -70,25 +73,27 @@ Current Claude model pricing (per million tokens):
 - Cache write: $3.75 (25% more than input)
 - Cache read: $0.30 (90% less than input)
 
-## Known Issues
+## Implementation Details
 
-### LiteLLM Negative Cost Bug
-When cache tokens are present, LiteLLM sometimes returns negative costs. This appears to be because it subtracts "savings" from using cached tokens. Our implementation detects negative costs and recalculates manually without any subtraction.
+### Why We Don't Use LiteLLM's cost_calculator
+While LiteLLM provides a `cost_calculator.completion_cost()` function, it has a known bug where it returns negative costs when cache tokens are present. This appears to be because it subtracts "savings" from using cached tokens.
+
+Instead, we follow ccusage's approach of fetching pricing data directly and calculating costs manually. This completely avoids the negative cost bug and gives us full control over the calculation.
 
 ## Adding Support for New Claude Models
 
 When Anthropic releases new Claude models, follow these steps:
 
-### 1. Verify LiteLLM Support
+### 1. Verify Pricing Data Availability
 
-First, check if LiteLLM has added support for the new model:
+First, check if LiteLLM has pricing data for the new model:
 
 ```bash
 # Check LiteLLM's model pricing database
 curl https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json | jq 'keys[] | select(contains("claude"))'
 ```
 
-If the model isn't listed, you'll need to wait for LiteLLM to add support or implement manual pricing.
+If the model isn't listed, you'll need to add default pricing in the fallback method (see step 3).
 
 ### 2. Update Model Name Mapping
 
@@ -107,31 +112,38 @@ def _map_model_name(model: str) -> str:
     return model
 ```
 
-### 3. Add Manual Pricing Fallback
+### 3. Add Pricing Fallback
 
-If LiteLLM doesn't support the model yet, add pricing in the manual calculation section:
+If LiteLLM doesn't have the model in their pricing JSON yet, add default pricing in the `_get_model_pricing` method:
 
 ```python
-if cost < 0:
-    # Get model-specific pricing
-    if "opus" in mapped_model.lower():
-        # Opus pricing
-        input_rate = 0.000015
-        output_rate = 0.000075
-        cache_creation_rate = 0.00001875
-        cache_read_rate = 0.000001875
-    elif "your-new-model" in mapped_model.lower():
+@staticmethod
+def _get_model_pricing(model: str) -> Dict[str, float]:
+    """Get pricing rates for a specific model."""
+    if "opus" in model.lower():
+        # Opus pricing (per token)
+        return {
+            "input_cost_per_token": 0.000015,  # $15 per million
+            "output_cost_per_token": 0.000075,  # $75 per million
+            "cache_creation_input_token_cost": 0.00001875,  # $18.75 per million
+            "cache_read_input_token_cost": 0.000001875,  # $1.875 per million
+        }
+    elif "your-new-model" in model.lower():
         # New model pricing (example)
-        input_rate = 0.000010  # $10 per million
-        output_rate = 0.000050  # $50 per million
-        cache_creation_rate = 0.0000125  # 25% more than input
-        cache_read_rate = 0.000001  # 90% less than input
+        return {
+            "input_cost_per_token": 0.000010,  # $10 per million
+            "output_cost_per_token": 0.000050,  # $50 per million
+            "cache_creation_input_token_cost": 0.0000125,  # 25% more than input
+            "cache_read_input_token_cost": 0.000001,  # 90% less than input
+        }
     else:
-        # Default Sonnet pricing
-        input_rate = 0.000003
-        output_rate = 0.000015
-        cache_creation_rate = 0.00000375
-        cache_read_rate = 0.0000003
+        # Default to Sonnet pricing
+        return {
+            "input_cost_per_token": 0.000003,  # $3 per million
+            "output_cost_per_token": 0.000015,  # $15 per million
+            "cache_creation_input_token_cost": 0.00000375,  # $3.75 per million
+            "cache_read_input_token_cost": 0.0000003,  # $0.30 per million
+        }
 ```
 
 ### 4. Test the New Model
@@ -195,9 +207,9 @@ poetry run claudelens sync -d ~/.claude_personal/ --force --overwrite
 
 To monitor cost calculation issues:
 
-1. **Check logs** for negative cost warnings:
+1. **Check logs** for pricing data fetches:
    ```
-   grep "negative cost" /path/to/logs
+   grep "Fetched pricing data" /path/to/logs
    ```
 
 2. **Database query** to find messages without costs:
@@ -213,6 +225,6 @@ To monitor cost calculation issues:
 ## Future Improvements
 
 1. **Automatic model detection**: Detect new models and fetch pricing from Anthropic's API
-2. **Cost caching**: Cache model pricing data to reduce API calls to LiteLLM
+2. **Pricing data refresh**: Implement periodic refresh of cached pricing data
 3. **Historical pricing**: Track pricing changes over time for accurate historical cost data
 4. **Bulk recalculation**: Optimize the recalculation endpoint for large datasets
