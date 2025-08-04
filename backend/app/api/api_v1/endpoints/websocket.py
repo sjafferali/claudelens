@@ -161,7 +161,12 @@ async def get_live_session_stats(
         {"$group": {"_id": None, "total_cost": {"$sum": {"$ifNull": ["$cost", 0]}}}},
     ]
     cost_result = await messages_collection.aggregate(cost_pipeline).to_list(1)
-    cost = cost_result[0]["total_cost"] if cost_result else 0.0
+    raw_cost = cost_result[0]["total_cost"] if cost_result else 0.0
+    # Convert Decimal128 to float if necessary
+    if hasattr(raw_cost, "to_decimal"):
+        cost = float(raw_cost.to_decimal())
+    else:
+        cost = float(raw_cost)
 
     # Get last activity
     last_message = await messages_collection.find_one(
@@ -231,7 +236,12 @@ async def get_live_global_stats(
         {"$group": {"_id": None, "total_cost": {"$sum": {"$ifNull": ["$cost", 0]}}}}
     ]
     cost_result = await messages_collection.aggregate(cost_pipeline).to_list(1)
-    total_cost = cost_result[0]["total_cost"] if cost_result else 0.0
+    raw_total_cost = cost_result[0]["total_cost"] if cost_result else 0.0
+    # Convert Decimal128 to float if necessary
+    if hasattr(raw_total_cost, "to_decimal"):
+        total_cost = float(raw_total_cost.to_decimal())
+    else:
+        total_cost = float(raw_total_cost)
 
     # Get active sessions count (sessions with activity in last 5 minutes)
     from datetime import datetime, timedelta

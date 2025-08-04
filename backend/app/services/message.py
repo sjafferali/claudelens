@@ -149,6 +149,13 @@ class MessageService:
         if not usage and doc.get("metadata") and doc["metadata"].get("usage"):
             usage = doc["metadata"]["usage"]
 
+        # Convert cost_usd from Decimal128 if needed
+        cost_usd = doc.get("costUsd")
+        if cost_usd and hasattr(cost_usd, "to_decimal"):
+            cost_usd = float(cost_usd.to_decimal())
+        elif cost_usd:
+            cost_usd = float(cost_usd)
+
         return MessageDetail(
             _id=str(doc["_id"]),
             uuid=doc["uuid"],
@@ -160,7 +167,7 @@ class MessageService:
             parent_uuid=doc.get("parentUuid"),
             created_at=doc.get("createdAt", doc["timestamp"]),
             usage=usage,
-            cost_usd=doc.get("costUsd"),
+            cost_usd=cost_usd,
             tool_use=doc.get("toolUse"),
             attachments=doc.get("attachments"),
             content_hash=doc.get("contentHash"),

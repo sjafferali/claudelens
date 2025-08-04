@@ -349,7 +349,13 @@ class RealtimeStatsService:
             ]
 
             result = await messages_collection.aggregate(pipeline).to_list(1)
-            cost = result[0]["total_cost"] if result else 0.0
+            raw_cost = result[0]["total_cost"] if result else 0.0
+
+            # Convert Decimal128 to float if necessary
+            if hasattr(raw_cost, "to_decimal"):
+                cost = float(raw_cost.to_decimal())
+            else:
+                cost = float(raw_cost)
 
             # Format the cost appropriately
             formatted_value = f"${cost:.2f}"

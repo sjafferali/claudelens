@@ -252,7 +252,9 @@ class AnalyticsService:
                     day_of_week=day,
                     hour=hour,
                     count=count,
-                    avg_cost=round(result["avgCost"], 4) if result["avgCost"] else None,
+                    avg_cost=round(self._safe_float(result["avgCost"]), 4)
+                    if result["avgCost"]
+                    else None,
                     avg_response_time=result["avgResponseTime"],
                 )
             )
@@ -335,7 +337,7 @@ class AnalyticsService:
             cost_by_model = {}
             for model_cost in result["costByModel"]:
                 model = model_cost["model"] or "unknown"
-                cost = model_cost["cost"]
+                cost = self._safe_float(model_cost["cost"])
                 cost_by_model[model] = cost
                 cost_by_model_global[model] = cost_by_model_global.get(model, 0) + cost
 
@@ -996,6 +998,8 @@ class AnalyticsService:
 
             count = result["count"]
             percentage = (count / total_calls * 100) if total_calls > 0 else 0
+            # Ensure percentage doesn't exceed 100%
+            percentage = min(percentage, 100.0)
 
             # Categorize tools based on common patterns
             category = self._categorize_tool(tool_name)
@@ -1482,7 +1486,10 @@ class AnalyticsService:
         total_ops = data["total_operations"]
         successful_ops = data["successful_operations"]
         failed_ops = data["failed_operations"]
-        success_rate = (successful_ops / total_ops * 100) if total_ops > 0 else 100.0
+        # Calculate success rate, defaulting to 0% when no operations (more logical than 100%)
+        success_rate = (successful_ops / total_ops * 100) if total_ops > 0 else 0.0
+        # Ensure percentage is within valid range
+        success_rate = min(max(success_rate, 0.0), 100.0)
 
         return SuccessRateMetrics(
             success_rate=round(success_rate, 1),
@@ -2466,7 +2473,7 @@ class AnalyticsService:
                 )
 
             # Calculate metrics
-            cost = result.get("cost", 0)
+            cost = self._safe_float(result.get("cost", 0))
             messages = result.get("messages", 0)
             sessions = result.get("sessions", 0)
             avg_session_cost = cost / sessions if sessions > 0 else 0
@@ -2757,6 +2764,8 @@ class AnalyticsService:
         cache_hit_rate = 0.0
         if cache_creation + cache_read > 0:
             cache_hit_rate = (cache_read / (cache_creation + cache_read)) * 100
+            # Ensure cache hit rate is within valid range
+            cache_hit_rate = min(max(cache_hit_rate, 0.0), 100.0)
 
         input_output_ratio = 0.0
         if total_output > 0:
@@ -3360,12 +3369,12 @@ class AnalyticsService:
             ]
         ).to_list(None)
 
-        total_cost = sum(item["cost"] for item in model_breakdown)
+        total_cost = sum(self._safe_float(item["cost"]) for item in model_breakdown)
 
         by_model = []
         for item in model_breakdown:
             model = item["_id"]
-            cost = item["cost"]
+            cost = self._safe_float(item["cost"])
             message_count = item["message_count"]
             percentage = (cost / total_cost * 100) if total_cost > 0 else 0
 
@@ -4392,6 +4401,8 @@ class AnalyticsService:
                         normalized_score = (
                             (current_value - min_val) / (max_val - min_val)
                         ) * 100
+                        # Ensure normalized score is within 0-100 range
+                        normalized_score = min(max(normalized_score, 0.0), 100.0)
                     else:
                         normalized_score = 50.0  # Neutral if no variation
 
@@ -4399,6 +4410,8 @@ class AnalyticsService:
                     sorted_values = sorted(values)
                     rank = sorted_values.index(current_value) + 1
                     normalized_score = (rank / len(values)) * 100
+                    # Ensure percentile rank is within 0-100 range
+                    normalized_score = min(max(normalized_score, 0.0), 100.0)
 
                 # Map to final metric names
                 final_key = key.replace("_raw", "").replace("score_raw", "score")
