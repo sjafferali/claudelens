@@ -291,24 +291,22 @@ if [ "$SKIP_LINT" = false ]; then
         fi
     fi
 
-    # MyPy checks (only if not quick mode)
-    if [ "$QUICK" = false ]; then
-        echo -e "\n${YELLOW}MyPy Type Checking${NC}"
+    # MyPy checks (always run to match GitHub Actions)
+    echo -e "\n${YELLOW}MyPy Type Checking${NC}"
 
-        cd "$PROJECT_ROOT/backend"
-        if [ ! -d ".venv" ]; then
-            poetry install --with dev
-        fi
-        run_check "Backend mypy" "poetry run mypy app/ --ignore-missing-imports"
-        cd "$PROJECT_ROOT"
-
-        cd "$PROJECT_ROOT/cli"
-        if [ ! -d ".venv" ]; then
-            poetry install --with dev
-        fi
-        run_check "CLI mypy" "poetry run mypy claudelens_cli/ --ignore-missing-imports"
-        cd "$PROJECT_ROOT"
+    cd "$PROJECT_ROOT/backend"
+    if [ ! -d ".venv" ]; then
+        poetry install --with dev
     fi
+    run_check "Backend mypy" "poetry run mypy app/ --ignore-missing-imports"
+    cd "$PROJECT_ROOT"
+
+    cd "$PROJECT_ROOT/cli"
+    if [ ! -d ".venv" ]; then
+        poetry install --with dev
+    fi
+    run_check "CLI mypy" "poetry run mypy claudelens_cli/ --ignore-missing-imports"
+    cd "$PROJECT_ROOT"
 fi
 
 # Frontend Linting

@@ -323,7 +323,7 @@ class AnalyticsService:
 
         # Process results
         data_points = []
-        total_cost = 0
+        total_cost = 0.0
         total_messages = 0
         cost_by_model_global: dict[str, float] = {}
 
@@ -552,7 +552,7 @@ class AnalyticsService:
         }
 
         max_messages = 0
-        max_cost = 0
+        max_cost = 0.0
         min_response_time = float("inf")
 
         for result in results:
@@ -1090,7 +1090,7 @@ class AnalyticsService:
         # Build nodes
         nodes = []
         node_lookup = {}
-        total_cost = 0
+        total_cost = 0.0
         response_times = []
 
         for msg in messages:
