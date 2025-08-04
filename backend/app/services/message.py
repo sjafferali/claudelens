@@ -236,6 +236,10 @@ class MessageService:
                 # It's already a numeric type
                 total_cost = float(total_cost_value)
 
+            # Convert to Decimal128 for MongoDB storage
+            from bson import Decimal128
+
             await self.db.sessions.update_one(
-                {"sessionId": session_id}, {"$set": {"totalCost": total_cost}}
+                {"sessionId": session_id},
+                {"$set": {"totalCost": Decimal128(str(total_cost))}},
             )
