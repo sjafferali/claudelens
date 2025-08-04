@@ -39,6 +39,7 @@ export default function SessionDetail() {
   const [searchParams] = useSearchParams();
   const targetMessageId = searchParams.get('messageId');
   const messageRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const MESSAGES_PER_PAGE = 50;
 
@@ -83,12 +84,51 @@ export default function SessionDetail() {
   const hasMoreMessages = session && allMessages.length < session.messageCount;
   const canLoadMore = hasMoreMessages && !isFetching && hasLoadedInitial;
 
+  // Handle loading more messages with scroll position preservation
+  const handleLoadMore = () => {
+    if (!scrollContainerRef.current) {
+      setCurrentPage((prev) => prev + 1);
+      return;
+    }
+
+    // Save current scroll position from bottom
+    const container = scrollContainerRef.current;
+    const scrollBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+
+    // Set up observer to restore scroll position when content changes
+    const observer = new MutationObserver(() => {
+      if (scrollContainerRef.current) {
+        const newScrollTop =
+          scrollContainerRef.current.scrollHeight -
+          scrollBottom -
+          scrollContainerRef.current.clientHeight;
+        scrollContainerRef.current.scrollTop = newScrollTop;
+      }
+      observer.disconnect();
+    });
+
+    // Start observing
+    observer.observe(container, { childList: true, subtree: true });
+
+    // Load more messages
+    setCurrentPage((prev) => prev + 1);
+
+    // Disconnect observer after timeout as fallback
+    setTimeout(() => observer.disconnect(), 1000);
+  };
+
   // Calculate costs for messages
   const { costMap } = useMessageCosts(sessionId, allMessages);
 
   const [viewMode, setViewMode] = useState<'timeline' | 'compact' | 'raw'>(
     'timeline'
   );
+
+  // Clear scroll container ref when view mode changes
+  useEffect(() => {
+    scrollContainerRef.current = null;
+  }, [viewMode]);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
@@ -214,7 +254,16 @@ export default function SessionDetail() {
     }
   };
 
-  const getMessageLabel = (type: Message['type']) => {
+  const getMessageLabel = (type: Message['type'], content?: string) => {
+    // Special handling for legacy tool result messages
+    if (
+      type === 'user' &&
+      content &&
+      content.trim().startsWith('--- Tool Result ---')
+    ) {
+      return 'System';
+    }
+
     switch (type) {
       case 'user':
         return 'You';
@@ -384,7 +433,10 @@ export default function SessionDetail() {
           {/* Messages Container */}
           <div className="flex-1 overflow-hidden flex flex-col">
             {viewMode === 'timeline' && (
-              <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin">
+              <div
+                ref={scrollContainerRef}
+                className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin"
+              >
                 <TimelineView
                   messages={filteredMessages}
                   expandedMessages={expandedMessages}
@@ -404,7 +456,7 @@ export default function SessionDetail() {
                 {canLoadMore && (
                   <div className="flex justify-center py-6">
                     <button
-                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                      onClick={handleLoadMore}
                       disabled={isFetching}
                       className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
@@ -422,7 +474,10 @@ export default function SessionDetail() {
               </div>
             )}
             {viewMode === 'compact' && (
-              <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin">
+              <div
+                ref={scrollContainerRef}
+                className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin"
+              >
                 <CompactView
                   messages={filteredMessages}
                   getMessageLabel={getMessageLabel}
@@ -431,7 +486,7 @@ export default function SessionDetail() {
                 {canLoadMore && (
                   <div className="flex justify-center py-6">
                     <button
-                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                      onClick={handleLoadMore}
                       disabled={isFetching}
                       className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
@@ -449,7 +504,7 @@ export default function SessionDetail() {
               </div>
             )}
             {viewMode === 'raw' && (
-              <div className="flex-1 overflow-y-auto">
+              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
                 <RawView
                   messages={filteredMessages}
                   onCopy={copyToClipboard}
@@ -458,7 +513,7 @@ export default function SessionDetail() {
                 {canLoadMore && (
                   <div className="flex justify-center py-6">
                     <button
-                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                      onClick={handleLoadMore}
                       disabled={isFetching}
                       className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
@@ -581,7 +636,7 @@ interface TimelineViewProps {
   onToggleToolPairExpanded: (pairId: string) => void;
   onCopy: (text: string, messageId: string) => void;
   getMessageColors: (type: Message['type']) => { avatar: string; bg: string };
-  getMessageLabel: (type: Message['type']) => string;
+  getMessageLabel: (type: Message['type'], content?: string) => string;
   getAvatarText: (type: Message['type']) => string;
   messageRefs: React.MutableRefObject<{ [key: string]: HTMLDivElement | null }>;
 }
@@ -1130,7 +1185,7 @@ function TimelineView({
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-primary-c">
-                          {getMessageLabel(message.type)}
+                          {getMessageLabel(message.type, message.content)}
                         </span>
                         {message.model && (
                           <span className="text-xs px-2 py-0.5 bg-layer-tertiary rounded-full text-muted-c">
@@ -1438,7 +1493,7 @@ function TimelineView({
 // Compact View Component
 interface CompactViewProps {
   messages: Message[];
-  getMessageLabel: (type: Message['type']) => string;
+  getMessageLabel: (type: Message['type'], content?: string) => string;
   getMessageColors: (type: Message['type']) => { avatar: string; bg: string };
 }
 
@@ -1451,7 +1506,7 @@ function CompactView({
     <div className="space-y-2 max-w-4xl mx-auto">
       {messages.map((message: Message) => {
         const colors = getMessageColors(message.type);
-        const label = getMessageLabel(message.type);
+        const label = getMessageLabel(message.type, message.content);
         const isUser = message.type === 'user';
 
         return (
