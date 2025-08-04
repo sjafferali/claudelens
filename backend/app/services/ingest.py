@@ -382,13 +382,38 @@ class IngestService:
                 if text_parts:
                     all_parts.extend(text_parts)
 
-                # If no text content but has tool uses, add a summary
+                # If no text content but has tool uses, add a more detailed summary
                 if not all_parts and tool_use_parts:
                     tool_summaries = []
                     for tool_part in tool_use_parts:
                         tool_name = tool_part.get("name", "Unknown")
-                        tool_summaries.append(f"[Tool use: {tool_name}]")
-                    all_parts.append(" ".join(tool_summaries))
+                        tool_input = tool_part.get("input", {})
+
+                        # Create a meaningful summary based on the tool
+                        if tool_name == "Read":
+                            file_path = tool_input.get("file_path", "")
+                            tool_summaries.append(f"Reading file: {file_path}")
+                        elif tool_name == "Write":
+                            file_path = tool_input.get("file_path", "")
+                            tool_summaries.append(f"Writing to file: {file_path}")
+                        elif tool_name == "Edit":
+                            file_path = tool_input.get("file_path", "")
+                            tool_summaries.append(f"Editing file: {file_path}")
+                        elif tool_name == "Bash":
+                            command = tool_input.get("command", "")
+                            if len(command) > 50:
+                                command = command[:50] + "..."
+                            tool_summaries.append(f"Running command: {command}")
+                        elif tool_name == "TodoWrite":
+                            tool_summaries.append("Updating todo list")
+                        elif tool_name == "Grep":
+                            pattern = tool_input.get("pattern", "")
+                            tool_summaries.append(f"Searching for: {pattern}")
+                        else:
+                            # Generic summary for other tools
+                            tool_summaries.append(f"Using tool: {tool_name}")
+
+                    all_parts.append("\n".join(tool_summaries))
 
                 main_doc["content"] = "\n\n".join(all_parts) if all_parts else ""
                 main_doc[
@@ -451,10 +476,23 @@ class IngestService:
                 if text_parts:
                     main_doc["content"] = "\n".join(text_parts)
                 elif tool_result_parts:
-                    # If only tool results, add a summary
-                    main_doc[
-                        "content"
-                    ] = f"[Tool result - {len(tool_result_parts)} result(s)]"
+                    # If only tool results, extract the actual content
+                    result_contents = []
+                    for result in tool_result_parts:
+                        result_content = result.get("content", "")
+                        if isinstance(result_content, str) and result_content:
+                            # Truncate very long tool results
+                            if len(result_content) > 500:
+                                result_contents.append(result_content[:500] + "...")
+                            else:
+                                result_contents.append(result_content)
+
+                    if result_contents:
+                        main_doc["content"] = "\n\n--- Tool Result ---\n" + "\n\n".join(
+                            result_contents
+                        )
+                    else:
+                        main_doc["content"] = "[Tool result - no content]"
                 else:
                     main_doc["content"] = ""
                 main_doc[

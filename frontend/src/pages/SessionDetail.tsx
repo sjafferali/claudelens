@@ -510,6 +510,39 @@ function TimelineView({
   getAvatarText,
   messageRefs,
 }: TimelineViewProps) {
+  // Format message content based on type and content
+  const formatMessageContent = (message: Message) => {
+    // Handle tool_use messages with JSON content
+    if (message.type === 'tool_use') {
+      try {
+        const parsed = JSON.parse(message.content);
+        if (parsed.name) {
+          return `🔧 Tool: ${parsed.name}\n${parsed.input ? JSON.stringify(parsed.input, null, 2) : ''}`;
+        }
+      } catch {
+        // If not JSON, return as is
+      }
+    }
+
+    // Handle user messages with tool results
+    if (message.type === 'user' && message.content.startsWith('[Tool result')) {
+      // This is a placeholder for tool results, try to show something more meaningful
+      return '📥 Tool result received';
+    }
+
+    // Handle assistant messages with tool uses
+    if (
+      message.type === 'assistant' &&
+      message.content.startsWith('[Tool use:')
+    ) {
+      const toolMatch = message.content.match(/\[Tool use: (.+?)\]/);
+      if (toolMatch) {
+        return `🔧 Using tool: ${toolMatch[1]}`;
+      }
+    }
+
+    return message.content;
+  };
   // Group consecutive tool_use and tool_result messages into pairs
   const messageGroups: Array<{
     type: 'single' | 'tool_pair';
@@ -631,46 +664,64 @@ function TimelineView({
                       </div>
                     ) : (
                       <div className="text-secondary-c whitespace-pre-wrap break-words">
-                        {message.content.length > 500 && !isExpanded ? (
-                          <>
-                            {message.content.slice(0, 500)}...
-                            <button
-                              onClick={() => onToggleExpanded(message._id)}
-                              className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:text-primary-hover"
-                            >
-                              <ChevronDown className="h-4 w-4" />
-                              Show more
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {message.content}
-                            {message.content.length > 500 && (
-                              <button
-                                onClick={() => onToggleExpanded(message._id)}
-                                className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:text-primary-hover"
-                              >
-                                <ChevronUp className="h-4 w-4" />
-                                Show less
-                              </button>
-                            )}
-                            {message.content.startsWith('[Tool Result:') && (
-                              <button
-                                onClick={() => onToggleToolResult(message._id)}
-                                className="mt-2 ml-4 text-sm text-primary hover:text-primary-hover"
-                              >
-                                Hide
-                              </button>
-                            )}
-                          </>
-                        )}
+                        {(() => {
+                          const formattedContent =
+                            formatMessageContent(message);
+                          const contentLength = formattedContent.length;
+
+                          if (contentLength > 500 && !isExpanded) {
+                            return (
+                              <>
+                                {formattedContent.slice(0, 500)}...
+                                <button
+                                  onClick={() => onToggleExpanded(message._id)}
+                                  className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:text-primary-hover"
+                                >
+                                  <ChevronDown className="h-4 w-4" />
+                                  Show more
+                                </button>
+                              </>
+                            );
+                          } else {
+                            return (
+                              <>
+                                {formattedContent}
+                                {contentLength > 500 && (
+                                  <button
+                                    onClick={() =>
+                                      onToggleExpanded(message._id)
+                                    }
+                                    className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:text-primary-hover"
+                                  >
+                                    <ChevronUp className="h-4 w-4" />
+                                    Show less
+                                  </button>
+                                )}
+                                {message.content.startsWith(
+                                  '[Tool Result:'
+                                ) && (
+                                  <button
+                                    onClick={() =>
+                                      onToggleToolResult(message._id)
+                                    }
+                                    className="mt-2 ml-4 text-sm text-primary hover:text-primary-hover"
+                                  >
+                                    Hide
+                                  </button>
+                                )}
+                              </>
+                            );
+                          }
+                        })()}
                       </div>
                     )}
 
                     {/* Message Actions */}
                     <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={() => onCopy(message.content, message._id)}
+                        onClick={() =>
+                          onCopy(formatMessageContent(message), message._id)
+                        }
                         className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1"
                       >
                         {copiedId === message._id ? (
