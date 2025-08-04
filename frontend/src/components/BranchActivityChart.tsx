@@ -20,6 +20,7 @@ import {
   BranchAnalytics,
 } from '../api/analytics';
 import Loading from './common/Loading';
+import { useStore } from '@/store';
 
 interface BranchActivityChartProps {
   timeRange?: TimeRange;
@@ -32,6 +33,8 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
   onTimeRangeChange,
   projectId,
 }) => {
+  const theme = useStore((state) => state.ui.theme);
+  const isDark = theme === 'dark';
   const [data, setData] = useState<GitBranchAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +43,13 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
   );
   const [includePattern, setIncludePattern] = useState<string>('');
   const [excludePattern, setExcludePattern] = useState<string>('');
+
+  // Theme-aware colors
+  const chartColors = {
+    grid: isDark ? '#374151' : '#e5e7eb',
+    text: isDark ? '#9ca3af' : '#6b7280',
+    background: isDark ? '#111827' : '#ffffff',
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -154,7 +164,7 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
   if (!data || data.branches.length === 0) {
     return (
       <Card className="p-6">
-        <div className="text-center text-gray-500">
+        <div className="text-center text-muted-foreground">
           <p>No git branch data available for the selected time range.</p>
           <p className="text-sm mt-1">
             Make sure your Claude sessions include git branch information.
@@ -196,10 +206,10 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
           <p className="font-semibold">{data.fullName}</p>
           <p className="text-sm capitalize">
-            <span className="text-gray-600">Type: </span>
+            <span className="text-gray-600 dark:text-gray-400">Type: </span>
             <span
               style={{ color: getBranchTypeColor(data.type as BranchType) }}
               className="font-medium"
@@ -208,23 +218,27 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
             </span>
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Cost: </span>
+            <span className="text-gray-600 dark:text-gray-400">Cost: </span>
             {formatCurrency(data.cost)}
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Messages: </span>
+            <span className="text-gray-600 dark:text-gray-400">Messages: </span>
             {data.messages}
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Sessions: </span>
+            <span className="text-gray-600 dark:text-gray-400">Sessions: </span>
             {data.sessions}
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Active Days: </span>
+            <span className="text-gray-600 dark:text-gray-400">
+              Active Days:{' '}
+            </span>
             {data.active_days}
           </p>
           <p className="text-sm">
-            <span className="text-gray-600">Avg Cost/Session: </span>
+            <span className="text-gray-600 dark:text-gray-400">
+              Avg Cost/Session:{' '}
+            </span>
             {formatCurrency(data.avg_session_cost)}
           </p>
         </div>
@@ -315,15 +329,19 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
         </div>
 
         {/* Comparison Metrics */}
-        <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+        <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
           <div className="text-center">
-            <p className="text-sm text-gray-600">Main vs Feature Ratio</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Main vs Feature Ratio
+            </p>
             <p className="text-lg font-semibold">
               {data.branch_comparisons.main_vs_feature_cost_ratio.toFixed(1)}:1
             </p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-600">Avg Feature Lifetime</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Avg Feature Lifetime
+            </p>
             <p className="text-lg font-semibold">
               {data.branch_comparisons.avg_feature_branch_lifetime_days.toFixed(
                 0
@@ -332,7 +350,9 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
             </p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-600">Most Expensive Type</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Most Expensive Type
+            </p>
             <p className="text-lg font-semibold capitalize">
               {data.branch_comparisons.most_expensive_branch_type}
             </p>
@@ -346,19 +366,32 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
               data={chartData}
               margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
             >
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={chartColors.grid}
+                opacity={0.3}
+              />
               <XAxis
                 dataKey="name"
                 tick={{ fontSize: 12 }}
                 angle={-45}
                 textAnchor="end"
                 height={60}
+                stroke={chartColors.text}
               />
               <YAxis
                 tickFormatter={formatMetricValue}
                 tick={{ fontSize: 12 }}
+                stroke={chartColors.text}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip
+                content={<CustomTooltip />}
+                contentStyle={{
+                  backgroundColor: chartColors.background,
+                  border: `1px solid ${chartColors.grid}`,
+                  borderRadius: '4px',
+                }}
+              />
               <Legend />
 
               <Bar dataKey="value" name={getMetricLabel()}>
@@ -372,7 +405,7 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
 
         {/* Summary */}
         {data.branches.length > 15 && (
-          <p className="text-sm text-gray-500 text-center">
+          <p className="text-sm text-muted-foreground text-center">
             Showing top 15 branches by {viewMode}. Total branches:{' '}
             {data.branches.length}
           </p>

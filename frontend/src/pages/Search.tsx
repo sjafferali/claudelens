@@ -5,6 +5,9 @@ import {
   Calendar,
   Bot,
   ChevronRight,
+  User,
+  Code2,
+  Filter,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
@@ -22,6 +25,7 @@ import {
   useSearchSuggestions,
   useRecentSearches,
 } from '@/hooks/useSearch';
+import { useAvailableModels } from '@/hooks/useModels';
 import { SearchFilters, SearchResult } from '@/api/search';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -32,7 +36,19 @@ export default function Search() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({});
 
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.project_ids?.length) count++;
+    if (filters.start_date) count++;
+    if (filters.models?.length) count++;
+    if (filters.has_code) count++;
+    if (filters.message_types?.length) count++;
+    return count;
+  }, [filters]);
+
   const { data: projects } = useProjects({ limit: 100 });
+  const { data: availableModels } = useAvailableModels();
   const searchMutation = useSearch();
   const { data: suggestions } = useSearchSuggestions(
     debouncedQuery,
@@ -98,7 +114,7 @@ export default function Search() {
           dangerouslySetInnerHTML={{
             __html: bestHighlight.snippet.replace(
               /<mark>/g,
-              '<mark class="bg-yellow-200 dark:bg-yellow-800">'
+              '<mark class="bg-yellow-300 dark:bg-yellow-700 font-semibold px-0.5 rounded">'
             ),
           }}
         />
@@ -109,9 +125,19 @@ export default function Search() {
   const getMessageTypeIcon = (type: string) => {
     switch (type) {
       case 'user':
-        return <span className="text-blue-600">User</span>;
+        return (
+          <div className="flex items-center gap-1">
+            <User className="h-3 w-3 text-blue-600" />
+            <span className="text-blue-600 font-medium">User</span>
+          </div>
+        );
       case 'assistant':
-        return <span className="text-green-600">Assistant</span>;
+        return (
+          <div className="flex items-center gap-1">
+            <Bot className="h-3 w-3 text-green-600" />
+            <span className="text-green-600 font-medium">Assistant</span>
+          </div>
+        );
       default:
         return <span className="text-gray-600">{type}</span>;
     }
@@ -226,86 +252,154 @@ export default function Search() {
               )}
             </div>
 
-            <div className="flex gap-4 flex-wrap">
-              <select
-                className="px-3 py-2 bg-background border border-input rounded-md"
-                value={filters.project_ids?.[0] || ''}
-                onChange={(e) =>
-                  setFilters({
-                    ...filters,
-                    project_ids: e.target.value ? [e.target.value] : undefined,
-                  })
-                }
-              >
-                <option value="">All Projects</option>
-                {projects?.items.map((project) => (
-                  <option key={project._id} value={project._id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Filter className="h-4 w-4" />
+                  <span>Filters</span>
+                  {activeFilterCount > 0 && (
+                    <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </div>
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFilters({})}
+                    className="text-xs"
+                  >
+                    Clear filters
+                  </Button>
+                )}
+              </div>
 
-              <select
-                className="px-3 py-2 bg-background border border-input rounded-md"
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value) {
-                    setFilters({ ...filters, start_date: undefined });
-                    return;
-                  }
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
+                    Project
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 bg-background border border-input rounded-md hover:border-ring transition-colors"
+                    value={filters.project_ids?.[0] || ''}
+                    onChange={(e) =>
+                      setFilters({
+                        ...filters,
+                        project_ids: e.target.value
+                          ? [e.target.value]
+                          : undefined,
+                      })
+                    }
+                  >
+                    <option value="">All Projects</option>
+                    {projects?.items.map((project) => (
+                      <option key={project._id} value={project._id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                  const date = new Date();
-                  switch (value) {
-                    case 'today':
-                      date.setHours(0, 0, 0, 0);
-                      break;
-                    case 'week':
-                      date.setDate(date.getDate() - 7);
-                      break;
-                    case 'month':
-                      date.setMonth(date.getMonth() - 1);
-                      break;
-                  }
-                  setFilters({ ...filters, start_date: date.toISOString() });
-                }}
-              >
-                <option value="">All Time</option>
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-              </select>
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
+                    Time Range
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 bg-background border border-input rounded-md hover:border-ring transition-colors"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (!value) {
+                        setFilters({ ...filters, start_date: undefined });
+                        return;
+                      }
 
-              <select
-                className="px-3 py-2 bg-background border border-input rounded-md"
-                value={filters.models?.[0] || ''}
-                onChange={(e) =>
-                  setFilters({
-                    ...filters,
-                    models: e.target.value ? [e.target.value] : undefined,
-                  })
-                }
-              >
-                <option value="">All Models</option>
-                <option value="claude-3-opus">Claude 3 Opus</option>
-                <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                <option value="claude-3-sonnet">Claude 3 Sonnet</option>
-                <option value="claude-3-haiku">Claude 3 Haiku</option>
-              </select>
+                      const date = new Date();
+                      switch (value) {
+                        case 'today':
+                          date.setHours(0, 0, 0, 0);
+                          break;
+                        case 'week':
+                          date.setDate(date.getDate() - 7);
+                          break;
+                        case 'month':
+                          date.setMonth(date.getMonth() - 1);
+                          break;
+                      }
+                      setFilters({
+                        ...filters,
+                        start_date: date.toISOString(),
+                      });
+                    }}
+                  >
+                    <option value="">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                  </select>
+                </div>
 
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={filters.has_code || false}
-                  onChange={(e) =>
-                    setFilters({
-                      ...filters,
-                      has_code: e.target.checked || undefined,
-                    })
-                  }
-                  className="rounded border-gray-300"
-                />
-                <span className="text-sm">Code only</span>
-              </label>
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
+                    Model
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 bg-background border border-input rounded-md hover:border-ring transition-colors"
+                    value={filters.models?.[0] || ''}
+                    onChange={(e) =>
+                      setFilters({
+                        ...filters,
+                        models: e.target.value ? [e.target.value] : undefined,
+                      })
+                    }
+                  >
+                    <option value="">All Models</option>
+                    {availableModels?.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={filters.has_code || false}
+                    onChange={(e) =>
+                      setFilters({
+                        ...filters,
+                        has_code: e.target.checked || undefined,
+                      })
+                    }
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Code2 className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <span className="text-sm group-hover:text-foreground transition-colors">
+                    Code only
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={filters.message_types?.includes('user') || false}
+                    onChange={(e) =>
+                      setFilters({
+                        ...filters,
+                        message_types: e.target.checked ? ['user'] : undefined,
+                      })
+                    }
+                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <User className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <span className="text-sm group-hover:text-foreground transition-colors">
+                    User messages only
+                  </span>
+                </label>
+              </div>
             </div>
           </form>
         </CardContent>
@@ -354,47 +448,64 @@ export default function Search() {
                 <div
                   key={result.message_id}
                   onClick={() => handleResultClick(result)}
-                  className="p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
+                  className="group relative p-4 border rounded-lg hover:bg-accent hover:border-ring cursor-pointer transition-all duration-200 hover:shadow-sm"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-4">
-                      <div className="font-medium">{result.project_name}</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="font-semibold text-sm truncate">
+                          {result.project_name}
+                        </h4>
                         {getMessageTypeIcon(result.message_type)}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         {result.model && (
-                          <>
+                          <div className="flex items-center gap-1">
                             <Bot className="h-3 w-3" />
-                            <span>{result.model.split('/').pop()}</span>
-                          </>
+                            <span className="truncate max-w-[150px]">
+                              {result.model.split('/').pop()}
+                            </span>
+                          </div>
                         )}
                         {result.cost_usd && (
-                          <span className="text-green-600">
-                            ${result.cost_usd.toFixed(4)}
-                          </span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-green-600 font-medium">
+                              ${result.cost_usd.toFixed(4)}
+                            </span>
+                          </div>
                         )}
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          <span>
+                            {formatDistanceToNow(new Date(result.timestamp), {
+                              addSuffix: true,
+                            })}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Calendar className="h-3 w-3" />
-                      {formatDistanceToNow(new Date(result.timestamp), {
-                        addSuffix: true,
-                      })}
+
+                    <div className="flex items-center gap-2 ml-4">
+                      <div className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                        {(result.score * 100).toFixed(0)}% match
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                     </div>
                   </div>
 
                   {result.session_summary && (
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Session: {result.session_summary}
-                    </p>
+                    <div className="mb-2 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                      <span className="font-medium">Session:</span>{' '}
+                      {result.session_summary}
+                    </div>
                   )}
 
-                  <p className="text-sm">{result.content_preview}</p>
-
-                  {formatHighlights(result.highlights)}
-
-                  <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>Relevance: {(result.score * 100).toFixed(0)}%</span>
-                    <ChevronRight className="h-3 w-3" />
+                  <div className="space-y-2">
+                    <p className="text-sm line-clamp-2">
+                      {result.content_preview}
+                    </p>
+                    {formatHighlights(result.highlights)}
                   </div>
                 </div>
               ))}

@@ -535,8 +535,8 @@ export default function SessionDetail() {
         </div>
 
         {/* Details Panel */}
-        <div className="w-80 bg-layer-secondary border-l border-primary-c overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
+        <div className="w-80 bg-layer-secondary border-l border-primary-c flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto scrollbar-thin p-6 min-h-0">
             <div className="space-y-8">
               {/* Session Details */}
               <div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useStore } from '@/store';
 import {
   Card,
   CardContent,
@@ -65,6 +66,14 @@ import {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+// Theme-aware colors
+const getChartColors = (isDark: boolean) => ({
+  grid: isDark ? '#374151' : '#e5e7eb',
+  text: isDark ? '#9ca3af' : '#6b7280',
+  stroke: isDark ? '#6366f1' : '#8884d8',
+  background: isDark ? '#111827' : '#ffffff',
+});
+
 // Response Time Percentile Card Component
 const ResponseTimePercentileCard = ({
   timeRange,
@@ -93,7 +102,7 @@ const ResponseTimePercentileCard = ({
         ) : responseTimeData ? (
           <PercentileRibbon percentiles={responseTimeData.percentiles} />
         ) : (
-          <div className="text-center text-gray-500 py-8">
+          <div className="text-center text-muted-foreground py-8">
             No response time data available for the selected time range
           </div>
         )}
@@ -112,6 +121,8 @@ const timeRangeOptions = [
 ];
 
 export default function Analytics() {
+  const theme = useStore((state) => state.ui.theme);
+  const isDark = theme === 'dark';
   const [timeRange, setTimeRange] = useState<TimeRange>(TimeRange.LAST_30_DAYS);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null
@@ -486,7 +497,7 @@ export default function Analytics() {
             {liveSessionId && (
               <button
                 onClick={() => setLiveSessionId(null)}
-                className="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-gray-700"
+                className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300"
               >
                 Clear
               </button>
@@ -562,6 +573,12 @@ export default function Analytics() {
                       </Pie>
                       <Tooltip
                         formatter={(value) => formatCost(value as number)}
+                        contentStyle={{
+                          backgroundColor: getChartColors(isDark).background,
+                          border: `1px solid ${getChartColors(isDark).grid}`,
+                          borderRadius: '4px',
+                        }}
+                        labelStyle={{ color: getChartColors(isDark).text }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -644,17 +661,32 @@ export default function Analytics() {
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={processCostData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis tickFormatter={(value) => `$${value}`} />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={getChartColors(isDark).grid}
+                      />
+                      <XAxis
+                        dataKey="date"
+                        stroke={getChartColors(isDark).text}
+                      />
+                      <YAxis
+                        tickFormatter={(value) => `$${value}`}
+                        stroke={getChartColors(isDark).text}
+                      />
                       <Tooltip
                         formatter={(value) => formatCost(value as number)}
                         labelFormatter={(label) => `Date: ${label}`}
+                        contentStyle={{
+                          backgroundColor: getChartColors(isDark).background,
+                          border: `1px solid ${getChartColors(isDark).grid}`,
+                          borderRadius: '4px',
+                        }}
+                        labelStyle={{ color: getChartColors(isDark).text }}
                       />
                       <Line
                         type="monotone"
                         dataKey="cost"
-                        stroke="#8884d8"
+                        stroke={getChartColors(isDark).stroke}
                         strokeWidth={2}
                       />
                     </LineChart>
@@ -697,7 +729,14 @@ export default function Analytics() {
                           />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: getChartColors(isDark).background,
+                          border: `1px solid ${getChartColors(isDark).grid}`,
+                          borderRadius: '4px',
+                        }}
+                        labelStyle={{ color: getChartColors(isDark).text }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
@@ -746,12 +785,20 @@ export default function Analytics() {
                           (c) => c.day === day && c.hour === hour
                         );
                         const intensity = cell?.intensity || 0;
+                        const bgColor = isDark
+                          ? `rgba(99, 102, 241, ${intensity * 0.8})`
+                          : `rgba(99, 102, 241, ${intensity})`;
                         return (
                           <div
                             key={`${day}-${hour}`}
                             className="flex-1 aspect-square m-0.5 rounded-sm transition-opacity hover:opacity-80"
                             style={{
-                              backgroundColor: `rgba(99, 102, 241, ${intensity})`,
+                              backgroundColor:
+                                intensity > 0
+                                  ? bgColor
+                                  : isDark
+                                    ? 'rgb(31, 41, 55)'
+                                    : 'rgb(243, 244, 246)',
                             }}
                             title={`${getDayName(day)} ${hour}:00 - ${
                               cell?.count || 0
@@ -930,7 +977,7 @@ export default function Analytics() {
           ) : (
             <div className="text-center py-8">
               <TreePine className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 No depth analysis data available for the selected time range
               </p>
             </div>
@@ -1047,12 +1094,14 @@ export default function Analytics() {
           ) : (
             <div className="space-y-6">
               {/* Summary Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
                     {formatCost(directoryData.total_metrics?.total_cost || 0)}
                   </div>
-                  <div className="text-sm text-gray-600">Total Cost</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Total Cost
+                  </div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">
@@ -1060,13 +1109,15 @@ export default function Analytics() {
                       directoryData.total_metrics?.total_messages || 0
                     ).toLocaleString()}
                   </div>
-                  <div className="text-sm text-gray-600">Total Messages</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Total Messages
+                  </div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">
                     {directoryData.total_metrics?.unique_directories || 0}
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
                     Unique Directories
                   </div>
                 </div>

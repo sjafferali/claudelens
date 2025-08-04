@@ -15,6 +15,7 @@ import { Button } from './common/Button';
 import { analyticsApi, TimeRange } from '../api/analytics';
 import { ResponseTimeAnalytics, ResponseTimeDataPoint } from '../api/types';
 import Loading from './common/Loading';
+import { useStore } from '@/store';
 
 interface ResponseTimeChartProps {
   timeRange?: TimeRange;
@@ -25,12 +26,24 @@ const ResponseTimeChart: React.FC<ResponseTimeChartProps> = ({
   timeRange = TimeRange.LAST_30_DAYS,
   onTimeRangeChange,
 }) => {
+  const theme = useStore((state) => state.ui.theme);
+  const isDark = theme === 'dark';
   const [data, setData] = useState<ResponseTimeAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [groupBy, setGroupBy] = useState<
     'hour' | 'day' | 'model' | 'tool_count'
   >('hour');
+
+  // Theme-aware colors
+  const chartColors = {
+    grid: isDark ? '#374151' : '#e5e7eb',
+    text: isDark ? '#9ca3af' : '#6b7280',
+    primary: isDark ? '#60a5fa' : '#3b82f6',
+    secondary: isDark ? '#34d399' : '#22c55e',
+    warning: isDark ? '#fbbf24' : '#f59e0b',
+    background: isDark ? '#111827' : '#ffffff',
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -250,21 +263,37 @@ const ResponseTimeChart: React.FC<ResponseTimeChartProps> = ({
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={chartColors.grid}
+                opacity={0.3}
+              />
               <XAxis
                 dataKey="timestamp"
                 tick={{ fontSize: 12 }}
                 interval="preserveStartEnd"
+                stroke={chartColors.text}
               />
-              <YAxis tickFormatter={formatDuration} tick={{ fontSize: 12 }} />
-              <Tooltip content={<CustomTooltip />} />
+              <YAxis
+                tickFormatter={formatDuration}
+                tick={{ fontSize: 12 }}
+                stroke={chartColors.text}
+              />
+              <Tooltip
+                content={<CustomTooltip />}
+                contentStyle={{
+                  backgroundColor: chartColors.background,
+                  border: `1px solid ${chartColors.grid}`,
+                  borderRadius: '4px',
+                }}
+              />
               <Legend />
 
               {/* Percentile area bands */}
               <Area
                 type="monotone"
                 dataKey="p90"
-                fill="#f59e0b"
+                fill={chartColors.warning}
                 fillOpacity={0.1}
                 stroke="none"
               />
@@ -273,7 +302,7 @@ const ResponseTimeChart: React.FC<ResponseTimeChartProps> = ({
               <Line
                 type="monotone"
                 dataKey="avg_duration_ms"
-                stroke="#3b82f6"
+                stroke={chartColors.primary}
                 strokeWidth={2}
                 dot={{ r: 3 }}
                 name="Average"
@@ -281,7 +310,7 @@ const ResponseTimeChart: React.FC<ResponseTimeChartProps> = ({
               <Line
                 type="monotone"
                 dataKey="p50"
-                stroke="#22c55e"
+                stroke={chartColors.secondary}
                 strokeWidth={1}
                 strokeDasharray="5 5"
                 dot={false}
@@ -290,7 +319,7 @@ const ResponseTimeChart: React.FC<ResponseTimeChartProps> = ({
               <Line
                 type="monotone"
                 dataKey="p90"
-                stroke="#f59e0b"
+                stroke={chartColors.warning}
                 strokeWidth={1}
                 strokeDasharray="5 5"
                 dot={false}
