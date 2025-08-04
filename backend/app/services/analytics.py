@@ -1685,12 +1685,21 @@ class AnalyticsService:
                 time_range=time_range,
             )
 
-        # Calculate total metrics
-        total_cost = sum(self._safe_float(r.get("total_cost", 0)) for r in results)
+        # Calculate total metrics from raw results
+        # Note: We'll recalculate total_cost from the root node to avoid double-counting
         total_messages = sum(r["message_count"] for r in results)
         unique_directories = len(results)
 
         # Build hierarchical tree structure
+        # First pass: build tree with temporary total
+        temp_total = sum(self._safe_float(r.get("total_cost", 0)) for r in results)
+        root_node = self._build_directory_tree(results, depth, temp_total)
+
+        # Use the root node's aggregated cost as the true total
+        # This avoids double-counting from nested directories
+        total_cost = root_node.metrics.cost
+
+        # Rebuild the tree with the correct total for accurate percentages
         root_node = self._build_directory_tree(results, depth, total_cost)
 
         total_metrics = DirectoryTotalMetrics(
@@ -1829,6 +1838,9 @@ class AnalyticsService:
             total_node_cost / session_count if session_count > 0 else 0.0
         )
         percentage = (total_node_cost / total_cost * 100) if total_cost > 0 else 0.0
+
+        # Ensure percentage doesn't exceed 100% due to floating point errors
+        percentage = min(percentage, 100.0)
 
         # Ensure we have a valid timestamp
         if latest_activity == datetime.min:
