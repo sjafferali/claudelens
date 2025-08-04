@@ -64,7 +64,11 @@ def sync(
     # Initialize components
     state_manager = StateManager()
     sync_engine = SyncEngine(
-        config_manager, state_manager, debug=debug, overwrite_mode=overwrite
+        config_manager,
+        state_manager,
+        debug=debug,
+        overwrite_mode=overwrite,
+        force=force,
     )
 
     # Show current configuration

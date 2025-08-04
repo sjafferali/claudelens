@@ -78,6 +78,7 @@ class SyncEngine:
         state: StateManager,
         debug: bool = False,
         overwrite_mode: bool = False,
+        force: bool = False,
     ):
         self.config = config
         self.state = state
@@ -86,6 +87,7 @@ class SyncEngine:
         self._observer: BaseObserver | None = None
         self.debug = debug
         self.overwrite_mode = overwrite_mode
+        self.force = force
 
     async def _get_http_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -365,8 +367,12 @@ class SyncEngine:
             # Generate hash
             message_hash = self.state.hash_message(message)
 
-            # Skip if already synced (only in non-dry-run mode)
-            if not dry_run and self.state.is_message_synced(project_key, message_hash):
+            # Skip if already synced (only in non-dry-run mode and not force mode)
+            if (
+                not dry_run
+                and not self.force
+                and self.state.is_message_synced(project_key, message_hash)
+            ):
                 stats.messages_skipped += 1
                 session_stats["skipped_messages"] += 1
                 if self.debug and stats.messages_skipped <= 5:  # Show first few skips
@@ -400,13 +406,14 @@ class SyncEngine:
                         # Fallback to counting all as synced if no stats returned
                         stats.messages_synced += len(batch)
 
-                    # Update state only when actually syncing
-                    self.state.update_project_state(
-                        project_key,
-                        last_file=f"session_{session_id}",
-                        last_line=len(messages),
-                        new_messages=batch_hashes,
-                    )
+                    # Update state only when actually syncing and not in force mode
+                    if not self.force:
+                        self.state.update_project_state(
+                            project_key,
+                            last_file=f"session_{session_id}",
+                            last_line=len(messages),
+                            new_messages=batch_hashes,
+                        )
                 else:
                     stats.messages_synced += len(batch)
 
@@ -431,13 +438,14 @@ class SyncEngine:
                     # Fallback to counting all as synced if no stats returned
                     stats.messages_synced += len(batch)
 
-                # Update state only when actually syncing
-                self.state.update_project_state(
-                    project_key,
-                    last_file=f"session_{session_id}",
-                    last_line=len(messages),
-                    new_messages=batch_hashes,
-                )
+                # Update state only when actually syncing and not in force mode
+                if not self.force:
+                    self.state.update_project_state(
+                        project_key,
+                        last_file=f"session_{session_id}",
+                        last_line=len(messages),
+                        new_messages=batch_hashes,
+                    )
             else:
                 stats.messages_synced += len(batch)
 
@@ -472,8 +480,12 @@ class SyncEngine:
             # Generate hash
             message_hash = self.state.hash_message(message)
 
-            # Skip if already synced (only in non-dry-run mode)
-            if not dry_run and self.state.is_message_synced(project_key, message_hash):
+            # Skip if already synced (only in non-dry-run mode and not force mode)
+            if (
+                not dry_run
+                and not self.force
+                and self.state.is_message_synced(project_key, message_hash)
+            ):
                 stats.messages_skipped += 1
                 continue
 
@@ -507,13 +519,14 @@ class SyncEngine:
                         # Fallback to counting all as synced if no stats returned
                         stats.messages_synced += len(batch)
 
-                    # Update state only when actually syncing
-                    self.state.update_project_state(
-                        project_key,
-                        last_file=file_path.name,
-                        last_line=line_number,
-                        new_messages=batch_hashes,
-                    )
+                    # Update state only when actually syncing and not in force mode
+                    if not self.force:
+                        self.state.update_project_state(
+                            project_key,
+                            last_file=file_path.name,
+                            last_line=line_number,
+                            new_messages=batch_hashes,
+                        )
                 else:
                     stats.messages_synced += len(batch)
 
@@ -538,13 +551,14 @@ class SyncEngine:
                     # Fallback to counting all as synced if no stats returned
                     stats.messages_synced += len(batch)
 
-                # Update state only when actually syncing
-                self.state.update_project_state(
-                    project_key,
-                    last_file=file_path.name,
-                    last_line=line_number,
-                    new_messages=batch_hashes,
-                )
+                # Update state only when actually syncing and not in force mode
+                if not self.force:
+                    self.state.update_project_state(
+                        project_key,
+                        last_file=file_path.name,
+                        last_line=line_number,
+                        new_messages=batch_hashes,
+                    )
             else:
                 stats.messages_synced += len(batch)
 
