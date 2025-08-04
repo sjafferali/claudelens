@@ -39,15 +39,52 @@ export default function SessionDetail() {
   const [searchParams] = useSearchParams();
   const targetMessageId = searchParams.get('messageId');
   const messageRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [currentPage, setCurrentPage] = useState(0);
+  const MESSAGES_PER_PAGE = 50;
+
+  // Reset pagination when session changes
+  useEffect(() => {
+    setCurrentPage(0);
+    setAllMessages([]);
+    setHasLoadedInitial(false);
+  }, [sessionId]);
 
   const { data: session, isLoading: sessionLoading } = useSession(sessionId!);
-  const { data: messages, isLoading: messagesLoading } = useSessionMessages(
-    sessionId!
+  const {
+    data: messages,
+    isLoading: messagesLoading,
+    isFetching,
+  } = useSessionMessages(
+    sessionId!,
+    currentPage * MESSAGES_PER_PAGE,
+    MESSAGES_PER_PAGE
   );
   const generateSummary = useGenerateSessionSummary();
 
+  // State to accumulate all loaded messages
+  const [allMessages, setAllMessages] = useState<Message[]>([]);
+  const [hasLoadedInitial, setHasLoadedInitial] = useState(false);
+
+  // Update accumulated messages when new page loads
+  useEffect(() => {
+    if (messages?.messages && !messagesLoading) {
+      if (currentPage === 0) {
+        // First page - replace all messages
+        setAllMessages(messages.messages);
+        setHasLoadedInitial(true);
+      } else {
+        // Subsequent pages - append messages
+        setAllMessages((prev) => [...prev, ...messages.messages]);
+      }
+    }
+  }, [messages, currentPage, messagesLoading]);
+
+  // Calculate if there are more messages to load
+  const hasMoreMessages = session && allMessages.length < session.messageCount;
+  const canLoadMore = hasMoreMessages && !isFetching && hasLoadedInitial;
+
   // Calculate costs for messages
-  const { costMap } = useMessageCosts(sessionId, messages?.messages);
+  const { costMap } = useMessageCosts(sessionId, allMessages);
 
   const [viewMode, setViewMode] = useState<'timeline' | 'compact' | 'raw'>(
     'timeline'
@@ -65,20 +102,19 @@ export default function SessionDetail() {
   );
 
   // Filter messages based on search
-  const filteredMessages =
-    messages?.messages.filter((msg) =>
-      msg.content.toLowerCase().includes(searchQuery.toLowerCase())
-    ) || [];
+  const filteredMessages = allMessages.filter((msg) =>
+    msg.content.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Auto-collapse tool results on load
   useEffect(() => {
-    if (messages) {
-      const toolResultIds = messages.messages
+    if (allMessages.length > 0) {
+      const toolResultIds = allMessages
         .filter((msg) => msg.content.startsWith('[Tool Result:'))
         .map((msg) => msg._id);
       setCollapsedToolResults(new Set(toolResultIds));
     }
-  }, [messages]);
+  }, [allMessages]);
 
   // Scroll to target message when navigating from search
   useEffect(() => {
@@ -365,6 +401,24 @@ export default function SessionDetail() {
                   getMessageLabel={getMessageLabel}
                   getAvatarText={getAvatarText}
                 />
+                {canLoadMore && (
+                  <div className="flex justify-center py-6">
+                    <button
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                      disabled={isFetching}
+                      className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {isFetching ? (
+                        <span className="flex items-center gap-2">
+                          <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></span>
+                          Loading...
+                        </span>
+                      ) : (
+                        `Load More (${allMessages.length} of ${session.messageCount})`
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             {viewMode === 'compact' && (
@@ -374,14 +428,52 @@ export default function SessionDetail() {
                   getMessageLabel={getMessageLabel}
                   getMessageColors={getMessageColors}
                 />
+                {canLoadMore && (
+                  <div className="flex justify-center py-6">
+                    <button
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                      disabled={isFetching}
+                      className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {isFetching ? (
+                        <span className="flex items-center gap-2">
+                          <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></span>
+                          Loading...
+                        </span>
+                      ) : (
+                        `Load More (${allMessages.length} of ${session.messageCount})`
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             {viewMode === 'raw' && (
-              <RawView
-                messages={filteredMessages}
-                onCopy={copyToClipboard}
-                copiedId={copiedId}
-              />
+              <div className="flex-1 overflow-y-auto">
+                <RawView
+                  messages={filteredMessages}
+                  onCopy={copyToClipboard}
+                  copiedId={copiedId}
+                />
+                {canLoadMore && (
+                  <div className="flex justify-center py-6">
+                    <button
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                      disabled={isFetching}
+                      className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {isFetching ? (
+                        <span className="flex items-center gap-2">
+                          <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></span>
+                          Loading...
+                        </span>
+                      ) : (
+                        `Load More (${allMessages.length} of ${session.messageCount})`
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -512,6 +604,178 @@ function TimelineView({
 }: TimelineViewProps) {
   // Format message content based on type and content
   const formatMessageContent = (message: Message) => {
+    // Handle tool_result messages
+    if (message.type === 'tool_result') {
+      // Try to identify the tool type from content
+      const content = message.content.trim();
+
+      // TodoWrite results
+      if (content.startsWith('Todos have been modified successfully')) {
+        return '✅ Todo list updated successfully';
+      }
+
+      // Read tool results (file contents)
+      else if (
+        content.includes('File contents:') ||
+        content.includes('cat -n') ||
+        /^\s*\d+→/.test(content)
+      ) {
+        const lines = content.split('\n');
+        const preview = lines.slice(0, 5).join('\n');
+        return `📄 File contents:\n${preview}${lines.length > 5 ? '\n...' : ''}`;
+      }
+
+      // Write/Edit tool results
+      else if (
+        content.includes('File created successfully') ||
+        content.includes('has been updated') ||
+        content.includes('File written successfully')
+      ) {
+        return `✅ File operation completed`;
+      }
+
+      // Grep/Glob search results
+      else if (
+        content.startsWith('Found') &&
+        (content.includes('files') || content.includes('matches'))
+      ) {
+        const lines = content.split('\n');
+        if (lines.length > 10) {
+          return `🔍 Search results:\n${lines.slice(0, 10).join('\n')}\n... and ${lines.length - 10} more`;
+        }
+        return `🔍 Search results:\n${content}`;
+      } else if (
+        content === 'No matches found' ||
+        content === 'No files found'
+      ) {
+        return '❌ No matches found';
+      }
+
+      // LS results
+      else if (
+        content.includes('total') &&
+        (content.includes('drwx') || content.includes('-rw'))
+      ) {
+        const lines = content.split('\n');
+        const fileCount = lines.filter(
+          (l) => l.trim() && !l.startsWith('total')
+        ).length;
+        return `📁 Directory listing: ${fileCount} items`;
+      }
+
+      // Bash command results
+      else if (
+        content.includes('npm install') ||
+        content.includes('poetry install')
+      ) {
+        return '📦 Dependencies installed successfully';
+      } else if (
+        content.includes('npm run') ||
+        content.includes('poetry run')
+      ) {
+        return '🚀 Command executed successfully';
+      } else if (
+        content.includes('git') &&
+        (content.includes('commit') || content.includes('branch'))
+      ) {
+        return '🔧 Git operation completed';
+      } else if (
+        content.includes('docker') &&
+        (content.includes('built') || content.includes('Started'))
+      ) {
+        return '🐳 Docker operation completed';
+      } else if (
+        content.match(/^\s*\w+\s+\w+\s+\w+\s+\w+\s+\w+/) &&
+        content.includes('ago')
+      ) {
+        // Docker ps output
+        return '🐳 Container status retrieved';
+      } else if (
+        content.includes('pip install') ||
+        content.includes('Successfully installed')
+      ) {
+        return '📦 Python packages installed';
+      } else if (content.includes('chmod') || content.includes('permissions')) {
+        return '🔐 Permissions updated';
+      } else if (content.includes('mkdir') && content.includes('created')) {
+        return '📁 Directory created';
+      } else if (
+        content.includes('curl') &&
+        (content.includes('200') || content.includes('OK'))
+      ) {
+        return '🌐 HTTP request successful';
+      }
+
+      // Error handling
+      else if (
+        content.includes('Error') ||
+        content.includes('error') ||
+        content.includes('ERROR')
+      ) {
+        const firstLine = content.split('\n')[0];
+        return `❌ Error: ${firstLine}`;
+      } else if (
+        content.includes('command not found') ||
+        content.includes('No such file or directory')
+      ) {
+        const firstLine = content.split('\n')[0];
+        return `⚠️ Warning: ${firstLine}`;
+      }
+
+      // Task results
+      else if (
+        content.includes('Task completed') ||
+        content.includes('Agent task completed')
+      ) {
+        return '🤖 Task completed successfully';
+      }
+
+      // WebFetch/WebSearch results
+      else if (content.includes('<!DOCTYPE') || content.includes('<html')) {
+        return '🌐 Web content fetched successfully';
+      } else if (
+        content.includes('search results') ||
+        content.includes('Search Results')
+      ) {
+        return '🔍 Web search completed';
+      }
+
+      // Notebook operations
+      else if (content.includes('cells') && content.includes('notebook')) {
+        return '📓 Notebook operation completed';
+      }
+
+      // Generic success patterns
+      else if (
+        content.includes('Successfully') ||
+        content.includes('successfully') ||
+        content.includes('Success')
+      ) {
+        const firstLine = content.split('\n')[0];
+        return `✅ ${firstLine}`;
+      }
+
+      // Plan mode results
+      else if (
+        content.includes('Plan approved') ||
+        content.includes('Exiting plan mode')
+      ) {
+        return '📋 Plan mode completed';
+      }
+
+      // Long results - show preview
+      else if (content.length > 200) {
+        const preview = content.substring(0, 200);
+        const lineCount = content.split('\n').length;
+        return `📥 Tool Result (${lineCount} lines):\n${preview}...`;
+      }
+
+      // Default
+      else {
+        return `📥 Tool Result:\n${content}`;
+      }
+    }
+
     // Handle tool_use messages with JSON content
     if (message.type === 'tool_use') {
       try {
@@ -665,11 +929,37 @@ function TimelineView({
                     (t) => t.status === 'completed'
                   ).length;
                   toolInfo += `\n📝 Todo list: ${todos.length} item${todos.length > 1 ? 's' : ''}`;
-                  if (pending > 0) toolInfo += `\n  ⏳ Pending: ${pending}`;
-                  if (inProgress > 0)
-                    toolInfo += `\n  🔄 In Progress: ${inProgress}`;
-                  if (completed > 0)
-                    toolInfo += `\n  ✅ Completed: ${completed}`;
+                  toolInfo += `\n  ⏳ Pending: ${pending} | 🔄 In Progress: ${inProgress} | ✅ Completed: ${completed}`;
+
+                  // Show actual todo items
+                  toolInfo += '\n\n  Tasks:';
+                  todos.forEach((todo, index) => {
+                    const statusIcon =
+                      todo.status === 'completed'
+                        ? '✅'
+                        : todo.status === 'in_progress'
+                          ? '🔄'
+                          : '⏳';
+                    const priority =
+                      todo.priority === 'high'
+                        ? '🔴'
+                        : todo.priority === 'medium'
+                          ? '🟡'
+                          : '🟢';
+
+                    // Truncate long todo content
+                    const content =
+                      todo.content && todo.content.length > 60
+                        ? todo.content.substring(0, 60) + '...'
+                        : todo.content || 'No description';
+
+                    toolInfo += `\n  ${index + 1}. ${statusIcon} ${priority} ${content}`;
+                  });
+
+                  // Limit display to first 10 todos if there are many
+                  if (todos.length > 10) {
+                    toolInfo += `\n  ... and ${todos.length - 10} more tasks`;
+                  }
                 }
               }
               break;
@@ -684,6 +974,7 @@ function TimelineView({
               break;
 
             case 'ExitPlanMode':
+            case 'exit_plan_mode': // Handle lowercase variant
               toolInfo += '\n📋 Exiting plan mode';
               if (parsed.input?.plan) {
                 const planLines = parsed.input.plan.split('\n').length;
@@ -705,51 +996,6 @@ function TimelineView({
         }
       } catch {
         // If not JSON, return as is
-      }
-    }
-
-    // Handle user messages with tool results
-    if (
-      message.type === 'user' &&
-      message.content.startsWith('--- Tool Result ---')
-    ) {
-      // Extract first line of actual result
-      const lines = message.content.split('\n');
-      if (lines.length > 1) {
-        const resultPreview = lines[1].trim();
-        return `📥 Tool Result:\n${resultPreview.length > 100 ? resultPreview.substring(0, 100) + '...' : resultPreview}`;
-      }
-      return '📥 Tool result received';
-    }
-
-    // Handle tool_result messages
-    if (message.type === 'tool_result') {
-      // Try to identify the tool type from content
-      const content = message.content.trim();
-
-      // Common patterns in tool results
-      if (
-        content.includes('File created successfully') ||
-        content.includes('has been updated')
-      ) {
-        return `✅ File operation completed:\n${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
-      } else if (content.includes('Found') && content.includes('files')) {
-        return `🔍 Search results:\n${content}`;
-      } else if (content.includes('Error') || content.includes('error')) {
-        return `❌ Tool error:\n${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`;
-      } else if (
-        content.includes('Successfully') ||
-        content.includes('completed')
-      ) {
-        return `✅ Success:\n${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
-      } else if (
-        content.includes('command not found') ||
-        content.includes('No such file')
-      ) {
-        return `⚠️ Warning:\n${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
-      } else {
-        // For other results, show a preview
-        return `📤 Result:\n${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`;
       }
     }
 

@@ -506,36 +506,24 @@ class IngestService:
                     "createdAt": datetime.now(UTC),
                 }
 
-                # Create content
+                # Create content - only include text parts in user message
                 if text_parts:
                     main_doc["content"] = "\n".join(text_parts)
-                elif tool_result_parts:
-                    # If only tool results, extract the actual content
-                    result_contents = []
-                    for result in tool_result_parts:
-                        result_content = result.get("content", "")
-                        if isinstance(result_content, str) and result_content:
-                            # Truncate very long tool results
-                            if len(result_content) > 500:
-                                result_contents.append(result_content[:500] + "...")
-                            else:
-                                result_contents.append(result_content)
-
-                    if result_contents:
-                        main_doc["content"] = "\n\n--- Tool Result ---\n" + "\n\n".join(
-                            result_contents
-                        )
-                    else:
-                        main_doc["content"] = "[Tool result - no content]"
-                else:
+                    main_doc[
+                        "messageData"
+                    ] = message.message  # Store the full original message
+                    # Add optional fields
+                    self._add_optional_fields(main_doc, message)
+                    docs.append(main_doc)
+                elif not tool_result_parts:
+                    # Only create empty user message if there are no tool results either
                     main_doc["content"] = ""
-                main_doc[
-                    "messageData"
-                ] = message.message  # Store the full original message
-
-                # Add optional fields
-                self._add_optional_fields(main_doc, message)
-                docs.append(main_doc)
+                    main_doc[
+                        "messageData"
+                    ] = message.message  # Store the full original message
+                    # Add optional fields
+                    self._add_optional_fields(main_doc, message)
+                    docs.append(main_doc)
 
                 # Create separate tool_result messages
                 for i, result_part in enumerate(tool_result_parts):
