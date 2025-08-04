@@ -70,7 +70,7 @@ app.add_middleware(
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(LoggingMiddleware)
-app.add_middleware(RateLimitMiddleware, calls=100, period=60)
+app.add_middleware(RateLimitMiddleware, calls=500, period=60)
 
 
 # Exception handlers

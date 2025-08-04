@@ -5,8 +5,9 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any, cast
 
-from fastapi import HTTPException, Request, Response
+from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -23,8 +24,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[..., Any]
     ) -> Response:
         """Check rate limit before processing request."""
-        # Skip rate limiting for health checks
-        if request.url.path in ["/health", "/api/v1/health"]:
+        # Skip rate limiting for health checks and certain API endpoints
+        excluded_paths = [
+            "/health",
+            "/api/v1/health",
+            "/api/v1/messages/calculate-costs",  # Cost calculation should not be rate limited
+            "/api/v1/projects",  # Project creation from sync should not be rate limited
+        ]
+
+        if request.url.path in excluded_paths:
             return cast(Response, await call_next(request))
 
         # Get client identifier (IP or API key)
@@ -42,9 +50,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Check if limit exceeded
         if len(self.clients[client_id]) >= self.calls:
-            raise HTTPException(
+            return JSONResponse(
                 status_code=429,
-                detail="Rate limit exceeded",
+                content={"detail": "Rate limit exceeded"},
                 headers={
                     "Retry-After": str(self.period),
                     "X-RateLimit-Limit": str(self.calls),
