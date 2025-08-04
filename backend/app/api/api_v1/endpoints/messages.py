@@ -22,7 +22,7 @@ async def list_messages(
     type: str | None = Query(None, description="Filter by message type"),
     model: str | None = Query(None, description="Filter by model"),
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=1000),
     sort_order: str = Query("asc", pattern="^(asc|desc)$"),
 ) -> PaginatedResponse[Message]:
     """List messages with pagination and filtering.

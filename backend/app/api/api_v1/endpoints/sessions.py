@@ -90,7 +90,7 @@ async def get_session_messages(
     session_id: str,
     db: CommonDeps,
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=1000),
 ) -> SessionWithMessages:
     """Get all messages for a session.
 

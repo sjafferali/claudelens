@@ -143,19 +143,27 @@ class SessionService:
     async def get_session_messages(
         self, session_id: str, skip: int, limit: int
     ) -> list[Message]:
-        """Get messages for a session by its MongoDB _id."""
-        # First get the session to find the actual sessionId
+        """Get messages for a session by its MongoDB _id or sessionId."""
+        doc = None
+
+        # First try as MongoDB ObjectId
         try:
             from bson import ObjectId
 
-            if not ObjectId.is_valid(session_id):
-                return []
-            session_doc = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
-            if not session_doc:
-                return []
-            actual_session_id = session_doc["sessionId"]
+            if ObjectId.is_valid(session_id):
+                doc = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
         except Exception:
+            pass
+
+        # If not found, try as sessionId field
+        if not doc:
+            doc = await self.db.sessions.find_one({"sessionId": session_id})
+
+        if not doc:
             return []
+
+        # Get the actual sessionId from the document
+        actual_session_id = doc["sessionId"]
 
         cursor = (
             self.db.messages.find({"sessionId": actual_session_id})

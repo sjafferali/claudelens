@@ -66,7 +66,7 @@ export const sessionsApi = {
   async getSessionMessages(
     sessionId: string,
     skip = 0,
-    limit = 50
+    limit = 100
   ): Promise<SessionWithMessages> {
     return apiClient.get<SessionWithMessages>(
       `/sessions/${sessionId}/messages?skip=${skip}&limit=${limit}`

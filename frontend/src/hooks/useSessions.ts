@@ -26,7 +26,7 @@ export function useSession(
 export function useSessionMessages(
   sessionId: string | undefined,
   skip = 0,
-  limit = 50
+  limit = 100
 ) {
   return useQuery({
     queryKey: ['session-messages', sessionId, skip, limit],

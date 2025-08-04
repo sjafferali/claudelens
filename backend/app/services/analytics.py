@@ -2619,12 +2619,28 @@ class AnalyticsService:
 
         # Aggregation pipeline to calculate token totals
         pipeline: list[dict[str, Any]] = [
-            {"$match": {**match_filter, "tokensInput": {"$exists": True}}},
+            {"$match": match_filter},
             {
                 "$group": {
                     "_id": None,
-                    "total_input": {"$sum": {"$ifNull": ["$tokensInput", 0]}},
-                    "total_output": {"$sum": {"$ifNull": ["$tokensOutput", 0]}},
+                    "total_input": {
+                        "$sum": {
+                            "$add": [
+                                {"$ifNull": ["$tokensInput", 0]},
+                                {"$ifNull": ["$inputTokens", 0]},
+                                {"$ifNull": ["$metadata.usage.input_tokens", 0]},
+                            ]
+                        }
+                    },
+                    "total_output": {
+                        "$sum": {
+                            "$add": [
+                                {"$ifNull": ["$tokensOutput", 0]},
+                                {"$ifNull": ["$outputTokens", 0]},
+                                {"$ifNull": ["$metadata.usage.output_tokens", 0]},
+                            ]
+                        }
+                    },
                     "total_cost": {"$sum": {"$ifNull": ["$costUsd", 0]}},
                     "message_count": {"$sum": 1},
                     # Extract cache tokens from metadata if available

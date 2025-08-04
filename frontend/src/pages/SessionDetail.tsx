@@ -41,7 +41,7 @@ export default function SessionDetail() {
   const messageRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const MESSAGES_PER_PAGE = 50;
+  const MESSAGES_PER_PAGE = 100;
 
   // Reset pagination when session changes
   useEffect(() => {
@@ -543,11 +543,26 @@ export default function SessionDetail() {
                   Session Details
                 </h3>
                 <div className="space-y-3">
-                  <div className="flex justify-between py-2 border-b border-secondary-c">
+                  <div className="flex justify-between items-center py-2 border-b border-secondary-c">
                     <span className="text-sm text-muted-c">Session ID</span>
-                    <span className="text-sm text-secondary-c font-mono">
-                      {session.sessionId.slice(0, 12)}...
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-secondary-c font-mono text-xs">
+                        {session.sessionId}
+                      </span>
+                      <button
+                        onClick={() =>
+                          copyToClipboard(session.sessionId, 'session-id')
+                        }
+                        className="p-1 hover:bg-layer-tertiary rounded transition-colors"
+                        title="Copy Session ID"
+                      >
+                        {copiedId === 'session-id' ? (
+                          <Check className="h-3 w-3 text-green-500" />
+                        ) : (
+                          <Copy className="h-3 w-3 text-muted-c" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div className="flex justify-between py-2 border-b border-secondary-c">
                     <span className="text-sm text-muted-c">Started</span>

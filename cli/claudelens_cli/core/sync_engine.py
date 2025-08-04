@@ -1,6 +1,7 @@
 """Core sync engine for ClaudeLens CLI."""
 import asyncio
 import json
+from collections import defaultdict
 from collections.abc import AsyncIterator, Callable
 from datetime import datetime
 from pathlib import Path
@@ -190,27 +191,179 @@ class SyncEngine:
         if not dry_run:
             await self._ensure_project_exists(project_path)
 
-        # Process each file
+        if self.debug:
+            console.print(
+                f"[cyan]DEBUG: Found {len(jsonl_files)} JSONL files in project[/cyan]"
+            )
+
+        # Phase 1: Collect all messages from all files
+        all_messages = {}  # uuid -> (message, file_path, line_number)
+        session_messages = defaultdict(list)  # session_id -> list of messages
+
         for jsonl_file in jsonl_files:
-            # Skip if file hasn't been modified since last sync (only in non-dry-run mode)
-            if (
-                not dry_run
-                and project_state
-                and project_state.last_file == jsonl_file.name
+            # Skip file modification check for now - we need to read all files
+            # to properly handle forked conversations
+
+            line_number = 0
+            pending_summary = None
+
+            async for message, line_num in self._read_jsonl_messages(
+                jsonl_file, start_line=0
             ):
-                file_mtime = datetime.fromtimestamp(jsonl_file.stat().st_mtime)
-                if file_mtime <= project_state.last_sync:
+                line_number = line_num
+
+                # Store the original project path
+                message["_project_path"] = str(project_path)
+                if not message.get("cwd"):
+                    message["cwd"] = str(project_path)
+
+                # Handle summaries
+                if message.get("type") == "summary":
+                    pending_summary = {
+                        "summary": message.get("summary"),
+                        "leafUuid": message.get("leafUuid"),
+                    }
                     continue
 
-            await self._sync_file(
-                jsonl_file,
+                # Attach pending summary if this is the leaf message
+                if pending_summary and message.get("uuid") == pending_summary.get(
+                    "leafUuid"
+                ):
+                    message["summary"] = pending_summary["summary"]
+                    message["leafUuid"] = pending_summary["leafUuid"]
+                    pending_summary = None
+
+                # Store message indexed by UUID
+                uuid = message.get("uuid")
+                session_id = message.get("sessionId")
+
+                if uuid and session_id:
+                    # If we've seen this UUID before, keep the first occurrence
+                    if uuid not in all_messages:
+                        all_messages[uuid] = (message, jsonl_file.name, line_number)
+                        session_messages[session_id].append(message)
+                    else:
+                        # This is a shared message from a forked conversation
+                        # Still add it to the session's message list
+                        existing_msg, _, _ = all_messages[uuid]
+                        session_messages[session_id].append(existing_msg)
+
+                        if self.debug:
+                            console.print(
+                                f"[yellow]DEBUG: Found shared message {uuid} in {jsonl_file.name} "
+                                f"(already seen in {all_messages[uuid][1]})[/yellow]"
+                            )
+
+            stats.files_processed += 1
+
+        if self.debug:
+            console.print(
+                f"[cyan]DEBUG: Collected {len(all_messages)} unique messages[/cyan]"
+            )
+            for session_id, messages in session_messages.items():
+                console.print(
+                    f"[cyan]DEBUG: Session {session_id}: {len(messages)} messages[/cyan]"
+                )
+
+        # Phase 2: Process messages by session
+        for session_id, messages in session_messages.items():
+            await self._sync_session_messages(
+                session_id,
+                messages,
                 project_key,
                 project_state,
                 stats,
                 dry_run,
                 progress_callback,
             )
-            stats.files_processed += 1
+
+    async def _sync_session_messages(
+        self,
+        session_id: str,
+        messages: list[dict],
+        project_key: str,
+        project_state: ProjectState | None,
+        stats: SyncStats,
+        dry_run: bool,
+        progress_callback: Callable[[str], None] | None = None,
+    ):
+        """Sync messages for a specific session."""
+        batch = []
+        batch_hashes = set()
+
+        for message in messages:
+            # Generate hash
+            message_hash = self.state.hash_message(message)
+
+            # Skip if already synced (only in non-dry-run mode)
+            if not dry_run and self.state.is_message_synced(project_key, message_hash):
+                stats.messages_skipped += 1
+                continue
+
+            # Add to batch
+            batch.append(message)
+            batch_hashes.add(message_hash)
+
+            # Upload batch when it reaches configured size
+            if len(batch) >= self.config.config.batch_size:
+                if not dry_run:
+                    response_stats = await self._upload_batch(batch)
+                    if response_stats:
+                        # Update counts based on actual server response
+                        stats.messages_synced += response_stats.get(
+                            "messages_processed", 0
+                        )
+                        stats.messages_updated += response_stats.get(
+                            "messages_updated", 0
+                        )
+                        stats.messages_skipped += response_stats.get(
+                            "messages_skipped", 0
+                        )
+                        stats.errors += response_stats.get("messages_failed", 0)
+                    else:
+                        # Fallback to counting all as synced if no stats returned
+                        stats.messages_synced += len(batch)
+
+                    # Update state only when actually syncing
+                    self.state.update_project_state(
+                        project_key,
+                        last_file=f"session_{session_id}",
+                        last_line=len(messages),
+                        new_messages=batch_hashes,
+                    )
+                else:
+                    stats.messages_synced += len(batch)
+
+                # Clear batch
+                batch = []
+                batch_hashes = set()
+
+                if progress_callback:
+                    progress_callback(f"Synced {stats.messages_synced} messages")
+
+        # Upload remaining messages
+        if batch:
+            if not dry_run:
+                response_stats = await self._upload_batch(batch)
+                if response_stats:
+                    # Update counts based on actual server response
+                    stats.messages_synced += response_stats.get("messages_processed", 0)
+                    stats.messages_updated += response_stats.get("messages_updated", 0)
+                    stats.messages_skipped += response_stats.get("messages_skipped", 0)
+                    stats.errors += response_stats.get("messages_failed", 0)
+                else:
+                    # Fallback to counting all as synced if no stats returned
+                    stats.messages_synced += len(batch)
+
+                # Update state only when actually syncing
+                self.state.update_project_state(
+                    project_key,
+                    last_file=f"session_{session_id}",
+                    last_line=len(messages),
+                    new_messages=batch_hashes,
+                )
+            else:
+                stats.messages_synced += len(batch)
 
     async def _sync_file(
         self,

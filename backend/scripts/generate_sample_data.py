@@ -36,6 +36,17 @@ CODE_SAMPLES = [
     ),
 ]
 
+# Sample tools that Claude might use
+TOOLS = [
+    {"name": "Read", "description": "Read file contents"},
+    {"name": "Write", "description": "Write to file"},
+    {"name": "Edit", "description": "Edit file contents"},
+    {"name": "Bash", "description": "Execute bash command"},
+    {"name": "Grep", "description": "Search for patterns in files"},
+    {"name": "LS", "description": "List directory contents"},
+    {"name": "TodoWrite", "description": "Update todo list"},
+]
+
 
 async def generate_sample_data(db_url: str | None = None):
     """Generate sample data for testing."""
@@ -149,7 +160,24 @@ async def generate_sample_data(db_url: str | None = None):
                     }
                 else:
                     model = random.choice(MODELS)
-                    cost = random.uniform(0.001, 0.05)
+
+                    # Generate realistic token counts
+                    input_tokens = random.randint(100, 2000)
+                    output_tokens = random.randint(50, 1500)
+
+                    # Calculate cost based on model and tokens
+                    # Rough pricing estimates per million tokens
+                    model_pricing = {
+                        "claude-3-opus-20240229": {"input": 15.0, "output": 75.0},
+                        "claude-3-sonnet-20240229": {"input": 3.0, "output": 15.0},
+                        "claude-3-haiku-20240307": {"input": 0.25, "output": 1.25},
+                        "claude-opus-4-20250514": {"input": 15.0, "output": 75.0},
+                    }
+
+                    pricing = model_pricing.get(model, {"input": 3.0, "output": 15.0})
+                    cost = (input_tokens * pricing["input"] / 1_000_000) + (
+                        output_tokens * pricing["output"] / 1_000_000
+                    )
                     total_cost += Decimal(str(cost))
 
                     # Sometimes include code
@@ -171,14 +199,80 @@ async def generate_sample_data(db_url: str | None = None):
                         "timestamp": current_time,
                         "costUsd": cost,
                         "durationMs": random.randint(500, 5000),
+                        "model": model,
+                        # Add token information
+                        "inputTokens": input_tokens,
+                        "outputTokens": output_tokens,
+                        "tokensInput": input_tokens,  # Alternative field name
+                        "tokensOutput": output_tokens,  # Alternative field name
+                        "metadata": {
+                            "usage": {
+                                "input_tokens": input_tokens,
+                                "output_tokens": output_tokens,
+                                "cache_creation_input_tokens": random.randint(0, 100)
+                                if random.random() > 0.8
+                                else 0,
+                                "cache_read_input_tokens": random.randint(0, 50)
+                                if random.random() > 0.9
+                                else 0,
+                            }
+                        },
                     }
 
                 messages.append(message)
-                parent_uuid = msg_uuid
-                current_time += timedelta(seconds=random.randint(5, 60))
+
+                # Occasionally add tool use messages (20% chance)
+                if not is_user and random.random() > 0.8:
+                    # Add tool_use message
+                    tool_use_uuid = fake.uuid4()
+                    tool = random.choice(TOOLS)
+                    tool_use_message = {
+                        "uuid": tool_use_uuid,
+                        "parentUuid": parent_uuid,
+                        "sessionId": session_id,
+                        "type": "tool_use",
+                        "content": f'{{"name": "{tool["name"]}", "input": {{"file_path": "/test/file.py"}}}}',
+                        "timestamp": current_time + timedelta(seconds=1),
+                        "model": model,
+                    }
+                    messages.append(tool_use_message)
+
+                    # Add tool_result message
+                    tool_result_uuid = fake.uuid4()
+                    tool_result_message = {
+                        "uuid": tool_result_uuid,
+                        "parentUuid": tool_use_uuid,
+                        "sessionId": session_id,
+                        "type": "tool_result",
+                        "content": "Tool executed successfully. File contents: ...",
+                        "timestamp": current_time + timedelta(seconds=2),
+                    }
+                    messages.append(tool_result_message)
+                    parent_uuid = tool_result_uuid
+                    current_time += timedelta(seconds=3)
+                else:
+                    parent_uuid = msg_uuid
+                    current_time += timedelta(seconds=random.randint(5, 60))
+
+            # Calculate total tokens for the session
+            total_input_tokens = sum(
+                msg.get("inputTokens", 0)
+                for msg in messages
+                if msg.get("type") == "assistant"
+            )
+            total_output_tokens = sum(
+                msg.get("outputTokens", 0)
+                for msg in messages
+                if msg.get("type") == "assistant"
+            )
+            tool_count = len([msg for msg in messages if msg.get("type") == "tool_use"])
 
             session["messageCount"] = len(messages)
             session["totalCost"] = Decimal128(str(total_cost))
+            session["totalTokens"] = total_input_tokens + total_output_tokens
+            session["inputTokens"] = total_input_tokens
+            session["outputTokens"] = total_output_tokens
+            session["toolsUsed"] = tool_count
 
             await db.sessions.insert_one(session)
             if messages:
