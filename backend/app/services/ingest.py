@@ -12,6 +12,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReplaceOne
 
 from app.schemas.ingest import IngestStats, MessageIngest
+from app.services.cost_calculation import CostCalculationService
 from app.services.realtime_integration import get_integration_service
 
 logger = logging.getLogger(__name__)
@@ -454,6 +455,10 @@ class IngestService:
                     "messageData"
                 ] = message.message  # Store the full original message
 
+                # Extract and store usage data if available
+                if isinstance(message.message, dict) and "usage" in message.message:
+                    main_doc["usage"] = message.message["usage"]
+
                 # Add optional fields
                 self._add_optional_fields(main_doc, message)
                 docs.append(main_doc)
@@ -694,8 +699,28 @@ class IngestService:
             if value is not None:
                 doc[field] = value
 
-        # Handle costUsd separately to convert to Decimal128
+        # Handle costUsd - calculate if not provided but we have usage data
         cost_usd = getattr(message, "costUsd", None)
+        if cost_usd is None and message.type == "assistant" and message.message:
+            # Try to calculate cost from usage data
+            msg_data = message.message
+            if (
+                isinstance(msg_data, dict)
+                and "usage" in msg_data
+                and "model" in msg_data
+            ):
+                usage = msg_data["usage"]
+                cost_service = CostCalculationService()
+                cost_usd = cost_service.calculate_message_cost(
+                    model=msg_data["model"],
+                    input_tokens=usage.get("input_tokens"),
+                    output_tokens=usage.get("output_tokens"),
+                    cache_creation_input_tokens=usage.get(
+                        "cache_creation_input_tokens"
+                    ),
+                    cache_read_input_tokens=usage.get("cache_read_input_tokens"),
+                )
+
         if cost_usd is not None:
             doc["costUsd"] = Decimal128(str(cost_usd))
 

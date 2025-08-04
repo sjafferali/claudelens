@@ -188,7 +188,17 @@ def _show_sync_stats(stats: dict):
             console.print(f"  New messages synced: [green]{messages_synced}[/green]")
 
         if messages_updated > 0:
-            console.print(f"  Messages updated: [yellow]{messages_updated}[/yellow]")
+            # When using overwrite mode, show unique messages if available
+            if unique_messages > 0 and messages_synced == 0:
+                console.print(f"  Messages updated: [yellow]{unique_messages}[/yellow]")
+                if messages_updated != unique_messages:
+                    console.print(
+                        f"    [dim](Server processed {messages_updated} message references)[/dim]"
+                    )
+            else:
+                console.print(
+                    f"  Messages updated: [yellow]{messages_updated}[/yellow]"
+                )
 
         if messages_skipped > 0:
             console.print(f"  Already synced: [dim]{messages_skipped}[/dim]")
