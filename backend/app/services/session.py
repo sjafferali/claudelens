@@ -61,6 +61,10 @@ class SessionService:
                 "ended_at": doc.get("endedAt"),
                 "message_count": doc.get("messageCount", 0),
                 "total_cost": total_cost,
+                "tools_used": doc.get("toolsUsed", 0),
+                "total_tokens": doc.get("totalTokens", 0),
+                "input_tokens": doc.get("inputTokens", 0),
+                "output_tokens": doc.get("outputTokens", 0),
             }
             sessions.append(Session(**session_data))
 
@@ -118,6 +122,10 @@ class SessionService:
             "ended_at": doc.get("endedAt"),
             "message_count": doc.get("messageCount", 0),
             "total_cost": total_cost,
+            "tools_used": doc.get("toolsUsed", 0),
+            "total_tokens": doc.get("totalTokens", 0),
+            "input_tokens": doc.get("inputTokens", 0),
+            "output_tokens": doc.get("outputTokens", 0),
             "models_used": models_used,
             "first_message": first_msg.get("content", "")[:100] if first_msg else None,
             "last_message": last_msg.get("content", "")[:100] if last_msg else None,

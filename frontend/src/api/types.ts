@@ -28,6 +28,10 @@ export interface Session {
   endedAt?: string;
   messageCount: number;
   totalCost?: number;
+  toolsUsed?: number;
+  totalTokens?: number;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export interface Message {

@@ -517,7 +517,191 @@ function TimelineView({
       try {
         const parsed = JSON.parse(message.content);
         if (parsed.name) {
-          return `🔧 Tool: ${parsed.name}\n${parsed.input ? JSON.stringify(parsed.input, null, 2) : ''}`;
+          // Format tool use more nicely
+          let toolInfo = `🔧 Tool: ${parsed.name}`;
+
+          // Add specific formatting for each tool type
+          switch (parsed.name) {
+            // File Operations
+            case 'Read':
+              if (parsed.input?.file_path) {
+                toolInfo += `\n📄 Reading: ${parsed.input.file_path}`;
+                if (parsed.input.offset || parsed.input.limit) {
+                  toolInfo += ` (lines ${parsed.input.offset || 0}-${(parsed.input.offset || 0) + (parsed.input.limit || 'end')})`;
+                }
+              }
+              break;
+
+            case 'Write':
+              if (parsed.input?.file_path) {
+                toolInfo += `\n✏️ Writing to: ${parsed.input.file_path}`;
+                if (parsed.input.content) {
+                  const lines = parsed.input.content.split('\n').length;
+                  toolInfo += ` (${lines} line${lines > 1 ? 's' : ''})`;
+                }
+              }
+              break;
+
+            case 'Edit':
+              if (parsed.input?.file_path) {
+                toolInfo += `\n✏️ Editing: ${parsed.input.file_path}`;
+                if (parsed.input.replace_all) {
+                  toolInfo += ' (replace all occurrences)';
+                }
+              }
+              break;
+
+            case 'MultiEdit':
+              if (parsed.input?.file_path) {
+                toolInfo += `\n✏️ Multiple edits to: ${parsed.input.file_path}`;
+                if (parsed.input.edits && Array.isArray(parsed.input.edits)) {
+                  toolInfo += ` (${parsed.input.edits.length} edit${parsed.input.edits.length > 1 ? 's' : ''})`;
+                }
+              }
+              break;
+
+            // Directory Operations
+            case 'LS':
+              if (parsed.input?.path) {
+                toolInfo += `\n📁 Listing: ${parsed.input.path}`;
+                if (parsed.input.ignore && parsed.input.ignore.length > 0) {
+                  toolInfo += ` (ignoring ${parsed.input.ignore.length} pattern${parsed.input.ignore.length > 1 ? 's' : ''})`;
+                }
+              }
+              break;
+
+            case 'Glob':
+              if (parsed.input?.pattern) {
+                toolInfo += `\n🔍 Pattern: ${parsed.input.pattern}`;
+                if (parsed.input.path) {
+                  toolInfo += ` in ${parsed.input.path}`;
+                }
+              }
+              break;
+
+            // Search Operations
+            case 'Grep':
+              if (parsed.input?.pattern) {
+                toolInfo += `\n🔍 Searching for: ${parsed.input.pattern}`;
+                if (parsed.input.path) {
+                  toolInfo += ` in ${parsed.input.path}`;
+                }
+                if (parsed.input.glob) {
+                  toolInfo += ` (files matching ${parsed.input.glob})`;
+                }
+                if (parsed.input.type) {
+                  toolInfo += ` (${parsed.input.type} files)`;
+                }
+              }
+              break;
+
+            // Command Execution
+            case 'Bash':
+              if (parsed.input?.command) {
+                const cmd = parsed.input.command;
+                toolInfo += `\n💻 Command: ${cmd.length > 60 ? cmd.substring(0, 60) + '...' : cmd}`;
+                if (parsed.input.timeout) {
+                  toolInfo += ` (timeout: ${parsed.input.timeout}ms)`;
+                }
+              }
+              break;
+
+            // Web Operations
+            case 'WebSearch':
+              if (parsed.input?.query) {
+                toolInfo += `\n🌐 Searching web for: "${parsed.input.query}"`;
+                if (
+                  parsed.input.allowed_domains &&
+                  parsed.input.allowed_domains.length > 0
+                ) {
+                  toolInfo += ` (only ${parsed.input.allowed_domains.join(', ')})`;
+                }
+              }
+              break;
+
+            case 'WebFetch':
+              if (parsed.input?.url) {
+                toolInfo += `\n🌐 Fetching: ${parsed.input.url}`;
+                if (parsed.input.prompt) {
+                  toolInfo += `\n💭 Purpose: ${parsed.input.prompt.substring(0, 50)}${parsed.input.prompt.length > 50 ? '...' : ''}`;
+                }
+              }
+              break;
+
+            // Notebook Operations
+            case 'NotebookRead':
+              if (parsed.input?.notebook_path) {
+                toolInfo += `\n📓 Reading notebook: ${parsed.input.notebook_path}`;
+                if (parsed.input.cell_id) {
+                  toolInfo += ` (cell ${parsed.input.cell_id})`;
+                }
+              }
+              break;
+
+            case 'NotebookEdit':
+              if (parsed.input?.notebook_path) {
+                toolInfo += `\n📓 Editing notebook: ${parsed.input.notebook_path}`;
+                if (parsed.input.edit_mode) {
+                  toolInfo += ` (${parsed.input.edit_mode})`;
+                }
+                if (parsed.input.cell_type) {
+                  toolInfo += ` - ${parsed.input.cell_type} cell`;
+                }
+              }
+              break;
+
+            // Task Management
+            case 'TodoWrite':
+              if (parsed.input?.todos) {
+                const todos = parsed.input.todos;
+                if (Array.isArray(todos) && todos.length > 0) {
+                  const pending = todos.filter(
+                    (t) => t.status === 'pending'
+                  ).length;
+                  const inProgress = todos.filter(
+                    (t) => t.status === 'in_progress'
+                  ).length;
+                  const completed = todos.filter(
+                    (t) => t.status === 'completed'
+                  ).length;
+                  toolInfo += `\n📝 Todo list: ${todos.length} item${todos.length > 1 ? 's' : ''}`;
+                  if (pending > 0) toolInfo += `\n  ⏳ Pending: ${pending}`;
+                  if (inProgress > 0)
+                    toolInfo += `\n  🔄 In Progress: ${inProgress}`;
+                  if (completed > 0)
+                    toolInfo += `\n  ✅ Completed: ${completed}`;
+                }
+              }
+              break;
+
+            case 'Task':
+              if (parsed.input?.description) {
+                toolInfo += `\n🤖 Agent task: ${parsed.input.description}`;
+                if (parsed.input.subagent_type) {
+                  toolInfo += ` (${parsed.input.subagent_type})`;
+                }
+              }
+              break;
+
+            case 'ExitPlanMode':
+              toolInfo += '\n📋 Exiting plan mode';
+              if (parsed.input?.plan) {
+                const planLines = parsed.input.plan.split('\n').length;
+                toolInfo += ` (${planLines} line plan)`;
+              }
+              break;
+
+            default:
+              // For any unknown tools, show basic info
+              if (parsed.input) {
+                const keys = Object.keys(parsed.input);
+                if (keys.length > 0) {
+                  toolInfo += `\n📦 Parameters: ${keys.join(', ')}`;
+                }
+              }
+          }
+
+          return toolInfo;
         }
       } catch {
         // If not JSON, return as is
@@ -525,20 +709,63 @@ function TimelineView({
     }
 
     // Handle user messages with tool results
-    if (message.type === 'user' && message.content.startsWith('[Tool result')) {
-      // This is a placeholder for tool results, try to show something more meaningful
+    if (
+      message.type === 'user' &&
+      message.content.startsWith('--- Tool Result ---')
+    ) {
+      // Extract first line of actual result
+      const lines = message.content.split('\n');
+      if (lines.length > 1) {
+        const resultPreview = lines[1].trim();
+        return `📥 Tool Result:\n${resultPreview.length > 100 ? resultPreview.substring(0, 100) + '...' : resultPreview}`;
+      }
       return '📥 Tool result received';
+    }
+
+    // Handle tool_result messages
+    if (message.type === 'tool_result') {
+      // Try to identify the tool type from content
+      const content = message.content.trim();
+
+      // Common patterns in tool results
+      if (
+        content.includes('File created successfully') ||
+        content.includes('has been updated')
+      ) {
+        return `✅ File operation completed:\n${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
+      } else if (content.includes('Found') && content.includes('files')) {
+        return `🔍 Search results:\n${content}`;
+      } else if (content.includes('Error') || content.includes('error')) {
+        return `❌ Tool error:\n${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`;
+      } else if (
+        content.includes('Successfully') ||
+        content.includes('completed')
+      ) {
+        return `✅ Success:\n${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
+      } else if (
+        content.includes('command not found') ||
+        content.includes('No such file')
+      ) {
+        return `⚠️ Warning:\n${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
+      } else {
+        // For other results, show a preview
+        return `📤 Result:\n${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`;
+      }
     }
 
     // Handle assistant messages with tool uses
     if (
       message.type === 'assistant' &&
-      message.content.startsWith('[Tool use:')
+      (message.content.startsWith('Reading file:') ||
+        message.content.startsWith('Writing to file:') ||
+        message.content.startsWith('Editing file:') ||
+        message.content.startsWith('Running command:') ||
+        message.content.startsWith('Updating todo list') ||
+        message.content.startsWith('Searching for:') ||
+        message.content.startsWith('Using tool:'))
     ) {
-      const toolMatch = message.content.match(/\[Tool use: (.+?)\]/);
-      if (toolMatch) {
-        return `🔧 Using tool: ${toolMatch[1]}`;
-      }
+      // These are already nicely formatted by the backend
+      return `🔧 ${message.content}`;
     }
 
     return message.content;

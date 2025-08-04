@@ -392,26 +392,60 @@ class IngestService:
                         # Create a meaningful summary based on the tool
                         if tool_name == "Read":
                             file_path = tool_input.get("file_path", "")
-                            tool_summaries.append(f"Reading file: {file_path}")
+                            tool_summaries.append(f"📄 Reading file: {file_path}")
                         elif tool_name == "Write":
                             file_path = tool_input.get("file_path", "")
-                            tool_summaries.append(f"Writing to file: {file_path}")
+                            tool_summaries.append(f"✏️ Writing to file: {file_path}")
                         elif tool_name == "Edit":
                             file_path = tool_input.get("file_path", "")
-                            tool_summaries.append(f"Editing file: {file_path}")
-                        elif tool_name == "Bash":
-                            command = tool_input.get("command", "")
-                            if len(command) > 50:
-                                command = command[:50] + "..."
-                            tool_summaries.append(f"Running command: {command}")
-                        elif tool_name == "TodoWrite":
-                            tool_summaries.append("Updating todo list")
+                            tool_summaries.append(f"✏️ Editing file: {file_path}")
+                        elif tool_name == "MultiEdit":
+                            file_path = tool_input.get("file_path", "")
+                            edits = tool_input.get("edits", [])
+                            tool_summaries.append(
+                                f"✏️ Multiple edits ({len(edits)}) to: {file_path}"
+                            )
+                        elif tool_name == "LS":
+                            path = tool_input.get("path", "")
+                            tool_summaries.append(f"📁 Listing directory: {path}")
+                        elif tool_name == "Glob":
+                            pattern = tool_input.get("pattern", "")
+                            tool_summaries.append(
+                                f"🔍 Finding files matching: {pattern}"
+                            )
                         elif tool_name == "Grep":
                             pattern = tool_input.get("pattern", "")
-                            tool_summaries.append(f"Searching for: {pattern}")
+                            tool_summaries.append(f"🔍 Searching for: {pattern}")
+                        elif tool_name == "Bash":
+                            command = tool_input.get("command", "")
+                            if len(command) > 60:
+                                command = command[:60] + "..."
+                            tool_summaries.append(f"💻 Running command: {command}")
+                        elif tool_name == "WebSearch":
+                            query = tool_input.get("query", "")
+                            tool_summaries.append(f"🌐 Web search: {query}")
+                        elif tool_name == "WebFetch":
+                            url = tool_input.get("url", "")
+                            tool_summaries.append(f"🌐 Fetching: {url}")
+                        elif tool_name == "NotebookRead":
+                            path = tool_input.get("notebook_path", "")
+                            tool_summaries.append(f"📓 Reading notebook: {path}")
+                        elif tool_name == "NotebookEdit":
+                            path = tool_input.get("notebook_path", "")
+                            tool_summaries.append(f"📓 Editing notebook: {path}")
+                        elif tool_name == "TodoWrite":
+                            todos = tool_input.get("todos", [])
+                            tool_summaries.append(
+                                f"📝 Updating todo list ({len(todos)} items)"
+                            )
+                        elif tool_name == "Task":
+                            desc = tool_input.get("description", "")
+                            tool_summaries.append(f"🤖 Running agent task: {desc}")
+                        elif tool_name == "ExitPlanMode":
+                            tool_summaries.append("📋 Exiting plan mode")
                         else:
                             # Generic summary for other tools
-                            tool_summaries.append(f"Using tool: {tool_name}")
+                            tool_summaries.append(f"🔧 Using tool: {tool_name}")
 
                     all_parts.append("\n".join(tool_summaries))
 
@@ -676,7 +710,19 @@ class IngestService:
                 "$group": {
                     "_id": None,
                     "messageCount": {"$sum": 1},
-                    "totalCost": {"$sum": {"$ifNull": ["$costUsd", 0]}},
+                    "totalCost": {
+                        "$sum": {
+                            "$add": [
+                                {"$ifNull": ["$costUsd", 0]},
+                                {"$ifNull": ["$totalCost", 0]},
+                            ]
+                        }
+                    },
+                    "inputTokens": {"$sum": {"$ifNull": ["$inputTokens", 0]}},
+                    "outputTokens": {"$sum": {"$ifNull": ["$outputTokens", 0]}},
+                    "toolUseCount": {
+                        "$sum": {"$cond": [{"$eq": ["$type", "tool_use"]}, 1, 0]}
+                    },
                     "startTime": {"$min": "$timestamp"},
                     "endTime": {"$max": "$timestamp"},
                 }
@@ -696,6 +742,11 @@ class IngestService:
                         "totalCost": Decimal128(
                             str(stats["totalCost"])
                         ),  # Convert to Decimal128
+                        "totalTokens": stats.get("inputTokens", 0)
+                        + stats.get("outputTokens", 0),
+                        "inputTokens": stats.get("inputTokens", 0),
+                        "outputTokens": stats.get("outputTokens", 0),
+                        "toolsUsed": stats.get("toolUseCount", 0),
                         "startedAt": stats["startTime"],
                         "endedAt": stats["endTime"],
                         "updatedAt": datetime.now(UTC),

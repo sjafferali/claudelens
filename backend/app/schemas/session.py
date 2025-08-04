@@ -26,6 +26,10 @@ class Session(SessionBase):
     id: str = Field(alias="_id")
     message_count: int = Field(0, alias="messageCount")
     total_cost: float | None = Field(None, alias="totalCost")
+    tools_used: int = Field(0, alias="toolsUsed")
+    total_tokens: int = Field(0, alias="totalTokens")
+    input_tokens: int = Field(0, alias="inputTokens")
+    output_tokens: int = Field(0, alias="outputTokens")
 
     model_config = ConfigDict(populate_by_name=True)
 
