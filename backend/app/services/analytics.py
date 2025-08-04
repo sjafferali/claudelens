@@ -3407,10 +3407,10 @@ class AnalyticsService:
         ).to_list(None)
 
         by_time = []
-        cumulative_cost = 0
+        cumulative_cost = 0.0
         for item in daily_costs:
             date_str = item["_id"]
-            cost = item["cost"]
+            cost = self._safe_float(item["cost"])
             cumulative_cost += cost
 
             try:
@@ -3548,7 +3548,7 @@ class AnalyticsService:
             )
 
         # Calculate simple moving average for prediction
-        costs = [item["cost"] for item in daily_costs]
+        costs = [self._safe_float(item["cost"]) for item in daily_costs]
 
         # Simple prediction: use the average of recent days
         recent_days = min(7, len(costs))  # Use last 7 days or all available
