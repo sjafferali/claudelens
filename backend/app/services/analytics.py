@@ -1189,7 +1189,14 @@ class AnalyticsService:
                                 "$or": [
                                     {
                                         "$regexMatch": {
-                                            "input": {"$toString": "$toolUseResult"},
+                                            "input": {
+                                                "$convert": {
+                                                    "input": "$toolUseResult",
+                                                    "to": "string",
+                                                    "onError": "",
+                                                    "onNull": "",
+                                                }
+                                            },
                                             "regex": "error|Error|ERROR|failed|Failed|FAILED",
                                         }
                                     },
@@ -1300,7 +1307,14 @@ class AnalyticsService:
                         "$or": [
                             {
                                 "$regexMatch": {
-                                    "input": {"$toString": "$toolUseResult"},
+                                    "input": {
+                                        "$convert": {
+                                            "input": "$toolUseResult",
+                                            "to": "string",
+                                            "onError": "",
+                                            "onNull": "",
+                                        }
+                                    },
                                     "regex": "error|Error|ERROR|failed|Failed|FAILED",
                                 }
                             },
@@ -1426,7 +1440,14 @@ class AnalyticsService:
                                 "$or": [
                                     {
                                         "$regexMatch": {
-                                            "input": {"$toString": "$toolUseResult"},
+                                            "input": {
+                                                "$convert": {
+                                                    "input": "$toolUseResult",
+                                                    "to": "string",
+                                                    "onError": "",
+                                                    "onNull": "",
+                                                }
+                                            },
                                             "regex": "error|Error|ERROR|failed|Failed|FAILED",
                                         }
                                     },
@@ -2707,13 +2728,37 @@ class AnalyticsService:
 
         # Aggregation pipeline for detailed token analysis
         pipeline: list[dict[str, Any]] = [
-            {"$match": {**match_filter, "tokensInput": {"$exists": True}}},
+            {
+                "$match": {
+                    **match_filter,
+                    "$or": [
+                        {"inputTokens": {"$exists": True}},
+                        {"tokensInput": {"$exists": True}},
+                    ],
+                }
+            },
             {
                 "$group": {
                     "_id": None,
-                    "total_input": {"$sum": {"$ifNull": ["$tokensInput", 0]}},
-                    "total_output": {"$sum": {"$ifNull": ["$tokensOutput", 0]}},
-                    "total_cost": {"$sum": {"$ifNull": ["$costUsd", 0]}},
+                    "total_input": {
+                        "$sum": {
+                            "$ifNull": [
+                                {"$ifNull": ["$inputTokens", "$tokensInput"]},
+                                0,
+                            ]
+                        }
+                    },
+                    "total_output": {
+                        "$sum": {
+                            "$ifNull": [
+                                {"$ifNull": ["$outputTokens", "$tokensOutput"]},
+                                0,
+                            ]
+                        }
+                    },
+                    "total_cost": {
+                        "$sum": {"$ifNull": [{"$ifNull": ["$cost_usd", "$costUsd"]}, 0]}
+                    },
                     "message_count": {"$sum": 1},
                     # Extract cache metrics from metadata
                     "cache_creation": {

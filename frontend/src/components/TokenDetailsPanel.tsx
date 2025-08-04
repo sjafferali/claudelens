@@ -37,7 +37,14 @@ export default function TokenDetailsPanel({
   }
 
   if (!tokenDetails) {
-    return null;
+    return (
+      <div className={className}>
+        <h3 className="text-base font-medium text-primary-c mb-4">
+          Token Usage
+        </h3>
+        <div className="text-sm text-muted-c">No token data available</div>
+      </div>
+    );
   }
 
   const { token_breakdown, efficiency_metrics, formatted_values } =
@@ -53,6 +60,20 @@ export default function TokenDetailsPanel({
     total > 0 ? (token_breakdown.cache_creation / total) * 100 : 0;
   const cacheReadPercentage =
     total > 0 ? (token_breakdown.cache_read / total) * 100 : 0;
+
+  // If all token data is zero, show a message
+  if (total === 0) {
+    return (
+      <div className={className}>
+        <h3 className="text-base font-medium text-primary-c mb-4">
+          Token Usage
+        </h3>
+        <div className="text-sm text-muted-c">
+          No token usage data available for this session
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={className}>

@@ -22,7 +22,11 @@ export default function ErrorDetailsPanel({
     'critical' | 'warning' | 'info' | undefined
   >(undefined);
 
-  const { data: errorData, isLoading } = useQuery({
+  const {
+    data: errorData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: [
       'detailedErrors',
       sessionId,
@@ -33,6 +37,7 @@ export default function ErrorDetailsPanel({
     queryFn: () =>
       analyticsApi.getDetailedErrors(sessionId, timeRange, selectedSeverity),
     refetchInterval: 5 * 60 * 1000, // 5 minutes cache
+    retry: 1, // Only retry once on failure
   });
 
   const toggleErrorExpansion = (index: number) => {
@@ -64,6 +69,17 @@ export default function ErrorDetailsPanel({
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={className}>
+        <h3 className="text-base font-medium text-primary-c mb-4">
+          Error Details
+        </h3>
+        <div className="text-sm text-muted-c">Unable to load error details</div>
       </div>
     );
   }
