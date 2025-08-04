@@ -1,5 +1,7 @@
 """Messages API endpoints."""
 
+from typing import List, Optional
+
 from fastapi import Query
 
 from app.api.dependencies import CommonDeps
@@ -7,6 +9,7 @@ from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
 from app.schemas.common import PaginatedResponse
 from app.schemas.message import Message, MessageDetail
+from app.services.cost_calculation import CostCalculationService
 from app.services.message import MessageService
 
 router = APIRouter()
@@ -129,3 +132,113 @@ async def batch_update_costs(
         "updated_count": updated_count,
         "requested_count": len(cost_updates),
     }
+
+
+@router.post("/calculate-costs")
+async def calculate_message_costs(
+    db: CommonDeps,
+    session_id: Optional[str] = None,
+    message_ids: Optional[List[str]] = None,
+) -> dict:
+    """Calculate costs for messages and update them in the database.
+
+    Either provide a session_id to calculate costs for all messages in that session,
+    or provide a list of message_ids to calculate costs for specific messages.
+    """
+    if not session_id and not message_ids:
+        return {
+            "success": False,
+            "error": "Either session_id or message_ids must be provided",
+        }
+
+    try:
+        service = MessageService(db)
+        cost_service = CostCalculationService()
+
+        # Get messages to calculate costs for
+        messages: List[MessageDetail] = []
+        if session_id:
+            # Get all message IDs first
+            basic_messages, total = await service.list_messages(
+                filter_dict={"sessionId": session_id},
+                skip=0,
+                limit=10000,  # Get all messages in session
+                sort_order="asc",
+            )
+            print(
+                f"Found {len(basic_messages)} messages out of {total} total for session {session_id}"
+            )
+            # Get detailed messages with usage data
+            for msg in basic_messages:
+                detailed_msg = await service.get_message(msg.id)
+                if detailed_msg:
+                    messages.append(detailed_msg)
+        elif message_ids:
+            for msg_id in message_ids:
+                detailed_msg = await service.get_message(msg_id)
+                if detailed_msg:
+                    messages.append(detailed_msg)
+
+        # Calculate and update costs
+        cost_updates = {}
+        calculated_count = 0
+        skipped_count = 0
+
+        for message in messages:
+            # Skip if no usage data or already has cost
+            if not message.usage:
+                skipped_count += 1
+                continue
+
+            if (
+                hasattr(message, "cost_usd")
+                and message.cost_usd
+                and message.cost_usd > 0
+            ):
+                skipped_count += 1
+                continue
+
+            # Skip if no model specified
+            if not message.model:
+                skipped_count += 1
+                continue
+
+            # Calculate cost
+            cost = cost_service.calculate_message_cost(
+                model=message.model,
+                input_tokens=message.usage.get("input_tokens"),
+                output_tokens=message.usage.get("output_tokens"),
+                cache_creation_input_tokens=message.usage.get(
+                    "cache_creation_input_tokens"
+                ),
+                cache_read_input_tokens=message.usage.get("cache_read_input_tokens"),
+            )
+
+            if cost is not None and cost > 0:
+                # Use UUID if available, otherwise use ID
+                msg_key = (
+                    message.uuid
+                    if hasattr(message, "uuid") and message.uuid
+                    else str(message.id)
+                )
+                cost_updates[msg_key] = cost
+                calculated_count += 1
+
+        # Batch update costs in database
+        updated_count = 0
+        if cost_updates:
+            updated_count = await service.batch_update_costs(cost_updates)
+
+        return {
+            "success": True,
+            "messages_processed": len(messages),
+            "messages_skipped": skipped_count,
+            "costs_calculated": calculated_count,
+            "costs_updated": updated_count,
+            "session_id": session_id,
+            "message_ids": message_ids,
+        }
+    except Exception as e:
+        import traceback
+
+        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}

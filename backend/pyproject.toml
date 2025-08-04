@@ -20,6 +20,7 @@ faker = "^37.0.0"
 pymongo = "^4.6.0"
 python-dateutil = "^2.9.0"
 websockets = "^12.0"
+litellm = "^1.74.15.post1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.0"

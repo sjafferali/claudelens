@@ -1,86 +1,83 @@
-import { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  calculateMessagesCosts,
+  calculateSessionCosts,
   calculateSessionCost,
+  getMessagesCostsMap,
 } from '@/services/costCalculation';
-import { sessionsApi } from '@/api/sessions';
 import type { Message } from '@/api/types';
-import { getMessageUuid, getMessageCost } from '@/types/message-extensions';
 
 /**
- * Hook to calculate and update message costs
+ * Hook to calculate and update message costs for a session
  */
-export function useMessageCosts(messages: Message[] | undefined) {
+export function useMessageCosts(
+  sessionId: string | undefined,
+  messages: Message[] | undefined
+) {
   const [calculatingCosts, setCalculatingCosts] = useState(false);
   const [costMap, setCostMap] = useState<Map<string, number>>(new Map());
+  const [hasCalculated, setHasCalculated] = useState(false);
   const queryClient = useQueryClient();
 
-  const updateCostsMutation = useMutation({
-    mutationFn: async (costs: Record<string, number>) => {
-      return sessionsApi.batchUpdateMessageCosts(costs);
-    },
-    onSuccess: () => {
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
-    },
-  });
-
+  // Create cost map from existing message costs
   useEffect(() => {
-    if (!messages || messages.length === 0) return;
+    if (messages && messages.length > 0) {
+      const costs = getMessagesCostsMap(messages);
+      setCostMap(costs);
+    }
+  }, [messages]);
 
-    const calculateCosts = async () => {
-      setCalculatingCosts(true);
-      try {
-        // Calculate costs for all messages
-        const costs = await calculateMessagesCosts(messages);
-        setCostMap(costs);
+  // Function to trigger cost calculation
+  const calculateCosts = useCallback(async () => {
+    if (!sessionId || calculatingCosts || hasCalculated) return;
 
-        // Filter out messages that already have costs or failed to calculate
-        const costUpdates: Record<string, number> = {};
-        let hasUpdates = false;
+    setCalculatingCosts(true);
+    try {
+      const result = await calculateSessionCosts(sessionId);
 
-        for (const [uuid, cost] of costs) {
-          const message = messages.find((m) => {
-            const messageId = getMessageUuid(m);
-            return messageId === uuid;
-          });
-          const existingCost = message ? getMessageCost(message) : null;
-          if (message && (!existingCost || existingCost === 0)) {
-            costUpdates[uuid] = cost;
-            hasUpdates = true;
-          }
-        }
-
-        // Update costs in the backend if there are new calculations
-        if (hasUpdates) {
-          await updateCostsMutation.mutateAsync(costUpdates);
-        }
-      } catch (error) {
-        console.error('Error calculating costs:', error);
-      } finally {
-        setCalculatingCosts(false);
+      if (result.success && result.calculated > 0) {
+        // Invalidate queries to refresh data with new costs
+        await queryClient.invalidateQueries({ queryKey: ['sessions'] });
+        await queryClient.invalidateQueries({ queryKey: ['messages'] });
+        await queryClient.invalidateQueries({ queryKey: ['analytics'] });
+        setHasCalculated(true);
       }
-    };
+    } catch (error) {
+      console.error('Error calculating costs:', error);
+    } finally {
+      setCalculatingCosts(false);
+    }
+  }, [sessionId, calculatingCosts, hasCalculated, queryClient]);
 
-    calculateCosts();
-  }, [messages, updateCostsMutation]);
+  // Auto-calculate costs when session is loaded
+  useEffect(() => {
+    if (sessionId && messages && messages.length > 0 && !hasCalculated) {
+      // Check if any messages are missing costs
+      const needsCalculation = messages.some(
+        (msg) =>
+          msg.type === 'assistant' &&
+          msg.model &&
+          (!msg.cost_usd || msg.cost_usd === 0)
+      );
+
+      if (needsCalculation) {
+        calculateCosts();
+      }
+    }
+  }, [sessionId, messages, hasCalculated, calculateCosts]);
 
   return {
     calculatingCosts,
     costMap,
-    updateCostsMutation,
+    calculateCosts,
   };
 }
 
 /**
- * Hook to calculate total session cost
+ * Hook to calculate total session cost from messages
  */
 export function useSessionCost(messages: Message[] | undefined) {
   const [totalCost, setTotalCost] = useState<number>(0);
-  const [calculating, setCalculating] = useState(false);
 
   useEffect(() => {
     if (!messages || messages.length === 0) {
@@ -88,20 +85,10 @@ export function useSessionCost(messages: Message[] | undefined) {
       return;
     }
 
-    const calculate = async () => {
-      setCalculating(true);
-      try {
-        const cost = await calculateSessionCost(messages);
-        setTotalCost(cost);
-      } catch (error) {
-        console.error('Error calculating session cost:', error);
-      } finally {
-        setCalculating(false);
-      }
-    };
-
-    calculate();
+    // This is a synchronous calculation based on existing costs
+    const cost = calculateSessionCost(messages);
+    setTotalCost(cost);
   }, [messages]);
 
-  return { totalCost, calculating };
+  return { totalCost, calculating: false };
 }

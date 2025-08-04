@@ -1,16 +1,9 @@
-import { PricingFetcher } from 'ccusage/pricing-fetcher';
 import type { Message } from '@/api/types';
-import {
-  getMessageCost,
-  getMessageUsage,
-  getMessageUuid,
-} from '@/types/message-extensions';
-
-// Initialize the pricing fetcher
-const pricingFetcher = new PricingFetcher();
+import { getMessageCost, getMessageUuid } from '@/types/message-extensions';
+import { apiClient } from '@/api/client';
 
 /**
- * Calculate cost for a message based on its token usage
+ * Calculate cost for messages using the backend API
  */
 export async function calculateMessageCost(
   message: Message
@@ -26,103 +19,79 @@ export async function calculateMessageCost(
     return existingCost;
   }
 
-  // Check if we have token information
-  const usage = getMessageUsage(message);
-  if (!usage) {
-    return null;
+  // For single message, we'll use the batch endpoint with session_id
+  // This is more efficient as the backend can calculate all messages at once
+  return null;
+}
+
+/**
+ * Calculate costs for all messages in a session
+ */
+export async function calculateSessionCosts(
+  sessionId: string
+): Promise<{ success: boolean; calculated: number; updated: number }> {
+  try {
+    const response = await apiClient.post<{
+      success: boolean;
+      messages_processed: number;
+      messages_skipped: number;
+      costs_calculated: number;
+      costs_updated: number;
+    }>(`/messages/calculate-costs?session_id=${sessionId}`);
+
+    return {
+      success: response.success,
+      calculated: response.costs_calculated,
+      updated: response.costs_updated,
+    };
+  } catch (error) {
+    console.error('Error calculating session costs:', error);
+    return { success: false, calculated: 0, updated: 0 };
   }
+}
 
-  const {
-    input_tokens,
-    output_tokens,
-    cache_creation_input_tokens,
-    cache_read_input_tokens,
-  } = usage;
-
-  if (!input_tokens && !output_tokens) {
-    return null;
+/**
+ * Calculate costs for specific messages
+ */
+export async function calculateMessagesCosts(
+  messageIds: string[]
+): Promise<{ success: boolean; calculated: number; updated: number }> {
+  if (messageIds.length === 0) {
+    return { success: true, calculated: 0, updated: 0 };
   }
 
   try {
-    // Map model names to ccusage format
-    const modelName = mapModelName(message.model);
+    const response = await apiClient.post<{
+      success: boolean;
+      messages_processed: number;
+      messages_skipped: number;
+      costs_calculated: number;
+      costs_updated: number;
+    }>('/messages/calculate-costs', {
+      message_ids: messageIds,
+    });
 
-    // Calculate cost using ccusage - the library returns a Result type
-    const costResult = await pricingFetcher.calculateCostFromTokens(
-      {
-        input_tokens: input_tokens || 0,
-        output_tokens: output_tokens || 0,
-        cache_creation_input_tokens: cache_creation_input_tokens || 0,
-        cache_read_input_tokens: cache_read_input_tokens || 0,
-      },
-      modelName
-    );
-
-    // The ccusage library uses Result type - extract the value
-    if (typeof costResult === 'object' && costResult !== null) {
-      // Check if it's a Result type with unwrap method
-      if ('unwrap' in costResult && typeof costResult.unwrap === 'function') {
-        return costResult.unwrap();
-      }
-      // Check if it's a Result type with value property
-      if ('value' in costResult) {
-        return costResult.value as number;
-      }
-      // Check if it has success and data properties
-      if (
-        'success' in costResult &&
-        'data' in costResult &&
-        costResult.success
-      ) {
-        return costResult.data as number;
-      }
-    }
-
-    // If it's already a number, return it
-    if (typeof costResult === 'number') {
-      return costResult;
-    }
-
-    return null;
+    return {
+      success: response.success,
+      calculated: response.costs_calculated,
+      updated: response.costs_updated,
+    };
   } catch (error) {
-    console.error('Error calculating cost:', error);
-    return null;
+    console.error('Error calculating message costs:', error);
+    return { success: false, calculated: 0, updated: 0 };
   }
 }
 
 /**
- * Map model names from the API to ccusage format
+ * Calculate total cost for a session from messages
+ * This is a client-side calculation based on existing message costs
  */
-function mapModelName(model: string): string {
-  // Remove any provider prefix like "anthropic/"
-  const cleanModel = model.replace(/^anthropic\//, '');
-
-  // Map common model names to ccusage format
-  const modelMap: Record<string, string> = {
-    'claude-3-5-sonnet-20241022': 'claude-sonnet-3.5-20241022',
-    'claude-3-5-haiku-20241022': 'claude-haiku-3.5-20241022',
-    'claude-3-opus-20240229': 'claude-opus-3-20240229',
-    'claude-3-sonnet-20240229': 'claude-sonnet-3-20240229',
-    'claude-3-haiku-20240307': 'claude-haiku-3-20240307',
-    // Claude 4 models
-    'claude-4-sonnet-20250514': 'claude-sonnet-4-20250514',
-    'claude-4-opus-20250514': 'claude-opus-4-20250514',
-  };
-
-  return modelMap[cleanModel] || cleanModel;
-}
-
-/**
- * Calculate total cost for a session
- */
-export async function calculateSessionCost(
-  messages: Message[]
-): Promise<number> {
+export function calculateSessionCost(messages: Message[]): number {
   let totalCost = 0;
 
   for (const message of messages) {
-    const cost = await calculateMessageCost(message);
-    if (cost !== null) {
+    const cost = getMessageCost(message);
+    if (cost !== null && cost !== undefined && cost > 0) {
       totalCost += cost;
     }
   }
@@ -131,22 +100,19 @@ export async function calculateSessionCost(
 }
 
 /**
- * Batch calculate costs for multiple messages
+ * Get costs map from messages
+ * This creates a map of message UUIDs to their costs for quick lookup
  */
-export async function calculateMessagesCosts(
-  messages: Message[]
-): Promise<Map<string, number>> {
+export function getMessagesCostsMap(messages: Message[]): Map<string, number> {
   const costs = new Map<string, number>();
 
-  await Promise.all(
-    messages.map(async (message) => {
-      const cost = await calculateMessageCost(message);
-      const messageId = getMessageUuid(message);
-      if (cost !== null && messageId) {
-        costs.set(messageId, cost);
-      }
-    })
-  );
+  messages.forEach((message) => {
+    const cost = getMessageCost(message);
+    const messageId = getMessageUuid(message);
+    if (cost !== null && cost !== undefined && cost > 0 && messageId) {
+      costs.set(messageId, cost);
+    }
+  });
 
   return costs;
 }

@@ -22,7 +22,6 @@
     "@types/lodash": "^4.17.20",
     "@types/react-syntax-highlighter": "^15.5.0",
     "axios": "^1.5.0",
-    "ccusage": "^15.6.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",

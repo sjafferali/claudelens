@@ -42,7 +42,7 @@ class MessageService:
                 "timestamp": doc["timestamp"],
                 "model": doc.get("model"),
                 "parent_uuid": doc.get("parentUuid"),
-                "created_at": doc["createdAt"],
+                "created_at": doc.get("createdAt", doc["timestamp"]),
             }
             messages.append(Message(**message_data))
 
@@ -103,7 +103,7 @@ class MessageService:
                     timestamp=doc["timestamp"],
                     model=doc.get("model"),
                     parent_uuid=doc.get("parentUuid"),
-                    created_at=doc["createdAt"],
+                    created_at=doc.get("createdAt", doc["timestamp"]),
                 )
             )
 
@@ -131,7 +131,7 @@ class MessageService:
                     timestamp=doc["timestamp"],
                     model=doc.get("model"),
                     parent_uuid=doc.get("parentUuid"),
-                    created_at=doc["createdAt"],
+                    created_at=doc.get("createdAt", doc["timestamp"]),
                 )
             )
 
@@ -144,6 +144,11 @@ class MessageService:
 
     def _doc_to_message_detail(self, doc: dict) -> MessageDetail:
         """Convert MongoDB document to MessageDetail."""
+        # Extract usage from metadata if not at top level
+        usage = doc.get("usage")
+        if not usage and doc.get("metadata") and doc["metadata"].get("usage"):
+            usage = doc["metadata"]["usage"]
+
         return MessageDetail(
             _id=str(doc["_id"]),
             uuid=doc["uuid"],
@@ -153,8 +158,8 @@ class MessageService:
             timestamp=doc["timestamp"],
             model=doc.get("model"),
             parent_uuid=doc.get("parentUuid"),
-            created_at=doc["createdAt"],
-            usage=doc.get("usage"),
+            created_at=doc.get("createdAt", doc["timestamp"]),
+            usage=usage,
             cost_usd=doc.get("costUsd"),
             tool_use=doc.get("toolUse"),
             attachments=doc.get("attachments"),

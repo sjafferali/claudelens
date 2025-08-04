@@ -37,7 +37,7 @@ export default function SessionDetail() {
   );
 
   // Calculate costs for messages
-  const { costMap } = useMessageCosts(messages?.messages);
+  const { costMap } = useMessageCosts(sessionId, messages?.messages);
 
   const [viewMode, setViewMode] = useState<'timeline' | 'compact' | 'raw'>(
     'timeline'
