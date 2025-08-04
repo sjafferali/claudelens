@@ -18,6 +18,7 @@ export default function TokenStatCard({
     queryKey: ['tokenEfficiencySummary', sessionId, projectId, timeRange],
     queryFn: () =>
       analyticsApi.getTokenEfficiencySummary(sessionId, timeRange, true),
+    enabled: (!!sessionId && sessionId !== 'undefined') || !!projectId, // Only query if we have a valid sessionId or projectId
     refetchInterval: 5 * 60 * 1000, // 5 minutes cache as per requirements
   });
 

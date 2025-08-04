@@ -18,6 +18,7 @@ export default function ToolUsageStatCard({
     queryKey: ['toolUsageSummary', sessionId, projectId, timeRange],
     queryFn: () =>
       analyticsApi.getToolUsageSummary(sessionId, projectId, timeRange),
+    enabled: (!!sessionId && sessionId !== 'undefined') || !!projectId, // Only query if we have a valid sessionId or projectId
     refetchInterval: 5 * 60 * 1000, // 5 minutes cache as per requirements
   });
 

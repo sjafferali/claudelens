@@ -20,13 +20,13 @@ import {
 import { useMessageCosts } from '@/hooks/useMessageCosts';
 import { cn } from '@/utils/cn';
 import { Message } from '@/api/types';
-import ToolUsageStatCard from '@/components/ToolUsageStatCard';
+import {
+  SessionStatCards,
+  SessionCostCard,
+} from '@/components/SessionStatCards';
 import ToolUsageDetails from '@/components/ToolUsageDetails';
-import SuccessRateCard from '@/components/SuccessRateCard';
 import ErrorDetailsPanel from '@/components/ErrorDetailsPanel';
-import TokenStatCard from '@/components/TokenStatCard';
 import TokenDetailsPanel from '@/components/TokenDetailsPanel';
-import CostStatCard from '@/components/CostStatCard';
 import CostDetailsPanel from '@/components/CostDetailsPanel';
 import SessionTopics from '@/components/SessionTopics';
 import { getMessageUuid, getMessageCost } from '@/types/message-extensions';
@@ -600,37 +600,29 @@ export default function SessionDetail() {
                   Statistics
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-layer-primary border border-secondary-c rounded-lg p-4 text-center">
-                    <div className="text-2xl font-semibold text-primary">
-                      {session.messageCount}
-                    </div>
-                    <div className="text-xs text-muted-c">Messages</div>
-                  </div>
-                  <ToolUsageStatCard sessionId={sessionId} />
-                  <SuccessRateCard sessionId={sessionId} />
-                  <TokenStatCard sessionId={sessionId} />
+                  <SessionStatCards session={session} />
                 </div>
 
                 {/* Additional Stats */}
                 <div className="mt-4 grid grid-cols-1 gap-4">
-                  <CostStatCard sessionId={sessionId} />
+                  <SessionCostCard session={session} />
                 </div>
               </div>
 
               {/* Tools Used */}
-              <ToolUsageDetails sessionId={sessionId} />
+              <ToolUsageDetails sessionId={sessionId || undefined} />
 
               {/* Token Usage Details */}
-              <TokenDetailsPanel sessionId={sessionId} />
+              <TokenDetailsPanel sessionId={sessionId || undefined} />
 
               {/* Cost Details */}
-              <CostDetailsPanel sessionId={sessionId} />
+              <CostDetailsPanel sessionId={sessionId || undefined} />
 
               {/* Error Details */}
-              <ErrorDetailsPanel sessionId={sessionId} />
+              <ErrorDetailsPanel sessionId={sessionId || undefined} />
 
               {/* Topics */}
-              <SessionTopics sessionId={sessionId!} />
+              <SessionTopics sessionId={sessionId || ''} />
             </div>
           </div>
         </div>
