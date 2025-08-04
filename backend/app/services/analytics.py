@@ -817,7 +817,10 @@ class AnalyticsService:
                                 "$cond": {
                                     "if": {"$eq": ["$type", "tool_use"]},
                                     "then": [
-                                        {"name": "$message.name", "type": "tool_use"}
+                                        {
+                                            "name": "$messageData.name",
+                                            "type": "tool_use",
+                                        }
                                     ],
                                     "else": [],
                                 }
@@ -910,7 +913,10 @@ class AnalyticsService:
                                 "$cond": {
                                     "if": {"$eq": ["$type", "tool_use"]},
                                     "then": [
-                                        {"name": "$message.name", "type": "tool_use"}
+                                        {
+                                            "name": "$messageData.name",
+                                            "type": "tool_use",
+                                        }
                                     ],
                                     "else": [],
                                 }
@@ -938,6 +944,8 @@ class AnalyticsService:
                     }
                 }
             },
+            # Filter out documents with null or unknown tool names
+            {"$match": {"tool_name": {"$nin": [None, "unknown"]}}},
             # Group by tool name
             {
                 "$group": {
@@ -957,7 +965,10 @@ class AnalyticsService:
         tools = []
 
         for result in results:
-            tool_name = result["_id"]
+            tool_name = result.get("_id")
+            if not tool_name:  # Skip if tool name is None or empty
+                continue
+
             count = result["count"]
             percentage = (count / total_calls * 100) if total_calls > 0 else 0
 
@@ -981,8 +992,11 @@ class AnalyticsService:
             time_range=time_range,
         )
 
-    def _categorize_tool(self, tool_name: str) -> str:
+    def _categorize_tool(self, tool_name: str | None) -> str:
         """Categorize tool based on its name."""
+        if not tool_name:
+            return "unknown"
+
         tool_lower = tool_name.lower()
 
         # File operations
