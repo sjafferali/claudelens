@@ -175,6 +175,11 @@ class SessionService:
                 input_tokens = usage.get("input_tokens")
                 output_tokens = usage.get("output_tokens")
 
+            # Extract content - handle both direct content and message.content formats
+            content = doc.get("content")
+            if not content and "message" in doc and isinstance(doc["message"], dict):
+                content = doc["message"].get("content")
+
             message_data = {
                 "_id": str(doc["_id"]),
                 "uuid": doc["uuid"],
@@ -186,14 +191,16 @@ class SessionService:
                 "sessionId": doc[
                     "sessionId"
                 ],  # Add sessionId for frontend compatibility
-                "content": doc.get("content"),
+                "content": content,
                 "timestamp": doc["timestamp"],
                 "model": doc.get("model"),
                 "parent_uuid": doc.get("parentUuid"),
                 "parentUuid": doc.get(
                     "parentUuid"
                 ),  # Add parentUuid for frontend compatibility
-                "created_at": doc["createdAt"],
+                "created_at": doc.get(
+                    "createdAt", doc["timestamp"]
+                ),  # Fallback to timestamp if no createdAt
                 "totalCost": cost_usd,
                 "cost_usd": cost_usd,
                 "inputTokens": input_tokens,
