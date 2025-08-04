@@ -10,7 +10,6 @@ import {
   ChevronUp,
   Check,
   Wrench,
-  Terminal,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -32,6 +31,8 @@ import CostDetailsPanel from '@/components/CostDetailsPanel';
 import SessionTopics from '@/components/SessionTopics';
 import { getMessageUuid, getMessageCost } from '@/types/message-extensions';
 import { getSessionTitle } from '@/utils/session';
+import { ToolDisplay } from '@/components/ToolDisplay';
+import { ToolResultDisplay } from '@/components/ToolResultDisplay';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -1336,31 +1337,20 @@ function TimelineView({
           const pairId = toolUseMessage._id;
           const isPairExpanded = expandedToolPairs.has(pairId);
 
-          // Get preview of results (first line only for minimal preview)
-          const getResultPreview = (content: string) => {
-            const lines = content.split('\n');
-            const firstLine = lines[0] || '';
-            const previewText =
-              firstLine.length > 80
-                ? firstLine.slice(0, 80) + '...'
-                : firstLine;
-            const hasMore = lines.length > 1 || firstLine.length > 80;
-            return {
-              preview: previewText,
-              hasMore,
-              totalLines: lines.length,
-            };
-          };
-
-          const resultPreview = getResultPreview(toolResultMessage.content);
+          // Parse tool info
+          let toolName = 'Unknown Tool';
+          let toolInput = {};
+          try {
+            const parsed = JSON.parse(toolUseMessage.content);
+            toolName = parsed.name || 'Unknown Tool';
+            toolInput = parsed.input || {};
+          } catch {
+            // Fallback to showing raw content
+          }
 
           return (
             <div key={pairId} className="group">
               <div className="rounded-xl p-4 bg-layer-secondary border border-secondary-c hover:border-primary-c transition-all relative">
-                {/* Version indicator for debugging */}
-                <div className="absolute top-1 right-1 text-[8px] text-gray-400 dark:text-gray-600 font-mono">
-                  v2.1
-                </div>
                 {/* Header with expand/collapse button */}
                 <div className="flex items-start justify-between gap-4 mb-3">
                   <div className="flex items-start gap-3 flex-1">
@@ -1379,35 +1369,20 @@ function TimelineView({
                         )}
                       </div>
 
-                      {/* Tool use content preview */}
-                      <div className="text-sm text-secondary-c font-medium">
-                        {(() => {
-                          try {
-                            const parsed = JSON.parse(toolUseMessage.content);
-                            return `🔧 ${parsed.name || 'Tool call'}`;
-                          } catch {
-                            return '🔧 Tool call';
-                          }
-                        })()}
-                      </div>
-
-                      {/* Result preview - Collapsed state */}
+                      {/* Collapsed state - show compact tool preview */}
                       {!isPairExpanded && (
-                        <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border-2 border-dashed border-amber-300 dark:border-amber-700">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Terminal className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                              <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
-                                Tool Result (COLLAPSED)
-                              </span>
-                            </div>
-                            <span className="text-xs text-amber-600 dark:text-amber-400 font-mono">
-                              {resultPreview.totalLines} lines hidden
-                            </span>
-                          </div>
-                          <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 italic">
-                            Click "Expand" to view the full tool operation and
-                            result
+                        <div className="space-y-2">
+                          <ToolDisplay
+                            toolName={toolName}
+                            toolInput={toolInput}
+                            isCollapsed={true}
+                          />
+                          <div className="mt-2">
+                            <ToolResultDisplay
+                              content={toolResultMessage.content}
+                              toolName={toolName}
+                              isCollapsed={true}
+                            />
                           </div>
                         </div>
                       )}
@@ -1416,11 +1391,12 @@ function TimelineView({
 
                   <button
                     onClick={() => onToggleToolPairExpanded(pairId)}
-                    className={
+                    className={cn(
+                      'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200',
                       isPairExpanded
-                        ? 'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-all duration-200'
-                        : 'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-lg transition-all duration-200 shadow-md animate-pulse'
-                    }
+                        ? 'text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        : 'text-primary-c bg-primary/10 hover:bg-primary/20 border border-primary'
+                    )}
                   >
                     {isPairExpanded ? (
                       <>
@@ -1428,7 +1404,7 @@ function TimelineView({
                       </>
                     ) : (
                       <>
-                        <ChevronDown className="h-3.5 w-3.5" /> EXPAND TO VIEW
+                        <ChevronDown className="h-3.5 w-3.5" /> Expand
                       </>
                     )}
                   </button>
@@ -1436,31 +1412,29 @@ function TimelineView({
 
                 {/* Expanded content */}
                 {isPairExpanded && (
-                  <div className="mt-4 space-y-3 border-t border-secondary-c pt-4">
-                    {/* Tool use full content */}
+                  <div className="mt-4 space-y-4 border-t border-secondary-c pt-4">
+                    {/* Tool use details */}
                     <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Wrench className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium text-primary-c">
-                          Tool Call Details
-                        </span>
-                      </div>
-                      <div className="text-secondary-c whitespace-pre-wrap break-words bg-layer-primary p-3 rounded-lg border border-secondary-c">
-                        {toolUseMessage.content}
-                      </div>
+                      <h4 className="text-sm font-medium text-primary-c mb-2">
+                        Tool Call
+                      </h4>
+                      <ToolDisplay
+                        toolName={toolName}
+                        toolInput={toolInput}
+                        isCollapsed={false}
+                      />
                     </div>
 
-                    {/* Tool result full content */}
-                    <div className="mt-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Terminal className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium text-primary-c">
-                          Full Result
-                        </span>
-                      </div>
-                      <div className="text-secondary-c whitespace-pre-wrap break-words bg-layer-primary p-3 rounded-lg border border-secondary-c">
-                        {toolResultMessage.content}
-                      </div>
+                    {/* Tool result */}
+                    <div>
+                      <h4 className="text-sm font-medium text-primary-c mb-2">
+                        Result
+                      </h4>
+                      <ToolResultDisplay
+                        content={toolResultMessage.content}
+                        toolName={toolName}
+                        isCollapsed={false}
+                      />
                     </div>
                   </div>
                 )}

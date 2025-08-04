@@ -1,26 +1,70 @@
 # Tool Use Formatting Documentation
 
-This document describes how ClaudeLens formats and displays tool usage in conversations. It covers all supported tools, their display formats, examples, and best practices for adding new tool formats.
+This document describes how ClaudeLens formats and displays tool usage in conversations. It covers the component architecture, all supported tools, their display formats, examples, and best practices for adding new tool formats.
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Tool Use Messages](#tool-use-messages)
-3. [Tool Result Messages](#tool-result-messages)
-4. [Adding New Tool Formats](#adding-new-tool-formats)
-5. [Best Practices](#best-practices)
+2. [Architecture](#architecture)
+3. [Tool Use Messages](#tool-use-messages)
+4. [Tool Result Messages](#tool-result-messages)
+5. [Component Implementation](#component-implementation)
+6. [Adding New Tool Formats](#adding-new-tool-formats)
+7. [Best Practices](#best-practices)
 
 ## Overview
 
-ClaudeLens handles two types of tool-related messages:
+ClaudeLens uses a component-based architecture to display tool usage in conversations. The system handles two types of tool-related messages:
+
 - **Tool Use Messages**: When Claude calls a tool (type: `tool_use`)
 - **Tool Result Messages**: When a tool returns results (type: `tool_result`)
 
-Each tool is formatted to provide clear, concise information while maintaining readability.
+Each tool is formatted using specialized components that provide:
+- Clear, human-readable formatting
+- Tool-specific visual treatments
+- Collapsed/expanded states with meaningful previews
+- Consistent color coding and iconography
+
+## Architecture
+
+The tool display system consists of three main components:
+
+### 1. ToolDisplay Component (`/components/ToolDisplay.tsx`)
+Handles the display of tool invocations with:
+- Tool-specific formatters for each tool type
+- Color-coded categories (file operations, search, commands, web, tasks, notebooks)
+- Consistent iconography
+- Collapsed and expanded view states
+
+### 2. ToolResultDisplay Component (`/components/ToolResultDisplay.tsx`)
+Handles the display of tool results with:
+- Intelligent result type detection
+- Specialized formatting for different result patterns
+- Syntax highlighting for code
+- Collapsible views for long output
+
+### 3. SessionDetail Integration
+Combines tool use and result messages into paired displays:
+- Groups consecutive tool_use and tool_result messages
+- Provides unified expand/collapse controls
+- Maintains cost and timing information
 
 ## Tool Use Messages
 
-These messages show when Claude invokes a tool with specific parameters.
+Tool use messages are displayed using the `ToolDisplay` component, which provides specialized formatting for each tool type. The component uses color-coded categories and tool-specific icons to enhance readability.
+
+### Tool Categories
+
+Tools are organized into six categories, each with distinct visual treatment:
+
+| Category | Color Theme | Tools | Icon Type |
+|----------|------------|-------|-----------|
+| File Operations | Blue | Read, Write, Edit, MultiEdit | 📄 FileText, ✏️ Edit |
+| Search Operations | Purple | LS, Glob, Grep | 🔍 Search, 📁 Folder |
+| Command Execution | Gray | Bash | 💻 Terminal |
+| Web Operations | Green | WebSearch, WebFetch | 🌐 Globe |
+| Task Management | Amber | TodoWrite, Task, ExitPlanMode | ✅ CheckSquare, 🤖 Bot |
+| Notebook Operations | Indigo | NotebookRead, NotebookEdit | 📓 BookOpen |
 
 ### File Operations
 
@@ -36,12 +80,18 @@ These messages show when Claude invokes a tool with specific parameters.
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: Read
-📄 Reading: /src/app.js (lines 100-150)
+Reading: /src/app.js (lines 100-150)
 ```
-**Reasoning**: Shows the file path and line range to help users understand what portion of code Claude is examining.
+
+**Expanded Display**:
+```
+File: /src/app.js
+Range: Lines 100 to 150
+```
+
+**Implementation**: The component shows file path and optional line range. In collapsed state, it provides a one-line summary. In expanded state, it shows structured parameter details.
 
 #### Write
 **Purpose**: Show file creation/writing operations
@@ -54,13 +104,19 @@ These messages show when Claude invokes a tool with specific parameters.
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: Write
-✏️ Writing to: /src/new-component.tsx
+Writing to: /src/new-component.tsx (45 lines)
+```
+
+**Expanded Display**:
+```
+File: /src/new-component.tsx
 Content: 45 lines
+[First 5 lines of content preview if ≤ 5 lines total]
 ```
-**Reasoning**: Displays target file and content size without cluttering with full content.
+
+**Implementation**: Shows target file and line count. Expanded view includes content preview for small files.
 
 #### Edit
 **Purpose**: Show file editing operations
@@ -75,13 +131,18 @@ Content: 45 lines
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: Edit
-✏️ Editing: /src/config.js
-(replacing all occurrences)
+Editing: /src/config.js
 ```
-**Reasoning**: Shows file being edited and whether it's a single or global replacement.
+
+**Expanded Display**:
+```
+File: /src/config.js
+⚠️ Replacing all occurrences
+```
+
+**Implementation**: Shows file path, with warning indicator for global replacements.
 
 #### MultiEdit
 **Purpose**: Display multiple edits to a single file
@@ -97,13 +158,18 @@ Content: 45 lines
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: MultiEdit
-✏️ Multiple edits to: /src/utils.js
-Edits: 2 changes
+Editing: /src/utils.js (2 changes)
 ```
-**Reasoning**: Shows the file and number of edits without listing each change.
+
+**Expanded Display**:
+```
+File: /src/utils.js
+Changes: 2 edits
+```
+
+**Implementation**: Shows file and edit count. The component handles both single and multiple edits.
 
 ### Directory Operations
 
@@ -118,13 +184,18 @@ Edits: 2 changes
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: LS
-📁 Listing: /src/components
-(ignoring: *.test.js, *.spec.js)
+Listing: /src/components
 ```
-**Reasoning**: Shows the directory and any filters applied.
+
+**Expanded Display**:
+```
+Directory: /src/components
+Ignoring: *.test.js, *.spec.js
+```
+
+**Implementation**: Shows directory path, with ignored patterns listed in expanded view.
 
 #### Glob
 **Purpose**: Display file pattern matching
@@ -137,13 +208,18 @@ Edits: 2 changes
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: Glob
-🔍 Pattern: **/*.tsx
+Pattern: **/*.tsx in /src
+```
+
+**Expanded Display**:
+```
+Pattern: **/*.tsx
 In: /src
 ```
-**Reasoning**: Shows the search pattern and scope clearly.
+
+**Implementation**: Combines pattern and path in collapsed view for compact display.
 
 ### Search Operations
 
@@ -161,14 +237,20 @@ In: /src
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: Grep
-🔍 Searching for: useState
-In: /src (*.tsx files)
-Options: files_with_matches, line numbers
+Searching for: "useState" in /src
 ```
-**Reasoning**: Shows search term, scope, and key options that affect output.
+
+**Expanded Display**:
+```
+Pattern: useState
+Location: /src
+File pattern: *.tsx
+File type: tsx
+```
+
+**Implementation**: Shows search pattern and location. Expanded view includes all search parameters.
 
 ### Command Execution
 
@@ -184,14 +266,20 @@ Options: files_with_matches, line numbers
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: Bash
-💻 Command: npm install express mongoose cors
+Install backend dependencies
+```
+(or command preview if no description)
+
+**Expanded Display**:
+```
 Description: Install backend dependencies
-Timeout: 30s
+$ npm install express mongoose cors
+Timeout: 30000ms
 ```
-**Reasoning**: Shows command, purpose, and timeout to set expectations.
+
+**Implementation**: Prioritizes description in collapsed view. Shows full command with terminal prompt in expanded view.
 
 ### Web Operations
 
@@ -206,13 +294,18 @@ Timeout: 30s
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: WebSearch
-🌐 Searching web for: "React 18 concurrent features"
-Allowed domains: reactjs.org, developer.mozilla.org
+Searching: "React 18 concurrent features"
 ```
-**Reasoning**: Shows search query and any domain restrictions.
+
+**Expanded Display**:
+```
+Query: "React 18 concurrent features"
+Domains: reactjs.org, developer.mozilla.org
+```
+
+**Implementation**: Shows query in collapsed view, domain restrictions in expanded view.
 
 #### WebFetch
 **Purpose**: Display web content fetching
@@ -225,13 +318,18 @@ Allowed domains: reactjs.org, developer.mozilla.org
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: WebFetch
-🌐 Fetching: https://api.github.com/repos/facebook/react
-Purpose: Extract the current star count and latest release ver...
+Fetching: https://api.github.com/repos/facebook/react
 ```
-**Reasoning**: Shows URL and intent, truncating long prompts.
+
+**Expanded Display**:
+```
+URL: https://api.github.com/repos/facebook/react
+Purpose: Extract the current star count and latest release version
+```
+
+**Implementation**: URL is clickable link in expanded view. Full prompt shown without truncation.
 
 ### Task Management
 
@@ -249,18 +347,23 @@ Purpose: Extract the current star count and latest release ver...
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: TodoWrite
-📝 Todo list: 3 items
-  ⏳ Pending: 1 | 🔄 In Progress: 1 | ✅ Completed: 1
+3 tasks: 1 pending, 1 in progress, 1 completed
+```
 
-  Tasks:
-  1. 🔄 🔴 Implement user authentication
-  2. ⏳ 🟡 Add unit tests for auth module
-  3. ✅ 🟢 Update documentation
+**Expanded Display**:
 ```
-**Reasoning**: Shows task counts, statuses, priorities, and actual content to give users full visibility into Claude's task tracking.
+⏳ Pending: 1 | 🔄 In Progress: 1 | ✅ Completed: 1
+
+Tasks:
+1. 🔄 🔴 Implement user authentication
+2. ⏳ 🟡 Add unit tests for auth module
+3. ✅ 🟢 Update documentation
+[...and X more tasks]
+```
+
+**Implementation**: Collapsed view shows summary counts. Expanded view shows up to 10 tasks with status/priority indicators. Status icons: ⏳ pending, 🔄 in_progress, ✅ completed. Priority colors: 🔴 high, 🟡 medium, 🟢 low.
 
 #### Task
 **Purpose**: Show autonomous agent task delegation
@@ -274,12 +377,18 @@ Purpose: Extract the current star count and latest release ver...
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: Task
-🤖 Agent task: Research React performance optimization techniques (general-purpose)
+Agent task: Research React performance optimization techniques
 ```
-**Reasoning**: Shows task description and agent type for transparency.
+
+**Expanded Display**:
+```
+Description: Research React performance optimization techniques
+Agent type: general-purpose
+```
+
+**Implementation**: Shows task description in both views, agent type only in expanded.
 
 ### Planning
 
@@ -293,12 +402,17 @@ Purpose: Extract the current star count and latest release ver...
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: ExitPlanMode
-📋 Exiting plan mode (4 line plan)
+Exiting plan mode
 ```
-**Reasoning**: Shows plan completion with line count indicator.
+
+**Expanded Display**:
+```
+Exiting plan mode (4 line plan)
+```
+
+**Implementation**: Simple collapsed view, line count shown in expanded view.
 
 ### Notebook Operations
 
@@ -313,13 +427,18 @@ Purpose: Extract the current star count and latest release ver...
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: NotebookRead
-📓 Reading notebook: /analysis/data-exploration.ipynb
+Reading notebook: /analysis/data-exploration.ipynb
+```
+
+**Expanded Display**:
+```
+Notebook: /analysis/data-exploration.ipynb
 Cell: cell-5
 ```
-**Reasoning**: Shows notebook path and specific cell if targeted.
+
+**Implementation**: Shows notebook path, cell ID only in expanded view.
 
 #### NotebookEdit
 **Purpose**: Show notebook editing operations
@@ -333,17 +452,41 @@ Cell: cell-5
   }
 }
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔧 Tool: NotebookEdit
-📓 Editing notebook: /analysis/model-training.ipynb
-Mode: insert (code cell)
+Editing notebook: /analysis/model-training.ipynb
 ```
-**Reasoning**: Shows notebook, edit mode, and cell type.
+
+**Expanded Display**:
+```
+Notebook: /analysis/model-training.ipynb
+Mode: insert - code cell
+```
+
+**Implementation**: Shows notebook path, edit details only in expanded view.
 
 ## Tool Result Messages
 
-Tool results are formatted to provide quick understanding of outcomes while preserving important details.
+Tool results are displayed using the `ToolResultDisplay` component, which automatically detects result types and applies appropriate formatting. The component uses pattern matching to identify result types and provides specialized displays for each.
+
+### Result Type Detection
+
+The component detects the following result types:
+- `todo_success`: TodoWrite confirmations
+- `file_contents`: File contents with line numbers
+- `file_operation`: File creation/update confirmations
+- `search_results`: Grep/Glob search results
+- `no_results`: Empty search results
+- `directory_listing`: LS command output
+- `package_install`: npm/pip/poetry installations
+- `git_operation`: Git command results
+- `docker_operation`: Docker command results
+- `error`: Error messages
+- `success`: Generic success messages
+- `web_content`: HTML content
+- `notebook_operation`: Notebook operations
+- `long_output`: Results > 500 chars or > 20 lines
+- `generic`: Fallback for unrecognized patterns
 
 ### File Operation Results
 
@@ -356,17 +499,25 @@ Tool results are formatted to provide quick understanding of outcomes while pres
      4→export function Counter() {
      5→  const [count, setCount] = useState(0);
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-📄 File contents:
+[📄 File Contents icon] File Contents
+5 lines shown of X total
+```
+
+**Expanded Display**:
+```
+[📄 File Contents header with line count]
      1→import React from 'react';
      2→import { useState } from 'react';
      3→
      4→export function Counter() {
      5→  const [count, setCount] = useState(0);
-...
+[Shows up to 50 lines in expanded view]
+... X more lines
 ```
-**Reasoning**: Shows first 5 lines with line numbers preserved for context.
+
+**Implementation**: Preserves line numbers, shows 5 lines collapsed, 50 expanded.
 
 #### Write/Edit Results
 **Pattern**: "File created successfully", "has been updated", "File written successfully"
@@ -375,9 +526,11 @@ File created successfully at: /src/components/NewComponent.tsx
 ```
 **Display Format**:
 ```
-✅ File operation completed
+[✅ CheckCircle icon] File operation completed
+/src/components/NewComponent.tsx (if path detected)
 ```
-**Reasoning**: Simple success confirmation without redundant details.
+
+**Implementation**: Green success indicator with optional file path extraction.
 
 ### Search Results
 
@@ -390,16 +543,22 @@ Found 15 files
 /src/components/Footer.tsx
 ...
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-🔍 Search results:
-Found 15 files
+[🔍 Search icon] Search Results: 15 files
+```
+
+**Expanded Display**:
+```
+[🔍 Search header] Search Results: 15 files
 /src/App.tsx
 /src/components/Header.tsx
 /src/components/Footer.tsx
+[Shows up to 20 results]
 ... and 12 more
 ```
-**Reasoning**: Shows first 10 results with count of remaining to avoid overwhelming display.
+
+**Implementation**: Purple-themed search results, shows 5 items collapsed, 20 expanded.
 
 #### No Results
 **Pattern**: "No matches found", "No files found"
@@ -408,9 +567,10 @@ No matches found
 ```
 **Display Format**:
 ```
-❌ No matches found
+[⚠️ AlertCircle icon] No matches found
 ```
-**Reasoning**: Clear negative result indicator.
+
+**Implementation**: Gray alert indicator for empty results.
 
 ### Directory Listing Results
 
@@ -421,11 +581,19 @@ drwxr-xr-x  6 user  staff   192 Mar 15 10:30 .
 drwxr-xr-x  8 user  staff   256 Mar 15 09:45 ..
 -rw-r--r--  1 user  staff  1234 Mar 15 10:30 index.js
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-📁 Directory listing: 3 items
+[📁 FolderOpen icon] Directory listing: 3 items
 ```
-**Reasoning**: Shows item count instead of full listing for brevity.
+
+**Expanded Display**:
+```
+[📁 Directory header] 3 items
+[First 10 items with permissions]
+... X more items
+```
+
+**Implementation**: Blue-themed directory display, shows item count and preview.
 
 ### Command Execution Results
 
@@ -436,8 +604,11 @@ added 152 packages, and audited 153 packages in 12s
 ```
 **Display Format**:
 ```
-📦 Dependencies installed successfully
+[📦 Package icon] Dependencies installed successfully
+(152 packages) if count detected
 ```
+
+**Implementation**: Green success with package count extraction.
 
 #### Git Operations
 **Pattern**: Git commands with "commit", "branch"
@@ -447,8 +618,11 @@ added 152 packages, and audited 153 packages in 12s
 ```
 **Display Format**:
 ```
-🔧 Git operation completed
+[GitBranch icon] Git operation completed
+[main 5a3f2d1] Add user authentication feature
 ```
+
+**Implementation**: Blue-themed with first line of git output.
 
 #### Docker Operations
 **Pattern**: "docker" with "built", "Started", container status output
@@ -458,8 +632,11 @@ Successfully tagged myapp:latest
 ```
 **Display Format**:
 ```
-🐳 Docker operation completed
+[🐳 Container icon] Docker operation completed
+Successfully built 4b3f5a2d1c8e
 ```
+
+**Implementation**: Blue-themed with operation details.
 
 ### Error Handling
 
@@ -468,11 +645,20 @@ Successfully tagged myapp:latest
 Error: Cannot find module 'express'
     at Function.Module._resolveFilename (internal/modules/cjs/loader.js:880:15)
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-❌ Error: Cannot find module 'express'
+[❌ XCircle icon] Error: Cannot find module 'express'
 ```
-**Reasoning**: Shows first line of error for quick identification.
+
+**Expanded Display**:
+```
+[❌ Error header]
+Error: Cannot find module 'express'
+    at Function.Module._resolveFilename (internal/modules/cjs/loader.js:880:15)
+[Full stack trace]
+```
+
+**Implementation**: Red error theme with expandable stack trace.
 
 ### Todo Results
 
@@ -482,9 +668,10 @@ Todos have been modified successfully. Ensure that you continue to use the todo 
 ```
 **Display Format**:
 ```
-✅ Todo list updated successfully
+[✅ CheckCircle icon] Todo list updated successfully
 ```
-**Reasoning**: Simple confirmation that todo operations succeeded.
+
+**Implementation**: Green success indicator for todo operations.
 
 ### Generic Patterns
 
@@ -495,116 +682,289 @@ Successfully compiled 15 TypeScript files
 ```
 **Display Format**:
 ```
-✅ Successfully compiled 15 TypeScript files
+[✅ CheckCircle icon] Successfully compiled 15 TypeScript files
 ```
+
+**Implementation**: Extracts and preserves success message details.
 
 #### Long Results
 **Pattern**: Results longer than 200 characters
 ```
 [Very long output with multiple lines...]
 ```
-**Display Format**:
+**Collapsed Display**:
 ```
-📥 Tool Result (47 lines):
-[First 200 characters]...
+[📄 FileText icon] Output
+47 lines
 ```
-**Reasoning**: Shows line count and preview for large outputs.
+
+**Expanded Display**:
+```
+[Output header with line count]
+[First 1000 characters]
+... X more characters
+```
+
+**Implementation**: Shows 200 chars collapsed, 1000 expanded.
+
+## Component Implementation
+
+### ToolDisplay Component Structure
+
+```typescript
+// Tool categories with visual themes
+const toolCategories = {
+  file: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
+  search: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
+  command: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
+  web: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
+  task: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' },
+  notebook: { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700' }
+};
+
+// Tool-specific formatters
+function TodoWriteDisplay({ input, isCollapsed }) {
+  // Shows task statistics and individual tasks
+}
+
+function ReadDisplay({ input, isCollapsed }) {
+  // Shows file path and line range
+}
+
+// ... other tool-specific displays
+```
+
+### ToolResultDisplay Component Structure
+
+```typescript
+// Result type detection
+function detectResultType(content: string): ResultType {
+  if (content.includes('Todos have been modified successfully')) {
+    return 'todo_success';
+  }
+  if (/^\s*\d+[→|->]/.test(content)) {
+    return 'file_contents';
+  }
+  // ... other patterns
+}
+
+// Result-specific renderers
+function FileContentsResult({ content, isCollapsed }) {
+  // Syntax-highlighted code display
+}
+
+function SearchResultsDisplay({ content, isCollapsed }) {
+  // Formatted search results with counts
+}
+
+// ... other result displays
+```
+
+### Integration in SessionDetail
+
+```typescript
+// Parse tool information
+let toolName = 'Unknown Tool';
+let toolInput = {};
+try {
+  const parsed = JSON.parse(toolUseMessage.content);
+  toolName = parsed.name || 'Unknown Tool';
+  toolInput = parsed.input || {};
+} catch {
+  // Fallback to raw content
+}
+
+// Render tool pair
+<div className="space-y-2">
+  <ToolDisplay
+    toolName={toolName}
+    toolInput={toolInput}
+    isCollapsed={!isPairExpanded}
+  />
+  <ToolResultDisplay
+    content={toolResultMessage.content}
+    toolName={toolName}
+    isCollapsed={!isPairExpanded}
+  />
+</div>
+```
 
 ## Adding New Tool Formats
 
-### Step 1: Identify the Tool Pattern
+### Step 1: Identify the Tool
 
 1. Check tool usage data to find the tool name
 2. Examine sample inputs and outputs
 3. Identify unique patterns in results
+4. Determine appropriate category (file/search/command/web/task/notebook)
 
-### Step 2: Add Tool Use Formatting
+### Step 2: Add Tool Display
 
-Add a new case in the `formatMessageContent` function for tool_use messages:
+1. Add the tool to the category mapping in `getToolCategory()`
+2. Add an icon mapping in `toolIcons`
+3. Create a tool-specific display component:
 
 ```typescript
-case 'YourNewTool':
-  if (parsed.input?.important_param) {
-    toolInfo += `\n🎯 Your description: ${parsed.input.important_param}`;
-    // Add more formatting as needed
+function YourToolDisplay({ input, isCollapsed }: { input: any; isCollapsed: boolean }) {
+  if (isCollapsed) {
+    return <div className="text-sm text-gray-600">
+      {/* Concise one-line summary */}
+    </div>;
   }
-  break;
-```
 
-### Step 3: Add Tool Result Formatting
-
-Add pattern matching in the tool_result section:
-
-```typescript
-else if (content.includes('your-pattern')) {
-  return '🎯 Your formatted result';
+  return (
+    <div className="space-y-2 text-sm">
+      {/* Detailed parameter display */}
+    </div>
+  );
 }
 ```
 
-### Step 4: Choose Appropriate Icons
+4. Add case in `renderToolContent()`:
 
-Use consistent emoji indicators:
-- 📄 File/document operations
-- 📁 Directory operations
-- 🔍 Search operations
-- 💻 Command execution
-- 🌐 Web operations
-- 📦 Package management
-- 🔧 Configuration/Git
-- 🐳 Container operations
-- ✅ Success states
-- ❌ Error states
-- ⚠️ Warnings
-- 📝 Task management
-- 🤖 AI/Agent operations
-- 📓 Notebook operations
-- 📋 Planning operations
+```typescript
+case 'YourTool':
+  return <YourToolDisplay input={toolInput} isCollapsed={isCollapsed} />;
+```
+
+### Step 3: Add Result Display
+
+1. Add pattern detection in `detectResultType()`:
+
+```typescript
+if (content.includes('your-pattern')) {
+  return 'your_result_type';
+}
+```
+
+2. Create result display component:
+
+```typescript
+function YourResultDisplay({ content, isCollapsed }) {
+  // Format and display the result
+}
+```
+
+3. Add case in `renderResult()`:
+
+```typescript
+case 'your_result_type':
+  return <YourResultDisplay content={content} isCollapsed={isCollapsed} />;
+```
+
+### Step 4: Choose Visual Elements
+
+Choose appropriate icons from lucide-react:
+- `FileText`, `Edit`, `FileCode` - File operations
+- `Folder`, `FolderOpen` - Directory operations
+- `Search` - Search operations
+- `Terminal` - Command execution
+- `Globe` - Web operations
+- `Package` - Package management
+- `GitBranch` - Git operations
+- `Container` - Docker operations
+- `CheckCircle` - Success states
+- `XCircle` - Error states
+- `AlertCircle` - Warnings
+- `CheckSquare` - Task management
+- `Bot` - AI/Agent operations
+- `BookOpen` - Notebook operations
+- `ClipboardList` - Planning operations
 
 ## Best Practices
 
-### 1. Prioritize Readability
-- Show essential information first
-- Truncate long content with indicators
-- Use visual hierarchy (indentation, spacing)
+### 1. Component Design Principles
 
-### 2. Maintain Consistency
-- Use similar patterns for similar operations
-- Keep icon usage consistent across tools
-- Follow established truncation limits
+#### Collapsed vs Expanded States
+- **Collapsed**: One-line summary with key information
+- **Expanded**: Full parameter details with structured layout
+- Use consistent spacing and typography
 
-### 3. Preserve Important Context
-- Show file paths completely when possible
-- Include line numbers for code references
-- Display counts for collections
+#### Color Coding
+- Each tool category has a distinct color theme
+- Use lighter backgrounds with darker borders
+- Ensure sufficient contrast for accessibility
 
-### 4. Handle Edge Cases
-- Check for null/undefined values
-- Handle empty arrays gracefully
-- Provide fallbacks for missing data
+#### Progressive Disclosure
+- Show most important info in collapsed state
+- Hide verbose details until expanded
+- Limit list displays (10 todos, 20 search results)
 
-### 5. Performance Considerations
-- Limit displayed items (e.g., first 10 todos)
-- Truncate long strings appropriately
-- Avoid complex computations in formatters
+### 2. Result Display Guidelines
 
-### 6. User Experience
-- Make tool purpose immediately clear
-- Show progress/status indicators
-- Highlight errors and warnings
-- Group related information
+#### Pattern Detection
+- Test patterns with real data
+- Order patterns from most specific to most generic
+- Include fallback for unrecognized formats
 
-### 7. Testing New Formats
-1. Test with real conversation data
-2. Verify all fields are handled
-3. Check edge cases (empty, null, very long)
-4. Ensure TypeScript types are satisfied
-5. Test visual appearance in all view modes
+#### Content Formatting
+- Preserve line numbers for code
+- Show item counts for collections
+- Extract key information (file paths, error messages)
 
-### 8. Documentation
-- Document the reasoning for format choices
-- Provide examples of input/output
-- Explain any truncation or summarization logic
-- Update this document when adding new tools
+#### Visual Indicators
+- Use icons to reinforce result type
+- Color-code success/error/warning states
+- Include metadata (line counts, file sizes)
+
+### 3. Implementation Best Practices
+
+#### Type Safety
+```typescript
+interface ToolDisplayProps {
+  toolName: string;
+  toolInput: any; // Consider specific types per tool
+  isCollapsed?: boolean;
+}
+```
+
+#### Error Handling
+```typescript
+try {
+  const parsed = JSON.parse(toolUseMessage.content);
+  // Handle parsed data
+} catch {
+  // Graceful fallback
+}
+```
+
+#### Performance
+- Limit rendered items in lists
+- Use React.memo for expensive components
+- Lazy load syntax highlighting
+
+### 4. Accessibility Considerations
+
+- Ensure color is not the only differentiator
+- Provide text alternatives for icons
+- Support keyboard navigation
+- Test with screen readers
+
+### 5. Testing Checklist
+
+1. **Visual Testing**
+   - All view states (collapsed/expanded)
+   - Light and dark themes
+   - Different screen sizes
+
+2. **Data Testing**
+   - Empty states
+   - Very long content
+   - Special characters
+   - Unicode content
+
+3. **Integration Testing**
+   - Tool pairs display correctly
+   - Costs and timestamps preserved
+   - Expand/collapse interactions
+
+### 6. Documentation Standards
+
+When documenting new tools:
+- Provide real JSON examples
+- Show both collapsed and expanded displays
+- Explain design decisions
+- Include edge cases
 
 ## Maintenance
 
@@ -615,4 +975,15 @@ When Claude's tools are updated:
 4. Test with real conversation exports
 5. Update this documentation
 
-Remember: The goal is to make Claude's tool usage transparent and easy to follow, helping users understand what operations were performed without overwhelming them with details.
+### Component Architecture Summary
+
+The new component-based architecture provides:
+
+1. **Separation of Concerns**: Tool display logic is separated from result display logic
+2. **Reusability**: Components can be used in different contexts
+3. **Maintainability**: Adding new tools requires minimal changes
+4. **Consistency**: All tools follow the same visual patterns
+5. **Performance**: Collapsed states reduce initial render cost
+6. **Accessibility**: Semantic HTML and ARIA labels throughout
+
+Remember: The goal is to make Claude's tool usage transparent and easy to follow, helping users understand what operations were performed without overwhelming them with details. The component architecture ensures consistency while allowing flexibility for tool-specific formatting needs.
