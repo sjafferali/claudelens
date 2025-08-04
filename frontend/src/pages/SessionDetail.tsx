@@ -1077,21 +1077,19 @@ function TimelineView({
       return `🔧 ${message.content}`;
     }
 
-    // Final check: if content looks like JSON structure, try to extract meaningful text
+    // Only try to extract JSON content for specific cases where we know it's needed
+    // For example, only for tool_use messages or messages that start with pure JSON
     if (
-      message.content.startsWith('1→') ||
-      message.content.includes('"type":') ||
-      message.content.includes('"content":')
+      message.type === 'tool_use' &&
+      message.content.trim().startsWith('{') &&
+      message.content.includes('"type":')
     ) {
-      // This might be improperly formatted content
       try {
-        // Try to parse as JSON first
         const parsed = JSON.parse(message.content);
         if (parsed.content) {
           if (typeof parsed.content === 'string') {
             return parsed.content;
           } else if (Array.isArray(parsed.content)) {
-            // Extract text from content array
             const textParts = parsed.content
               .filter((part: { type?: string }) => part.type === 'text')
               .map((part: { text?: string }) => part.text || '')
@@ -1100,17 +1098,7 @@ function TimelineView({
           }
         }
       } catch {
-        // If JSON parsing fails, try to extract content between quotes
-        const match = message.content.match(/"content"\s*:\s*"([^"]+)"/);
-        if (match && match[1]) {
-          return match[1];
-        }
-
-        // Look for actual message text patterns
-        const textMatch = message.content.match(/"text"\s*:\s*"([^"]+)"/);
-        if (textMatch && textMatch[1]) {
-          return textMatch[1];
-        }
+        // If parsing fails, return original content
       }
     }
 
@@ -1342,14 +1330,14 @@ function TimelineView({
 
           return (
             <div key={pairId} className="group">
-              <div className="rounded-xl p-4 bg-layer-secondary border border-secondary-c hover:border-primary-c transition-all relative">
+              <div className="rounded-xl p-4 bg-layer-secondary border border-secondary-c hover:border-primary-c transition-all relative overflow-hidden">
                 {/* Header with expand/collapse button */}
                 <div className="flex items-start justify-between gap-4 mb-3">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-sm">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-sm flex-shrink-0">
                       <Wrench className="h-4 w-4" />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-semibold text-primary-c">
                           Tool Operation
@@ -1363,7 +1351,7 @@ function TimelineView({
 
                       {/* Collapsed state - show compact tool preview */}
                       {!isPairExpanded && (
-                        <div className="space-y-2">
+                        <div className="space-y-2 overflow-hidden">
                           <ToolDisplay
                             toolName={toolName}
                             toolInput={toolInput}

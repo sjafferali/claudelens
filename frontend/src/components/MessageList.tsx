@@ -763,33 +763,29 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
                       )}
                     </time>
                   </div>
-                  {(getMessageCost(toolUseMessage) ||
-                    (costMap &&
-                      costMap.get(getMessageUuid(toolUseMessage) || '')) ||
-                    getMessageCost(toolResultMessage) ||
-                    (costMap &&
-                      costMap.get(
-                        getMessageUuid(toolResultMessage) || ''
-                      ))) && (
-                    <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                      <Coins className="h-3.5 w-3.5" />
-                      <span>
-                        $
-                        {(
-                          (getMessageCost(toolUseMessage) ||
-                            costMap?.get(
-                              getMessageUuid(toolUseMessage) || ''
-                            ) ||
-                            0) +
-                          (getMessageCost(toolResultMessage) ||
-                            costMap?.get(
-                              getMessageUuid(toolResultMessage) || ''
-                            ) ||
-                            0)
-                        ).toFixed(4)}
-                      </span>
-                    </div>
-                  )}
+                  {(() => {
+                    // Calculate cost - only use tool_use cost if present, otherwise use parent assistant cost
+                    const toolUseCost =
+                      getMessageCost(toolUseMessage) ||
+                      costMap?.get(getMessageUuid(toolUseMessage) || '') ||
+                      0;
+                    const toolResultCost =
+                      getMessageCost(toolResultMessage) ||
+                      costMap?.get(getMessageUuid(toolResultMessage) || '') ||
+                      0;
+
+                    // Only show cost if there's actually a cost
+                    const totalCost = toolUseCost + toolResultCost;
+                    if (totalCost > 0) {
+                      return (
+                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                          <Coins className="h-3.5 w-3.5" />
+                          <span>${totalCost.toFixed(4)}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                   {(toolUseMessage.inputTokens ||
                     toolUseMessage.outputTokens) && (
                     <div className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 font-medium">

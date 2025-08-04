@@ -259,12 +259,16 @@ export function ToolDisplay({
   };
 
   return (
-    <div className={`rounded-lg p-4 border ${colors.bg} ${colors.border}`}>
+    <div
+      className={`rounded-lg p-4 border ${colors.bg} ${colors.border} ${isCollapsed ? 'max-w-full' : ''}`}
+    >
       <div className="flex items-center gap-2 mb-3">
         <div className={`${colors.text}`}>{icon}</div>
         <h4 className={`font-semibold ${colors.text}`}>{toolName}</h4>
       </div>
-      {renderToolContent()}
+      <div className={isCollapsed ? 'max-w-full' : ''}>
+        {renderToolContent()}
+      </div>
     </div>
   );
 }
@@ -355,7 +359,9 @@ function ReadDisplay({
       preview += ` (lines ${start}-${end})`;
     }
     return (
-      <div className="text-sm text-gray-600 dark:text-gray-400">{preview}</div>
+      <div className="text-sm text-gray-600 dark:text-gray-400 truncate">
+        {preview}
+      </div>
     );
   }
 
@@ -391,7 +397,7 @@ function WriteDisplay({
 
   if (isCollapsed) {
     return (
-      <div className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="text-sm text-gray-600 dark:text-gray-400 truncate">
         Writing to: {filePath} ({lines} lines)
       </div>
     );
@@ -433,13 +439,13 @@ function EditDisplay({
     if (toolName === 'MultiEdit') {
       const editCount = 'edits' in input ? input.edits?.length || 0 : 0;
       return (
-        <div className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="text-sm text-gray-600 dark:text-gray-400 truncate">
           Editing: {filePath} ({editCount} changes)
         </div>
       );
     }
     return (
-      <div className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="text-sm text-gray-600 dark:text-gray-400 truncate">
         Editing: {filePath}
       </div>
     );
@@ -483,7 +489,7 @@ function GrepDisplay({
 
   if (isCollapsed) {
     return (
-      <div className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="text-sm text-gray-600 dark:text-gray-400 truncate">
         Searching for: "{pattern}" in {path}
       </div>
     );
@@ -528,7 +534,7 @@ function BashDisplay({
 
   if (isCollapsed) {
     return (
-      <div className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="text-sm text-gray-600 dark:text-gray-400 truncate">
         {description ||
           (command.length > 60 ? command.substring(0, 60) + '...' : command)}
       </div>
@@ -589,7 +595,7 @@ function WebDisplay({
   const prompt = input?.prompt;
   if (isCollapsed) {
     return (
-      <div className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="text-sm text-gray-600 dark:text-gray-400 truncate">
         Fetching: {url}
       </div>
     );

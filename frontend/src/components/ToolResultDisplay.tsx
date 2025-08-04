@@ -232,7 +232,9 @@ function FileContentsResult({
           {lines.length} lines
         </span>
       </div>
-      <pre className="p-3 text-xs overflow-x-auto">
+      <pre
+        className={`p-3 text-xs ${isCollapsed ? 'overflow-hidden' : 'overflow-x-auto'}`}
+      >
         <code className="text-gray-800 dark:text-gray-200">
           {displayLines.join('\n')}
           {lines.length > displayLines.length && (
@@ -509,7 +511,9 @@ function GenericDisplay({
 
   return (
     <div className="p-3 bg-gray-50 dark:bg-gray-900">
-      <pre className="text-xs overflow-x-auto">
+      <pre
+        className={`text-xs ${isCollapsed ? 'overflow-hidden whitespace-pre-wrap break-words' : 'overflow-x-auto'}`}
+      >
         <code className="text-gray-800 dark:text-gray-200">
           {displayContent}
           {content.length > displayContent.length && '...'}

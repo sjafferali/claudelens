@@ -479,8 +479,8 @@ class IngestService:
                     tool_doc["content"] = json.dumps(tool_part, ensure_ascii=False)
                     tool_doc["messageData"] = tool_part
 
-                    # Add optional fields
-                    self._add_optional_fields(tool_doc, message)
+                    # Add optional fields (but exclude costUsd for tool messages)
+                    self._add_optional_fields(tool_doc, message, exclude_cost=True)
                     docs.append(tool_doc)
 
                 return docs
@@ -551,8 +551,8 @@ class IngestService:
                     )
                     result_doc["messageData"] = result_part
 
-                    # Add optional fields
-                    self._add_optional_fields(result_doc, message)
+                    # Add optional fields (but exclude costUsd for tool result messages)
+                    self._add_optional_fields(result_doc, message, exclude_cost=True)
                     docs.append(result_doc)
 
                 return docs
@@ -679,8 +679,16 @@ class IngestService:
         self._add_optional_fields(doc, message)
         return doc
 
-    def _add_optional_fields(self, doc: dict, message: MessageIngest) -> None:
-        """Add optional fields to a document."""
+    def _add_optional_fields(
+        self, doc: dict, message: MessageIngest, exclude_cost: bool = False
+    ) -> None:
+        """Add optional fields to a document.
+
+        Args:
+            doc: The document to add fields to
+            message: The source message
+            exclude_cost: If True, skip adding costUsd field (for tool/result messages)
+        """
         optional_fields = [
             "userType",
             "cwd",
@@ -700,29 +708,31 @@ class IngestService:
                 doc[field] = value
 
         # Handle costUsd - calculate if not provided but we have usage data
-        cost_usd = getattr(message, "costUsd", None)
-        if cost_usd is None and message.type == "assistant" and message.message:
-            # Try to calculate cost from usage data
-            msg_data = message.message
-            if (
-                isinstance(msg_data, dict)
-                and "usage" in msg_data
-                and "model" in msg_data
-            ):
-                usage = msg_data["usage"]
-                cost_service = CostCalculationService()
-                cost_usd = cost_service.calculate_message_cost(
-                    model=msg_data["model"],
-                    input_tokens=usage.get("input_tokens"),
-                    output_tokens=usage.get("output_tokens"),
-                    cache_creation_input_tokens=usage.get(
-                        "cache_creation_input_tokens"
-                    ),
-                    cache_read_input_tokens=usage.get("cache_read_input_tokens"),
-                )
+        # Skip cost calculation for tool_use and tool_result messages
+        if not exclude_cost:
+            cost_usd = getattr(message, "costUsd", None)
+            if cost_usd is None and message.type == "assistant" and message.message:
+                # Try to calculate cost from usage data
+                msg_data = message.message
+                if (
+                    isinstance(msg_data, dict)
+                    and "usage" in msg_data
+                    and "model" in msg_data
+                ):
+                    usage = msg_data["usage"]
+                    cost_service = CostCalculationService()
+                    cost_usd = cost_service.calculate_message_cost(
+                        model=msg_data["model"],
+                        input_tokens=usage.get("input_tokens"),
+                        output_tokens=usage.get("output_tokens"),
+                        cache_creation_input_tokens=usage.get(
+                            "cache_creation_input_tokens"
+                        ),
+                        cache_read_input_tokens=usage.get("cache_read_input_tokens"),
+                    )
 
-        if cost_usd is not None:
-            doc["costUsd"] = Decimal128(str(cost_usd))
+            if cost_usd is not None:
+                doc["costUsd"] = Decimal128(str(cost_usd))
 
         # Add any extra fields
         if message.extra_fields:
