@@ -343,7 +343,7 @@ class RealtimeStatsService:
                 {
                     "$group": {
                         "_id": None,
-                        "total_cost": {"$sum": {"$ifNull": ["$cost", 0]}},
+                        "total_cost": {"$sum": {"$ifNull": ["$costUsd", 0]}},
                     }
                 },
             ]

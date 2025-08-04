@@ -158,7 +158,7 @@ async def get_live_session_stats(
     # Get cost
     cost_pipeline: list[dict[str, Any]] = [
         {"$match": {"sessionId": session_id}},
-        {"$group": {"_id": None, "total_cost": {"$sum": {"$ifNull": ["$cost", 0]}}}},
+        {"$group": {"_id": None, "total_cost": {"$sum": {"$ifNull": ["$costUsd", 0]}}}},
     ]
     cost_result = await messages_collection.aggregate(cost_pipeline).to_list(1)
     raw_cost = cost_result[0]["total_cost"] if cost_result else 0.0
@@ -233,7 +233,7 @@ async def get_live_global_stats(
 
     # Get total cost
     cost_pipeline: list[dict[str, Any]] = [
-        {"$group": {"_id": None, "total_cost": {"$sum": {"$ifNull": ["$cost", 0]}}}}
+        {"$group": {"_id": None, "total_cost": {"$sum": {"$ifNull": ["$costUsd", 0]}}}}
     ]
     cost_result = await messages_collection.aggregate(cost_pipeline).to_list(1)
     raw_total_cost = cost_result[0]["total_cost"] if cost_result else 0.0
