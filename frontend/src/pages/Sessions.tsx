@@ -7,6 +7,7 @@ import SessionFilters from '@/components/SessionFilters';
 import ActiveFilters from '@/components/ActiveFilters';
 import { useSessionFilters } from '@/hooks/useSessionFilters';
 import SessionDetail from './SessionDetail';
+import { getSessionTitle } from '@/utils/session';
 
 export default function Sessions() {
   const { sessionId } = useParams();
@@ -196,8 +197,7 @@ function SessionsList() {
                         >
                           <div className="space-y-1 flex-1">
                             <p className="font-medium text-primary-c">
-                              {session.summary ||
-                                `Session ${session.sessionId.slice(0, 8)}...`}
+                              {getSessionTitle(session)}
                             </p>
                             <p className="text-sm text-tertiary-c">
                               {session.messageCount} messages •{' '}

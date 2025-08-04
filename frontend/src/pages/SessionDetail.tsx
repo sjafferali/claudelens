@@ -13,7 +13,11 @@ import {
   Terminal,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useSession, useSessionMessages } from '@/hooks/useSessions';
+import {
+  useSession,
+  useSessionMessages,
+  useGenerateSessionSummary,
+} from '@/hooks/useSessions';
 import { useMessageCosts } from '@/hooks/useMessageCosts';
 import { cn } from '@/utils/cn';
 import { Message } from '@/api/types';
@@ -27,6 +31,7 @@ import CostStatCard from '@/components/CostStatCard';
 import CostDetailsPanel from '@/components/CostDetailsPanel';
 import SessionTopics from '@/components/SessionTopics';
 import { getMessageUuid, getMessageCost } from '@/types/message-extensions';
+import { getSessionTitle } from '@/utils/session';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -35,6 +40,7 @@ export default function SessionDetail() {
   const { data: messages, isLoading: messagesLoading } = useSessionMessages(
     sessionId!
   );
+  const generateSummary = useGenerateSessionSummary();
 
   // Calculate costs for messages
   const { costMap } = useMessageCosts(sessionId, messages?.messages);
@@ -221,9 +227,22 @@ export default function SessionDetail() {
                 Back to sessions
               </button>
             </div>
-            <h2 className="text-lg font-medium text-primary-c">
-              Session {session.sessionId.slice(0, 8)}...
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-medium text-primary-c">
+                {getSessionTitle(session)}
+              </h2>
+              {!session.summary && (
+                <button
+                  onClick={() => generateSummary.mutate(sessionId!)}
+                  disabled={generateSummary.isPending}
+                  className="text-xs px-2 py-1 bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {generateSummary.isPending
+                    ? 'Generating...'
+                    : 'Generate Title'}
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-4 mt-1 text-sm text-muted-c">
               <span>
                 {format(new Date(session.startedAt), 'MMM d, yyyy')} at{' '}

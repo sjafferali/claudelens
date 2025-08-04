@@ -341,16 +341,70 @@ class SessionService:
         if not messages:
             return "Empty conversation"
 
-        # Simple summary generation
+        # Enhanced summary generation
         first_user_msg = next((msg for msg in messages if msg["type"] == "user"), None)
 
         if first_user_msg and first_user_msg.get("content"):
             content: str = first_user_msg["content"]
-            summary = content[:200]
-            if len(content) > 200:
-                summary += "..."
+
+            # Clean up the content for better titles
+            # Remove markdown code blocks
+            import re
+
+            content = re.sub(r"```[\s\S]*?```", "", content)
+            # Remove multiple spaces and newlines
+            content = " ".join(content.split())
+
+            # Try to extract a meaningful title
+            # Look for question patterns
+            question_match = re.search(
+                r"^((?:how|what|why|when|where|who|can|should|is|are|does|do|help|implement|create|fix|debug|explain|show|find|write|build|add|update|improve)[^.?!]*[.?!])",
+                content,
+                re.IGNORECASE,
+            )
+
+            if question_match:
+                summary = question_match.group(1).strip()
+                # Capitalize first letter
+                summary = summary[0].upper() + summary[1:] if summary else summary
+                # Limit length
+                if len(summary) > 100:
+                    summary = summary[:97] + "..."
+            else:
+                # Look for imperative sentences or statements
+                sentences = re.split(r"[.!?]+", content)
+                if sentences and sentences[0].strip():
+                    summary = sentences[0].strip()
+                    # Capitalize first letter
+                    summary = summary[0].upper() + summary[1:] if summary else summary
+                    # Limit length
+                    if len(summary) > 100:
+                        summary = summary[:97] + "..."
+                else:
+                    # Fallback to truncated content
+                    summary = content[:100]
+                    if len(content) > 100:
+                        summary += "..."
         else:
-            summary = f"Conversation with {len(messages)} messages"
+            # Check if there are tool uses or specific patterns in assistant messages
+            assistant_msgs = [msg for msg in messages[:3] if msg["type"] == "assistant"]
+            if assistant_msgs:
+                # Look for common patterns
+                for msg in assistant_msgs:
+                    content = msg.get("content", "")
+                    if "error" in content.lower():
+                        summary = "Debugging session"
+                        break
+                    elif "implement" in content.lower() or "create" in content.lower():
+                        summary = "Implementation task"
+                        break
+                    elif "fix" in content.lower() or "bug" in content.lower():
+                        summary = "Bug fixing session"
+                        break
+                else:
+                    summary = f"Conversation with {len(messages)} messages"
+            else:
+                summary = f"Conversation with {len(messages)} messages"
 
         # Update session with summary
         await self.db.sessions.update_one(

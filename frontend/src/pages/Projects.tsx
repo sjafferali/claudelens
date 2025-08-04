@@ -15,6 +15,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Loader2, FolderOpen, MessageSquare, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Project } from '@/api/types';
+import { getSessionTitle } from '@/utils/session';
 
 export default function Projects() {
   const { projectId } = useParams();
@@ -376,10 +377,7 @@ function ProjectDetail({ projectId }: { projectId: string }) {
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
                 >
                   <div className="space-y-1 flex-1">
-                    <p className="font-medium">
-                      {session.summary ||
-                        `Session ${session.sessionId.slice(0, 8)}...`}
-                    </p>
+                    <p className="font-medium">{getSessionTitle(session)}</p>
                     <p className="text-sm text-muted-foreground">
                       {session.messageCount} messages •
                       {formatDistanceToNow(new Date(session.startedAt), {

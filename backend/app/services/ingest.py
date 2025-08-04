@@ -632,7 +632,8 @@ class IngestService:
 
         if result:
             stats = result[0]
-            await self.db.sessions.update_one(
+            # Update session
+            update_result = await self.db.sessions.update_one(
                 {"sessionId": session_id},
                 {
                     "$set": {
@@ -646,6 +647,15 @@ class IngestService:
                     }
                 },
             )
+
+            # Generate summary if session doesn't have one yet
+            if update_result.modified_count > 0:
+                session = await self.db.sessions.find_one({"sessionId": session_id})
+                if session and not session.get("summary"):
+                    from .session import SessionService
+
+                    session_service = SessionService(self.db)
+                    await session_service.generate_summary(str(session["_id"]))
 
     async def _log_ingestion(self, stats: IngestStats) -> None:
         """Log ingestion statistics."""
