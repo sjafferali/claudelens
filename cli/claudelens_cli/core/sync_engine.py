@@ -124,7 +124,7 @@ class SyncEngine:
 
             # Process each project
             for project_path in projects:
-                project_name = project_path.name
+                project_name = self._extract_project_name(project_path)
                 if progress_callback:
                     progress_callback(f"Syncing {project_name}...")
 
@@ -385,6 +385,30 @@ class SyncEngine:
                 except Exception as e:
                     console.print(f"[red]Error processing message: {e}[/red]")
 
+    def _extract_project_name(self, project_path: Path) -> str:
+        """Extract a human-readable project name from the project directory.
+
+        Claude uses path-based directory names like '-Users-username-path-to-project'.
+        This function attempts to extract a better name by:
+        1. If the directory name starts with a dash and contains path separators,
+           extract the last component
+        2. Otherwise, use the directory name as-is
+        """
+        dir_name = project_path.name
+
+        # Check if this is a path-based name (starts with dash and has multiple components)
+        if dir_name.startswith("-") and "-" in dir_name[1:]:
+            # Split by dashes and take the last non-empty component
+            parts = dir_name.split("-")
+            # Filter out empty parts and get the last meaningful component
+            meaningful_parts = [p for p in parts if p]
+            if meaningful_parts:
+                # Return the last part which is typically the actual project name
+                return meaningful_parts[-1]
+
+        # If not a path-based name, return as-is
+        return dir_name
+
     async def _ensure_project_exists(self, project_path: Path):
         """Ensure project exists in backend."""
         client = await self._get_http_client()
@@ -392,10 +416,13 @@ class SyncEngine:
         # Use the full absolute path for consistency
         full_path = str(project_path.resolve())
 
+        # Extract a better project name
+        project_name = self._extract_project_name(project_path)
+
         project_data = {
-            "name": project_path.name,
+            "name": project_name,
             "path": full_path,
-            "description": f"Claude project: {project_path.name}",
+            "description": f"Claude project: {project_name}",
         }
 
         try:
