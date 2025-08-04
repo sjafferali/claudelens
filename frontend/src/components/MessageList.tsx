@@ -165,7 +165,8 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
     content: string,
     type: Message['type'],
     isExpanded: boolean,
-    messageId: string
+    messageId: string,
+    messageData?: Record<string, unknown>
   ) => {
     const shouldShowToggle =
       content.length > 800 || content.split('\n').length > 15;
@@ -173,7 +174,14 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
     // For tool messages, try to parse and format JSON
     if (type === 'tool_use' || type === 'tool_result') {
       try {
-        const parsed = JSON.parse(content);
+        // First check if we have messageData to use
+        let parsed;
+        if (messageData) {
+          parsed = messageData;
+        } else {
+          // Fallback to parsing content
+          parsed = JSON.parse(content);
+        }
         const formatted = JSON.stringify(parsed, null, 2);
         return (
           <div className="relative">
@@ -587,7 +595,8 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
                       message.content,
                       message.type,
                       isExpanded,
-                      message._id
+                      message._id,
+                      message.messageData
                     )}
                   </div>
                 </div>
@@ -651,10 +660,15 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
                       <div className="text-sm text-slate-700 dark:text-slate-300">
                         {(() => {
                           try {
+                            // Try to get tool name from messageData first
+                            if (toolUseMessage.messageData?.name) {
+                              return toolUseMessage.messageData.name;
+                            }
+                            // Otherwise try parsing content
                             const parsed = JSON.parse(toolUseMessage.content);
                             return parsed.name || 'Tool call';
                           } catch {
-                            return toolUseMessage.content.slice(0, 100) + '...';
+                            return 'Tool call';
                           }
                         })()}
                       </div>
@@ -711,7 +725,8 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
                           toolUseMessage.content,
                           toolUseMessage.type,
                           expandedMessages.has(toolUseMessage._id),
-                          toolUseMessage._id
+                          toolUseMessage._id,
+                          toolUseMessage.messageData
                         )}
                       </div>
                     </div>
@@ -729,7 +744,8 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
                           toolResultMessage.content,
                           toolResultMessage.type,
                           expandedMessages.has(toolResultMessage._id),
-                          toolResultMessage._id
+                          toolResultMessage._id,
+                          toolResultMessage.messageData
                         )}
                       </div>
                     </div>

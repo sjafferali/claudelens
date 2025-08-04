@@ -80,7 +80,8 @@ export default function Search() {
   const handleResultClick = (result: SearchResult) => {
     // Navigate to the session detail page using MongoDB _id if available, otherwise sessionId
     const sessionIdForNav = result.session_mongo_id || result.session_id;
-    navigate(`/sessions/${sessionIdForNav}`);
+    // Include the message ID as a query parameter to scroll to it
+    navigate(`/sessions/${sessionIdForNav}?messageId=${result.message_id}`);
   };
 
   const formatHighlights = (highlights: SearchResult['highlights']) => {

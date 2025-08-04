@@ -1,5 +1,5 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -36,6 +36,10 @@ import { getSessionTitle } from '@/utils/session';
 export default function SessionDetail() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const targetMessageId = searchParams.get('messageId');
+  const messageRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
   const { data: session, isLoading: sessionLoading } = useSession(sessionId!);
   const { data: messages, isLoading: messagesLoading } = useSessionMessages(
     sessionId!
@@ -75,6 +79,32 @@ export default function SessionDetail() {
       setCollapsedToolResults(new Set(toolResultIds));
     }
   }, [messages]);
+
+  // Scroll to target message when navigating from search
+  useEffect(() => {
+    if (targetMessageId && messages && !messagesLoading) {
+      // Give the DOM time to render
+      setTimeout(() => {
+        const targetElement = messageRefs.current[targetMessageId];
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Highlight the message temporarily
+          targetElement.classList.add(
+            'ring-2',
+            'ring-primary',
+            'ring-offset-2'
+          );
+          setTimeout(() => {
+            targetElement.classList.remove(
+              'ring-2',
+              'ring-primary',
+              'ring-offset-2'
+            );
+          }, 2000);
+        }
+      }, 100);
+    }
+  }, [targetMessageId, messages, messagesLoading]);
 
   const toggleExpanded = (messageId: string) => {
     setExpandedMessages((prev) => {
@@ -330,6 +360,7 @@ export default function SessionDetail() {
                   onToggleToolResult={toggleToolResult}
                   onToggleToolPairExpanded={toggleToolPairExpanded}
                   onCopy={copyToClipboard}
+                  messageRefs={messageRefs}
                   getMessageColors={getMessageColors}
                   getMessageLabel={getMessageLabel}
                   getAvatarText={getAvatarText}
@@ -460,6 +491,7 @@ interface TimelineViewProps {
   getMessageColors: (type: Message['type']) => { avatar: string; bg: string };
   getMessageLabel: (type: Message['type']) => string;
   getAvatarText: (type: Message['type']) => string;
+  messageRefs: React.MutableRefObject<{ [key: string]: HTMLDivElement | null }>;
 }
 
 function TimelineView({
@@ -476,6 +508,7 @@ function TimelineView({
   getMessageColors,
   getMessageLabel,
   getAvatarText,
+  messageRefs,
 }: TimelineViewProps) {
   // Group consecutive tool_use and tool_result messages into pairs
   const messageGroups: Array<{
@@ -527,7 +560,13 @@ function TimelineView({
           const colors = getMessageColors(message.type);
 
           return (
-            <div key={message._id} className="group">
+            <div
+              key={message._id}
+              className="group"
+              ref={(el) => {
+                messageRefs.current[message._id] = el;
+              }}
+            >
               <div
                 className={cn(
                   'rounded-xl p-4',

@@ -46,6 +46,7 @@ export interface Message {
   timestamp: string;
   parentUuid?: string;
   metadata?: Record<string, unknown>;
+  messageData?: Record<string, unknown>; // Original message data from Claude
   usage?: {
     input_tokens?: number;
     output_tokens?: number;

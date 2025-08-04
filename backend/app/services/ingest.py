@@ -382,6 +382,14 @@ class IngestService:
                 if text_parts:
                     all_parts.extend(text_parts)
 
+                # If no text content but has tool uses, add a summary
+                if not all_parts and tool_use_parts:
+                    tool_summaries = []
+                    for tool_part in tool_use_parts:
+                        tool_name = tool_part.get("name", "Unknown")
+                        tool_summaries.append(f"[Tool use: {tool_name}]")
+                    all_parts.append(" ".join(tool_summaries))
+
                 main_doc["content"] = "\n\n".join(all_parts) if all_parts else ""
                 main_doc[
                     "messageData"
@@ -439,7 +447,16 @@ class IngestService:
                     "createdAt": datetime.now(UTC),
                 }
 
-                main_doc["content"] = "\n".join(text_parts) if text_parts else ""
+                # Create content
+                if text_parts:
+                    main_doc["content"] = "\n".join(text_parts)
+                elif tool_result_parts:
+                    # If only tool results, add a summary
+                    main_doc[
+                        "content"
+                    ] = f"[Tool result - {len(tool_result_parts)} result(s)]"
+                else:
+                    main_doc["content"] = ""
                 main_doc[
                     "messageData"
                 ] = message.message  # Store the full original message
