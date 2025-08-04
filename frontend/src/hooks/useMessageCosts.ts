@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   calculateSessionCosts,
@@ -18,6 +18,7 @@ export function useMessageCosts(
   const [costMap, setCostMap] = useState<Map<string, number>>(new Map());
   const [hasCalculated, setHasCalculated] = useState(false);
   const queryClient = useQueryClient();
+  const calculationInitiatedRef = useRef(false);
 
   // Create cost map from existing message costs
   useEffect(() => {
@@ -47,11 +48,18 @@ export function useMessageCosts(
     } finally {
       setCalculatingCosts(false);
     }
-  }, [sessionId, calculatingCosts, hasCalculated, queryClient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, calculatingCosts, queryClient]);
 
   // Auto-calculate costs when session is loaded
   useEffect(() => {
-    if (sessionId && messages && messages.length > 0 && !hasCalculated) {
+    if (
+      sessionId &&
+      messages &&
+      messages.length > 0 &&
+      !hasCalculated &&
+      !calculationInitiatedRef.current
+    ) {
       // Check if any messages are missing costs
       const needsCalculation = messages.some(
         (msg) =>
@@ -61,10 +69,17 @@ export function useMessageCosts(
       );
 
       if (needsCalculation) {
+        calculationInitiatedRef.current = true;
         calculateCosts();
       }
     }
   }, [sessionId, messages, hasCalculated, calculateCosts]);
+
+  // Reset calculation state when session changes
+  useEffect(() => {
+    setHasCalculated(false);
+    calculationInitiatedRef.current = false;
+  }, [sessionId]);
 
   return {
     calculatingCosts,

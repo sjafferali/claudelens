@@ -218,6 +218,15 @@ class SearchService:
 
         return conditions
 
+    def _safe_float(self, value: Any) -> float | None:
+        """Safely convert a value to float, handling Decimal128."""
+        if value is None:
+            return None
+        if hasattr(value, "to_decimal"):
+            # It's a Decimal128 object
+            return float(str(value))
+        return float(value)
+
     async def _process_search_result(
         self, doc: dict[str, Any], query: str, highlight: bool
     ) -> SearchResult:
@@ -266,7 +275,7 @@ class SearchService:
                 if isinstance(doc.get("messageData"), dict)
                 else None
             ),
-            cost_usd=doc.get("costUsd"),
+            cost_usd=self._safe_float(doc.get("costUsd")),
         )
 
     def _create_preview(self, content: str, query: str, max_length: int = 200) -> str:
