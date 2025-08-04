@@ -24,26 +24,12 @@ class ProjectState(BaseModel):
         json_encoders = {datetime: lambda v: v.isoformat(), set: lambda v: list(v)}
 
 
-class DatabaseState(BaseModel):
-    """State for SQLite database sync."""
-
-    last_sync: datetime
-    last_message_timestamp: datetime | None = None
-    synced_message_count: int = 0
-
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat() if v else None}
-
-
 class SyncState(BaseModel):
     """Overall sync state."""
 
     version: str = "1.0.0"
     last_sync: datetime | None = None
     projects: dict[str, ProjectState] = Field(default_factory=dict)
-    database_state: DatabaseState | None = None
-    synced_todos: set[str] = Field(default_factory=set)  # Todo file names
-    synced_snapshots: set[str] = Field(default_factory=set)  # Shell snapshot files
 
     class Config:
         json_encoders = {
@@ -79,16 +65,6 @@ class StateManager:
                     project_data["synced_messages"] = set(
                         project_data.get("synced_messages", [])
                     )
-                if db_state := data.get("database_state"):
-                    db_state["last_sync"] = datetime.fromisoformat(
-                        db_state["last_sync"]
-                    )
-                    if db_state.get("last_message_timestamp"):
-                        db_state["last_message_timestamp"] = datetime.fromisoformat(
-                            db_state["last_message_timestamp"]
-                        )
-                data["synced_todos"] = set(data.get("synced_todos", []))
-                data["synced_snapshots"] = set(data.get("synced_snapshots", []))
                 return SyncState(**data)
             except Exception as e:
                 console.print(f"[yellow]Warning: Could not load state: {e}[/yellow]")
@@ -153,31 +129,6 @@ class StateManager:
         if project_path in self.state.projects:
             del self.state.projects[project_path]
             self.save()
-
-    def update_database_state(
-        self, last_message_timestamp: datetime | None = None, new_message_count: int = 0
-    ) -> None:
-        """Update state for database sync."""
-        if not self.state.database_state:
-            self.state.database_state = DatabaseState(last_sync=datetime.utcnow())
-
-        self.state.database_state.last_sync = datetime.utcnow()
-        if last_message_timestamp:
-            self.state.database_state.last_message_timestamp = last_message_timestamp
-        self.state.database_state.synced_message_count += new_message_count
-
-        self.state.last_sync = datetime.utcnow()
-        self.save()
-
-    def add_synced_todo(self, todo_file: str) -> None:
-        """Mark a todo file as synced."""
-        self.state.synced_todos.add(todo_file)
-        self.state.last_sync = datetime.utcnow()
-        self.save()
-
-    def is_todo_synced(self, todo_file: str) -> bool:
-        """Check if a todo file has been synced."""
-        return todo_file in self.state.synced_todos
 
     @staticmethod
     def hash_message(message: dict) -> str:

@@ -451,117 +451,6 @@ class SyncEngine:
 
         return session_stats
 
-    async def _sync_file(
-        self,
-        file_path: Path,
-        project_key: str,
-        project_state: ProjectState | None,
-        stats: SyncStats,
-        dry_run: bool,
-        progress_callback: Callable[[str], None] | None = None,
-    ):
-        """Sync a single JSONL file."""
-        batch = []
-        batch_hashes = set()
-        line_number = 0
-
-        # Get the project path from the file path
-        # project_key is the full project path
-        project_path = project_key
-
-        # Determine starting line (only use saved state in non-dry-run mode)
-        start_line = 0
-        if not dry_run and project_state and project_state.last_file == file_path.name:
-            start_line = project_state.last_line or 0
-
-        async for message, line_num in self._read_jsonl_messages(file_path, start_line):
-            line_number = line_num
-
-            # Generate hash
-            message_hash = self.state.hash_message(message)
-
-            # Skip if already synced (only in non-dry-run mode and not force mode)
-            if (
-                not dry_run
-                and not self.force
-                and self.state.is_message_synced(project_key, message_hash)
-            ):
-                stats.messages_skipped += 1
-                continue
-
-            # Store the original cwd but ensure we have the project path
-            # The project path is the actual Claude project directory
-            message["_project_path"] = project_path
-            if not message.get("cwd"):
-                message["cwd"] = project_path
-
-            # Add to batch
-            batch.append(message)
-            batch_hashes.add(message_hash)
-
-            # Upload batch when it reaches configured size
-            if len(batch) >= self.config.config.batch_size:
-                if not dry_run:
-                    response_stats = await self._upload_batch(batch)
-                    if response_stats:
-                        # Update counts based on actual server response
-                        stats.messages_synced += response_stats.get(
-                            "messages_processed", 0
-                        )
-                        stats.messages_updated += response_stats.get(
-                            "messages_updated", 0
-                        )
-                        stats.messages_skipped += response_stats.get(
-                            "messages_skipped", 0
-                        )
-                        stats.errors += response_stats.get("messages_failed", 0)
-                    else:
-                        # Fallback to counting all as synced if no stats returned
-                        stats.messages_synced += len(batch)
-
-                    # Update state only when actually syncing and not in force mode
-                    if not self.force:
-                        self.state.update_project_state(
-                            project_key,
-                            last_file=file_path.name,
-                            last_line=line_number,
-                            new_messages=batch_hashes,
-                        )
-                else:
-                    stats.messages_synced += len(batch)
-
-                # Clear batch
-                batch = []
-                batch_hashes = set()
-
-                if progress_callback:
-                    progress_callback(f"Synced {stats.messages_synced} messages")
-
-        # Upload remaining messages
-        if batch:
-            if not dry_run:
-                response_stats = await self._upload_batch(batch)
-                if response_stats:
-                    # Update counts based on actual server response
-                    stats.messages_synced += response_stats.get("messages_processed", 0)
-                    stats.messages_updated += response_stats.get("messages_updated", 0)
-                    stats.messages_skipped += response_stats.get("messages_skipped", 0)
-                    stats.errors += response_stats.get("messages_failed", 0)
-                else:
-                    # Fallback to counting all as synced if no stats returned
-                    stats.messages_synced += len(batch)
-
-                # Update state only when actually syncing and not in force mode
-                if not self.force:
-                    self.state.update_project_state(
-                        project_key,
-                        last_file=file_path.name,
-                        last_line=line_number,
-                        new_messages=batch_hashes,
-                    )
-            else:
-                stats.messages_synced += len(batch)
-
     async def _read_jsonl_messages(
         self, file_path: Path, start_line: int = 0
     ) -> AsyncIterator[tuple[dict, int]]:
@@ -844,6 +733,9 @@ class SyncEngine:
         # Initial sync
         console.print("[green]Performing initial sync...[/green]")
         stats = self.sync_once(project_filter, dry_run)
+        # Import here to avoid circular dependency
+        from claudelens_cli.commands.sync import _show_sync_stats
+
         _show_sync_stats(stats)
 
         # Set up file watcher
@@ -936,10 +828,3 @@ class ClaudeFileHandler(FileSystemEventHandler):
             completion_msg += "[/green]"
             console.print(completion_msg)
             self._pending_files.clear()
-
-
-def _show_sync_stats(stats: dict):
-    """Display sync statistics."""
-    from claudelens_cli.commands.sync import _show_sync_stats as show_stats
-
-    show_stats(stats)
