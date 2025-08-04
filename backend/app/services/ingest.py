@@ -362,35 +362,34 @@ class IngestService:
                         elif part_type == "tool_use":
                             tool_use_parts.append(part)
 
-                # Create main assistant message with text content
-                if text_parts or thinking_parts:
-                    main_doc = {
-                        "_id": ObjectId(),
-                        "uuid": message.uuid,
-                        "sessionId": session_id,
-                        "type": "assistant",
-                        "timestamp": message.timestamp,
-                        "parentUuid": message.parentUuid,
-                        "contentHash": self._hash_message(message),
-                        "createdAt": datetime.now(UTC),
-                    }
+                # Always create the main assistant message, even if it's empty
+                main_doc = {
+                    "_id": ObjectId(),
+                    "uuid": message.uuid,
+                    "sessionId": session_id,
+                    "type": "assistant",
+                    "timestamp": message.timestamp,
+                    "parentUuid": message.parentUuid,
+                    "contentHash": self._hash_message(message),
+                    "createdAt": datetime.now(UTC),
+                }
 
-                    # Combine text content
-                    all_parts = []
-                    if thinking_parts:
-                        all_parts.append("[Thinking]\n" + "\n".join(thinking_parts))
-                        main_doc["thinking"] = "\n".join(thinking_parts)
-                    if text_parts:
-                        all_parts.extend(text_parts)
+                # Combine text content
+                all_parts = []
+                if thinking_parts:
+                    all_parts.append("[Thinking]\n" + "\n".join(thinking_parts))
+                    main_doc["thinking"] = "\n".join(thinking_parts)
+                if text_parts:
+                    all_parts.extend(text_parts)
 
-                    main_doc["content"] = "\n\n".join(all_parts) if all_parts else ""
-                    main_doc["messageData"] = {
-                        "content": [{"type": "text", "text": main_doc["content"]}]
-                    }
+                main_doc["content"] = "\n\n".join(all_parts) if all_parts else ""
+                main_doc[
+                    "messageData"
+                ] = message.message  # Store the full original message
 
-                    # Add optional fields
-                    self._add_optional_fields(main_doc, message)
-                    docs.append(main_doc)
+                # Add optional fields
+                self._add_optional_fields(main_doc, message)
+                docs.append(main_doc)
 
                 # Create separate tool_use messages
                 for i, tool_part in enumerate(tool_use_parts):
@@ -412,7 +411,7 @@ class IngestService:
                     self._add_optional_fields(tool_doc, message)
                     docs.append(tool_doc)
 
-                return docs if docs else [self._create_default_doc(message, session_id)]
+                return docs
 
         elif message.type == "user" and isinstance(message.message, dict):
             raw_content = message.message.get("content", "")
@@ -428,25 +427,26 @@ class IngestService:
                         elif part.get("type") == "tool_result":
                             tool_result_parts.append(part)
 
-                # Create main user message with text content
-                if text_parts:
-                    main_doc = {
-                        "_id": ObjectId(),
-                        "uuid": message.uuid,
-                        "sessionId": session_id,
-                        "type": "user",
-                        "timestamp": message.timestamp,
-                        "parentUuid": message.parentUuid,
-                        "contentHash": self._hash_message(message),
-                        "createdAt": datetime.now(UTC),
-                    }
+                # Always create main user message
+                main_doc = {
+                    "_id": ObjectId(),
+                    "uuid": message.uuid,
+                    "sessionId": session_id,
+                    "type": "user",
+                    "timestamp": message.timestamp,
+                    "parentUuid": message.parentUuid,
+                    "contentHash": self._hash_message(message),
+                    "createdAt": datetime.now(UTC),
+                }
 
-                    main_doc["content"] = "\n".join(text_parts)
-                    main_doc["messageData"] = {"content": main_doc["content"]}
+                main_doc["content"] = "\n".join(text_parts) if text_parts else ""
+                main_doc[
+                    "messageData"
+                ] = message.message  # Store the full original message
 
-                    # Add optional fields
-                    self._add_optional_fields(main_doc, message)
-                    docs.append(main_doc)
+                # Add optional fields
+                self._add_optional_fields(main_doc, message)
+                docs.append(main_doc)
 
                 # Create separate tool_result messages
                 for i, result_part in enumerate(tool_result_parts):
@@ -473,7 +473,7 @@ class IngestService:
                     self._add_optional_fields(result_doc, message)
                     docs.append(result_doc)
 
-                return docs if docs else [self._create_default_doc(message, session_id)]
+                return docs
 
         # For all other cases, create a single document using the original logic
         return [self._create_default_doc(message, session_id)]
