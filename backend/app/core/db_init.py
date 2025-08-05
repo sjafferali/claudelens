@@ -117,6 +117,7 @@ async def create_collections(db: AsyncIOMotorDatabase) -> None:
 
 async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     """Create indexes for all collections."""
+    logger.info("Creating database indexes...")
 
     # Projects indexes
     projects = db.projects
@@ -129,6 +130,9 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await create_index_if_not_exists(sessions, [("projectId", 1)])
     await create_index_if_not_exists(sessions, [("startedAt", -1)])
     await create_index_if_not_exists(sessions, [("summary", "text")])
+    # Additional indexes for analytics queries
+    await create_index_if_not_exists(sessions, [("updatedAt", -1)])
+    await create_index_if_not_exists(sessions, [("updatedAt", -1), ("messageCount", 1)])
 
     # Messages indexes
     messages = db.messages
@@ -143,6 +147,32 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await create_index_if_not_exists(messages, [("message.model", 1)])
     await create_index_if_not_exists(messages, [("costUsd", 1)])
 
+    # Additional indexes for analytics queries
+    # For date range queries in analytics
+    await create_index_if_not_exists(messages, [("createdAt", -1)])
+    await create_index_if_not_exists(messages, [("createdAt", -1), ("model", 1)])
+    await create_index_if_not_exists(messages, [("createdAt", -1), ("cost", 1)])
+
+    # Compound index for directory analytics
+    await create_index_if_not_exists(messages, [("createdAt", -1), ("directory", 1)])
+
+    # For tool usage queries
+    await create_index_if_not_exists(
+        messages, [("createdAt", -1), ("toolCalls.name", 1)]
+    )
+
+    # For response time queries
+    await create_index_if_not_exists(messages, [("createdAt", -1), ("responseTime", 1)])
+
+    # For git branch queries
+    await create_index_if_not_exists(messages, [("createdAt", -1), ("branch", 1)])
+
+    # Model field (if different from message.model)
+    await create_index_if_not_exists(messages, [("model", 1)])
+
+    # Directory field for analytics
+    await create_index_if_not_exists(messages, [("directory", 1)])
+
     # Sync state indexes
     sync_state = db.sync_state
     await create_index_if_not_exists(sync_state, [("projectPath", 1)], unique=True)
@@ -154,9 +184,10 @@ async def create_index_if_not_exists(
     """Create an index if it doesn't already exist."""
     try:
         index_name = await collection.create_index(keys, unique=unique)
-        logger.debug(f"Created index {index_name} on {collection.name}")
+        logger.info(f"Created index {index_name} on {collection.name}")
     except errors.OperationFailure as e:
         if "already exists" in str(e):
-            logger.debug(f"Index already exists on {collection.name}")
+            logger.debug(f"Index {keys} already exists on {collection.name}")
         else:
+            logger.error(f"Failed to create index on {collection.name}: {e}")
             raise

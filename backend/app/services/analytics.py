@@ -766,42 +766,70 @@ class AnalyticsService:
         return round(((current - previous) / previous) * 100, 2)
 
     async def _get_period_stats(self, time_filter: dict[str, Any]) -> dict[str, Any]:
-        """Get basic stats for a time period."""
-        # Message count
-        message_count = await self.db.messages.count_documents(time_filter)
-
-        # Session count
-        session_ids = await self.db.messages.distinct("sessionId", time_filter)
-        session_count = len(session_ids)
-
-        # Project count
-        project_pipeline: list[dict[str, Any]] = [
+        """Get basic stats for a time period using a single optimized aggregation."""
+        pipeline: list[dict[str, Any]] = [
             {"$match": time_filter},
             {
-                "$lookup": {
-                    "from": "sessions",
-                    "localField": "sessionId",
-                    "foreignField": "sessionId",
-                    "as": "session",
+                "$facet": {
+                    # Count messages and calculate cost
+                    "messageCostStats": [
+                        {
+                            "$group": {
+                                "_id": None,
+                                "count": {"$sum": 1},
+                                "totalCost": {"$sum": "$costUsd"},
+                            }
+                        }
+                    ],
+                    # Count unique sessions
+                    "sessionStats": [
+                        {"$group": {"_id": "$sessionId"}},
+                        {"$count": "count"},
+                    ],
+                    # Count unique projects (optimized with direct lookup)
+                    "projectStats": [
+                        # Group by sessionId first to reduce lookup size
+                        {"$group": {"_id": "$sessionId"}},
+                        {
+                            "$lookup": {
+                                "from": "sessions",
+                                "localField": "_id",
+                                "foreignField": "sessionId",
+                                "as": "session",
+                            }
+                        },
+                        {"$unwind": "$session"},
+                        {"$group": {"_id": "$session.projectId"}},
+                        {"$count": "count"},
+                    ],
                 }
             },
-            {"$unwind": "$session"},
-            {"$group": {"_id": "$session.projectId"}},
         ]
 
-        project_result = await self.db.messages.aggregate(project_pipeline).to_list(
-            None
-        )
-        project_count = len(project_result)
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
 
-        # Total cost
-        cost_pipeline: list[dict[str, Any]] = [
-            {"$match": time_filter},
-            {"$group": {"_id": None, "totalCost": {"$sum": "$costUsd"}}},
-        ]
+        if not result:
+            return {
+                "total_messages": 0,
+                "total_sessions": 0,
+                "total_projects": 0,
+                "total_cost": 0.0,
+            }
 
-        cost_result = await self.db.messages.aggregate(cost_pipeline).to_list(1)
-        total_cost = cost_result[0]["totalCost"] if cost_result else 0
+        facet_results = result[0]
+
+        # Extract message and cost stats
+        message_cost_stats = facet_results.get("messageCostStats", [])
+        message_count = message_cost_stats[0]["count"] if message_cost_stats else 0
+        total_cost = message_cost_stats[0]["totalCost"] if message_cost_stats else 0
+
+        # Extract session count
+        session_stats = facet_results.get("sessionStats", [])
+        session_count = session_stats[0]["count"] if session_stats else 0
+
+        # Extract project count
+        project_stats = facet_results.get("projectStats", [])
+        project_count = project_stats[0]["count"] if project_stats else 0
 
         # Convert Decimal128 to float if needed
         if hasattr(total_cost, "to_decimal"):
@@ -2072,32 +2100,43 @@ class AnalyticsService:
     async def _calculate_percentiles(
         self, base_filter: dict, percentiles: list[int]
     ) -> ResponseTimePercentiles:
-        """Calculate response time percentiles."""
+        """Calculate response time percentiles using MongoDB 7.0+ $percentile operator."""
+        # Build percentile expressions
+        percentile_exprs = {}
+        percentile_input = []
+        for p in percentiles:
+            percentile_input.append(p / 100.0)
+            percentile_exprs[f"p{p}"] = {
+                "$arrayElemAt": ["$percentiles", percentiles.index(p)]
+            }
+
         pipeline = [
             {"$match": base_filter},
-            {"$sort": {"durationMs": 1}},
             {
                 "$group": {
                     "_id": None,
-                    "durations": {"$push": "$durationMs"},
                     "count": {"$sum": 1},
+                    "percentiles": {
+                        "$percentile": {
+                            "input": "$durationMs",
+                            "p": percentile_input,
+                            "method": "approximate",
+                        }
+                    },
                 }
             },
+            {"$project": {"_id": 0, "count": 1, **percentile_exprs}},
         ]
 
         result = await self.db.messages.aggregate(pipeline).to_list(1)
-        if not result or not result[0]["durations"]:
+        if not result or result[0]["count"] == 0:
             return ResponseTimePercentiles(p50=0, p90=0, p95=0, p99=0)
 
-        durations = result[0]["durations"]
-        count = len(durations)
-
+        # Extract percentile values
         percentile_values = {}
         for p in percentiles:
-            index = int((p / 100.0) * count)
-            if index >= count:
-                index = count - 1
-            percentile_values[f"p{p}"] = float(durations[index])
+            key = f"p{p}"
+            percentile_values[key] = float(result[0].get(key, 0))
 
         return ResponseTimePercentiles(
             p50=percentile_values.get("p50", 0),
