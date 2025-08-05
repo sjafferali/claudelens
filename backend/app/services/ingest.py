@@ -747,14 +747,7 @@ class IngestService:
                 "$group": {
                     "_id": None,
                     "messageCount": {"$sum": 1},
-                    "totalCost": {
-                        "$sum": {
-                            "$add": [
-                                {"$ifNull": ["$costUsd", 0]},
-                                {"$ifNull": ["$totalCost", 0]},
-                            ]
-                        }
-                    },
+                    "totalCost": {"$sum": {"$ifNull": ["$costUsd", 0]}},
                     # Aggregate input tokens from all possible fields
                     "inputTokens": {
                         "$sum": {

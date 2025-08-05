@@ -81,10 +81,10 @@ const ConversationNode: React.FC<NodeProps> = ({ data, selected }) => {
   const isHighlighted = data.isHighlighted;
 
   const nodeClass = `
-    ${isUser ? 'bg-blue-100 border-blue-300' : 'bg-green-100 border-green-300'}
+    ${isUser ? 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700' : 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700'}
     ${isSidechain ? 'border-dashed opacity-80' : 'border-solid'}
     ${selected ? 'ring-2 ring-blue-500' : ''}
-    ${isHighlighted ? 'ring-2 ring-yellow-400 bg-yellow-50' : ''}
+    ${isHighlighted ? 'ring-2 ring-yellow-400 bg-yellow-50 dark:bg-yellow-900/30' : ''}
     border-2 rounded-lg p-3 min-w-[200px] max-w-[300px] shadow-sm hover:shadow-md transition-all cursor-pointer
   `;
 
@@ -93,30 +93,30 @@ const ConversationNode: React.FC<NodeProps> = ({ data, selected }) => {
       <Handle
         type="target"
         position={Position.Top}
-        className="w-3 h-3 !bg-gray-400"
+        className="w-3 h-3 !bg-gray-400 dark:!bg-gray-600"
       />
 
       <div className="flex items-center gap-2 mb-2">
         <MessageSquare
-          className={`w-4 h-4 ${isUser ? 'text-blue-600' : 'text-green-600'}`}
+          className={`w-4 h-4 ${isUser ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}
         />
         <span
-          className={`text-sm font-medium ${isUser ? 'text-blue-800' : 'text-green-800'}`}
+          className={`text-sm font-medium ${isUser ? 'text-blue-800 dark:text-blue-200' : 'text-green-800 dark:text-green-200'}`}
         >
           {isUser ? 'User' : 'Assistant'}
         </span>
         {isSidechain && (
-          <span className="text-xs bg-orange-200 text-orange-800 px-1 rounded">
+          <span className="text-xs bg-orange-200 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 px-1 rounded">
             Sidechain
           </span>
         )}
       </div>
 
-      <div className="text-sm text-gray-700 mb-2 line-clamp-3">
+      <div className="text-sm text-gray-700 dark:text-gray-300 mb-2 line-clamp-3">
         {data.summary || 'No content preview'}
       </div>
 
-      <div className="flex items-center gap-3 text-xs text-gray-500">
+      <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
         {data.cost > 0 && (
           <div className="flex items-center gap-1">
             <DollarSign className="w-3 h-3" />
@@ -139,14 +139,14 @@ const ConversationNode: React.FC<NodeProps> = ({ data, selected }) => {
         )}
       </div>
 
-      <div className="text-xs text-gray-400 mt-1">
+      <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
         {format(new Date(data.timestamp), 'HH:mm:ss')}
       </div>
 
       <Handle
         type="source"
         position={Position.Bottom}
-        className="w-3 h-3 !bg-gray-400"
+        className="w-3 h-3 !bg-gray-400 dark:!bg-gray-600"
       />
     </div>
   );
@@ -175,6 +175,7 @@ const ConversationEdge: React.FC<EdgeProps> = ({
         strokeDasharray={isSidechain ? '5,5' : undefined}
         fill="none"
         markerEnd="url(#arrowhead)"
+        className="dark:stroke-gray-400"
       />
     </g>
   );
@@ -333,18 +334,18 @@ const ConversationFlowVisualizationInner: React.FC<
       {/* Controls */}
       <div className="absolute top-4 left-4 z-[5] transition-all duration-300">
         <div
-          className={`bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${controlsOpen ? 'w-[250px]' : 'w-auto'}`}
+          className={`bg-white dark:bg-gray-900 rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${controlsOpen ? 'w-[250px]' : 'w-auto'}`}
         >
-          <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
+          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
             <div
-              className={`text-sm font-medium text-gray-700 flex items-center gap-2 ${!controlsOpen ? 'hidden' : ''}`}
+              className={`text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2 ${!controlsOpen ? 'hidden' : ''}`}
             >
               <MessageSquare className="w-4 h-4" />
               Flow Controls
             </div>
             <button
               onClick={() => setControlsOpen(!controlsOpen)}
-              className="p-1 hover:bg-gray-200 rounded transition-colors"
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
               title={controlsOpen ? 'Collapse' : 'Expand'}
             >
               {controlsOpen ? (
@@ -359,26 +360,28 @@ const ConversationFlowVisualizationInner: React.FC<
             <div className="p-3 space-y-3">
               {/* Search */}
               <div className="space-y-1">
-                <label className="text-xs text-gray-600">Search Messages</label>
+                <label className="text-xs text-gray-600 dark:text-gray-400">
+                  Search Messages
+                </label>
                 <div className="relative">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 dark:text-gray-500" />
                   <input
                     type="text"
                     placeholder="Search content..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               </div>
 
               {/* Options */}
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                 <input
                   type="checkbox"
                   checked={showSidechains}
                   onChange={(e) => setShowSidechains(e.target.checked)}
-                  className="rounded"
+                  className="rounded dark:bg-gray-700 dark:border-gray-600"
                 />
                 Show Sidechains
               </label>
@@ -387,7 +390,7 @@ const ConversationFlowVisualizationInner: React.FC<
               <div className="flex gap-1">
                 <button
                   onClick={resetView}
-                  className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded transition-colors"
                   title="Reset View"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -395,7 +398,7 @@ const ConversationFlowVisualizationInner: React.FC<
                 </button>
                 <button
                   onClick={exportAsPNG}
-                  className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 rounded transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-800/50 text-blue-700 dark:text-blue-300 rounded transition-colors"
                   title="Export as PNG"
                 >
                   <Download className="w-3 h-3" />
@@ -403,7 +406,7 @@ const ConversationFlowVisualizationInner: React.FC<
                 </button>
               </div>
 
-              <div className="pt-2 border-t space-y-1 text-xs text-gray-600">
+              <div className="pt-2 border-t dark:border-gray-700 space-y-1 text-xs text-gray-600 dark:text-gray-400">
                 <div>Nodes: {data.metrics.total_nodes}</div>
                 <div>Branches: {data.metrics.branch_count}</div>
                 <div>Max Depth: {data.metrics.max_depth}</div>
@@ -426,9 +429,9 @@ const ConversationFlowVisualizationInner: React.FC<
       {/* Legend */}
       <div className="absolute top-4 right-4 z-[5] transition-all duration-300">
         <div
-          className={`bg-white rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${legendOpen ? 'w-[200px]' : 'w-auto'}`}
+          className={`bg-white dark:bg-gray-900 rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${legendOpen ? 'w-[200px]' : 'w-auto'}`}
         >
-          <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
+          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
             <div
               className={`text-sm font-medium text-gray-700 flex items-center gap-2 ${!legendOpen ? 'hidden' : ''}`}
             >
@@ -437,7 +440,7 @@ const ConversationFlowVisualizationInner: React.FC<
             </div>
             <button
               onClick={() => setLegendOpen(!legendOpen)}
-              className="p-1 hover:bg-gray-200 rounded transition-colors"
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
               title={legendOpen ? 'Collapse' : 'Expand'}
             >
               {legendOpen ? (
@@ -449,21 +452,21 @@ const ConversationFlowVisualizationInner: React.FC<
           </div>
 
           {legendOpen && (
-            <div className="p-3 space-y-2 text-xs">
+            <div className="p-3 space-y-2 text-xs text-gray-700 dark:text-gray-300">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-blue-100 border-2 border-blue-300 rounded"></div>
+                <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-300 dark:border-blue-700 rounded"></div>
                 <span>User Message</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-100 border-2 border-green-300 rounded"></div>
+                <div className="w-4 h-4 bg-green-100 dark:bg-green-900/30 border-2 border-green-300 dark:border-green-700 rounded"></div>
                 <span>Assistant Message</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-gray-100 border-2 border-gray-300 border-dashed rounded opacity-80"></div>
+                <div className="w-4 h-4 bg-gray-100 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded opacity-80"></div>
                 <span>Sidechain</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-6 h-0.5 bg-gray-600"></div>
+                <div className="w-6 h-0.5 bg-gray-600 dark:bg-gray-400"></div>
                 <span>Main Flow</span>
               </div>
               <div className="flex items-center gap-2">
@@ -476,47 +479,59 @@ const ConversationFlowVisualizationInner: React.FC<
       </div>
 
       {/* React Flow */}
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        connectionMode={ConnectionMode.Loose}
-        fitView
-        fitViewOptions={{
-          padding: 0.2,
-          includeHiddenNodes: false,
-        }}
-      >
-        <Controls />
-        <MiniMap
-          nodeColor={(node) => {
-            const isUser = node.data?.type === 'user';
-            const isSidechain = node.data?.is_sidechain;
-            if (isSidechain) return '#f59e0b';
-            return isUser ? '#3b82f6' : '#10b981';
+      <div className="w-full h-full bg-gray-50 dark:bg-gray-950">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          connectionMode={ConnectionMode.Loose}
+          fitView
+          fitViewOptions={{
+            padding: 0.2,
+            includeHiddenNodes: false,
           }}
-          className="!bg-white !border !border-gray-200"
-        />
-        <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+        >
+          <Controls className="!bg-white dark:!bg-gray-800 !border !border-gray-200 dark:!border-gray-700 [&>button]:!bg-white dark:[&>button]:!bg-gray-800 [&>button]:!border-gray-200 dark:[&>button]:!border-gray-700 [&>button:hover]:!bg-gray-100 dark:[&>button:hover]:!bg-gray-700" />
+          <MiniMap
+            nodeColor={(node) => {
+              const isUser = node.data?.type === 'user';
+              const isSidechain = node.data?.is_sidechain;
+              if (isSidechain) return '#f59e0b';
+              return isUser ? '#3b82f6' : '#10b981';
+            }}
+            className="!bg-white dark:!bg-gray-800 !border !border-gray-200 dark:!border-gray-700"
+          />
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={12}
+            size={1}
+            color="#e5e7eb"
+            className="dark:bg-gray-900 [&>*]:dark:!fill-gray-700"
+          />
 
-        {/* Custom arrow marker for edges */}
-        <defs>
-          <marker
-            id="arrowhead"
-            markerWidth="10"
-            markerHeight="7"
-            refX="9"
-            refY="3.5"
-            orient="auto"
-          >
-            <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280" />
-          </marker>
-        </defs>
-      </ReactFlow>
+          {/* Custom arrow marker for edges */}
+          <defs>
+            <marker
+              id="arrowhead"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon
+                points="0 0, 10 3.5, 0 7"
+                fill="#6b7280"
+                className="dark:fill-gray-400"
+              />
+            </marker>
+          </defs>
+        </ReactFlow>
+      </div>
     </div>
   );
 };

@@ -855,7 +855,7 @@ export default function Analytics() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : conversationFlow ? (
-            <div className="h-[600px] border rounded-lg relative overflow-hidden">
+            <div className="h-[600px] border dark:border-gray-700 rounded-lg relative overflow-hidden">
               <ConversationFlowVisualization data={conversationFlow} />
             </div>
           ) : (
