@@ -140,7 +140,8 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await create_index_if_not_exists(messages, [("uuid", 1)], unique=True)
     await create_index_if_not_exists(messages, [("parentUuid", 1)])
     await create_index_if_not_exists(
-        messages, [("message.content", "text"), ("toolUseResult", "text")]
+        messages,
+        [("message.content", "text"), ("content", "text"), ("toolUseResult", "text")],
     )
     await create_index_if_not_exists(messages, [("type", 1)])
     await create_index_if_not_exists(messages, [("timestamp", -1)])

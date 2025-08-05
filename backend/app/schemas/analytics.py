@@ -687,9 +687,6 @@ class CostMetrics(BaseModel):
     )
     avg_cost_per_hour: float = Field(..., ge=0, description="Average cost per hour")
     most_expensive_model: str | None = Field(None, description="Most expensive model")
-    cost_efficiency_score: float = Field(
-        ..., ge=0, le=100, description="Cost efficiency score (0-100)"
-    )
 
 
 class CostBreakdownResponse(BaseModel):

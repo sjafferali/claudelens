@@ -357,7 +357,6 @@ export interface CostMetrics {
   avg_cost_per_message: number;
   avg_cost_per_hour: number;
   most_expensive_model: string | null;
-  cost_efficiency_score: number;
 }
 
 export interface CostBreakdownResponse {

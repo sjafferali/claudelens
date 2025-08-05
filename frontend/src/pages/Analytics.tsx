@@ -352,13 +352,9 @@ export default function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {sessionCostBreakdown?.cost_metrics?.avg_cost_per_message &&
-                sessionCostSummary?.total_cost
-                  ? Math.round(
-                      sessionCostSummary.total_cost /
-                        sessionCostBreakdown.cost_metrics.avg_cost_per_message
-                    ).toLocaleString()
-                  : 0}
+                {sessions?.items
+                  ?.find((s) => s.sessionId === selectedSessionId)
+                  ?.messageCount?.toLocaleString() || 0}
               </div>
               <p className="text-xs text-muted-foreground">
                 In selected session

@@ -4388,7 +4388,6 @@ class AnalyticsService:
                         avg_cost_per_message=0.0,
                         avg_cost_per_hour=0.0,
                         most_expensive_model=None,
-                        cost_efficiency_score=0.0,
                     ),
                     time_range=time_range,
                     session_id=session_id,
@@ -4497,28 +4496,11 @@ class AnalyticsService:
 
         most_expensive_model = by_model[0].model if by_model else None
 
-        # Cost efficiency score (0-100, based on cost per message compared to a baseline)
-        baseline_cost_per_message = 0.05  # $0.05 as reasonable baseline
-        if avg_cost_per_message <= baseline_cost_per_message:
-            efficiency_score = 100.0
-        else:
-            # Score decreases as cost increases above baseline
-            efficiency_score = max(
-                0.0,
-                100.0
-                - (
-                    (avg_cost_per_message - baseline_cost_per_message)
-                    / baseline_cost_per_message
-                    * 100.0
-                ),
-            )
-
         cost_breakdown = CostBreakdown(by_model=by_model, by_time=by_time)
         cost_metrics = CostMetrics(
             avg_cost_per_message=round(avg_cost_per_message, 4),
             avg_cost_per_hour=round(avg_cost_per_hour, 4),
             most_expensive_model=most_expensive_model,
-            cost_efficiency_score=round(efficiency_score, 2),
         )
 
         return CostBreakdownResponse(

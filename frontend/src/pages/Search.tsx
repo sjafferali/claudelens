@@ -128,10 +128,12 @@ export default function Search() {
       <div className="mt-2 text-sm text-muted-foreground">
         <span
           dangerouslySetInnerHTML={{
-            __html: bestHighlight.snippet.replace(
-              /<mark>/g,
-              '<mark class="bg-yellow-300 dark:bg-yellow-700 font-semibold px-0.5 rounded">'
-            ),
+            __html: bestHighlight.snippet
+              .replace(
+                /<mark>/g,
+                '<mark class="bg-yellow-400 dark:bg-yellow-600 text-black dark:text-black font-bold px-1 rounded">'
+              )
+              .replace(/<\/mark>/g, '</mark>'),
           }}
         />
       </div>
@@ -521,10 +523,12 @@ export default function Search() {
                     <div className="text-sm line-clamp-2">
                       <span
                         dangerouslySetInnerHTML={{
-                          __html: result.content_preview.replace(
-                            /<mark>/g,
-                            '<mark class="bg-yellow-300 dark:bg-yellow-700 font-semibold px-0.5 rounded">'
-                          ),
+                          __html: result.content_preview
+                            .replace(
+                              /<mark>/g,
+                              '<mark class="bg-yellow-400 dark:bg-yellow-600 text-black dark:text-black font-bold px-1 rounded">'
+                            )
+                            .replace(/<\/mark>/g, '</mark>'),
                         }}
                       />
                     </div>
