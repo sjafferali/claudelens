@@ -1750,6 +1750,7 @@ class AnalyticsService:
                     "total_cost": {"$ifNull": ["$total_cost", 0]},
                     "message_count": 1,
                     "session_count": {"$size": "$session_ids"},
+                    "session_ids": 1,
                     "last_active": 1,
                 }
             },
@@ -1839,6 +1840,7 @@ class AnalyticsService:
 
             for i, part in enumerate(parts):
                 full_path = full_path + "/" + part if full_path else "/" + part
+                is_last_part = i == len(parts) - 1
 
                 if part not in current:
                     current[part] = {
@@ -1853,11 +1855,15 @@ class AnalyticsService:
                         "_children": {},
                     }
 
-                # Add data to this node
                 node_data = current[part]["_data"]
-                node_data["cost"] += self._safe_float(data.get("total_cost", 0))
-                node_data["messages"] += data["message_count"]
-                # Handle session IDs properly
+
+                # Only add the full cost and messages to the deepest node
+                # This prevents double counting when aggregating up the tree
+                if is_last_part:
+                    node_data["cost"] += self._safe_float(data.get("total_cost", 0))
+                    node_data["messages"] += data["message_count"]
+
+                # Always update sessions and last_active for all nodes in the path
                 session_ids = data.get("session_ids", [])
                 if isinstance(session_ids, list):
                     node_data["sessions"].update(session_ids)
@@ -2464,8 +2470,10 @@ class AnalyticsService:
             time_filter["sessionId"] = {"$in": session_id_list}
 
         # Build aggregation pipeline
+        # For now, we'll include all messages and group by gitBranch (including empty/None)
+        # to show "No Branch" data rather than hiding it
         pipeline: list[dict[str, Any]] = [
-            {"$match": {**time_filter, "gitBranch": {"$exists": True, "$ne": None}}},
+            {"$match": time_filter},
             {
                 "$group": {
                     "_id": "$gitBranch",
@@ -2542,8 +2550,12 @@ class AnalyticsService:
         # Convert to branch analytics
         branches = []
         for result in filtered_results:
-            branch_name = result["branch"]
-            branch_type = self._detect_branch_type(branch_name)
+            branch_name = (
+                result["branch"] or "No Branch"
+            )  # Display "No Branch" for empty/None values
+            branch_type = self._detect_branch_type(
+                result["branch"]
+            )  # Use original for type detection
 
             # Calculate top operations
             top_operations = []
@@ -2621,6 +2633,10 @@ class AnalyticsService:
 
     def _detect_branch_type(self, branch_name: str) -> BranchType:
         """Detect branch type from branch name patterns."""
+        # Handle empty or None branch names
+        if not branch_name:
+            return BranchType.OTHER
+
         branch_lower = branch_name.lower()
 
         # Main/master branches

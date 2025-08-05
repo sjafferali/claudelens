@@ -40,6 +40,13 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
     return 'Needs Improvement';
   };
 
+  // Check if we have any actual response time data (not all zeros)
+  const hasData =
+    percentiles.p50 > 0 ||
+    percentiles.p90 > 0 ||
+    percentiles.p95 > 0 ||
+    percentiles.p99 > 0;
+
   // Calculate relative positions for the ribbon visualization
   const maxValue = Math.max(percentiles.p99, 10000); // Minimum 10s scale
   const getPosition = (value: number) => (value / maxValue) * 100;
@@ -76,9 +83,9 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
           Response Time Percentiles
         </h4>
         <span
-          className={`text-xs px-2 py-1 rounded-full ${getPerformanceColor(percentiles.p90)} text-white`}
+          className={`text-xs px-2 py-1 rounded-full ${hasData ? getPerformanceColor(percentiles.p90) : 'bg-gray-500'} text-white`}
         >
-          {getPerformanceLabel(percentiles.p90)}
+          {hasData ? getPerformanceLabel(percentiles.p90) : 'No Data'}
         </span>
       </div>
 
@@ -172,15 +179,21 @@ const PercentileRibbon: React.FC<PercentileRibbonProps> = ({
               Performance Insight
             </div>
             <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-              {percentiles.p90 < 2000 &&
+              {!hasData &&
+                'No response time data available. Response times will be tracked for new messages going forward.'}
+              {hasData &&
+                percentiles.p90 < 2000 &&
                 'Excellent performance! 90% of responses are under 2 seconds.'}
-              {percentiles.p90 >= 2000 &&
+              {hasData &&
+                percentiles.p90 >= 2000 &&
                 percentiles.p90 < 5000 &&
                 'Good performance. Most responses are reasonably fast.'}
-              {percentiles.p90 >= 5000 &&
+              {hasData &&
+                percentiles.p90 >= 5000 &&
                 percentiles.p90 < 10000 &&
                 'Fair performance. Consider optimizing for better user experience.'}
-              {percentiles.p90 >= 10000 &&
+              {hasData &&
+                percentiles.p90 >= 10000 &&
                 'Performance needs improvement. Many responses are taking too long.'}
             </div>
           </div>

@@ -123,13 +123,19 @@ const PerformanceFactors: React.FC<PerformanceFactorsProps> = ({
     );
   }
 
-  if (!data) {
+  if (!data || !data.correlations || data.correlations.length === 0) {
     return (
       <Card className="p-6">
         <div className="text-center text-muted-foreground">
           <p>
             No performance factors data available for the selected time range.
           </p>
+          {data && data.correlations && data.correlations.length === 0 && (
+            <p className="text-sm mt-2">
+              Performance factors analysis requires response time data. This
+              will be available for new messages going forward.
+            </p>
+          )}
         </div>
       </Card>
     );

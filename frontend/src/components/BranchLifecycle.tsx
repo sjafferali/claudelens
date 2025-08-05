@@ -389,6 +389,7 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
                 domain={[0, maxY]}
                 tick={{ fontSize: 12 }}
                 stroke={chartColors.text}
+                allowDecimals={false}
                 tickFormatter={(value) => {
                   const branch = chartData.find((b) => b.yPosition === value);
                   return branch

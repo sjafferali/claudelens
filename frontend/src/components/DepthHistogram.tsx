@@ -126,6 +126,8 @@ export const DepthHistogram: React.FC<DepthHistogramProps> = ({
               axisLine={false}
               tickLine={false}
               className="text-xs text-gray-600 dark:text-gray-400"
+              allowDecimals={false}
+              domain={[0, 'dataMax']}
             />
             <Tooltip content={<CustomTooltip />} />
             <Bar
