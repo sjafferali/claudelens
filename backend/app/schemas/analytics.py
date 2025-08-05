@@ -331,85 +331,6 @@ class DirectoryUsageResponse(BaseModel):
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-# Response Time Analytics Schemas
-
-
-class ResponseTimePercentiles(BaseModel):
-    """Response time percentiles."""
-
-    p50: float = Field(..., description="50th percentile (median) response time in ms")
-    p90: float = Field(..., description="90th percentile response time in ms")
-    p95: float = Field(..., description="95th percentile response time in ms")
-    p99: float = Field(..., description="99th percentile response time in ms")
-
-
-class ResponseTimeDataPoint(BaseModel):
-    """Response time data point in time series."""
-
-    timestamp: datetime = Field(..., description="Data point timestamp")
-    avg_duration_ms: float = Field(..., description="Average response time in ms")
-    p50: float = Field(..., description="50th percentile response time in ms")
-    p90: float = Field(..., description="90th percentile response time in ms")
-    message_count: int = Field(
-        ..., ge=0, description="Number of messages in this time bucket"
-    )
-
-
-class DistributionBucket(BaseModel):
-    """Response time distribution bucket."""
-
-    bucket: str = Field(..., description="Bucket range (e.g., '0-1s', '1-5s')")
-    count: int = Field(..., ge=0, description="Number of messages in this bucket")
-    percentage: float = Field(
-        ..., ge=0, le=100, description="Percentage of total messages"
-    )
-
-
-class ResponseTimeAnalytics(BaseModel):
-    """Response time analytics response."""
-
-    percentiles: ResponseTimePercentiles = Field(
-        ..., description="Overall percentiles for the time range"
-    )
-    time_series: list[ResponseTimeDataPoint] = Field(
-        ..., description="Time series data"
-    )
-    distribution: list[DistributionBucket] = Field(
-        ..., description="Response time distribution"
-    )
-    time_range: TimeRange = Field(..., description="Time range for the analysis")
-    group_by: str = Field(..., description="Grouping method used")
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class PerformanceCorrelation(BaseModel):
-    """Performance factor correlation."""
-
-    factor: str = Field(
-        ..., description="Factor name (e.g., 'message_length', 'tool_count')"
-    )
-    correlation_strength: float = Field(
-        ..., ge=-1, le=1, description="Pearson correlation coefficient"
-    )
-    impact_ms: float = Field(..., description="Average impact on response time in ms")
-    sample_size: int = Field(
-        ..., ge=0, description="Number of samples used for correlation"
-    )
-
-
-class PerformanceFactorsAnalytics(BaseModel):
-    """Performance factors analysis response."""
-
-    correlations: list[PerformanceCorrelation] = Field(
-        ..., description="Factor correlations"
-    )
-    recommendations: list[str] = Field(
-        ..., description="Performance optimization recommendations"
-    )
-    time_range: TimeRange = Field(..., description="Time range for the analysis")
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
 # Token Analytics Schemas
 
 
@@ -461,34 +382,6 @@ class TokenAnalytics(BaseModel):
     )
     time_range: TimeRange = Field(..., description="Time range for the analysis")
     group_by: str = Field(..., description="Grouping method used")
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class TokenPerformanceCorrelation(BaseModel):
-    """Token performance factor correlation."""
-
-    factor: str = Field(
-        ..., description="Factor name (e.g., 'message_length', 'tool_count')"
-    )
-    correlation_strength: float = Field(
-        ..., ge=-1, le=1, description="Pearson correlation coefficient"
-    )
-    impact_tokens: float = Field(..., description="Average impact on token usage")
-    sample_size: int = Field(
-        ..., ge=0, description="Number of samples used for correlation"
-    )
-
-
-class TokenPerformanceFactorsAnalytics(BaseModel):
-    """Token performance factors analysis response."""
-
-    correlations: list[TokenPerformanceCorrelation] = Field(
-        ..., description="Factor correlations"
-    )
-    recommendations: list[str] = Field(
-        ..., description="Token usage optimization recommendations"
-    )
-    time_range: TimeRange = Field(..., description="Time range for the analysis")
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 

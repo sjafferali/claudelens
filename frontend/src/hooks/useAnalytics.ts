@@ -72,16 +72,6 @@ export function useTokenAnalytics(
   });
 }
 
-export function useTokenPerformanceFactors(
-  timeRange: TimeRange = TimeRange.LAST_30_DAYS
-) {
-  return useQuery({
-    queryKey: ['analytics', 'token-performance-factors', timeRange],
-    queryFn: () => analyticsApi.getTokenPerformanceFactors(timeRange),
-    staleTime: 300000, // 5 minutes
-  });
-}
-
 export function useSessionDepthAnalytics(
   timeRange: TimeRange = TimeRange.LAST_30_DAYS,
   projectId?: string,

@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { TokenAnalytics, TokenPerformanceFactorsAnalytics } from './types';
+import { TokenAnalytics } from './types';
 
 export enum TimeRange {
   LAST_24_HOURS = '24h',
@@ -687,18 +687,6 @@ export const analyticsApi = {
 
     return apiClient.get<TokenAnalytics>(
       `/analytics/token-analytics?${params.toString()}`
-    );
-  },
-
-  async getTokenPerformanceFactors(
-    timeRange: TimeRange = TimeRange.LAST_30_DAYS
-  ): Promise<TokenPerformanceFactorsAnalytics> {
-    const params = new URLSearchParams({
-      time_range: timeRange,
-    });
-
-    return apiClient.get<TokenPerformanceFactorsAnalytics>(
-      `/analytics/token-performance-factors?${params.toString()}`
     );
   },
 

@@ -89,17 +89,3 @@ export interface TokenAnalytics {
   group_by: string;
   generated_at: string;
 }
-
-export interface TokenPerformanceCorrelation {
-  factor: string;
-  correlation_strength: number;
-  impact_tokens: number;
-  sample_size: number;
-}
-
-export interface TokenPerformanceFactorsAnalytics {
-  correlations: TokenPerformanceCorrelation[];
-  recommendations: string[];
-  time_range: string;
-  generated_at: string;
-}

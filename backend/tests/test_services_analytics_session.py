@@ -198,96 +198,6 @@ class TestAnalyticsTimeSeriesBasic:
         return AnalyticsService(mock_db)
 
     @pytest.mark.asyncio
-    async def test_get_response_time_series_hourly(self, analytics_service, mock_db):
-        """Test response time series aggregation by hour."""
-        # Mock aggregation results
-        mock_results = [
-            {
-                "_id": "2024-01-01 12:00:00",
-                "durations": [100, 200, 150, 300],
-                "count": 4,
-            },
-            {"_id": "2024-01-01 13:00:00", "durations": [250, 180, 220], "count": 3},
-        ]
-
-        # Mock the aggregate chain properly
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_results)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
-
-        # Create base filter
-        base_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
-
-        result = await analytics_service._get_response_time_series(base_filter, "hour")
-
-        assert len(result) == 2
-
-        # Check first data point
-        first_point = result[0]
-        assert first_point.timestamp == datetime(2024, 1, 1, 12, 0, 0)
-        assert first_point.avg_duration_ms == 187.5  # (100+200+150+300)/4
-        assert (
-            first_point.p50 == 200.0
-        )  # sorted [100, 150, 200, 300], p50_idx=int(0.5*4)=2 -> durations[2]=200
-        assert first_point.p90 == 300.0  # p90_idx=int(0.9*4)=3 -> durations[3]=300
-        assert first_point.message_count == 4
-
-        # Check second data point
-        second_point = result[1]
-        assert second_point.timestamp == datetime(2024, 1, 1, 13, 0, 0)
-        assert round(second_point.avg_duration_ms, 2) == 216.67  # (250+180+220)/3
-        assert (
-            second_point.p50 == 220.0
-        )  # sorted [180, 220, 250], p50_idx=int(0.5*3)=1 -> durations[1]=220
-        assert second_point.p90 == 250.0  # p90_idx=int(0.9*3)=2 -> durations[2]=250
-        assert second_point.message_count == 3
-
-    @pytest.mark.asyncio
-    async def test_get_response_time_series_daily(self, analytics_service, mock_db):
-        """Test response time series aggregation by day."""
-        mock_results = [{"_id": "2024-01-01", "durations": [100, 200, 150], "count": 3}]
-
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_results)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
-
-        base_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
-
-        result = await analytics_service._get_response_time_series(base_filter, "day")
-
-        assert len(result) == 1
-        point = result[0]
-        assert point.timestamp == datetime(2024, 1, 1)
-        assert round(point.avg_duration_ms, 2) == 150.0
-        assert point.p50 == 150.0
-        assert point.p90 == 200.0
-
-    @pytest.mark.asyncio
-    async def test_get_response_time_series_by_model(self, analytics_service, mock_db):
-        """Test response time series aggregation by model."""
-        mock_results = [
-            {"_id": "claude-3-sonnet", "durations": [100, 200], "count": 2},
-            {"_id": "claude-3-haiku", "durations": [50, 75, 60], "count": 3},
-        ]
-
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_results)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
-
-        base_filter = {}
-
-        result = await analytics_service._get_response_time_series(base_filter, "model")
-
-        assert len(result) == 2
-        # Results should be ordered by _id (alphabetically)
-
-        # Find claude-3-haiku result (should come first alphabetically)
-        haiku_point = next(p for p in result if p.message_count == 3)
-        assert round(haiku_point.avg_duration_ms, 2) == 61.67  # (50+75+60)/3
-        assert haiku_point.p50 == 60.0
-        assert haiku_point.p90 == 75.0
-
-    @pytest.mark.asyncio
     async def test_get_token_time_series_hourly(self, analytics_service, mock_db):
         """Test token usage time series aggregation by hour."""
         mock_results = [
@@ -368,10 +278,6 @@ class TestAnalyticsTimeSeriesBasic:
 
         base_filter = {}
 
-        # Test response time series
-        result = await analytics_service._get_response_time_series(base_filter, "hour")
-        assert result == []
-
         # Test token time series
         result = await analytics_service._get_token_time_series(base_filter, "hour")
         assert result == []
@@ -380,8 +286,8 @@ class TestAnalyticsTimeSeriesBasic:
     async def test_time_series_zero_count_filtered(self, analytics_service, mock_db):
         """Test that time series filters out zero-count results."""
         mock_results = [
-            {"_id": "2024-01-01 12:00:00", "durations": [], "count": 0},
-            {"_id": "2024-01-01 13:00:00", "durations": [100, 200], "count": 2},
+            {"_id": "2024-01-01 12:00:00", "tokens": [], "count": 0},
+            {"_id": "2024-01-01 13:00:00", "tokens": [100, 200], "count": 2},
         ]
 
         mock_aggregate = MagicMock()
@@ -390,7 +296,7 @@ class TestAnalyticsTimeSeriesBasic:
 
         base_filter = {}
 
-        result = await analytics_service._get_response_time_series(base_filter, "hour")
+        result = await analytics_service._get_token_time_series(base_filter, "hour")
 
         # Should only return the non-empty result
         assert len(result) == 1
@@ -403,7 +309,7 @@ class TestAnalyticsTimeSeriesBasic:
         mock_results = [
             {
                 "_id": "2024-01-01 12:00:00",
-                "durations": [150],  # Single value
+                "tokens": [150],  # Single value
                 "count": 1,
             }
         ]
@@ -414,11 +320,11 @@ class TestAnalyticsTimeSeriesBasic:
 
         base_filter = {}
 
-        result = await analytics_service._get_response_time_series(base_filter, "hour")
+        result = await analytics_service._get_token_time_series(base_filter, "hour")
 
         assert len(result) == 1
         point = result[0]
-        assert point.avg_duration_ms == 150.0
+        assert point.avg_tokens == 150.0
         assert point.p50 == 150.0  # Same value for all percentiles
         assert point.p90 == 150.0
         assert point.message_count == 1
@@ -571,70 +477,6 @@ class TestAnalyticsAggregationBasic:
 
         assert result["total_messages"] == 100
         assert result["total_cost"] == 123.45
-
-    @pytest.mark.asyncio
-    async def test_calculate_percentiles_basic(self, analytics_service, mock_db):
-        """Test percentile calculation."""
-        # Mock percentile aggregation result
-        mock_result = [
-            {"count": 100, "p50": 250.0, "p90": 800.0, "p95": 1200.0, "p99": 2000.0}
-        ]
-
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
-
-        base_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
-        percentiles = [50, 90, 95, 99]
-
-        result = await analytics_service._calculate_percentiles(
-            base_filter, percentiles
-        )
-
-        assert result.p50 == 250.0
-        assert result.p90 == 800.0
-        assert result.p95 == 1200.0
-        assert result.p99 == 2000.0
-
-    @pytest.mark.asyncio
-    async def test_calculate_percentiles_empty_result(self, analytics_service, mock_db):
-        """Test percentile calculation with empty result."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=[])
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
-
-        base_filter = {}
-        percentiles = [50, 90, 95, 99]
-
-        result = await analytics_service._calculate_percentiles(
-            base_filter, percentiles
-        )
-
-        assert result.p50 == 0
-        assert result.p90 == 0
-        assert result.p95 == 0
-        assert result.p99 == 0
-
-    @pytest.mark.asyncio
-    async def test_calculate_percentiles_zero_count(self, analytics_service, mock_db):
-        """Test percentile calculation with zero count."""
-        mock_result = [{"count": 0}]
-
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
-
-        base_filter = {}
-        percentiles = [50, 90, 95, 99]
-
-        result = await analytics_service._calculate_percentiles(
-            base_filter, percentiles
-        )
-
-        assert result.p50 == 0
-        assert result.p90 == 0
-        assert result.p95 == 0
-        assert result.p99 == 0
 
     def test_safe_float_aggregation_helper(self, analytics_service):
         """Test the _safe_float helper used in aggregations."""

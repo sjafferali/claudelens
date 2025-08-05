@@ -21,7 +21,6 @@ import {
   useTokenEfficiency,
   useGitBranchAnalytics,
   useTokenAnalytics,
-  useTokenPerformanceFactors,
 } from '@/hooks/useAnalytics';
 import { useSessions } from '@/hooks/useSessions';
 import { useDirectoryAnalytics } from '@/hooks/useDirectoryAnalytics';
@@ -33,7 +32,6 @@ import { DirectoryExplorer } from '@/components/DirectoryExplorer';
 import { DirectoryMetrics } from '@/components/DirectoryMetrics';
 import TokenUsageChart from '../components/TokenUsageChart';
 import TokenPercentileRibbon from '../components/TokenPercentileRibbon';
-import TokenPerformanceFactors from '../components/TokenPerformanceFactors';
 import BranchActivityChart from '../components/BranchActivityChart';
 import BranchLifecycle from '../components/BranchLifecycle';
 import BranchComparison from '../components/BranchComparison';
@@ -69,12 +67,40 @@ import {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+// Custom pie chart label component for proper dark mode support
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const renderCustomLabel = (isDark: boolean) => (entry: any) => {
+  const { cx, cy, midAngle, innerRadius, outerRadius, percent, name } = entry;
+  const RADIAN = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  if (!name || percent < 0.05) return null; // Don't show labels for very small slices
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill={getChartColors(isDark).pieLabel}
+      textAnchor={x > cx ? 'start' : 'end'}
+      dominantBaseline="central"
+      fontSize={12}
+      fontWeight={500}
+      className="pie-chart-label"
+    >
+      {`${name} ${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
 // Theme-aware colors
 const getChartColors = (isDark: boolean) => ({
   grid: isDark ? '#374151' : '#e5e7eb',
   text: isDark ? '#9ca3af' : '#6b7280',
   stroke: isDark ? '#6366f1' : '#8884d8',
   background: isDark ? '#111827' : '#ffffff',
+  pieLabel: isDark ? '#f9fafb' : '#111827',
 });
 
 const timeRangeOptions = [
@@ -153,8 +179,6 @@ export default function Analytics() {
   // Token analytics hooks
   const { data: tokenAnalyticsData, isLoading: tokenAnalyticsLoading } =
     useTokenAnalytics(timeRange);
-  const { data: tokenPerformanceData, isLoading: tokenPerformanceLoading } =
-    useTokenPerformanceFactors(timeRange);
 
   const formatTrend = (trend: number) => {
     const isPositive = trend > 0;
@@ -524,11 +548,7 @@ export default function Analytics() {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) =>
-                          name
-                            ? `${name} ${((percent || 0) * 100).toFixed(0)}%`
-                            : ''
-                        }
+                        label={renderCustomLabel(isDark)}
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
@@ -548,8 +568,10 @@ export default function Analytics() {
                           backgroundColor: getChartColors(isDark).background,
                           border: `1px solid ${getChartColors(isDark).grid}`,
                           borderRadius: '4px',
+                          color: getChartColors(isDark).text,
                         }}
                         labelStyle={{ color: getChartColors(isDark).text }}
+                        itemStyle={{ color: getChartColors(isDark).text }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -684,11 +706,7 @@ export default function Analytics() {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) =>
-                          name
-                            ? `${name} ${((percent || 0) * 100).toFixed(0)}%`
-                            : ''
-                        }
+                        label={renderCustomLabel(isDark)}
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
@@ -705,8 +723,10 @@ export default function Analytics() {
                           backgroundColor: getChartColors(isDark).background,
                           border: `1px solid ${getChartColors(isDark).grid}`,
                           borderRadius: '4px',
+                          color: getChartColors(isDark).text,
                         }}
                         labelStyle={{ color: getChartColors(isDark).text }}
+                        itemStyle={{ color: getChartColors(isDark).text }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -899,21 +919,6 @@ export default function Analytics() {
             </Card>
           </div>
         </div>
-        <Card>
-          <CardContent className="p-0">
-            {tokenPerformanceLoading ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : tokenPerformanceData ? (
-              <TokenPerformanceFactors data={tokenPerformanceData} />
-            ) : (
-              <div className="text-center text-muted-foreground py-8">
-                Not enough data to analyze token usage factors
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </>
 
       {/* Session Depth Analytics */}

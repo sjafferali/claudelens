@@ -250,4 +250,36 @@
   .dark .live-stat-card:hover {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   }
+
+  /* Pie Chart Label Styling for Dark Mode */
+  .recharts-pie-label-text {
+    fill: hsl(var(--text-primary));
+    font-weight: 500;
+    font-size: 12px;
+  }
+
+  .dark .recharts-pie-label-text {
+    fill: hsl(var(--text-primary));
+  }
+
+  /* Pie Chart Tooltip Styling */
+  .recharts-default-tooltip {
+    background-color: hsl(var(--background)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    border-radius: 0.5rem !important;
+    color: hsl(var(--text-primary)) !important;
+  }
+
+  .dark .recharts-default-tooltip {
+    background-color: hsl(var(--background)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    color: hsl(var(--text-primary)) !important;
+  }
+
+  /* Ensure pie chart labels are visible on hover */
+  .recharts-pie-sector:hover + .recharts-pie-label-text,
+  .recharts-pie-label-text {
+    opacity: 1 !important;
+    fill: hsl(var(--text-primary)) !important;
+  }
 }

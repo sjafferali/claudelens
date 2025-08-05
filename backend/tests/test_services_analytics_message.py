@@ -1,12 +1,17 @@
 """Simple tests for analytics service message-related functionality."""
 
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from bson import ObjectId
 
-from app.schemas.analytics import TimeRange
+from app.schemas.analytics import (
+    TimeRange,
+    ToolUsage,
+    ToolUsageDetailed,
+    ToolUsageSummary,
+)
 from app.services.analytics import AnalyticsService
 
 
@@ -206,3 +211,480 @@ class TestAnalyticsServiceMessageSimple:
             import inspect
 
             assert inspect.iscoroutinefunction(method)
+
+
+class TestAnalyticsServiceToolUsage:
+    """Test analytics service tool usage functionality."""
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create mock database."""
+        db = MagicMock()
+        return db
+
+    @pytest.fixture
+    def analytics_service(self, mock_db):
+        """Create analytics service with mock database."""
+        return AnalyticsService(mock_db)
+
+    @pytest.fixture
+    def sample_tool_usage_data(self):
+        """Sample tool usage aggregation results."""
+        return [
+            {"_id": "read_file", "count": 10, "last_used": datetime.utcnow()},
+            {
+                "_id": "write_file",
+                "count": 8,
+                "last_used": datetime.utcnow() - timedelta(hours=1),
+            },
+            {
+                "_id": "search_code",
+                "count": 5,
+                "last_used": datetime.utcnow() - timedelta(hours=2),
+            },
+            {
+                "_id": "bash_command",
+                "count": 3,
+                "last_used": datetime.utcnow() - timedelta(hours=3),
+            },
+        ]
+
+    @pytest.fixture
+    def empty_tool_usage_data(self):
+        """Empty tool usage aggregation results."""
+        return []
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_summary_basic(
+        self, analytics_service, sample_tool_usage_data
+    ):
+        """Test basic functionality of get_tool_usage_summary."""
+        # Mock the database aggregation
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_summary()
+
+        # Verify result
+        assert isinstance(result, ToolUsageSummary)
+        assert result.total_tool_calls == 26  # 10 + 8 + 5 + 3
+        assert result.unique_tools == 4
+        assert result.most_used_tool == "read_file"
+
+        # Verify database was called correctly
+        analytics_service.db.messages.aggregate.assert_called_once()
+        call_args = analytics_service.db.messages.aggregate.call_args[0][0]
+
+        # Verify pipeline structure
+        assert isinstance(call_args, list)
+        assert len(call_args) > 0
+        assert "$match" in call_args[0]
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_summary_with_session_id(
+        self, analytics_service, sample_tool_usage_data
+    ):
+        """Test get_tool_usage_summary with session_id filter."""
+        # Mock session resolution
+        test_session_id = "test-session-123"
+        resolved_session_id = "resolved-uuid-456"
+        analytics_service._resolve_session_id = AsyncMock(
+            return_value=resolved_session_id
+        )
+
+        # Mock the database aggregation
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_summary(
+            session_id=test_session_id
+        )
+
+        # Verify session resolution was called
+        analytics_service._resolve_session_id.assert_called_once_with(test_session_id)
+
+        # Verify result
+        assert isinstance(result, ToolUsageSummary)
+        assert result.total_tool_calls == 26
+        assert result.unique_tools == 4
+        assert result.most_used_tool == "read_file"
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_summary_with_project_id(
+        self, analytics_service, sample_tool_usage_data
+    ):
+        """Test get_tool_usage_summary with project_id filter."""
+        test_project_id = str(ObjectId())
+        test_session_ids = ["session1", "session2", "session3"]
+
+        # Mock sessions.distinct call
+        analytics_service.db.sessions.distinct = AsyncMock(
+            return_value=test_session_ids
+        )
+
+        # Mock the database aggregation
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_summary(
+            project_id=test_project_id
+        )
+
+        # Verify sessions.distinct was called correctly
+        analytics_service.db.sessions.distinct.assert_called_once_with(
+            "sessionId", {"projectId": ObjectId(test_project_id)}
+        )
+
+        # Verify result
+        assert isinstance(result, ToolUsageSummary)
+        assert result.total_tool_calls == 26
+        assert result.unique_tools == 4
+        assert result.most_used_tool == "read_file"
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_summary_session_not_found(self, analytics_service):
+        """Test get_tool_usage_summary when session is not found."""
+        # Mock session resolution to return None
+        test_session_id = "nonexistent-session"
+        analytics_service._resolve_session_id = AsyncMock(return_value=None)
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_summary(
+            session_id=test_session_id
+        )
+
+        # Verify session resolution was called
+        analytics_service._resolve_session_id.assert_called_once_with(test_session_id)
+
+        # Verify empty result is returned
+        assert isinstance(result, ToolUsageSummary)
+        assert result.total_tool_calls == 0
+        assert result.unique_tools == 0
+        assert result.most_used_tool is None
+
+        # Verify database aggregation was not called
+        analytics_service.db.messages.aggregate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_summary_empty_data(
+        self, analytics_service, empty_tool_usage_data
+    ):
+        """Test get_tool_usage_summary with empty data."""
+        # Mock the database aggregation to return empty results
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=empty_tool_usage_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_summary()
+
+        # Verify result
+        assert isinstance(result, ToolUsageSummary)
+        assert result.total_tool_calls == 0
+        assert result.unique_tools == 0
+        assert result.most_used_tool is None
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_detailed_basic(
+        self, analytics_service, sample_tool_usage_data
+    ):
+        """Test basic functionality of get_tool_usage_detailed."""
+        # Mock the database aggregation
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_detailed()
+
+        # Verify result
+        assert isinstance(result, ToolUsageDetailed)
+        assert result.total_calls == 26  # 10 + 8 + 5 + 3
+        assert len(result.tools) == 4
+        assert result.session_id is None
+        assert result.time_range == TimeRange.LAST_30_DAYS
+
+        # Verify tools are sorted by count (descending)
+        assert result.tools[0].name == "read_file"
+        assert result.tools[0].count == 10
+        assert result.tools[0].percentage == 38.5  # 10/26 * 100 rounded to 1 decimal
+
+        assert result.tools[1].name == "write_file"
+        assert result.tools[1].count == 8
+        assert result.tools[1].percentage == 30.8  # 8/26 * 100 rounded to 1 decimal
+
+        # Verify tool categories are assigned
+        for tool in result.tools:
+            assert isinstance(tool, ToolUsage)
+            assert tool.category in ["file", "search", "execution", "other"]
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_detailed_with_session_id(
+        self, analytics_service, sample_tool_usage_data
+    ):
+        """Test get_tool_usage_detailed with session_id filter."""
+        # Mock session resolution
+        test_session_id = "test-session-123"
+        resolved_session_id = "resolved-uuid-456"
+        analytics_service._resolve_session_id = AsyncMock(
+            return_value=resolved_session_id
+        )
+
+        # Mock the database aggregation
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_detailed(
+            session_id=test_session_id, time_range=TimeRange.LAST_7_DAYS
+        )
+
+        # Verify session resolution was called
+        analytics_service._resolve_session_id.assert_called_once_with(test_session_id)
+
+        # Verify result
+        assert isinstance(result, ToolUsageDetailed)
+        assert result.total_calls == 26
+        assert len(result.tools) == 4
+        assert result.session_id == test_session_id
+        assert result.time_range == TimeRange.LAST_7_DAYS
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_detailed_with_project_id(
+        self, analytics_service, sample_tool_usage_data
+    ):
+        """Test get_tool_usage_detailed with project_id filter."""
+        test_project_id = str(ObjectId())
+        test_session_ids = ["session1", "session2", "session3"]
+
+        # Mock sessions.distinct call
+        analytics_service.db.sessions.distinct = AsyncMock(
+            return_value=test_session_ids
+        )
+
+        # Mock the database aggregation
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_detailed(
+            project_id=test_project_id
+        )
+
+        # Verify sessions.distinct was called correctly
+        analytics_service.db.sessions.distinct.assert_called_once_with(
+            "sessionId", {"projectId": ObjectId(test_project_id)}
+        )
+
+        # Verify result
+        assert isinstance(result, ToolUsageDetailed)
+        assert result.total_calls == 26
+        assert len(result.tools) == 4
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_detailed_session_not_found(self, analytics_service):
+        """Test get_tool_usage_detailed when session is not found."""
+        # Mock session resolution to return None
+        test_session_id = "nonexistent-session"
+        analytics_service._resolve_session_id = AsyncMock(return_value=None)
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_detailed(
+            session_id=test_session_id
+        )
+
+        # Verify session resolution was called
+        analytics_service._resolve_session_id.assert_called_once_with(test_session_id)
+
+        # Verify empty result is returned
+        assert isinstance(result, ToolUsageDetailed)
+        assert result.tools == []
+        assert result.total_calls == 0
+        assert result.session_id == test_session_id
+        assert result.time_range == TimeRange.LAST_30_DAYS
+
+        # Verify database aggregation was not called
+        analytics_service.db.messages.aggregate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_detailed_empty_data(
+        self, analytics_service, empty_tool_usage_data
+    ):
+        """Test get_tool_usage_detailed with empty data."""
+        # Mock the database aggregation to return empty results
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=empty_tool_usage_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_detailed()
+
+        # Verify result
+        assert isinstance(result, ToolUsageDetailed)
+        assert result.tools == []
+        assert result.total_calls == 0
+        assert result.session_id is None
+        assert result.time_range == TimeRange.LAST_30_DAYS
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_detailed_percentage_calculation(
+        self, analytics_service
+    ):
+        """Test percentage calculations in get_tool_usage_detailed."""
+        # Sample data with specific counts for percentage testing
+        sample_data = [
+            {"_id": "tool_a", "count": 7, "last_used": datetime.utcnow()},
+            {"_id": "tool_b", "count": 2, "last_used": datetime.utcnow()},
+            {"_id": "tool_c", "count": 1, "last_used": datetime.utcnow()},
+        ]
+
+        # Mock the database aggregation
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=sample_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_detailed()
+
+        # Verify percentage calculations (total = 10)
+        assert result.total_calls == 10
+        assert result.tools[0].percentage == 70.0  # 7/10 * 100
+        assert result.tools[1].percentage == 20.0  # 2/10 * 100
+        assert result.tools[2].percentage == 10.0  # 1/10 * 100
+
+        # Verify sum of percentages is 100%
+        total_percentage = sum(tool.percentage for tool in result.tools)
+        assert total_percentage == 100.0
+
+    @pytest.mark.asyncio
+    async def test_get_tool_usage_detailed_single_tool(self, analytics_service):
+        """Test get_tool_usage_detailed with single tool (100% usage)."""
+        # Sample data with single tool
+        sample_data = [
+            {"_id": "only_tool", "count": 15, "last_used": datetime.utcnow()},
+        ]
+
+        # Mock the database aggregation
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=sample_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call the method
+        result = await analytics_service.get_tool_usage_detailed()
+
+        # Verify result
+        assert result.total_calls == 15
+        assert len(result.tools) == 1
+        assert result.tools[0].percentage == 100.0
+        assert result.tools[0].count == 15
+
+    @pytest.mark.asyncio
+    async def test_tool_usage_aggregation_pipeline_structure(
+        self, analytics_service, sample_tool_usage_data
+    ):
+        """Test that aggregation pipeline has expected structure."""
+        # Mock the database aggregation
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Call both methods to test pipeline structure
+        await analytics_service.get_tool_usage_summary()
+        await analytics_service.get_tool_usage_detailed()
+
+        # Verify aggregation was called twice
+        assert analytics_service.db.messages.aggregate.call_count == 2
+
+        # Check pipeline structure for both calls
+        for call in analytics_service.db.messages.aggregate.call_args_list:
+            pipeline = call[0][0]
+            assert isinstance(pipeline, list)
+            assert len(pipeline) > 0
+
+            # Verify first stage is always $match
+            assert "$match" in pipeline[0]
+
+            # Verify pipeline contains expected stages
+            pipeline_stages = [list(stage.keys())[0] for stage in pipeline]
+            assert "$match" in pipeline_stages
+            assert "$addFields" in pipeline_stages
+            assert "$group" in pipeline_stages
+            assert "$sort" in pipeline_stages
+
+    @pytest.mark.asyncio
+    async def test_tool_usage_error_handling(self, analytics_service):
+        """Test error handling in tool usage methods."""
+        # Mock database aggregation to raise an exception
+        analytics_service.db.messages.aggregate.side_effect = Exception(
+            "Database error"
+        )
+
+        # Test that exceptions are propagated (or handled gracefully if that's the design)
+        with pytest.raises(Exception, match="Database error"):
+            await analytics_service.get_tool_usage_summary()
+
+        with pytest.raises(Exception, match="Database error"):
+            await analytics_service.get_tool_usage_detailed()
+
+    @pytest.mark.asyncio
+    async def test_tool_usage_with_null_tool_names(self, analytics_service):
+        """Test handling of null or empty tool names."""
+        # Sample data with null/empty tool names
+        sample_data = [
+            {"_id": "valid_tool", "count": 5, "last_used": datetime.utcnow()},
+            {"_id": None, "count": 3, "last_used": datetime.utcnow()},
+            {"_id": "", "count": 2, "last_used": datetime.utcnow()},
+        ]
+
+        # Mock the database aggregation
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=sample_data)
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Test summary (should include all counts in total)
+        summary_result = await analytics_service.get_tool_usage_summary()
+        assert summary_result.total_tool_calls == 10  # 5 + 3 + 2
+        assert summary_result.unique_tools == 3
+
+        # Reset mock for detailed test
+        analytics_service.db.messages.aggregate.reset_mock()
+        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Test detailed (should only include valid tool names in tools list)
+        detailed_result = await analytics_service.get_tool_usage_detailed()
+        assert detailed_result.total_calls == 10  # All calls counted
+        # Only valid tool names should be in the tools list (null/empty filtered out)
+        valid_tools = [tool for tool in detailed_result.tools if tool.name]
+        assert len(valid_tools) >= 1  # At least the valid_tool should be present
+
+    def test_categorize_tool_method(self, analytics_service):
+        """Test the _categorize_tool method with various tool names."""
+        # Test file operations
+        assert analytics_service._categorize_tool("read_file") == "file"
+        assert analytics_service._categorize_tool("write_document") == "file"
+        assert analytics_service._categorize_tool("edit_code") == "file"
+        assert analytics_service._categorize_tool("create_folder") == "file"
+
+        # Test search operations
+        assert analytics_service._categorize_tool("search_code") == "search"
+        assert analytics_service._categorize_tool("find_function") == "search"
+        assert analytics_service._categorize_tool("grep_pattern") == "search"
+        assert analytics_service._categorize_tool("glob_match") == "search"
+
+        # Test execution operations (corrected based on actual implementation)
+        assert analytics_service._categorize_tool("bash_command") == "execution"
+        assert analytics_service._categorize_tool("run_script") == "execution"
+        assert analytics_service._categorize_tool("execute_task") == "execution"
+
+        # Test other/unknown operations
+        assert analytics_service._categorize_tool("custom_tool") == "other"
+        assert analytics_service._categorize_tool("") == "unknown"
+        assert analytics_service._categorize_tool(None) == "unknown"

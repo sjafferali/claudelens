@@ -28,7 +28,6 @@ from app.schemas.analytics import (
     TokenAnalytics,
     TokenEfficiencyDetailed,
     TokenEfficiencySummary,
-    TokenPerformanceFactorsAnalytics,
     TokenUsageStats,
     ToolUsageDetailed,
     ToolUsageSummary,
@@ -136,9 +135,7 @@ async def compare_projects(
 async def get_usage_trends(
     db: CommonDeps,
     time_range: TimeRange = Query(TimeRange.LAST_90_DAYS),
-    metric: str = Query(
-        "messages", pattern="^(messages|costs|sessions|response_time)$"
-    ),
+    metric: str = Query("messages", pattern="^(messages|costs|sessions)$"),
 ) -> dict[str, Any]:
     """Get usage trends over time.
 
@@ -288,22 +285,6 @@ async def get_token_analytics(
 
     service = AnalyticsService(db)
     return await service.get_token_analytics(time_range, percentiles, group_by)
-
-
-@router.get(
-    "/token-performance-factors", response_model=TokenPerformanceFactorsAnalytics
-)
-async def get_token_performance_factors(
-    db: CommonDeps,
-    time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
-) -> TokenPerformanceFactorsAnalytics:
-    """Get token usage performance factors analysis.
-
-    Analyzes correlations between various factors (message length, tool usage, model type, etc.)
-    and token consumption to identify efficiency opportunities and optimization strategies.
-    """
-    service = AnalyticsService(db)
-    return await service.get_token_performance_factors(time_range)
 
 
 @router.get("/git-branches", response_model=GitBranchAnalyticsResponse)
