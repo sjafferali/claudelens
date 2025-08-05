@@ -21,7 +21,7 @@ ClaudeLens transforms your Claude conversations into a powerful analytics dashbo
 *Real-time dashboard with activity heatmaps, cost tracking, and session analytics*
 
 ### 💰 **Advanced Cost Analytics**
-![Cost Analytics](./docs/images/analytics-dashboard.png)
+![Cost Analytics](./docs/images/analytics-dashboard-full.png)
 *Comprehensive cost tracking with trend analysis, model breakdowns, and predictions*
 
 ### 🔍 **Intelligent Search Interface**
@@ -58,7 +58,7 @@ Experience enterprise-grade analytics with ClaudeLens's sophisticated dashboard 
 
 <div align="center">
 
-![Analytics Dashboard Features](./docs/images/analytics-dashboard.png)
+![Analytics Dashboard Features](./docs/images/analytics-dashboard-full.png)
 *The analytics dashboard showcasing cost trends, activity heatmaps, and conversation flow diagrams*
 
 </div>
@@ -582,7 +582,7 @@ Our sophisticated **React + TypeScript** interface provides a smooth, responsive
 
 <div align="center">
 
-![Feature Showcase](./docs/images/analytics-dashboard.png)
+![Feature Showcase](./docs/images/analytics-dashboard-full.png)
 
 </div>
 
