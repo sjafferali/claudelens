@@ -14,7 +14,6 @@ if (typeof window !== 'undefined') {
       // Check if the old format has functions in ui object
       if (parsed?.state?.ui?.toggleTheme !== undefined) {
         localStorage.removeItem('claudelens-storage');
-        console.log('Cleared old storage format');
       }
     } catch (e) {
       // Ignore parse errors

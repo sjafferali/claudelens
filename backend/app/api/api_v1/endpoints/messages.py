@@ -7,12 +7,14 @@ from fastapi import Query
 from app.api.dependencies import CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
+from app.core.logging import get_logger
 from app.schemas.common import PaginatedResponse
 from app.schemas.message import Message, MessageDetail
 from app.services.cost_calculation import CostCalculationService
 from app.services.message import MessageService
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 @router.get("/", response_model=PaginatedResponse[Message])
@@ -165,7 +167,7 @@ async def calculate_message_costs(
                 limit=10000,  # Get all messages in session
                 sort_order="asc",
             )
-            print(
+            logger.debug(
                 f"Found {len(basic_messages)} messages out of {total} total for session {session_id}"
             )
             # Get detailed messages with usage data

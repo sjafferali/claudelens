@@ -200,10 +200,10 @@ export default function LiveStatCards({
       [handleStatUpdate]
     ),
     onConnect: useCallback(() => {
-      console.log('WebSocket connected for live stats');
+      // WebSocket connected
     }, []),
     onDisconnect: useCallback(() => {
-      console.log('WebSocket disconnected for live stats');
+      // WebSocket disconnected
     }, []),
     onError: useCallback((error: Event) => {
       console.error('WebSocket error:', error);
