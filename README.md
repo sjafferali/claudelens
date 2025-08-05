@@ -58,7 +58,7 @@ Experience enterprise-grade analytics with ClaudeLens's sophisticated dashboard 
 
 <div align="center">
 
-![Analytics Dashboard Features](./docs/images/analytics-dashboard-full.png)
+![Analytics Dashboard Features](./docs/images/analytics-top-section.png)
 *The analytics dashboard showcasing cost trends, activity heatmaps, and conversation flow diagrams*
 
 </div>
@@ -582,7 +582,7 @@ Our sophisticated **React + TypeScript** interface provides a smooth, responsive
 
 <div align="center">
 
-![Feature Showcase](./docs/images/analytics-dashboard-full.png)
+![Feature Showcase](./docs/images/analytics-token-analysis.png)
 
 </div>
 
