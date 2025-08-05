@@ -1888,7 +1888,7 @@ class AnalyticsService:
                             "name": part,
                             "cost": 0.0,
                             "messages": 0,
-                            "sessions": set(),
+                            "sessions": 0,
                             "last_active": datetime.min,
                         },
                         "_children": {},
@@ -1903,16 +1903,28 @@ class AnalyticsService:
                     node_data["messages"] += data["message_count"]
 
                 # Always update sessions and last_active for all nodes in the path
-                session_ids = data.get("session_ids", [])
-                if isinstance(session_ids, list):
-                    node_data["sessions"].update(session_ids)
+                # Since we only have session_count (not the actual IDs), we'll track it differently
+                if is_last_part:
+                    node_data["sessions"] = data.get("session_count", 0)
                 if data["last_active"] > node_data["last_active"]:
                     node_data["last_active"] = data["last_active"]
 
                 current = current[part]["_children"]
 
         # Convert tree structure to DirectoryNode objects
-        return self._tree_to_directory_node(tree, "/", "root", total_cost)
+        # Create a root node structure
+        root_tree = {
+            "_data": {
+                "path": "/",
+                "name": "root",
+                "cost": 0.0,
+                "messages": 0,
+                "sessions": 0,
+                "last_active": datetime.min,
+            },
+            "_children": tree,
+        }
+        return self._tree_to_directory_node(root_tree, "/", "root", total_cost)
 
     def _normalize_path(self, path: str) -> str:
         """Normalize directory path across different OS."""
@@ -1944,12 +1956,12 @@ class AnalyticsService:
         # Calculate aggregate metrics for this node
         total_node_cost = 0.0
         total_messages = 0
-        all_sessions = set()
+        total_sessions = 0
         latest_activity = datetime.min
 
         # Collect data from all descendants
         def collect_metrics(node_tree: dict) -> None:
-            nonlocal total_node_cost, total_messages, all_sessions, latest_activity
+            nonlocal total_node_cost, total_messages, total_sessions, latest_activity
 
             for child_name, child_data in node_tree.items():
                 if child_name == "_data":
@@ -1958,7 +1970,7 @@ class AnalyticsService:
                 child_info = child_data["_data"]
                 total_node_cost += child_info["cost"]
                 total_messages += child_info["messages"]
-                all_sessions.update(child_info["sessions"])
+                total_sessions += child_info["sessions"]
                 if child_info["last_active"] > latest_activity:
                     latest_activity = child_info["last_active"]
 
@@ -1966,18 +1978,20 @@ class AnalyticsService:
                 collect_metrics(child_data["_children"])
 
         # If this is a leaf node with actual data
-        if "_data" in tree and not tree.get("_children"):
+        if "_data" in tree and (
+            not tree.get("_children") or len(tree.get("_children", {})) == 0
+        ):
             data = tree["_data"]
             total_node_cost = data["cost"]
             total_messages = data["messages"]
-            all_sessions = data["sessions"]
+            total_sessions = data["sessions"]
             latest_activity = data["last_active"]
         else:
             # Aggregate from children
-            collect_metrics(tree)
+            collect_metrics(tree.get("_children", {}))
 
         # Calculate metrics
-        session_count = len(all_sessions)
+        session_count = total_sessions
         avg_cost_per_session = (
             total_node_cost / session_count if session_count > 0 else 0.0
         )
@@ -2524,6 +2538,8 @@ class AnalyticsService:
         # to show "No Branch" data rather than hiding it
         pipeline: list[dict[str, Any]] = [
             {"$match": time_filter},
+            # Add a hint to use the appropriate index
+            {"$sort": {"timestamp": -1, "gitBranch": 1}},
             {
                 "$group": {
                     "_id": "$gitBranch",
@@ -2532,22 +2548,18 @@ class AnalyticsService:
                     "sessions": {"$addToSet": "$sessionId"},
                     "first_activity": {"$min": "$timestamp"},
                     "last_activity": {"$max": "$timestamp"},
+                    # Simplify tool names collection for better performance
                     "tool_names": {
                         "$push": {
                             "$cond": [
-                                {"$ne": ["$toolUseResult", None]},
                                 {
-                                    "$map": {
-                                        "input": {
-                                            "$objectToArray": {
-                                                "$ifNull": ["$toolUseResult", {}]
-                                            }
-                                        },
-                                        "as": "tool",
-                                        "in": "$$tool.k",
-                                    }
+                                    "$and": [
+                                        {"$ne": ["$toolUseResult", None]},
+                                        {"$ne": ["$toolUseResult", {}]},
+                                    ]
                                 },
-                                [],
+                                "$toolUseResult",
+                                None,
                             ]
                         }
                     },
@@ -2578,10 +2590,10 @@ class AnalyticsService:
                         ]
                     },
                     "tool_names": {
-                        "$reduce": {
+                        "$filter": {
                             "input": "$tool_names",
-                            "initialValue": [],
-                            "in": {"$concatArrays": ["$$value", "$$this"]},
+                            "as": "tool",
+                            "cond": {"$ne": ["$$tool", None]},
                         }
                     },
                 }
@@ -2620,11 +2632,14 @@ class AnalyticsService:
             # Calculate top operations
             top_operations = []
             tool_usage_counts: dict[str, int] = {}
-            for tool_name in result.get("tool_names", []):
-                if tool_name:  # Skip empty/None tool names
-                    tool_usage_counts[tool_name] = (
-                        tool_usage_counts.get(tool_name, 0) + 1
-                    )
+            for tool_result in result.get("tool_names", []):
+                if tool_result and isinstance(tool_result, dict):
+                    # Extract tool names from the toolUseResult object
+                    for tool_name in tool_result.keys():
+                        if tool_name:  # Skip empty/None tool names
+                            tool_usage_counts[tool_name] = (
+                                tool_usage_counts.get(tool_name, 0) + 1
+                            )
 
             # Get top 5 operations
             sorted_tools = sorted(

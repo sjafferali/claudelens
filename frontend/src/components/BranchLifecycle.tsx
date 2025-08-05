@@ -24,17 +24,25 @@ interface BranchLifecycleProps {
   timeRange?: TimeRange;
   onTimeRangeChange?: (timeRange: TimeRange) => void;
   projectId?: string;
+  data?: GitBranchAnalyticsResponse | null;
+  loading?: boolean;
 }
 
 const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
   timeRange = TimeRange.LAST_30_DAYS,
   onTimeRangeChange,
   projectId,
+  data: propData,
+  loading: propLoading,
 }) => {
   const theme = useStore((state) => state.ui.theme);
   const isDark = theme === 'dark';
-  const [data, setData] = useState<GitBranchAnalyticsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<GitBranchAnalyticsResponse | null>(
+    propData || null
+  );
+  const [loading, setLoading] = useState(
+    propLoading !== undefined ? propLoading : true
+  );
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<BranchType | 'all'>('all');
 
@@ -45,26 +53,41 @@ const BranchLifecycle: React.FC<BranchLifecycleProps> = ({
     background: isDark ? '#111827' : '#ffffff',
   };
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await analyticsApi.getGitBranchAnalytics(
-        timeRange,
-        projectId
-      );
-      setData(result);
-    } catch (err) {
-      setError('Failed to load git branch analytics');
-      console.error('Error fetching git branch analytics:', err);
-    } finally {
-      setLoading(false);
+  // Use prop data if provided
+  useEffect(() => {
+    if (propData !== undefined) {
+      setData(propData);
     }
-  }, [timeRange, projectId]);
+    if (propLoading !== undefined) {
+      setLoading(propLoading);
+    }
+  }, [propData, propLoading]);
+
+  const fetchData = useCallback(async () => {
+    // Only fetch if no prop data is provided
+    if (propData === undefined) {
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await analyticsApi.getGitBranchAnalytics(
+          timeRange,
+          projectId
+        );
+        setData(result);
+      } catch (err) {
+        setError('Failed to load git branch analytics');
+        console.error('Error fetching git branch analytics:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  }, [timeRange, projectId, propData]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (propData === undefined) {
+      fetchData();
+    }
+  }, [fetchData, propData]);
 
   const getBranchTypeColor = (branchType: BranchType): string => {
     switch (branchType) {

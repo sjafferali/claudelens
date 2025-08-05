@@ -19,6 +19,7 @@ import {
   useCostBreakdown,
   useToolUsage,
   useTokenEfficiency,
+  useGitBranchAnalytics,
 } from '@/hooks/useAnalytics';
 import { useSessions } from '@/hooks/useSessions';
 import { useDirectoryAnalytics } from '@/hooks/useDirectoryAnalytics';
@@ -181,6 +182,8 @@ export default function Analytics() {
     depthMinDepth,
     depthIncludeSidechains
   );
+  const { data: gitBranchData, isLoading: gitBranchLoading } =
+    useGitBranchAnalytics(timeRange, undefined, undefined, undefined);
 
   const formatTrend = (trend: number) => {
     const isPositive = trend > 0;
@@ -1002,6 +1005,8 @@ export default function Analytics() {
             <BranchActivityChart
               timeRange={timeRange}
               onTimeRangeChange={setTimeRange}
+              data={gitBranchData}
+              loading={gitBranchLoading}
             />
 
             {/* Branch Lifecycle and Comparison */}
@@ -1009,10 +1014,14 @@ export default function Analytics() {
               <BranchLifecycle
                 timeRange={timeRange}
                 onTimeRangeChange={setTimeRange}
+                data={gitBranchData}
+                loading={gitBranchLoading}
               />
               <BranchComparison
                 timeRange={timeRange}
                 onTimeRangeChange={setTimeRange}
+                data={gitBranchData}
+                loading={gitBranchLoading}
               />
             </div>
           </div>

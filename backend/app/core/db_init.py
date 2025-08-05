@@ -165,7 +165,14 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await create_index_if_not_exists(messages, [("createdAt", -1), ("responseTime", 1)])
 
     # For git branch queries
-    await create_index_if_not_exists(messages, [("createdAt", -1), ("branch", 1)])
+    await create_index_if_not_exists(messages, [("createdAt", -1), ("gitBranch", 1)])
+    # Compound index for git branch analytics aggregation
+    await create_index_if_not_exists(messages, [("timestamp", -1), ("gitBranch", 1)])
+    await create_index_if_not_exists(messages, [("gitBranch", 1), ("timestamp", -1)])
+    # Index for sessionId filtering in git branch analytics
+    await create_index_if_not_exists(
+        messages, [("sessionId", 1), ("timestamp", -1), ("gitBranch", 1)]
+    )
 
     # Model field (if different from message.model)
     await create_index_if_not_exists(messages, [("model", 1)])

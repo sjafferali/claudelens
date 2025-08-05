@@ -169,3 +169,29 @@ export function useTokenEfficiency(
     staleTime: 300000, // 5 minutes
   });
 }
+
+export function useGitBranchAnalytics(
+  timeRange: TimeRange = TimeRange.LAST_30_DAYS,
+  projectId?: string,
+  includePattern?: string,
+  excludePattern?: string
+) {
+  return useQuery({
+    queryKey: [
+      'analytics',
+      'git-branches',
+      timeRange,
+      projectId,
+      includePattern,
+      excludePattern,
+    ],
+    queryFn: () =>
+      analyticsApi.getGitBranchAnalytics(
+        timeRange,
+        projectId,
+        includePattern,
+        excludePattern
+      ),
+    staleTime: 300000, // 5 minutes
+  });
+}

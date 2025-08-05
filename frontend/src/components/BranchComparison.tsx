@@ -14,15 +14,23 @@ interface BranchComparisonProps {
   timeRange?: TimeRange;
   onTimeRangeChange?: (timeRange: TimeRange) => void;
   projectId?: string;
+  data?: GitBranchAnalyticsResponse | null;
+  loading?: boolean;
 }
 
 const BranchComparison: React.FC<BranchComparisonProps> = ({
   timeRange = TimeRange.LAST_30_DAYS,
   onTimeRangeChange,
   projectId,
+  data: propData,
+  loading: propLoading,
 }) => {
-  const [data, setData] = useState<GitBranchAnalyticsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<GitBranchAnalyticsResponse | null>(
+    propData || null
+  );
+  const [loading, setLoading] = useState(
+    propLoading !== undefined ? propLoading : true
+  );
   const [error, setError] = useState<string | null>(null);
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<
@@ -30,30 +38,49 @@ const BranchComparison: React.FC<BranchComparisonProps> = ({
   >('cost');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await analyticsApi.getGitBranchAnalytics(
-        timeRange,
-        projectId
-      );
-      setData(result);
+  // Use prop data if provided
+  useEffect(() => {
+    if (propData !== undefined) {
+      setData(propData);
       // Auto-select top 5 branches by cost
-      if (result.branches.length > 0) {
-        setSelectedBranches(result.branches.slice(0, 5).map((b) => b.name));
+      if (propData && propData.branches.length > 0) {
+        setSelectedBranches(propData.branches.slice(0, 5).map((b) => b.name));
       }
-    } catch (err) {
-      setError('Failed to load git branch analytics');
-      console.error('Error fetching git branch analytics:', err);
-    } finally {
-      setLoading(false);
     }
-  }, [timeRange, projectId]);
+    if (propLoading !== undefined) {
+      setLoading(propLoading);
+    }
+  }, [propData, propLoading]);
+
+  const fetchData = useCallback(async () => {
+    // Only fetch if no prop data is provided
+    if (propData === undefined) {
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await analyticsApi.getGitBranchAnalytics(
+          timeRange,
+          projectId
+        );
+        setData(result);
+        // Auto-select top 5 branches by cost
+        if (result.branches.length > 0) {
+          setSelectedBranches(result.branches.slice(0, 5).map((b) => b.name));
+        }
+      } catch (err) {
+        setError('Failed to load git branch analytics');
+        console.error('Error fetching git branch analytics:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  }, [timeRange, projectId, propData]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (propData === undefined) {
+      fetchData();
+    }
+  }, [fetchData, propData]);
 
   const getBranchTypeColor = (branchType: BranchType): string => {
     switch (branchType) {

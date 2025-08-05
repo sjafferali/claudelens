@@ -26,17 +26,25 @@ interface BranchActivityChartProps {
   timeRange?: TimeRange;
   onTimeRangeChange?: (timeRange: TimeRange) => void;
   projectId?: string;
+  data?: GitBranchAnalyticsResponse | null;
+  loading?: boolean;
 }
 
 const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
   timeRange = TimeRange.LAST_30_DAYS,
   onTimeRangeChange,
   projectId,
+  data: propData,
+  loading: propLoading,
 }) => {
   const theme = useStore((state) => state.ui.theme);
   const isDark = theme === 'dark';
-  const [data, setData] = useState<GitBranchAnalyticsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<GitBranchAnalyticsResponse | null>(
+    propData || null
+  );
+  const [loading, setLoading] = useState(
+    propLoading !== undefined ? propLoading : true
+  );
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'cost' | 'messages' | 'sessions'>(
     'cost'
@@ -51,28 +59,41 @@ const BranchActivityChart: React.FC<BranchActivityChartProps> = ({
     background: isDark ? '#111827' : '#ffffff',
   };
 
+  // Use prop data if provided, otherwise fetch data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const result = await analyticsApi.getGitBranchAnalytics(
-          timeRange,
-          projectId,
-          includePattern || undefined,
-          excludePattern || undefined
-        );
-        setData(result);
-      } catch (err) {
-        setError('Failed to load git branch analytics');
-        console.error('Error fetching git branch analytics:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (propData !== undefined) {
+      setData(propData);
+    }
+    if (propLoading !== undefined) {
+      setLoading(propLoading);
+    }
+  }, [propData, propLoading]);
 
-    fetchData();
-  }, [timeRange, projectId, includePattern, excludePattern]);
+  useEffect(() => {
+    // Only fetch data if no prop data is provided
+    if (propData === undefined) {
+      const fetchData = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          const result = await analyticsApi.getGitBranchAnalytics(
+            timeRange,
+            projectId,
+            includePattern || undefined,
+            excludePattern || undefined
+          );
+          setData(result);
+        } catch (err) {
+          setError('Failed to load git branch analytics');
+          console.error('Error fetching git branch analytics:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchData();
+    }
+  }, [timeRange, projectId, includePattern, excludePattern, propData]);
 
   const getBranchTypeColor = (branchType: BranchType): string => {
     switch (branchType) {
