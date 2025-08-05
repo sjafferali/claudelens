@@ -3,7 +3,7 @@ import math
 import re
 import statistics
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Optional
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -2634,8 +2634,12 @@ class AnalyticsService:
             time_range=time_range,
         )
 
-    def _normalize_branch_name(self, branch_name: str) -> str:
+    def _normalize_branch_name(self, branch_name: Optional[str]) -> str:
         """Normalize branch name by removing remote prefix."""
+        # Handle None or empty branch names
+        if not branch_name:
+            return ""
+
         # Remove common remote prefixes
         prefixes = [
             "origin/",
