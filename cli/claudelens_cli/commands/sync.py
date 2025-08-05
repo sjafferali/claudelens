@@ -41,6 +41,14 @@ console = Console()
     is_flag=True,
     help="Update existing messages on UUID conflicts instead of failing",
 )
+@click.option(
+    "--api-key",
+    help="API key for authentication (overrides environment variable and config file)",
+)
+@click.option(
+    "--api-url",
+    help="ClaudeLens API URL (overrides environment variable and config file)",
+)
 def sync(
     watch: bool,
     project: Path,
@@ -49,12 +57,29 @@ def sync(
     claude_dir: tuple[Path],
     debug: bool,
     overwrite: bool,
+    api_key: str,
+    api_url: str,
 ):
     """Sync Claude conversations to ClaudeLens server.
 
     This command scans your local Claude directory for conversation files
     and syncs them to the ClaudeLens server for archival and analysis.
     """
+    # Store original config values for restoration
+    original_api_key = None
+    original_api_url = None
+    original_dirs = None
+
+    # Override API key if provided via CLI
+    if api_key:
+        original_api_key = config_manager.config.api_key
+        config_manager.config.api_key = api_key
+
+    # Override API URL if provided via CLI
+    if api_url:
+        original_api_url = config_manager.config.api_url
+        config_manager.config.api_url = api_url
+
     # Override claude_dirs if provided via CLI
     if claude_dir:
         # Temporarily update config with CLI-provided directories
@@ -144,8 +169,12 @@ def sync(
         console.print(f"[red]Sync failed: {e}[/red]")
         raise click.ClickException(str(e))
     finally:
-        # Restore original claude_dirs if they were overridden
-        if claude_dir:
+        # Restore original config values if they were overridden
+        if api_key and original_api_key is not None:
+            config_manager.config.api_key = original_api_key
+        if api_url and original_api_url is not None:
+            config_manager.config.api_url = original_api_url
+        if claude_dir and original_dirs is not None:
             config_manager.config.claude_dirs = original_dirs
 
 
