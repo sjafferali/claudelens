@@ -704,6 +704,37 @@ export const analyticsApi = {
     );
   },
 
+  async getTokenAnalytics(
+    timeRange: TimeRange = TimeRange.LAST_30_DAYS,
+    percentiles?: number[],
+    groupBy: 'hour' | 'day' | 'model' = 'hour'
+  ): Promise<ResponseTimeAnalytics> {
+    const params = new URLSearchParams({
+      time_range: timeRange,
+      group_by: groupBy,
+    });
+
+    if (percentiles) {
+      percentiles.forEach((p) => params.append('percentiles', p.toString()));
+    }
+
+    return apiClient.get<ResponseTimeAnalytics>(
+      `/analytics/token-analytics?${params.toString()}`
+    );
+  },
+
+  async getTokenPerformanceFactors(
+    timeRange: TimeRange = TimeRange.LAST_30_DAYS
+  ): Promise<PerformanceFactorsAnalytics> {
+    const params = new URLSearchParams({
+      time_range: timeRange,
+    });
+
+    return apiClient.get<PerformanceFactorsAnalytics>(
+      `/analytics/token-performance-factors?${params.toString()}`
+    );
+  },
+
   async getGitBranchAnalytics(
     timeRange: TimeRange = TimeRange.LAST_30_DAYS,
     projectId?: string,

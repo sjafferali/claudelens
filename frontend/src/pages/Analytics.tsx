@@ -20,6 +20,8 @@ import {
   useToolUsage,
   useTokenEfficiency,
   useGitBranchAnalytics,
+  useTokenAnalytics,
+  useTokenPerformanceFactors,
 } from '@/hooks/useAnalytics';
 import { useSessions } from '@/hooks/useSessions';
 import { useDirectoryAnalytics } from '@/hooks/useDirectoryAnalytics';
@@ -32,6 +34,9 @@ import { DirectoryMetrics } from '@/components/DirectoryMetrics';
 import ResponseTimeChart from '../components/ResponseTimeChart';
 import PercentileRibbon from '../components/PercentileRibbon';
 import PerformanceFactors from '../components/PerformanceFactors';
+import TokenUsageChart from '../components/TokenUsageChart';
+import TokenPercentileRibbon from '../components/TokenPercentileRibbon';
+import TokenPerformanceFactors from '../components/TokenPerformanceFactors';
 import BranchActivityChart from '../components/BranchActivityChart';
 import BranchLifecycle from '../components/BranchLifecycle';
 import BranchComparison from '../components/BranchComparison';
@@ -140,6 +145,9 @@ export default function Analytics() {
   );
   const [depthMinDepth, setDepthMinDepth] = useState(0);
   const [depthIncludeSidechains, setDepthIncludeSidechains] = useState(true);
+  const [performanceView, setPerformanceView] = useState<
+    'response-time' | 'tokens'
+  >('tokens');
 
   // General analytics (when no session is selected)
   const { data: summary, isLoading: summaryLoading } =
@@ -184,6 +192,12 @@ export default function Analytics() {
   );
   const { data: gitBranchData, isLoading: gitBranchLoading } =
     useGitBranchAnalytics(timeRange, undefined, undefined, undefined);
+
+  // Token analytics hooks
+  const { data: tokenAnalyticsData, isLoading: tokenAnalyticsLoading } =
+    useTokenAnalytics(timeRange);
+  const { data: tokenPerformanceData, isLoading: tokenPerformanceLoading } =
+    useTokenPerformanceFactors(timeRange);
 
   const formatTrend = (trend: number) => {
     const isPositive = trend > 0;
@@ -869,21 +883,128 @@ export default function Analytics() {
         </CardContent>
       </Card>
 
-      {/* Response Time Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ResponseTimeChart
-          timeRange={timeRange}
-          onTimeRangeChange={setTimeRange}
-        />
-        <div className="space-y-6">
-          <ResponseTimePercentileCard timeRange={timeRange} />
-        </div>
-      </div>
+      {/* Performance Analytics - Response Time vs Token Usage */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Performance Analytics
+              </CardTitle>
+              <CardDescription>
+                Analyze response times or token usage patterns
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPerformanceView('response-time')}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  performanceView === 'response-time'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                }`}
+              >
+                Response Time
+              </button>
+              <button
+                onClick={() => setPerformanceView('tokens')}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  performanceView === 'tokens'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                }`}
+              >
+                Token Usage
+              </button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
 
-      <PerformanceFactors
-        timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
-      />
+      {performanceView === 'response-time' ? (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ResponseTimeChart
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+            />
+            <div className="space-y-6">
+              <ResponseTimePercentileCard timeRange={timeRange} />
+            </div>
+          </div>
+          <PerformanceFactors
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+          />
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Token Usage Over Time</CardTitle>
+                <CardDescription>
+                  Token consumption trends and percentiles
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {tokenAnalyticsLoading ? (
+                  <div className="flex h-64 items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : tokenAnalyticsData ? (
+                  <TokenUsageChart data={tokenAnalyticsData} groupBy="hour" />
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    No token usage data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Token Usage Overview</CardTitle>
+                  <CardDescription>
+                    Token consumption percentiles and distribution
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {tokenAnalyticsLoading ? (
+                    <div className="flex h-32 items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : tokenAnalyticsData ? (
+                    <TokenPercentileRibbon
+                      percentiles={tokenAnalyticsData.percentiles}
+                    />
+                  ) : (
+                    <div className="text-center text-muted-foreground py-8">
+                      No token usage data available
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              {tokenPerformanceLoading ? (
+                <div className="flex h-64 items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : tokenPerformanceData ? (
+                <TokenPerformanceFactors data={tokenPerformanceData} />
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  Not enough data to analyze token usage factors
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Session Depth Analytics */}
       <Card>

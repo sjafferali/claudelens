@@ -304,6 +304,44 @@ async def get_performance_factors(
     return await service.get_performance_factors(time_range)
 
 
+@router.get("/token-analytics", response_model=ResponseTimeAnalytics)
+async def get_token_analytics(
+    db: CommonDeps,
+    time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
+    percentiles: list[int]
+    | None = Query(
+        None, description="Percentiles to calculate (default: [50, 90, 95, 99])"
+    ),
+    group_by: str = Query(
+        "hour", pattern="^(hour|day|model)$", description="Grouping method"
+    ),
+) -> ResponseTimeAnalytics:
+    """Get token usage analytics with percentiles and distribution.
+
+    Returns token usage percentiles, time series data, and distribution buckets
+    for analyzing token consumption patterns and efficiency.
+    """
+    if percentiles is None:
+        percentiles = [50, 90, 95, 99]
+
+    service = AnalyticsService(db)
+    return await service.get_token_analytics(time_range, percentiles, group_by)
+
+
+@router.get("/token-performance-factors", response_model=PerformanceFactorsAnalytics)
+async def get_token_performance_factors(
+    db: CommonDeps,
+    time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
+) -> PerformanceFactorsAnalytics:
+    """Get token usage performance factors analysis.
+
+    Analyzes correlations between various factors (message length, tool usage, model type, etc.)
+    and token consumption to identify efficiency opportunities and optimization strategies.
+    """
+    service = AnalyticsService(db)
+    return await service.get_token_performance_factors(time_range)
+
+
 @router.get("/git-branches", response_model=GitBranchAnalyticsResponse)
 async def get_git_branch_analytics(
     db: CommonDeps,
