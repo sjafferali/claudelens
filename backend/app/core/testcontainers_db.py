@@ -39,8 +39,10 @@ def get_testcontainer_mongodb_url() -> str | None:
         _mongo_container = MongoDbContainer("mongo:7.0")
         _mongo_container.start()
 
-        # Register cleanup on exit
-        atexit.register(stop_testcontainer_mongodb)
+        # Register cleanup on exit only if not in test environment
+        # In tests, cleanup is handled by pytest fixture
+        if os.getenv("ENVIRONMENT") != "test":
+            atexit.register(stop_testcontainer_mongodb)
 
         # Get connection URL and change database name
         connection_url = _mongo_container.get_connection_url()
@@ -97,10 +99,21 @@ def stop_testcontainer_mongodb() -> None:
 
     if _mongo_container:
         try:
-            logger.info("Stopping MongoDB testcontainer...")
+            # Try to log, but don't fail if logging system is already shut down
+            try:
+                logger.info("Stopping MongoDB testcontainer...")
+            except (ValueError, OSError):
+                # Logging system may be shut down during atexit
+                pass
+
             _mongo_container.stop()
             _mongo_container = None
-            logger.info("MongoDB testcontainer stopped")
+
+            try:
+                logger.info("MongoDB testcontainer stopped")
+            except (ValueError, OSError):
+                # Logging system may be shut down during atexit
+                pass
 
             # Clean up temp file
             import tempfile
@@ -111,7 +124,12 @@ def stop_testcontainer_mongodb() -> None:
             if os.path.exists(url_file):
                 os.remove(url_file)
         except Exception as e:
-            logger.error(f"Error stopping MongoDB testcontainer: {e}")
+            # Try to log error, but don't fail if logging system is shut down
+            try:
+                logger.error(f"Error stopping MongoDB testcontainer: {e}")
+            except (ValueError, OSError):
+                # Logging system may be shut down during atexit
+                pass
 
 
 def is_testcontainer_active() -> bool:

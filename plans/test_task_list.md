@@ -14,7 +14,7 @@ This document tracks the tasks for systematically improving test coverage in the
 
 Last updated: 2025-08-05
 
-- Overall backend coverage: 34%
+- Overall backend coverage: 37%
 - Target coverage: 80%+
 
 ### Files with Lowest Coverage (Priority Targets)
@@ -23,7 +23,9 @@ Last updated: 2025-08-05
 3. `app/services/analytics.py` - 6% coverage (1700 lines!)
 4. `app/services/ingest.py` - 7% coverage
 5. `app/services/session.py` - 86% coverage ✓
-6. `app/services/message.py` - 97% coverage ✓
+6. `app/services/message.py` - 98% coverage ✓
+7. `app/services/project.py` - 99% coverage ✓
+8. `app/api/api_v1/endpoints/projects.py` - 100% coverage ✓
 
 ## Task List
 
@@ -44,22 +46,22 @@ Last updated: 2025-08-05
 #### Message Service Tests
 - [x] Task 3.1: Write tests for `app/services/message.py` - test message creation - 2025-08-05
 - [x] Task 3.2: Run all backend tests and ensure they pass - 2025-08-05
-- [ ] Task 3.3: Write tests for `app/services/message.py` - test message queries and filtering
-- [ ] Task 3.4: Run all backend tests and ensure they pass
+- [x] Task 3.3: Write tests for `app/services/message.py` - test message queries and filtering - 2025-08-05
+- [x] Task 3.4: Run all backend tests and ensure they pass - 2025-08-05
 
 #### Project Service Tests
-- [ ] Task 4.1: Write tests for `app/services/project.py` - test project CRUD operations
-- [ ] Task 4.2: Run all backend tests and ensure they pass
-- [ ] Task 4.3: Write tests for `app/services/project.py` - test project statistics
-- [ ] Task 4.4: Run all backend tests and ensure they pass
+- [x] Task 4.1: Write tests for `app/services/project.py` - test project CRUD operations - 2025-08-05
+- [x] Task 4.2: Run all backend tests and ensure they pass - 2025-08-05
+- [x] Task 4.3: Write tests for `app/services/project.py` - test project statistics - 2025-08-05
+- [x] Task 4.4: Run all backend tests and ensure they pass - 2025-08-05
 
 ### Phase 2: API Endpoint Tests
 
 #### Projects Endpoint Tests
-- [ ] Task 5.1: Write tests for `app/api/api_v1/endpoints/projects.py` - test GET endpoints
-- [ ] Task 5.2: Run all backend tests and ensure they pass
-- [ ] Task 5.3: Write tests for `app/api/api_v1/endpoints/projects.py` - test POST/PUT/DELETE
-- [ ] Task 5.4: Run all backend tests and ensure they pass
+- [x] Task 5.1: Write tests for `app/api/api_v1/endpoints/projects.py` - test GET endpoints - 2025-08-05
+- [x] Task 5.2: Run all backend tests and ensure they pass - 2025-08-05
+- [x] Task 5.3: Write tests for `app/api/api_v1/endpoints/projects.py` - test POST/PUT/DELETE - 2025-08-05
+- [x] Task 5.4: Run all backend tests and ensure they pass - 2025-08-05
 
 #### Sessions Endpoint Tests
 - [ ] Task 6.1: Write tests for `app/api/api_v1/endpoints/sessions.py` - test session endpoints

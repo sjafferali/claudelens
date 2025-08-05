@@ -47,7 +47,7 @@ function ProjectsList() {
 
   const { data, isLoading, error, refetch } = useProjects({
     skip: 0, // Fetch all for client-side filtering
-    limit: 1000, // Fetch more projects for filtering
+    limit: 100, // Maximum allowed by API
     sortBy: 'updated_at',
     sortOrder: 'desc',
   });

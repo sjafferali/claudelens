@@ -523,3 +523,345 @@ class TestMessageService:
         ]
         assert message.tool_use == [{"tool": "vision", "params": {}}]
         assert message.content_hash == "abc123"
+
+    @pytest.mark.asyncio
+    async def test_list_messages_with_pagination(self, message_service, mock_db):
+        """Test listing messages with pagination parameters."""
+        # Setup
+        mock_db.messages.count_documents = AsyncMock(return_value=50)
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
+            lambda self: async_iter([])
+        )
+        mock_db.messages.find.return_value = mock_cursor
+
+        # Execute
+        messages, total = await message_service.list_messages(
+            {}, skip=20, limit=10, sort_order="asc"
+        )
+
+        # Assert
+        assert total == 50
+        mock_cursor.sort.assert_called_once_with("timestamp", 1)
+        mock_cursor.sort.return_value.skip.assert_called_once_with(20)
+        mock_cursor.sort.return_value.skip.return_value.limit.assert_called_once_with(
+            10
+        )
+
+    @pytest.mark.asyncio
+    async def test_list_messages_filter_by_type(self, message_service, mock_db):
+        """Test listing messages filtered by type."""
+        # Setup
+        filter_dict = {"type": "assistant"}
+        mock_data = [
+            {
+                "_id": ObjectId("507f1f77bcf86cd799439011"),
+                "uuid": "msg-123",
+                "type": "assistant",
+                "sessionId": "session-123",
+                "content": "I can help with that.",
+                "timestamp": datetime.now(UTC),
+                "model": "claude-3-opus",
+            },
+        ]
+
+        mock_db.messages.count_documents = AsyncMock(return_value=1)
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
+            lambda self: async_iter(mock_data)
+        )
+        mock_db.messages.find.return_value = mock_cursor
+
+        # Execute
+        messages, total = await message_service.list_messages(
+            filter_dict, 0, 10, "desc"
+        )
+
+        # Assert
+        assert len(messages) == 1
+        assert messages[0].type == "assistant"
+        mock_db.messages.find.assert_called_once_with(filter_dict)
+
+    @pytest.mark.asyncio
+    async def test_list_messages_filter_by_model(self, message_service, mock_db):
+        """Test listing messages filtered by model."""
+        # Setup
+        filter_dict = {"model": "claude-3-opus"}
+        mock_data = [
+            {
+                "_id": ObjectId("507f1f77bcf86cd799439011"),
+                "uuid": "msg-123",
+                "type": "assistant",
+                "sessionId": "session-123",
+                "content": "Response from Claude 3 Opus",
+                "timestamp": datetime.now(UTC),
+                "model": "claude-3-opus",
+            },
+            {
+                "_id": ObjectId("507f1f77bcf86cd799439012"),
+                "uuid": "msg-124",
+                "type": "assistant",
+                "sessionId": "session-456",
+                "content": "Another Opus response",
+                "timestamp": datetime.now(UTC),
+                "model": "claude-3-opus",
+            },
+        ]
+
+        mock_db.messages.count_documents = AsyncMock(return_value=2)
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
+            lambda self: async_iter(mock_data)
+        )
+        mock_db.messages.find.return_value = mock_cursor
+
+        # Execute
+        messages, total = await message_service.list_messages(
+            filter_dict, 0, 10, "desc"
+        )
+
+        # Assert
+        assert len(messages) == 2
+        assert all(msg.model == "claude-3-opus" for msg in messages)
+
+    @pytest.mark.asyncio
+    async def test_list_messages_complex_filter(self, message_service, mock_db):
+        """Test listing messages with complex filter including multiple fields."""
+        # Setup
+        filter_dict = {
+            "sessionId": "session-123",
+            "type": {"$in": ["user", "assistant"]},
+            "timestamp": {"$gte": datetime(2024, 1, 1, tzinfo=UTC)},
+        }
+
+        mock_db.messages.count_documents = AsyncMock(return_value=5)
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
+            lambda self: async_iter([])
+        )
+        mock_db.messages.find.return_value = mock_cursor
+
+        # Execute
+        await message_service.list_messages(filter_dict, 0, 20, "asc")
+
+        # Assert
+        mock_db.messages.find.assert_called_once_with(filter_dict)
+        mock_db.messages.count_documents.assert_called_once_with(filter_dict)
+
+    @pytest.mark.asyncio
+    async def test_list_messages_with_content_filter(self, message_service, mock_db):
+        """Test listing messages filtered by content pattern."""
+        # Setup
+        filter_dict = {"content": {"$regex": "error", "$options": "i"}}
+        mock_data = [
+            {
+                "_id": ObjectId("507f1f77bcf86cd799439011"),
+                "uuid": "msg-123",
+                "type": "user",
+                "sessionId": "session-123",
+                "content": "I'm getting an error message",
+                "timestamp": datetime.now(UTC),
+            },
+        ]
+
+        mock_db.messages.count_documents = AsyncMock(return_value=1)
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
+            lambda self: async_iter(mock_data)
+        )
+        mock_db.messages.find.return_value = mock_cursor
+
+        # Execute
+        messages, total = await message_service.list_messages(
+            filter_dict, 0, 10, "desc"
+        )
+
+        # Assert
+        assert len(messages) == 1
+        assert "error" in messages[0].content.lower()
+
+    @pytest.mark.asyncio
+    async def test_list_messages_empty_filter_returns_all(
+        self, message_service, mock_db
+    ):
+        """Test that empty filter returns all messages."""
+        # Setup
+        mock_data = [
+            {
+                "_id": ObjectId("507f1f77bcf86cd799439011"),
+                "uuid": "msg-1",
+                "type": "user",
+                "sessionId": "session-123",
+                "content": "User message",
+                "timestamp": datetime.now(UTC),
+            },
+            {
+                "_id": ObjectId("507f1f77bcf86cd799439012"),
+                "uuid": "msg-2",
+                "type": "assistant",
+                "sessionId": "session-456",
+                "content": "Assistant message",
+                "timestamp": datetime.now(UTC),
+                "model": "claude-3-sonnet",
+            },
+        ]
+
+        mock_db.messages.count_documents = AsyncMock(return_value=2)
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
+            lambda self: async_iter(mock_data)
+        )
+        mock_db.messages.find.return_value = mock_cursor
+
+        # Execute
+        messages, total = await message_service.list_messages({}, 0, 10, "desc")
+
+        # Assert
+        assert len(messages) == 2
+        assert messages[0].session_id == "session-123"
+        assert messages[1].session_id == "session-456"
+
+    @pytest.mark.asyncio
+    async def test_list_messages_with_date_range_filter(self, message_service, mock_db):
+        """Test listing messages within a date range."""
+        # Setup
+        start_date = datetime(2024, 1, 1, tzinfo=UTC)
+        end_date = datetime(2024, 1, 31, tzinfo=UTC)
+        filter_dict = {
+            "timestamp": {
+                "$gte": start_date,
+                "$lte": end_date,
+            }
+        }
+
+        mock_db.messages.count_documents = AsyncMock(return_value=10)
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
+            lambda self: async_iter([])
+        )
+        mock_db.messages.find.return_value = mock_cursor
+
+        # Execute
+        await message_service.list_messages(filter_dict, 0, 50, "asc")
+
+        # Assert
+        mock_db.messages.find.assert_called_once_with(filter_dict)
+
+    @pytest.mark.asyncio
+    async def test_list_messages_filter_by_parent_uuid(self, message_service, mock_db):
+        """Test listing messages filtered by parent UUID."""
+        # Setup
+        filter_dict = {"parentUuid": "parent-msg-123"}
+        mock_data = [
+            {
+                "_id": ObjectId("507f1f77bcf86cd799439011"),
+                "uuid": "msg-child-1",
+                "type": "assistant",
+                "sessionId": "session-123",
+                "content": "Follow-up response",
+                "timestamp": datetime.now(UTC),
+                "parentUuid": "parent-msg-123",
+            },
+        ]
+
+        mock_db.messages.count_documents = AsyncMock(return_value=1)
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
+            lambda self: async_iter(mock_data)
+        )
+        mock_db.messages.find.return_value = mock_cursor
+
+        # Execute
+        messages, total = await message_service.list_messages(
+            filter_dict, 0, 10, "desc"
+        )
+
+        # Assert
+        assert len(messages) == 1
+        assert messages[0].parent_uuid == "parent-msg-123"
+
+    @pytest.mark.asyncio
+    async def test_list_messages_with_cost_filter(self, message_service, mock_db):
+        """Test listing messages filtered by cost range."""
+        # Setup
+        filter_dict = {"costUsd": {"$gte": 0.001, "$lte": 0.01}}
+        mock_data = [
+            {
+                "_id": ObjectId("507f1f77bcf86cd799439011"),
+                "uuid": "msg-123",
+                "type": "assistant",
+                "sessionId": "session-123",
+                "content": "Mid-cost response",
+                "timestamp": datetime.now(UTC),
+                "costUsd": Decimal128("0.005"),
+                "model": "claude-3-opus",
+            },
+        ]
+
+        mock_db.messages.count_documents = AsyncMock(return_value=1)
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
+            lambda self: async_iter(mock_data)
+        )
+        mock_db.messages.find.return_value = mock_cursor
+
+        # Execute
+        messages, total = await message_service.list_messages(
+            filter_dict, 0, 10, "desc"
+        )
+
+        # Assert
+        assert len(messages) == 1
+        # Note: cost_usd is not included in Message schema, only in MessageDetail
+
+    @pytest.mark.asyncio
+    async def test_get_message_context_with_no_surrounding_messages(
+        self, message_service, mock_db
+    ):
+        """Test getting message context when there are no before/after messages."""
+        # Setup
+        message_id = "507f1f77bcf86cd799439011"
+        target_message = {
+            "_id": ObjectId(message_id),
+            "uuid": "msg-only",
+            "type": "user",
+            "sessionId": "session-123",
+            "content": "Only message in session",
+            "timestamp": datetime.now(UTC),
+        }
+
+        mock_db.messages.find_one = AsyncMock(return_value=target_message)
+
+        # Mock empty cursors
+        empty_cursor = MagicMock()
+        empty_cursor.sort.return_value.limit.return_value.__aiter__ = (
+            lambda self: async_iter([])
+        )
+        mock_db.messages.find.return_value = empty_cursor
+
+        # Execute
+        context = await message_service.get_message_context(
+            message_id, before=5, after=5
+        )
+
+        # Assert
+        assert context is not None
+        assert len(context["before"]) == 0
+        assert len(context["after"]) == 0
+        assert context["target"].uuid == "msg-only"
+
+    @pytest.mark.asyncio
+    async def test_get_message_context_message_not_found(
+        self, message_service, mock_db
+    ):
+        """Test getting context for non-existent message."""
+        # Setup
+        mock_db.messages.find_one = AsyncMock(return_value=None)
+
+        # Execute
+        context = await message_service.get_message_context(
+            "507f1f77bcf86cd799439011", 2, 2
+        )
+
+        # Assert
+        assert context is None

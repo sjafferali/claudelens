@@ -99,7 +99,7 @@ class ProjectService:
         self, project_id: ObjectId, update: ProjectUpdate
     ) -> ProjectInDB | None:
         """Update a project."""
-        update_dict = update.dict(exclude_unset=True)
+        update_dict = update.model_dump(exclude_unset=True)
         if update_dict:
             update_dict["updatedAt"] = datetime.now(UTC)
 

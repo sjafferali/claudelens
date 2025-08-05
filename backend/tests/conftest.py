@@ -23,4 +23,9 @@ def setup_test_environment():
     # Set other test environment variables if needed
     os.environ["ENVIRONMENT"] = "test"
 
-    # Cleanup is handled by atexit in testcontainers_db.py
+    yield  # Run tests
+
+    # Cleanup testcontainer after all tests complete
+    from app.core.testcontainers_db import stop_testcontainer_mongodb
+
+    stop_testcontainer_mongodb()
