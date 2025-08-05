@@ -142,13 +142,13 @@ class AnalyticsService:
         return None
 
     async def get_summary(self, time_range: TimeRange) -> AnalyticsSummary:
-        """Get analytics summary."""
+        """Get analytics summary optimized for dashboard performance."""
         time_filter = self._get_time_filter(time_range)
 
-        # Current period stats
-        current_stats = await self._get_period_stats(time_filter)
+        # Get current period stats and most active project in a single optimized query
+        current_stats = await self._get_period_stats_with_project(time_filter)
 
-        # Previous period stats for trends
+        # Previous period stats for trends (only if needed)
         if time_range != TimeRange.ALL_TIME:
             prev_filter = self._get_previous_period_filter(time_range)
             prev_stats = await self._get_period_stats(prev_filter)
@@ -164,48 +164,6 @@ class AnalyticsService:
             messages_trend = 0
             cost_trend = 0
 
-        # Get most active project
-        project_pipeline: list[dict[str, Any]] = [
-            {"$match": time_filter},
-            {
-                "$lookup": {
-                    "from": "sessions",
-                    "localField": "sessionId",
-                    "foreignField": "sessionId",
-                    "as": "session",
-                }
-            },
-            {"$unwind": "$session"},
-            {"$group": {"_id": "$session.projectId", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 1},
-            {
-                "$lookup": {
-                    "from": "projects",
-                    "localField": "_id",
-                    "foreignField": "_id",
-                    "as": "project",
-                }
-            },
-            {"$unwind": "$project"},
-        ]
-
-        project_result = await self.db.messages.aggregate(project_pipeline).to_list(1)
-        most_active_project = (
-            project_result[0]["project"]["name"] if project_result else None
-        )
-
-        # Get most used model
-        model_pipeline: list[dict[str, Any]] = [
-            {"$match": {**time_filter, "model": {"$exists": True}}},
-            {"$group": {"_id": "$model", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 1},
-        ]
-
-        model_result = await self.db.messages.aggregate(model_pipeline).to_list(1)
-        most_used_model = model_result[0]["_id"] if model_result else None
-
         return AnalyticsSummary(
             total_messages=current_stats["total_messages"],
             total_sessions=current_stats["total_sessions"],
@@ -213,8 +171,8 @@ class AnalyticsService:
             total_cost=round(current_stats["total_cost"], 2),
             messages_trend=messages_trend,
             cost_trend=cost_trend,
-            most_active_project=most_active_project,
-            most_used_model=most_used_model,
+            most_active_project=current_stats["most_active_project"],
+            most_used_model=None,  # Not used by Dashboard, removed for performance
             time_range=time_range,
         )
 
@@ -840,6 +798,112 @@ class AnalyticsService:
             "total_sessions": session_count,
             "total_projects": project_count,
             "total_cost": total_cost,
+        }
+
+    async def _get_period_stats_with_project(
+        self, time_filter: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Get basic stats for a time period including most active project in one optimized query."""
+        pipeline: list[dict[str, Any]] = [
+            {"$match": time_filter},
+            {
+                "$facet": {
+                    # Count messages and calculate cost
+                    "messageCostStats": [
+                        {
+                            "$group": {
+                                "_id": None,
+                                "count": {"$sum": 1},
+                                "totalCost": {"$sum": "$costUsd"},
+                            }
+                        }
+                    ],
+                    # Count unique sessions
+                    "sessionStats": [
+                        {"$group": {"_id": "$sessionId"}},
+                        {"$count": "count"},
+                    ],
+                    # Count unique projects and get most active project in one pass
+                    "projectStats": [
+                        # Group by sessionId first to reduce lookup size
+                        {"$group": {"_id": "$sessionId"}},
+                        {
+                            "$lookup": {
+                                "from": "sessions",
+                                "localField": "_id",
+                                "foreignField": "sessionId",
+                                "as": "session",
+                            }
+                        },
+                        {"$unwind": "$session"},
+                        {"$group": {"_id": "$session.projectId", "count": {"$sum": 1}}},
+                        {"$sort": {"count": -1}},
+                        {
+                            "$facet": {
+                                "totalCount": [{"$count": "count"}],
+                                "mostActive": [
+                                    {"$limit": 1},
+                                    {
+                                        "$lookup": {
+                                            "from": "projects",
+                                            "localField": "_id",
+                                            "foreignField": "_id",
+                                            "as": "project",
+                                        }
+                                    },
+                                    {"$unwind": "$project"},
+                                ],
+                            }
+                        },
+                    ],
+                }
+            },
+        ]
+
+        result = await self.db.messages.aggregate(pipeline).to_list(1)
+
+        if not result:
+            return {
+                "total_messages": 0,
+                "total_sessions": 0,
+                "total_projects": 0,
+                "total_cost": 0.0,
+                "most_active_project": None,
+            }
+
+        facet_results = result[0]
+
+        # Extract message and cost stats
+        message_cost_stats = facet_results.get("messageCostStats", [])
+        message_count = message_cost_stats[0]["count"] if message_cost_stats else 0
+        total_cost = message_cost_stats[0]["totalCost"] if message_cost_stats else 0
+
+        # Extract session count
+        session_stats = facet_results.get("sessionStats", [])
+        session_count = session_stats[0]["count"] if session_stats else 0
+
+        # Extract project count and most active project
+        project_stats = facet_results.get("projectStats", [{}])[0]
+        total_count_result = project_stats.get("totalCount", [])
+        project_count = total_count_result[0]["count"] if total_count_result else 0
+
+        most_active_result = project_stats.get("mostActive", [])
+        most_active_project = (
+            most_active_result[0]["project"]["name"] if most_active_result else None
+        )
+
+        # Convert Decimal128 to float if needed
+        if hasattr(total_cost, "to_decimal"):
+            total_cost = float(str(total_cost))
+        else:
+            total_cost = float(total_cost) if total_cost is not None else 0.0
+
+        return {
+            "total_messages": message_count,
+            "total_sessions": session_count,
+            "total_projects": project_count,
+            "total_cost": total_cost,
+            "most_active_project": most_active_project,
         }
 
     def _get_previous_period_filter(self, time_range: TimeRange) -> dict[str, Any]:
