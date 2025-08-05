@@ -2548,21 +2548,7 @@ class AnalyticsService:
                     "sessions": {"$addToSet": "$sessionId"},
                     "first_activity": {"$min": "$timestamp"},
                     "last_activity": {"$max": "$timestamp"},
-                    # Simplify tool names collection for better performance
-                    "tool_names": {
-                        "$push": {
-                            "$cond": [
-                                {
-                                    "$and": [
-                                        {"$ne": ["$toolUseResult", None]},
-                                        {"$ne": ["$toolUseResult", {}]},
-                                    ]
-                                },
-                                "$toolUseResult",
-                                None,
-                            ]
-                        }
-                    },
+                    # Don't collect all tool results - we'll aggregate them separately
                 }
             },
             {
@@ -2589,18 +2575,14 @@ class AnalyticsService:
                             1,
                         ]
                     },
-                    "tool_names": {
-                        "$filter": {
-                            "input": "$tool_names",
-                            "as": "tool",
-                            "cond": {"$ne": ["$$tool", None]},
-                        }
-                    },
                 }
             },
         ]
 
         results = await self.db.messages.aggregate(pipeline).to_list(None)
+
+        # Get tool usage counts separately for each branch
+        tool_usage_by_branch = await self._get_tool_usage_by_branch(time_filter)
 
         # Filter branches by patterns if specified
         filtered_results = []
@@ -2631,19 +2613,12 @@ class AnalyticsService:
 
             # Calculate top operations
             top_operations = []
-            tool_usage_counts: dict[str, int] = {}
-            for tool_result in result.get("tool_names", []):
-                if tool_result and isinstance(tool_result, dict):
-                    # Extract tool names from the toolUseResult object
-                    for tool_name in tool_result.keys():
-                        if tool_name:  # Skip empty/None tool names
-                            tool_usage_counts[tool_name] = (
-                                tool_usage_counts.get(tool_name, 0) + 1
-                            )
+            # Get tool usage for this branch from the separate aggregation
+            branch_tool_usage = tool_usage_by_branch.get(result["branch"], {})
 
             # Get top 5 operations
             sorted_tools = sorted(
-                tool_usage_counts.items(), key=lambda x: x[1], reverse=True
+                branch_tool_usage.items(), key=lambda x: x[1], reverse=True
             )
             for tool_name, count in sorted_tools[:5]:
                 top_operations.append(
@@ -2687,6 +2662,58 @@ class AnalyticsService:
             branch_comparisons=branch_comparisons,
             time_range=time_range,
         )
+
+    async def _get_tool_usage_by_branch(
+        self, time_filter: dict[str, Any]
+    ) -> dict[str, dict[str, int]]:
+        """Get tool usage counts by branch using a separate aggregation."""
+        # Use $objectToArray to convert toolUseResult keys to array for counting
+        pipeline: list[dict[str, Any]] = [
+            {
+                "$match": {
+                    **time_filter,
+                    "toolUseResult": {"$exists": True, "$ne": None},
+                }
+            },
+            # Convert toolUseResult object to array of key-value pairs
+            {
+                "$project": {
+                    "gitBranch": 1,
+                    "tools": {"$objectToArray": "$toolUseResult"},
+                }
+            },
+            # Unwind the tools array to create a document per tool
+            {"$unwind": "$tools"},
+            # Group by branch and tool name to count usage
+            {
+                "$group": {
+                    "_id": {
+                        "branch": "$gitBranch",
+                        "tool": "$tools.k",  # k is the key (tool name)
+                    },
+                    "count": {"$sum": 1},
+                }
+            },
+            # Reshape to group by branch
+            {
+                "$group": {
+                    "_id": "$_id.branch",
+                    "tools": {"$push": {"tool": "$_id.tool", "count": "$count"}},
+                }
+            },
+        ]
+
+        results = await self.db.messages.aggregate(pipeline).to_list(None)
+
+        # Convert to dictionary format
+        tool_usage_by_branch: dict[str, dict[str, int]] = {}
+        for result in results:
+            branch = self._normalize_branch_name(result["_id"])
+            tool_usage_by_branch[branch] = {}
+            for tool_info in result["tools"]:
+                tool_usage_by_branch[branch][tool_info["tool"]] = tool_info["count"]
+
+        return tool_usage_by_branch
 
     def _normalize_branch_name(self, branch_name: Optional[str]) -> str:
         """Normalize branch name by removing remote prefix."""
