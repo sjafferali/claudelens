@@ -10,6 +10,30 @@
 
 Archive, search, and visualize your Claude conversation history. Transform your scattered Claude conversations into a comprehensive, searchable analytics platform with advanced insights and cost tracking.
 
+## 🎯 At a Glance
+
+ClaudeLens transforms your Claude conversations into a powerful analytics dashboard with real-time insights, beautiful visualizations, and intelligent search capabilities. See your AI interactions like never before.
+
+<div align="center">
+
+### 📊 **Professional Analytics Dashboard**
+![ClaudeLens Dashboard](./docs/images/dashboard-overview.png)
+*Real-time dashboard with activity heatmaps, cost tracking, and session analytics*
+
+### 💰 **Advanced Cost Analytics**
+![Cost Analytics](./docs/images/analytics-dashboard.png)
+*Comprehensive cost tracking with trend analysis, model breakdowns, and predictions*
+
+### 🔍 **Intelligent Search Interface**
+![Search Interface](./docs/images/search-interface.png)
+*Advanced search with auto-suggestions, filtering, and highlighted results*
+
+### 🌊 **Interactive Conversation Flow**
+![Conversation Flow](./docs/images/sessions-interface.png)
+*Interactive conversation flow visualization showing branching patterns and relationships*
+
+</div>
+
 ## ✨ Features
 
 ### 🔍 **Advanced Search & Discovery**
@@ -19,15 +43,25 @@ Archive, search, and visualize your Claude conversation history. Transform your 
 - Recent search history for quick access
 
 ### 📊 **Comprehensive Analytics Dashboard**
-- **Cost Tracking**: Real-time cost analysis with prediction models
-- **Token Analytics**: Usage patterns, efficiency metrics, and percentile analysis
-- **Tool Usage**: Detailed analytics on tool execution and success rates
-- **Conversation Flow**: Interactive visualization of conversation patterns
-- **Performance Benchmarking**: Multi-dimensional performance comparisons
-- **Activity Heatmaps**: Temporal usage patterns and peak activity insights
-- **Git Branch Analytics**: Development workflow insights and branch activity
-- **Session Health Monitoring**: Error tracking and success rate analysis
-- **Directory Usage**: Workspace analysis and project organization insights
+
+Experience enterprise-grade analytics with ClaudeLens's sophisticated dashboard interface:
+
+- **💰 Real-time Cost Tracking**: Interactive charts showing daily spending, model breakdowns, and cost predictions with confidence intervals
+- **🎯 Token Efficiency Analytics**: Advanced percentile analysis (p50, p90, p95) with performance insights and usage patterns
+- **🔧 Tool Execution Intelligence**: Detailed success rates, execution times, and error pattern analysis across all Claude tools
+- **🌊 Interactive Conversation Flow**: ReactFlow-powered visualization showing conversation branching, sidechains, and dialogue complexity
+- **📈 Performance Benchmarking**: Multi-dimensional comparisons across projects, teams, and time periods with actionable insights
+- **🔥 GitHub-style Activity Heatmaps**: Visual timeline of your Claude usage patterns with timezone-aware daily/hourly breakdowns
+- **🌿 Git Branch Analytics**: Development workflow insights showing Claude usage across different branches and project phases
+- **💚 Session Health Monitoring**: Real-time error tracking, success rates, and conversation quality metrics
+- **📁 Smart Directory Analysis**: Workspace organization insights with treemap visualizations and project structure analytics
+
+<div align="center">
+
+![Analytics Dashboard Features](./docs/images/analytics-dashboard.png)
+*The analytics dashboard showcasing cost trends, activity heatmaps, and conversation flow diagrams*
+
+</div>
 
 ### 🔄 **Intelligent Synchronization**
 - Automatic sync from local Claude directory with file watching
@@ -37,11 +71,24 @@ Archive, search, and visualize your Claude conversation history. Transform your 
 - Real-time WebSocket updates for live synchronization
 
 ### 🎨 **Modern User Interface**
-- Beautiful conversation viewer with syntax highlighting
-- Responsive design optimized for all screen sizes
-- Interactive data visualizations with Recharts and ReactFlow
-- Project-based organization with filtering and search
-- Real-time updates via WebSocket connections
+
+ClaudeLens features a polished, professional interface designed for power users:
+
+- **🎯 Elegant Dashboard Design**: Clean sidebar navigation with sophisticated dark/light theme support and smooth transitions
+- **📱 Responsive Excellence**: Mobile-friendly responsive design that works perfectly on desktop, tablet, and mobile devices
+- **📊 Interactive Visualizations**: Rich charts powered by Recharts and ReactFlow with hover tooltips, zoom controls, and theme-aware styling
+- **🔍 Smart Search Experience**: Auto-suggestions, advanced filtering with active badges, and highlighted search results
+- **📈 Real-time Live Updates**: WebSocket-powered live statistics with animated value changes and connection status indicators
+- **⚡ Performance Optimized**: Debounced search, lazy loading, optimized renders, and intelligent connection management
+- **♿ Accessibility First**: ARIA labels, keyboard navigation, focus management, and screen reader support
+- **🎨 Professional Polish**: Consistent typography, layered backgrounds, hover effects, and smooth loading states
+
+<div align="center">
+
+![UI Interface Showcase](./docs/images/projects-interface.png)
+*ClaudeLens interface showing the clean navigation, interactive charts, and professional design system*
+
+</div>
 
 ### 🛠️ **Developer Experience**
 - Comprehensive REST API with OpenAPI documentation
@@ -166,9 +213,10 @@ ClaudeLens uses a modern multi-component architecture:
 ## 📚 Documentation
 
 ### Quick Links
+- **[UI/UX Guide](./docs/UI-GUIDE.md)** - Complete interface walkthrough with screenshots and features
 - **[API Documentation](http://localhost:8000/docs)** - Interactive OpenAPI documentation
-- **[CLI Reference](#cli-reference)** - Command-line tool usage guide
-- **[Configuration Guide](#configuration)** - Environment variables and deployment options
+- **[CLI Reference](./docs/CLI.md)** - Command-line tool usage guide
+- **[Configuration Guide](./docs/CONFIGURATION.md)** - Environment variables and deployment options
 - **[Development Guide](#development)** - Contributing and development setup
 - **[Troubleshooting](#troubleshooting)** - Common issues and solutions
 
@@ -184,6 +232,13 @@ ClaudeLens provides a comprehensive REST API with 67+ endpoints organized into t
 - **Ingestion** (3 endpoints): Batch message ingestion with validation
 - **WebSocket** (6 endpoints): Real-time updates for session and global statistics
 - **Health/Status** (5 endpoints): System health monitoring and API status
+
+<div align="center">
+
+![API Documentation](./docs/images/dashboard-overview.png)
+*Interactive OpenAPI documentation with comprehensive endpoint reference*
+
+</div>
 
 ### Key Features by Endpoint Category
 
@@ -512,6 +567,31 @@ node --version
 - Use `--watch` mode for continuous sync instead of frequent manual syncs
 - Check Claude directory size and consider splitting large projects
 - Monitor CLI debug output for bottlenecks
+
+## 🌟 Why Choose ClaudeLens?
+
+### **Enterprise-Ready Analytics**
+ClaudeLens isn't just another conversation viewer—it's a comprehensive analytics platform that provides the insights you need to optimize your AI workflow. With **67+ API endpoints**, **real-time WebSocket updates**, and **advanced visualization capabilities**, it's built for users who demand professional-grade tools.
+
+### **Beautiful, Intuitive Interface**
+Our sophisticated **React + TypeScript** interface provides a smooth, responsive experience with:
+- **Professional dark/light themes** with smooth transitions
+- **Interactive charts and graphs** powered by Recharts and ReactFlow
+- **Real-time updates** with WebSocket integration and animated statistics
+- **Mobile-responsive design** that works perfectly on all devices
+
+<div align="center">
+
+![Feature Showcase](./docs/images/analytics-dashboard.png)
+
+</div>
+
+### **Comprehensive Documentation**
+Every feature is thoroughly documented with:
+- **Step-by-step setup guides** for multiple deployment scenarios
+- **Complete API reference** with interactive examples
+- **Detailed UI walkthrough** in our [UI/UX Guide](./docs/UI-GUIDE.md)
+- **Production deployment guides** with security best practices
 
 ## Contributing
 
