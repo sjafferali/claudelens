@@ -20,6 +20,7 @@ import { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getMessageUuid, getMessageCost } from '@/types/message-extensions';
+import { copyToClipboard } from '@/utils/clipboard';
 
 interface MessageListProps {
   messages: Message[];
@@ -59,13 +60,11 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
     });
   };
 
-  const copyToClipboard = async (text: string, messageId: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
+  const handleCopyToClipboard = async (text: string, messageId: string) => {
+    const success = await copyToClipboard(text);
+    if (success) {
       setCopiedId(messageId);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
     }
   };
 
@@ -193,7 +192,7 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
             >
               <div className="relative group">
                 <button
-                  onClick={() => copyToClipboard(formatted, messageId)}
+                  onClick={() => handleCopyToClipboard(formatted, messageId)}
                   className="absolute top-3 right-3 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-700 backdrop-blur-sm shadow-lg z-10 border border-gray-200/50 dark:border-gray-600/50"
                   title="Copy JSON to clipboard"
                 >
@@ -288,7 +287,7 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
               <div key={i} className="relative group my-6">
                 <button
                   onClick={() =>
-                    copyToClipboard(code.trim(), `${messageId}-${i}`)
+                    handleCopyToClipboard(code.trim(), `${messageId}-${i}`)
                   }
                   className="absolute top-3 right-3 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/95 dark:bg-slate-800/95 hover:bg-white dark:hover:bg-slate-700 backdrop-blur-sm shadow-lg z-10 border border-slate-200/50 dark:border-slate-600/50"
                   title={`Copy ${language} code`}
@@ -514,7 +513,10 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
                   </div>
                   <button
                     onClick={() =>
-                      copyToClipboard(message.content, `message-${message._id}`)
+                      handleCopyToClipboard(
+                        message.content,
+                        `message-${message._id}`
+                      )
                     }
                     className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
                     title="Copy message"
@@ -541,7 +543,10 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
                 {!isFirstMessage && !isDifferentSender && (
                   <button
                     onClick={() =>
-                      copyToClipboard(message.content, `message-${message._id}`)
+                      handleCopyToClipboard(
+                        message.content,
+                        `message-${message._id}`
+                      )
                     }
                     className="absolute top-4 right-4 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 backdrop-blur-sm shadow-md border border-slate-200/50 dark:border-slate-600/50"
                     title="Copy message"

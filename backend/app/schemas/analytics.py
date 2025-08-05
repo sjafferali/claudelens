@@ -410,6 +410,88 @@ class PerformanceFactorsAnalytics(BaseModel):
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+# Token Analytics Schemas
+
+
+class TokenPercentiles(BaseModel):
+    """Token usage percentiles."""
+
+    p50: float = Field(..., description="50th percentile (median) token usage")
+    p90: float = Field(..., description="90th percentile token usage")
+    p95: float = Field(..., description="95th percentile token usage")
+    p99: float = Field(..., description="99th percentile token usage")
+
+
+class TokenAnalyticsDataPoint(BaseModel):
+    """Token analytics data point in time series."""
+
+    timestamp: datetime = Field(..., description="Data point timestamp")
+    avg_tokens: float = Field(..., description="Average token usage")
+    p50: float = Field(..., description="50th percentile token usage")
+    p90: float = Field(..., description="90th percentile token usage")
+    message_count: int = Field(
+        ..., ge=0, description="Number of messages in this time bucket"
+    )
+
+
+class TokenDistributionBucket(BaseModel):
+    """Token usage distribution bucket."""
+
+    bucket: str = Field(
+        ...,
+        description="Bucket range (e.g., '0-1000', '1000-5000', '5000-10000', '10000+')",
+    )
+    count: int = Field(..., ge=0, description="Number of messages in this bucket")
+    percentage: float = Field(
+        ..., ge=0, le=100, description="Percentage of total messages"
+    )
+
+
+class TokenAnalytics(BaseModel):
+    """Token usage analytics response."""
+
+    percentiles: TokenPercentiles = Field(
+        ..., description="Overall percentiles for the time range"
+    )
+    time_series: list[TokenAnalyticsDataPoint] = Field(
+        ..., description="Time series data"
+    )
+    distribution: list[TokenDistributionBucket] = Field(
+        ..., description="Token usage distribution"
+    )
+    time_range: TimeRange = Field(..., description="Time range for the analysis")
+    group_by: str = Field(..., description="Grouping method used")
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TokenPerformanceCorrelation(BaseModel):
+    """Token performance factor correlation."""
+
+    factor: str = Field(
+        ..., description="Factor name (e.g., 'message_length', 'tool_count')"
+    )
+    correlation_strength: float = Field(
+        ..., ge=-1, le=1, description="Pearson correlation coefficient"
+    )
+    impact_tokens: float = Field(..., description="Average impact on token usage")
+    sample_size: int = Field(
+        ..., ge=0, description="Number of samples used for correlation"
+    )
+
+
+class TokenPerformanceFactorsAnalytics(BaseModel):
+    """Token performance factors analysis response."""
+
+    correlations: list[TokenPerformanceCorrelation] = Field(
+        ..., description="Factor correlations"
+    )
+    recommendations: list[str] = Field(
+        ..., description="Token usage optimization recommendations"
+    )
+    time_range: TimeRange = Field(..., description="Time range for the analysis")
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 # Git Branch Analytics Schemas
 
 

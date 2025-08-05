@@ -4,8 +4,6 @@ import {
   ArrowLeft,
   Search,
   Copy,
-  Pin,
-  Download,
   ChevronDown,
   ChevronUp,
   Check,
@@ -33,6 +31,7 @@ import { getMessageUuid, getMessageCost } from '@/types/message-extensions';
 import { getSessionTitle } from '@/utils/session';
 import { ToolDisplay } from '@/components/ToolDisplay';
 import { ToolResultDisplay } from '@/components/ToolResultDisplay';
+import { copyToClipboard } from '@/utils/clipboard';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -219,13 +218,11 @@ export default function SessionDetail() {
     });
   };
 
-  const copyToClipboard = async (text: string, messageId: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
+  const handleCopyToClipboard = async (text: string, messageId: string) => {
+    const success = await copyToClipboard(text);
+    if (success) {
       setCopiedId(messageId);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
     }
   };
 
@@ -448,7 +445,7 @@ export default function SessionDetail() {
                   onToggleExpanded={toggleExpanded}
                   onToggleToolResult={toggleToolResult}
                   onToggleToolPairExpanded={toggleToolPairExpanded}
-                  onCopy={copyToClipboard}
+                  onCopy={handleCopyToClipboard}
                   messageRefs={messageRefs}
                   getMessageColors={getMessageColors}
                   getMessageLabel={getMessageLabel}
@@ -508,7 +505,7 @@ export default function SessionDetail() {
               <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
                 <RawView
                   messages={filteredMessages}
-                  onCopy={copyToClipboard}
+                  onCopy={handleCopyToClipboard}
                   copiedId={copiedId}
                 />
                 {canLoadMore && (
@@ -550,7 +547,7 @@ export default function SessionDetail() {
                       <span className="text-sm text-muted-c">Session ID</span>
                       <button
                         onClick={() =>
-                          copyToClipboard(session.sessionId, 'session-id')
+                          handleCopyToClipboard(session.sessionId, 'session-id')
                         }
                         className="p-1 hover:bg-layer-tertiary rounded transition-colors"
                         title="Copy Session ID"
@@ -1323,14 +1320,6 @@ function TimelineView({
                             Copy
                           </>
                         )}
-                      </button>
-                      <button className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1">
-                        <Pin className="h-3 w-3" />
-                        Pin
-                      </button>
-                      <button className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1">
-                        <Download className="h-3 w-3" />
-                        Export
                       </button>
                     </div>
                   </div>

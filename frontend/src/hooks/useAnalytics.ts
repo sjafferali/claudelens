@@ -59,29 +59,6 @@ export function useConversationFlow(
   });
 }
 
-export function useResponseTimes(
-  timeRange: TimeRange = TimeRange.LAST_30_DAYS,
-  percentiles?: number[],
-  groupBy: 'hour' | 'day' | 'model' | 'tool_count' = 'hour'
-) {
-  return useQuery({
-    queryKey: ['analytics', 'response-times', timeRange, percentiles, groupBy],
-    queryFn: () =>
-      analyticsApi.getResponseTimes(timeRange, percentiles, groupBy),
-    staleTime: 300000, // 5 minutes
-  });
-}
-
-export function usePerformanceFactors(
-  timeRange: TimeRange = TimeRange.LAST_30_DAYS
-) {
-  return useQuery({
-    queryKey: ['analytics', 'performance-factors', timeRange],
-    queryFn: () => analyticsApi.getPerformanceFactors(timeRange),
-    staleTime: 300000, // 5 minutes
-  });
-}
-
 export function useTokenAnalytics(
   timeRange: TimeRange = TimeRange.LAST_30_DAYS,
   percentiles?: number[],

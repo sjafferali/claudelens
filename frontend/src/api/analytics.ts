@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { ResponseTimeAnalytics, PerformanceFactorsAnalytics } from './types';
+import { TokenAnalytics, TokenPerformanceFactorsAnalytics } from './types';
 
 export enum TimeRange {
   LAST_24_HOURS = '24h',
@@ -37,7 +37,6 @@ export interface HeatmapCell {
   hour: number;
   count: number;
   avg_cost?: number;
-  avg_response_time?: number;
 }
 
 export interface CostAnalytics {
@@ -672,42 +671,11 @@ export const analyticsApi = {
     );
   },
 
-  async getResponseTimes(
-    timeRange: TimeRange = TimeRange.LAST_30_DAYS,
-    percentiles?: number[],
-    groupBy: 'hour' | 'day' | 'model' | 'tool_count' = 'hour'
-  ): Promise<ResponseTimeAnalytics> {
-    const params = new URLSearchParams({
-      time_range: timeRange,
-      group_by: groupBy,
-    });
-
-    if (percentiles) {
-      percentiles.forEach((p) => params.append('percentiles', p.toString()));
-    }
-
-    return apiClient.get<ResponseTimeAnalytics>(
-      `/analytics/response-times?${params.toString()}`
-    );
-  },
-
-  async getPerformanceFactors(
-    timeRange: TimeRange = TimeRange.LAST_30_DAYS
-  ): Promise<PerformanceFactorsAnalytics> {
-    const params = new URLSearchParams({
-      time_range: timeRange,
-    });
-
-    return apiClient.get<PerformanceFactorsAnalytics>(
-      `/analytics/performance-factors?${params.toString()}`
-    );
-  },
-
   async getTokenAnalytics(
     timeRange: TimeRange = TimeRange.LAST_30_DAYS,
     percentiles?: number[],
     groupBy: 'hour' | 'day' | 'model' = 'hour'
-  ): Promise<ResponseTimeAnalytics> {
+  ): Promise<TokenAnalytics> {
     const params = new URLSearchParams({
       time_range: timeRange,
       group_by: groupBy,
@@ -717,19 +685,19 @@ export const analyticsApi = {
       percentiles.forEach((p) => params.append('percentiles', p.toString()));
     }
 
-    return apiClient.get<ResponseTimeAnalytics>(
+    return apiClient.get<TokenAnalytics>(
       `/analytics/token-analytics?${params.toString()}`
     );
   },
 
   async getTokenPerformanceFactors(
     timeRange: TimeRange = TimeRange.LAST_30_DAYS
-  ): Promise<PerformanceFactorsAnalytics> {
+  ): Promise<TokenPerformanceFactorsAnalytics> {
     const params = new URLSearchParams({
       time_range: timeRange,
     });
 
-    return apiClient.get<PerformanceFactorsAnalytics>(
+    return apiClient.get<TokenPerformanceFactorsAnalytics>(
       `/analytics/token-performance-factors?${params.toString()}`
     );
   },

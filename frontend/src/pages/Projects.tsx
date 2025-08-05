@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -12,7 +12,13 @@ import {
 import { useProjects, useProject, useDeleteProject } from '@/hooks/useProjects';
 import { useSessions } from '@/hooks/useSessions';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, FolderOpen, MessageSquare, Trash2 } from 'lucide-react';
+import {
+  Loader2,
+  FolderOpen,
+  MessageSquare,
+  Trash2,
+  Search,
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Project } from '@/api/types';
 import { getSessionTitle } from '@/utils/session';
@@ -30,6 +36,7 @@ export default function Projects() {
 function ProjectsList() {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deleteProjectName, setDeleteProjectName] = useState<string>('');
   const [deleteProjectStats, setDeleteProjectStats] = useState<{
@@ -39,12 +46,41 @@ function ProjectsList() {
   const pageSize = 12;
 
   const { data, isLoading, error, refetch } = useProjects({
-    skip: currentPage * pageSize,
-    limit: pageSize,
+    skip: 0, // Fetch all for client-side filtering
+    limit: 1000, // Fetch more projects for filtering
     sortBy: 'updated_at',
     sortOrder: 'desc',
   });
   const deleteProject = useDeleteProject();
+
+  // Filter projects based on search query
+  const filteredProjects = useMemo(() => {
+    if (!data?.items || !searchQuery) return data?.items || [];
+
+    const query = searchQuery.toLowerCase();
+    return data.items.filter(
+      (project) =>
+        project.name.toLowerCase().includes(query) ||
+        project.path.toLowerCase().includes(query) ||
+        (project.description &&
+          project.description.toLowerCase().includes(query))
+    );
+  }, [data?.items, searchQuery]);
+
+  // Paginate filtered results
+  const paginatedProjects = useMemo(() => {
+    const start = currentPage * pageSize;
+    const end = start + pageSize;
+    return filteredProjects.slice(start, end);
+  }, [filteredProjects, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredProjects.length / pageSize);
+  const hasMore = currentPage < totalPages - 1;
+
+  // Reset to first page when search query changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchQuery]);
 
   const handleDelete = async () => {
     if (!deleteProjectId) return;
@@ -97,6 +133,26 @@ function ProjectsList() {
         </p>
       </div>
 
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Search projects by name, path, or description..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       {isLoading ? (
         <div className="flex items-center justify-center p-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -104,14 +160,26 @@ function ProjectsList() {
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {data?.items.length === 0 ? (
+            {filteredProjects.length === 0 ? (
               <Card className="col-span-full">
                 <CardContent className="p-12 text-center">
-                  <p className="text-muted-foreground">No projects found</p>
+                  <p className="text-muted-foreground">
+                    {searchQuery
+                      ? `No projects found matching "${searchQuery}"`
+                      : 'No projects found'}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : paginatedProjects.length === 0 ? (
+              <Card className="col-span-full">
+                <CardContent className="p-12 text-center">
+                  <p className="text-muted-foreground">
+                    No projects on this page
+                  </p>
                 </CardContent>
               </Card>
             ) : (
-              data?.items.map((project) => (
+              paginatedProjects.map((project) => (
                 <Card
                   key={project._id}
                   onClick={() => navigate(`/projects/${project._id}`)}
@@ -169,12 +237,18 @@ function ProjectsList() {
             )}
           </div>
 
-          {data && data.items.length > 0 && (
+          {filteredProjects.length > 0 && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {currentPage * pageSize + 1} to{' '}
-                {Math.min((currentPage + 1) * pageSize, data.total)} of{' '}
-                {data.total}
+                Showing{' '}
+                {Math.min(currentPage * pageSize + 1, filteredProjects.length)}{' '}
+                to{' '}
+                {Math.min(
+                  (currentPage + 1) * pageSize,
+                  filteredProjects.length
+                )}{' '}
+                of {filteredProjects.length}
+                {searchQuery && ` filtered`} projects
               </p>
               <div className="flex gap-2">
                 <button
@@ -186,7 +260,7 @@ function ProjectsList() {
                 </button>
                 <button
                   onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={!data.has_more}
+                  disabled={!hasMore}
                   className="px-3 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent"
                 >
                   Next

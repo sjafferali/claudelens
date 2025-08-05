@@ -21,14 +21,14 @@ from app.schemas.analytics import (
     GitBranchAnalyticsResponse,
     ModelUsageStats,
     NormalizationMethod,
-    PerformanceFactorsAnalytics,
-    ResponseTimeAnalytics,
     SessionDepthAnalytics,
     SessionHealth,
     SuccessRateMetrics,
     TimeRange,
+    TokenAnalytics,
     TokenEfficiencyDetailed,
     TokenEfficiencySummary,
+    TokenPerformanceFactorsAnalytics,
     TokenUsageStats,
     ToolUsageDetailed,
     ToolUsageSummary,
@@ -266,45 +266,7 @@ async def get_directory_usage(
     return await service.get_directory_usage(time_range, depth, min_cost)
 
 
-@router.get("/response-times", response_model=ResponseTimeAnalytics)
-async def get_response_times(
-    db: CommonDeps,
-    time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
-    percentiles: list[int]
-    | None = Query(
-        None, description="Percentiles to calculate (default: [50, 90, 95, 99])"
-    ),
-    group_by: str = Query(
-        "hour", pattern="^(hour|day|model|tool_count)$", description="Grouping method"
-    ),
-) -> ResponseTimeAnalytics:
-    """Get response time analytics with percentiles and distribution.
-
-    Returns response time percentiles, time series data, and distribution buckets
-    for analyzing performance trends and outliers.
-    """
-    if percentiles is None:
-        percentiles = [50, 90, 95, 99]
-
-    service = AnalyticsService(db)
-    return await service.get_response_times(time_range, percentiles, group_by)
-
-
-@router.get("/performance-factors", response_model=PerformanceFactorsAnalytics)
-async def get_performance_factors(
-    db: CommonDeps,
-    time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
-) -> PerformanceFactorsAnalytics:
-    """Get performance factors analysis.
-
-    Analyzes correlations between various factors (message length, tool usage, model type, etc.)
-    and response times to identify performance bottlenecks and optimization opportunities.
-    """
-    service = AnalyticsService(db)
-    return await service.get_performance_factors(time_range)
-
-
-@router.get("/token-analytics", response_model=ResponseTimeAnalytics)
+@router.get("/token-analytics", response_model=TokenAnalytics)
 async def get_token_analytics(
     db: CommonDeps,
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
@@ -315,7 +277,7 @@ async def get_token_analytics(
     group_by: str = Query(
         "hour", pattern="^(hour|day|model)$", description="Grouping method"
     ),
-) -> ResponseTimeAnalytics:
+) -> TokenAnalytics:
     """Get token usage analytics with percentiles and distribution.
 
     Returns token usage percentiles, time series data, and distribution buckets
@@ -328,11 +290,13 @@ async def get_token_analytics(
     return await service.get_token_analytics(time_range, percentiles, group_by)
 
 
-@router.get("/token-performance-factors", response_model=PerformanceFactorsAnalytics)
+@router.get(
+    "/token-performance-factors", response_model=TokenPerformanceFactorsAnalytics
+)
 async def get_token_performance_factors(
     db: CommonDeps,
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
-) -> PerformanceFactorsAnalytics:
+) -> TokenPerformanceFactorsAnalytics:
     """Get token usage performance factors analysis.
 
     Analyzes correlations between various factors (message length, tool usage, model type, etc.)

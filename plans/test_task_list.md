@@ -14,35 +14,36 @@ This document tracks the tasks for systematically improving test coverage in the
 
 Last updated: 2025-08-05
 
-- Overall backend coverage: ~25%
+- Overall backend coverage: 34%
 - Target coverage: 80%+
 
 ### Files with Lowest Coverage (Priority Targets)
 1. `app/services/ingest_debug.py` - 0% coverage
-2. `app/services/validation.py` - 0% coverage
+2. `app/services/validation.py` - 100% coverage ✓
 3. `app/services/analytics.py` - 6% coverage (1700 lines!)
 4. `app/services/ingest.py` - 7% coverage
-5. `app/services/session.py` - 8% coverage
+5. `app/services/session.py` - 86% coverage ✓
+6. `app/services/message.py` - 97% coverage ✓
 
 ## Task List
 
 ### Phase 1: Core Service Tests (High Priority)
 
 #### Validation Service Tests
-- [ ] Task 1.1: Write tests for `app/services/validation.py` - test message validation logic
-- [ ] Task 1.2: Run all backend tests and ensure they pass
+- [x] Task 1.1: Write tests for `app/services/validation.py` - test message validation logic - 2025-08-05
+- [x] Task 1.2: Run all backend tests and ensure they pass - 2025-08-05
 
 #### Session Service Tests
-- [ ] Task 2.1: Write tests for `app/services/session.py` - test session creation
-- [ ] Task 2.2: Run all backend tests and ensure they pass
-- [ ] Task 2.3: Write tests for `app/services/session.py` - test session updates and queries
-- [ ] Task 2.4: Run all backend tests and ensure they pass
-- [ ] Task 2.5: Write tests for `app/services/session.py` - test session deletion and cleanup
-- [ ] Task 2.6: Run all backend tests and ensure they pass
+- [x] Task 2.1: Write tests for `app/services/session.py` - test session creation - 2025-08-05
+- [x] Task 2.2: Run all backend tests and ensure they pass - 2025-08-05
+- [x] Task 2.3: Write tests for `app/services/session.py` - test session updates and queries - 2025-08-05
+- [x] Task 2.4: Run all backend tests and ensure they pass - 2025-08-05
+- [x] Task 2.5: Write tests for `app/services/session.py` - test session deletion and cleanup - 2025-08-05
+- [x] Task 2.6: Run all backend tests and ensure they pass - 2025-08-05
 
 #### Message Service Tests
-- [ ] Task 3.1: Write tests for `app/services/message.py` - test message creation
-- [ ] Task 3.2: Run all backend tests and ensure they pass
+- [x] Task 3.1: Write tests for `app/services/message.py` - test message creation - 2025-08-05
+- [x] Task 3.2: Run all backend tests and ensure they pass - 2025-08-05
 - [ ] Task 3.3: Write tests for `app/services/message.py` - test message queries and filtering
 - [ ] Task 3.4: Run all backend tests and ensure they pass
 

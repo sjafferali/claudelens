@@ -1,274 +1,420 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  PerformanceFactorsAnalytics,
-  PerformanceCorrelation,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ScatterChart,
+  Scatter,
+  Cell,
+} from 'recharts';
+import {
+  TokenPerformanceFactorsAnalytics,
+  TokenPerformanceCorrelation,
 } from '../api/types';
 import { useStore } from '@/store';
 
 interface TokenPerformanceFactorsProps {
-  data: PerformanceFactorsAnalytics;
-  className?: string;
+  data: TokenPerformanceFactorsAnalytics;
 }
 
 const TokenPerformanceFactors: React.FC<TokenPerformanceFactorsProps> = ({
   data,
-  className = '',
 }) => {
   const theme = useStore((state) => state.ui.theme);
   const isDark = theme === 'dark';
+  const [selectedView, setSelectedView] = useState<
+    'correlations' | 'recommendations'
+  >('correlations');
 
-  const getCorrelationColor = (correlation: number) => {
-    const absCorr = Math.abs(correlation);
-    if (absCorr < 0.3) return isDark ? 'bg-gray-600' : 'bg-gray-400';
-    if (absCorr < 0.5) return isDark ? 'bg-yellow-600' : 'bg-yellow-500';
-    if (absCorr < 0.7) return isDark ? 'bg-orange-600' : 'bg-orange-500';
-    return isDark ? 'bg-red-600' : 'bg-red-500';
+  // Theme-aware colors
+  const chartColors = {
+    grid: isDark ? '#374151' : '#e5e7eb',
+    text: isDark ? '#9ca3af' : '#6b7280',
+    background: isDark ? '#111827' : '#ffffff',
   };
 
-  const getCorrelationWidth = (correlation: number) => {
-    return Math.abs(correlation) * 100;
+  const formatTokens = (tokens: number) => {
+    if (tokens < 1000) return tokens.toString();
+    if (tokens < 1000000) return `${(tokens / 1000).toFixed(1)}K`;
+    return `${(tokens / 1000000).toFixed(1)}M`;
   };
 
-  const formatCorrelation = (value: number) => {
-    const sign = value > 0 ? '+' : '';
-    return `${sign}${(value * 100).toFixed(0)}%`;
+  const formatFactor = (factor: string) => {
+    return factor
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
-  const formatTokens = (value: number): string => {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-    return value.toString();
+  const getCorrelationColor = (strength: number) => {
+    const absStrength = Math.abs(strength);
+    if (absStrength > 0.7) return '#ef4444'; // Strong correlation - red
+    if (absStrength > 0.5) return '#f59e0b'; // Moderate correlation - orange
+    if (absStrength > 0.3) return '#eab308'; // Weak correlation - yellow
+    return '#6b7280'; // Very weak/no correlation - gray
   };
 
-  const getImpactLevel = (impactMs: number): 'high' | 'medium' | 'low' => {
-    if (impactMs > 10000) return 'high';
-    if (impactMs > 5000) return 'medium';
-    return 'low';
+  const getCorrelationLabel = (strength: number) => {
+    const absStrength = Math.abs(strength);
+    if (absStrength > 0.7) return 'Strong';
+    if (absStrength > 0.5) return 'Moderate';
+    if (absStrength > 0.3) return 'Weak';
+    return 'Very Weak';
   };
 
-  const getImpactIcon = (impact: 'high' | 'medium' | 'low') => {
-    switch (impact) {
-      case 'high':
-        return (
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z"
-              clipRule="evenodd"
-            />
-          </svg>
-        );
-      case 'medium':
-        return (
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
-              clipRule="evenodd"
-            />
-          </svg>
-        );
-      default:
-        return (
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z"
-              clipRule="evenodd"
-            />
-          </svg>
-        );
+  const getImpactLevel = (impact: number) => {
+    if (impact > 5000) return 'High';
+    if (impact > 2000) return 'Medium';
+    if (impact > 500) return 'Low';
+    return 'Minimal';
+  };
+
+  // Prepare chart data
+  const correlationData = data.correlations.map(
+    (corr: TokenPerformanceCorrelation) => ({
+      ...corr,
+      factorFormatted: formatFactor(corr.factor),
+      absCorrelation: Math.abs(corr.correlation_strength),
+      color: getCorrelationColor(corr.correlation_strength),
+    })
+  );
+
+  const scatterData = data.correlations.map(
+    (corr: TokenPerformanceCorrelation) => ({
+      x: Math.abs(corr.correlation_strength),
+      y: corr.impact_tokens,
+      factor: formatFactor(corr.factor),
+      correlation: corr.correlation_strength,
+      sampleSize: corr.sample_size,
+      color: getCorrelationColor(corr.correlation_strength),
+    })
+  );
+
+  const CustomTooltip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean;
+    payload?: Array<{
+      payload: {
+        factorFormatted?: string;
+        factor?: string;
+        correlation_strength?: number;
+        correlation?: number;
+        impact_tokens?: number;
+        y?: number;
+        sample_size?: number;
+        sampleSize?: number;
+      };
+    }>;
+  }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          <p className="font-semibold">{data.factorFormatted || data.factor}</p>
+          <p className="text-sm">
+            <span className="text-gray-600 dark:text-gray-400">
+              Correlation:{' '}
+            </span>
+            {(data.correlation_strength || data.correlation)?.toFixed(3)}
+            <span className="ml-1 text-xs">
+              (
+              {getCorrelationLabel(
+                data.correlation_strength || data.correlation || 0
+              )}
+              )
+            </span>
+          </p>
+          <p className="text-sm">
+            <span className="text-gray-600 dark:text-gray-400">Impact: </span>
+            {formatTokens(data.impact_tokens || data.y || 0)}
+            <span className="ml-1 text-xs">
+              ({getImpactLevel(data.impact_tokens || data.y || 0)})
+            </span>
+          </p>
+          <p className="text-sm">
+            <span className="text-gray-600 dark:text-gray-400">
+              Sample Size:{' '}
+            </span>
+            {data.sample_size || data.sampleSize}
+          </p>
+        </div>
+      );
     }
-  };
-
-  const getImpactColor = (impact: 'high' | 'medium' | 'low') => {
-    switch (impact) {
-      case 'high':
-        return isDark ? 'text-red-400' : 'text-red-600';
-      case 'medium':
-        return isDark ? 'text-yellow-400' : 'text-yellow-600';
-      default:
-        return isDark ? 'text-green-400' : 'text-green-600';
-    }
-  };
-
-  const getFactorDisplayName = (factor: string): string => {
-    if (factor.includes('message_length')) return 'Message Length';
-    if (factor.includes('tool_usage')) return 'Tool Usage';
-    if (factor.includes('time_of_day')) return 'Time of Day';
-    if (factor.includes('model_')) {
-      const modelName = factor.replace('model_', '').replace('_tokens', '');
-      return `Model: ${modelName}`;
-    }
-    return factor;
-  };
-
-  const getFactorDescription = (corr: PerformanceCorrelation): string => {
-    const factor = corr.factor;
-    const correlation = corr.correlation_strength;
-
-    if (factor.includes('message_length')) {
-      return `Token usage ${correlation > 0 ? 'increases' : 'decreases'} with message length`;
-    }
-    if (factor.includes('tool_usage')) {
-      return `Using more tools ${correlation > 0 ? 'increases' : 'decreases'} token usage`;
-    }
-    if (factor.includes('time_of_day')) {
-      return 'Token usage patterns throughout the day';
-    }
-    if (factor.includes('model_')) {
-      return `Average ${formatTokens(corr.impact_ms)} tokens per response`;
-    }
-    return '';
+    return null;
   };
 
   return (
-    <div
-      className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 ${className}`}
-    >
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Token Usage Factors
-        </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Factors affecting token consumption in your conversations
-        </p>
-      </div>
+    <div className="p-6">
+      <div className="flex flex-col space-y-4">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Token Usage Performance Factors
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Factors affecting token consumption and optimization
+              recommendations
+            </p>
+          </div>
 
-      {/* Correlations */}
-      <div className="p-4 space-y-4">
-        {data.correlations.map((correlation: PerformanceCorrelation, index) => {
-          const impact = getImpactLevel(correlation.impact_ms);
-          return (
-            <div
-              key={index}
-              className="border border-gray-200 dark:border-gray-700 rounded-lg p-3"
+          {/* View Toggle */}
+          <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            <button
+              onClick={() => setSelectedView('correlations')}
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                selectedView === 'correlations'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <span className={`${getImpactColor(impact)}`}>
-                    {getImpactIcon(impact)}
-                  </span>
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                    {getFactorDisplayName(correlation.factor)}
-                  </h4>
-                </div>
-                <span
-                  className={`text-sm px-2 py-1 rounded-full ${
-                    impact === 'high'
-                      ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
-                      : impact === 'medium'
-                        ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300'
-                        : 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300'
-                  }`}
-                >
-                  {impact} impact
-                </span>
+              Correlations
+            </button>
+            <button
+              onClick={() => setSelectedView('recommendations')}
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                selectedView === 'recommendations'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
+            >
+              Recommendations
+            </button>
+          </div>
+        </div>
+
+        {selectedView === 'correlations' && (
+          <div className="space-y-6">
+            {/* Correlation Strength Chart */}
+            <div>
+              <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">
+                Correlation Strength by Factor
+              </h4>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={correlationData} layout="horizontal">
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={chartColors.grid}
+                      opacity={0.3}
+                    />
+                    <XAxis
+                      type="number"
+                      domain={[0, 1]}
+                      tickFormatter={(value) => value.toFixed(1)}
+                      tick={{ fontSize: 12 }}
+                      stroke={chartColors.text}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="factorFormatted"
+                      tick={{ fontSize: 12 }}
+                      width={120}
+                      stroke={chartColors.text}
+                    />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      contentStyle={{
+                        backgroundColor: chartColors.background,
+                        border: `1px solid ${chartColors.grid}`,
+                        borderRadius: '4px',
+                      }}
+                    />
+                    <Bar dataKey="absCorrelation" radius={[0, 4, 4, 0]}>
+                      {correlationData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
+            </div>
 
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                {getFactorDescription(correlation)}
-              </p>
+            {/* Impact vs Correlation Scatter Plot */}
+            <div>
+              <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">
+                Impact vs Correlation Strength
+              </h4>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={chartColors.grid}
+                      opacity={0.3}
+                    />
+                    <XAxis
+                      type="number"
+                      dataKey="x"
+                      name="Correlation Strength"
+                      domain={[0, 1]}
+                      tickFormatter={(value) => value.toFixed(1)}
+                      tick={{ fontSize: 12 }}
+                      stroke={chartColors.text}
+                    />
+                    <YAxis
+                      type="number"
+                      dataKey="y"
+                      name="Impact (tokens)"
+                      tickFormatter={formatTokens}
+                      tick={{ fontSize: 12 }}
+                      stroke={chartColors.text}
+                    />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      contentStyle={{
+                        backgroundColor: chartColors.background,
+                        border: `1px solid ${chartColors.grid}`,
+                        borderRadius: '4px',
+                      }}
+                    />
+                    <Scatter data={scatterData} fill="#8884d8">
+                      {scatterData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-              {/* Correlation bar */}
-              <div className="relative">
-                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  <span>Negative</span>
-                  <span>Correlation</span>
-                  <span>Positive</span>
-                </div>
-                <div className="relative h-6 bg-gray-100 dark:bg-gray-900 rounded-full overflow-hidden">
-                  {/* Center line */}
-                  <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-400 dark:bg-gray-600"></div>
+            {/* Correlation Details Table */}
+            <div>
+              <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 mb-3">
+                Detailed Analysis
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Factor
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Correlation
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Impact
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Samples
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                    {data.correlations.map((corr, index) => (
+                      <tr
+                        key={index}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        <td className="px-4 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {formatFactor(corr.factor)}
+                        </td>
+                        <td className="px-4 py-4 text-sm">
+                          <div className="flex items-center space-x-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{
+                                backgroundColor: getCorrelationColor(
+                                  corr.correlation_strength
+                                ),
+                              }}
+                            ></div>
+                            <span>{corr.correlation_strength.toFixed(3)}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              ({getCorrelationLabel(corr.correlation_strength)})
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">
+                          <div className="flex items-center space-x-2">
+                            <span>{formatTokens(corr.impact_tokens)}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              ({getImpactLevel(corr.impact_tokens)})
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
+                          {corr.sample_size.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
-                  {/* Correlation bar */}
+        {selectedView === 'recommendations' && (
+          <div className="space-y-4">
+            <h4 className="text-md font-medium text-gray-800 dark:text-gray-200">
+              Token Optimization Recommendations
+            </h4>
+
+            {data.recommendations.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <p>
+                  No specific recommendations available based on current data.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {data.recommendations.map((recommendation, index) => (
                   <div
-                    className={`absolute top-0 bottom-0 ${getCorrelationColor(
-                      correlation.correlation_strength
-                    )} rounded-full transition-all duration-300`}
-                    style={{
-                      width: `${getCorrelationWidth(correlation.correlation_strength)}%`,
-                      left:
-                        correlation.correlation_strength >= 0
-                          ? '50%'
-                          : `${50 - getCorrelationWidth(correlation.correlation_strength)}%`,
-                    }}
-                  ></div>
-
-                  {/* Value label */}
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 text-xs font-semibold text-white px-2"
-                    style={{
-                      left:
-                        correlation.correlation_strength >= 0
-                          ? `${50 + getCorrelationWidth(correlation.correlation_strength) / 2}%`
-                          : `${50 - getCorrelationWidth(correlation.correlation_strength) / 2}%`,
-                      transform: 'translate(-50%, -50%)',
-                    }}
+                    key={index}
+                    className="flex items-start p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg"
                   >
-                    {formatCorrelation(correlation.correlation_strength)}
+                    <div className="flex-shrink-0 mr-3">
+                      <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-semibold">
+                          {index + 1}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-blue-900 dark:text-blue-100">
+                        {recommendation}
+                      </p>
+                    </div>
                   </div>
+                ))}
+              </div>
+            )}
+
+            {/* Legend */}
+            <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <h5 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
+                Correlation Strength Legend
+              </h5>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <span>Strong (&gt;0.7)</span>
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Sample size: {correlation.sample_size} messages
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                  <span>Moderate (0.5-0.7)</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  <span>Weak (0.3-0.5)</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                  <span>Very Weak (&lt;0.3)</span>
                 </div>
               </div>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Recommendations */}
-      {data.recommendations.length > 0 && (
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3">
-            Optimization Recommendations
-          </h4>
-          <div className="space-y-2">
-            {data.recommendations.map((recommendation, index) => (
-              <div key={index} className="flex items-start space-x-2 text-sm">
-                <svg
-                  className="w-4 h-4 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.293l-3-3a1 1 0 00-1.414 1.414L10.586 9.5H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="text-gray-700 dark:text-gray-300">
-                  {recommendation}
-                </span>
-              </div>
-            ))}
           </div>
-        </div>
-      )}
-
-      {/* No data message */}
-      {data.correlations.length === 0 && (
-        <div className="p-8 text-center">
-          <svg
-            className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-600 mb-3"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm9 4a1 1 0 10-2 0v6a1 1 0 102 0V7zm-3 2a1 1 0 10-2 0v4a1 1 0 102 0V9zm-3 3a1 1 0 10-2 0v1a1 1 0 102 0v-1z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <p className="text-gray-600 dark:text-gray-400">
-            Not enough data to analyze token usage factors
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-            Token analysis will be available as more conversations are processed
-          </p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

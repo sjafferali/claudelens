@@ -1,9 +1,9 @@
 import React from 'react';
-import { ResponseTimePercentiles } from '../api/types';
+import { TokenPercentiles } from '../api/types';
 import { useStore } from '@/store';
 
 interface TokenPercentileRibbonProps {
-  percentiles: ResponseTimePercentiles;
+  percentiles: TokenPercentiles;
   className?: string;
 }
 
@@ -14,29 +14,29 @@ const TokenPercentileRibbon: React.FC<TokenPercentileRibbonProps> = ({
   const theme = useStore((state) => state.ui.theme);
   const isDark = theme === 'dark';
 
-  const formatTokens = (tokens: number): string => {
-    if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
-    if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
-    return tokens.toString();
+  const formatTokens = (tokens: number) => {
+    if (tokens < 1000) return tokens.toString();
+    if (tokens < 1000000) return `${(tokens / 1000).toFixed(1)}K`;
+    return `${(tokens / 1000000).toFixed(1)}M`;
   };
 
-  const getEfficiencyColor = (tokens: number) => {
+  const getUsageColor = (tokens: number) => {
     if (tokens < 1000) return 'bg-green-500';
     if (tokens < 5000) return 'bg-yellow-500';
     if (tokens < 10000) return 'bg-orange-500';
     return 'bg-red-500';
   };
 
-  const getEfficiencyTextColor = (tokens: number) => {
+  const getUsageTextColor = (tokens: number) => {
     if (tokens < 1000) return isDark ? 'text-green-400' : 'text-green-700';
     if (tokens < 5000) return isDark ? 'text-yellow-400' : 'text-yellow-700';
     if (tokens < 10000) return isDark ? 'text-orange-400' : 'text-orange-700';
     return isDark ? 'text-red-400' : 'text-red-700';
   };
 
-  const getEfficiencyLabel = (tokens: number) => {
-    if (tokens < 1000) return 'Efficient';
-    if (tokens < 5000) return 'Moderate';
+  const getUsageLabel = (tokens: number) => {
+    if (tokens < 1000) return 'Low Usage';
+    if (tokens < 5000) return 'Moderate Usage';
     if (tokens < 10000) return 'High Usage';
     return 'Very High Usage';
   };
@@ -49,7 +49,7 @@ const TokenPercentileRibbon: React.FC<TokenPercentileRibbonProps> = ({
     percentiles.p99 > 0;
 
   // Calculate relative positions for the ribbon visualization
-  const maxValue = Math.max(percentiles.p99, 20000); // Minimum 20k token scale
+  const maxValue = Math.max(percentiles.p99, 20000); // Minimum 20K scale
   const getPosition = (value: number) => (value / maxValue) * 100;
 
   const percentileData = [
@@ -84,9 +84,9 @@ const TokenPercentileRibbon: React.FC<TokenPercentileRibbonProps> = ({
           Token Usage Percentiles
         </h4>
         <span
-          className={`text-xs px-2 py-1 rounded-full ${hasData ? getEfficiencyColor(percentiles.p90) : 'bg-gray-500'} text-white`}
+          className={`text-xs px-2 py-1 rounded-full ${hasData ? getUsageColor(percentiles.p90) : 'bg-gray-500'} text-white`}
         >
-          {hasData ? getEfficiencyLabel(percentiles.p90) : 'No Data'}
+          {hasData ? getUsageLabel(percentiles.p90) : 'No Data'}
         </span>
       </div>
 
@@ -130,7 +130,7 @@ const TokenPercentileRibbon: React.FC<TokenPercentileRibbonProps> = ({
         {/* Scale labels */}
         <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
           <span>0</span>
-          <span>Efficient</span>
+          <span>Low</span>
           <span>Moderate</span>
           <span>High</span>
           <span>{formatTokens(maxValue)}</span>
@@ -148,7 +148,7 @@ const TokenPercentileRibbon: React.FC<TokenPercentileRibbonProps> = ({
               {percentile.label}
             </div>
             <div
-              className={`text-lg font-bold ${getEfficiencyTextColor(percentile.value)}`}
+              className={`text-lg font-bold ${getUsageTextColor(percentile.value)}`}
             >
               {formatTokens(percentile.value)}
             </div>
@@ -159,7 +159,7 @@ const TokenPercentileRibbon: React.FC<TokenPercentileRibbonProps> = ({
         ))}
       </div>
 
-      {/* Token usage insights */}
+      {/* Usage insights */}
       <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
         <div className="flex items-start space-x-2">
           <div className="w-4 h-4 mt-0.5">
@@ -181,21 +181,21 @@ const TokenPercentileRibbon: React.FC<TokenPercentileRibbonProps> = ({
             </div>
             <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
               {!hasData &&
-                'No token usage data available. Token usage is now being tracked for all conversations.'}
+                'No token usage data available. Token metrics will be tracked for new messages going forward.'}
               {hasData &&
                 percentiles.p90 < 1000 &&
-                'Excellent token efficiency! 90% of responses use under 1,000 tokens.'}
+                'Excellent token efficiency! 90% of messages use less than 1K tokens.'}
               {hasData &&
                 percentiles.p90 >= 1000 &&
                 percentiles.p90 < 5000 &&
-                'Good token efficiency. Most responses use a reasonable amount of tokens.'}
+                'Good token usage. Most messages are reasonably efficient.'}
               {hasData &&
                 percentiles.p90 >= 5000 &&
                 percentiles.p90 < 10000 &&
-                'Moderate token usage. Consider optimizing prompts to reduce costs.'}
+                'Moderate token usage. Consider optimizing prompts for better efficiency.'}
               {hasData &&
                 percentiles.p90 >= 10000 &&
-                'High token usage detected. Optimizing prompts could significantly reduce costs.'}
+                'High token usage detected. Review message patterns to reduce costs.'}
             </div>
           </div>
         </div>

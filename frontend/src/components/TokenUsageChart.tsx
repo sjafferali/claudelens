@@ -1,169 +1,171 @@
-import { useMemo } from 'react';
+import React from 'react';
 import {
-  LineChart,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   Legend,
+  ResponsiveContainer,
+  Area,
+  ComposedChart,
 } from 'recharts';
+import { TokenAnalytics, TokenAnalyticsDataPoint } from '../api/types';
 import { useStore } from '@/store';
-import { ResponseTimeAnalytics } from '@/api/types';
-import { format } from 'date-fns';
 
 interface TokenUsageChartProps {
-  data: ResponseTimeAnalytics;
+  data: TokenAnalytics;
   groupBy: 'hour' | 'day' | 'model';
 }
 
-const formatTokens = (value: number): string => {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-  return value.toString();
-};
-
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: Array<{
-    value: number;
-    name: string;
-    color: string;
-  }>;
-  label?: string | number;
-  isDark: boolean;
-}
-
-const CustomTooltip = ({
-  active,
-  payload,
-  label,
-  isDark,
-}: CustomTooltipProps) => {
-  if (!active || !payload || !payload.length) return null;
-
-  return (
-    <div
-      className={`rounded-lg p-3 shadow-lg ${
-        isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-      } border`}
-    >
-      <p
-        className={`font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}
-      >
-        {label}
-      </p>
-      {payload.map((entry, index) => (
-        <div key={index} className="mt-1 text-sm">
-          <span
-            className="inline-block w-3 h-3 rounded-full mr-2"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-            {entry.name}: {formatTokens(entry.value as number)} tokens
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-export default function TokenUsageChart({
-  data,
-  groupBy,
-}: TokenUsageChartProps) {
+const TokenUsageChart: React.FC<TokenUsageChartProps> = ({ data, groupBy }) => {
   const theme = useStore((state) => state.ui.theme);
   const isDark = theme === 'dark';
 
-  const chartData = useMemo(() => {
-    return data.time_series.map((point) => {
-      const timestamp = new Date(point.timestamp);
-      let label: string;
+  // Theme-aware colors
+  const chartColors = {
+    grid: isDark ? '#374151' : '#e5e7eb',
+    text: isDark ? '#9ca3af' : '#6b7280',
+    primary: isDark ? '#60a5fa' : '#3b82f6',
+    secondary: isDark ? '#34d399' : '#22c55e',
+    warning: isDark ? '#fbbf24' : '#f59e0b',
+    background: isDark ? '#111827' : '#ffffff',
+  };
 
-      if (groupBy === 'hour') {
-        label = format(timestamp, 'MMM dd HH:00');
-      } else if (groupBy === 'day') {
-        label = format(timestamp, 'MMM dd');
-      } else {
-        // For model grouping, use the timestamp as a label placeholder
-        label = format(timestamp, 'MMM dd');
-      }
+  const formatTokens = (value: number) => {
+    if (value < 1000) return value.toString();
+    if (value < 1000000) return `${(value / 1000).toFixed(1)}K`;
+    return `${(value / 1000000).toFixed(1)}M`;
+  };
 
-      return {
-        name: label,
-        average: Math.round(point.avg_duration_ms), // avg_duration_ms represents avg tokens
-        p50: Math.round(point.p50),
-        p90: Math.round(point.p90),
-        count: point.message_count,
-      };
-    });
-  }, [data, groupBy]);
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    if (groupBy === 'hour') {
+      return (
+        date.toLocaleDateString() +
+        ' ' +
+        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      );
+    } else if (groupBy === 'day') {
+      return date.toLocaleDateString();
+    }
+    return timestamp;
+  };
 
-  const chartColors = useMemo(
-    () => ({
-      grid: isDark ? '#374151' : '#e5e7eb',
-      text: isDark ? '#9ca3af' : '#6b7280',
-      average: isDark ? '#60a5fa' : '#3b82f6',
-      p50: isDark ? '#34d399' : '#10b981',
-      p90: isDark ? '#f87171' : '#ef4444',
-    }),
-    [isDark]
-  );
+  // Prepare chart data
+  const chartData = data.time_series.map((point: TokenAnalyticsDataPoint) => ({
+    ...point,
+    timestamp: formatTimestamp(point.timestamp),
+  }));
+
+  const CustomTooltip = ({
+    active,
+    payload,
+    label,
+  }: {
+    active?: boolean;
+    payload?: Array<{
+      payload: TokenAnalyticsDataPoint;
+    }>;
+    label?: string;
+  }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          <p className="font-semibold">{label}</p>
+          <p className="text-sm">
+            <span className="text-blue-600 dark:text-blue-400">Average: </span>
+            {formatTokens(data.avg_tokens)}
+          </p>
+          <p className="text-sm">
+            <span className="text-green-600 dark:text-green-400">p50: </span>
+            {formatTokens(data.p50)}
+          </p>
+          <p className="text-sm">
+            <span className="text-orange-600 dark:text-orange-400">p90: </span>
+            {formatTokens(data.p90)}
+          </p>
+          <p className="text-sm">
+            <span className="text-gray-600 dark:text-gray-400">Messages: </span>
+            {data.message_count}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
-    <div className="w-full h-64">
+    <div className="h-80">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+        <ComposedChart data={chartData}>
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke={chartColors.grid}
+            opacity={0.3}
+          />
           <XAxis
-            dataKey="name"
+            dataKey="timestamp"
+            tick={{ fontSize: 12 }}
+            interval="preserveStartEnd"
             stroke={chartColors.text}
-            fontSize={12}
-            angle={-45}
-            textAnchor="end"
-            height={60}
           />
           <YAxis
-            stroke={chartColors.text}
-            fontSize={12}
             tickFormatter={formatTokens}
+            tick={{ fontSize: 12 }}
+            stroke={chartColors.text}
           />
           <Tooltip
-            content={(props) => <CustomTooltip {...props} isDark={isDark} />}
+            content={<CustomTooltip />}
+            contentStyle={{
+              backgroundColor: chartColors.background,
+              border: `1px solid ${chartColors.grid}`,
+              borderRadius: '4px',
+            }}
           />
-          <Legend
-            verticalAlign="top"
-            height={36}
-            iconType="line"
-            wrapperStyle={{ fontSize: '12px' }}
+          <Legend />
+
+          {/* Percentile area bands */}
+          <Area
+            type="monotone"
+            dataKey="p90"
+            fill={chartColors.warning}
+            fillOpacity={0.1}
+            stroke="none"
           />
+
+          {/* Main lines */}
           <Line
             type="monotone"
-            dataKey="average"
-            stroke={chartColors.average}
+            dataKey="avg_tokens"
+            stroke={chartColors.primary}
             strokeWidth={2}
+            dot={{ r: 3 }}
             name="Average"
-            dot={false}
           />
           <Line
             type="monotone"
             dataKey="p50"
-            stroke={chartColors.p50}
-            strokeWidth={2}
-            name="Median (P50)"
+            stroke={chartColors.secondary}
+            strokeWidth={1}
+            strokeDasharray="5 5"
             dot={false}
+            name="p50 (Median)"
           />
           <Line
             type="monotone"
             dataKey="p90"
-            stroke={chartColors.p90}
-            strokeWidth={2}
-            name="P90"
+            stroke={chartColors.warning}
+            strokeWidth={1}
+            strokeDasharray="5 5"
             dot={false}
+            name="p90"
           />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
-}
+};
+
+export default TokenUsageChart;

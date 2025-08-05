@@ -59,47 +59,46 @@ export interface Message {
   };
 }
 
-// Response Time Analytics Types
-
-export interface ResponseTimePercentiles {
+// Token Analytics Types
+export interface TokenPercentiles {
   p50: number;
   p90: number;
   p95: number;
   p99: number;
 }
 
-export interface ResponseTimeDataPoint {
+export interface TokenAnalyticsDataPoint {
   timestamp: string;
-  avg_duration_ms: number;
+  avg_tokens: number;
   p50: number;
   p90: number;
   message_count: number;
 }
 
-export interface DistributionBucket {
+export interface TokenDistributionBucket {
   bucket: string;
   count: number;
   percentage: number;
 }
 
-export interface ResponseTimeAnalytics {
-  percentiles: ResponseTimePercentiles;
-  time_series: ResponseTimeDataPoint[];
-  distribution: DistributionBucket[];
+export interface TokenAnalytics {
+  percentiles: TokenPercentiles;
+  time_series: TokenAnalyticsDataPoint[];
+  distribution: TokenDistributionBucket[];
   time_range: string;
   group_by: string;
   generated_at: string;
 }
 
-export interface PerformanceCorrelation {
+export interface TokenPerformanceCorrelation {
   factor: string;
   correlation_strength: number;
-  impact_ms: number;
+  impact_tokens: number;
   sample_size: number;
 }
 
-export interface PerformanceFactorsAnalytics {
-  correlations: PerformanceCorrelation[];
+export interface TokenPerformanceFactorsAnalytics {
+  correlations: TokenPerformanceCorrelation[];
   recommendations: string[];
   time_range: string;
   generated_at: string;

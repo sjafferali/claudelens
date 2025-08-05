@@ -91,14 +91,14 @@ export const SearchableSelect = React.forwardRef<
             onClick={() => !disabled && setIsOpen(!isOpen)}
             disabled={disabled}
             className={cn(
-              'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-              isOpen && 'ring-2 ring-ring ring-offset-2'
+              'flex h-10 w-full items-center justify-between rounded-md border border-primary-c bg-layer-tertiary px-3 py-2 text-sm placeholder:text-muted-c focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+              isOpen && 'ring-2 ring-primary ring-offset-2'
             )}
           >
             <span
               className={cn(
                 'block truncate',
-                !selectedOption && 'text-muted-foreground'
+                !selectedOption && 'text-muted-c'
               )}
             >
               {selectedOption ? selectedOption.label : placeholder}
@@ -112,24 +112,24 @@ export const SearchableSelect = React.forwardRef<
           </button>
 
           {isOpen && (
-            <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-80 slide-in-from-top-2">
-              <div className="p-2 border-b">
+            <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-primary-c bg-layer-secondary text-primary-c shadow-md animate-in fade-in-80 slide-in-from-top-2">
+              <div className="p-2 border-b border-primary-c">
                 <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-c" />
                   <input
                     ref={inputRef}
                     type="text"
                     placeholder="Type to search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 text-sm bg-transparent border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full pl-8 pr-3 py-2 text-sm bg-layer-tertiary border border-primary-c rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-primary-c"
                   />
                 </div>
               </div>
 
               <div className="max-h-60 overflow-auto p-1">
                 {filteredOptions.length === 0 ? (
-                  <div className="py-6 text-center text-sm text-muted-foreground">
+                  <div className="py-6 text-center text-sm text-muted-c">
                     {emptyText}
                   </div>
                 ) : (
@@ -138,15 +138,14 @@ export const SearchableSelect = React.forwardRef<
                       key={option.value}
                       onClick={() => handleSelect(option.value)}
                       className={cn(
-                        'relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-                        value === option.value &&
-                          'bg-accent text-accent-foreground'
+                        'relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none hover:bg-primary hover:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+                        value === option.value && 'bg-primary text-white'
                       )}
                     >
                       <div className="flex-1 text-left">
                         <div className="font-medium">{option.label}</div>
                         {option.description && (
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-muted-c">
                             {option.description}
                           </div>
                         )}

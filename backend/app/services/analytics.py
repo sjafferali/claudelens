@@ -66,12 +66,18 @@ from app.schemas.analytics import (
     SessionHealth,
     SuccessRateMetrics,
     TimeRange,
+    TokenAnalytics,
+    TokenAnalyticsDataPoint,
     TokenBreakdown,
     TokenDataPoint,
+    TokenDistributionBucket,
     TokenEfficiencyDetailed,
     TokenEfficiencyMetrics,
     TokenEfficiencySummary,
     TokenFormattedValues,
+    TokenPercentiles,
+    TokenPerformanceCorrelation,
+    TokenPerformanceFactorsAnalytics,
     TokenUsageStats,
     ToolUsage,
     ToolUsageDetailed,
@@ -2210,7 +2216,7 @@ class AnalyticsService:
 
     async def get_token_analytics(
         self, time_range: TimeRange, percentiles: list[int], group_by: str
-    ) -> ResponseTimeAnalytics:
+    ) -> TokenAnalytics:
         """Get token usage analytics with percentiles and distribution."""
         time_filter = self._get_time_filter(time_range)
 
@@ -2238,7 +2244,7 @@ class AnalyticsService:
         # Get distribution buckets
         distribution = await self._get_token_distribution(base_filter)
 
-        return ResponseTimeAnalytics(
+        return TokenAnalytics(
             percentiles=overall_percentiles,
             time_series=time_series,
             distribution=distribution,
@@ -2293,7 +2299,7 @@ class AnalyticsService:
 
     async def get_token_performance_factors(
         self, time_range: TimeRange
-    ) -> PerformanceFactorsAnalytics:
+    ) -> TokenPerformanceFactorsAnalytics:
         """Get token usage performance factors analysis."""
         time_filter = self._get_time_filter(time_range)
 
@@ -2342,7 +2348,7 @@ class AnalyticsService:
         # Generate recommendations based on correlations
         recommendations = self._generate_token_performance_recommendations(correlations)
 
-        return PerformanceFactorsAnalytics(
+        return TokenPerformanceFactorsAnalytics(
             correlations=correlations,
             recommendations=recommendations,
             time_range=time_range,
@@ -2398,7 +2404,7 @@ class AnalyticsService:
 
     async def _calculate_token_percentiles(
         self, base_filter: dict, percentiles: list[int]
-    ) -> ResponseTimePercentiles:
+    ) -> TokenPercentiles:
         """Calculate token usage percentiles using MongoDB 7.0+ $percentile operator."""
         # Build percentile expressions
         percentile_exprs = {}
@@ -2443,7 +2449,7 @@ class AnalyticsService:
 
         result = await self.db.messages.aggregate(pipeline).to_list(1)
         if not result or result[0]["count"] == 0:
-            return ResponseTimePercentiles(p50=0, p90=0, p95=0, p99=0)
+            return TokenPercentiles(p50=0, p90=0, p95=0, p99=0)
 
         # Extract percentile values
         percentile_values = {}
@@ -2451,7 +2457,7 @@ class AnalyticsService:
             key = f"p{p}"
             percentile_values[key] = float(result[0].get(key, 0))
 
-        return ResponseTimePercentiles(
+        return TokenPercentiles(
             p50=percentile_values.get("p50", 0),
             p90=percentile_values.get("p90", 0),
             p95=percentile_values.get("p95", 0),
@@ -2589,7 +2595,7 @@ class AnalyticsService:
 
     async def _get_token_time_series(
         self, base_filter: dict, group_by: str
-    ) -> list[ResponseTimeDataPoint]:
+    ) -> list[TokenAnalyticsDataPoint]:
         """Get token usage time series data."""
         date_key: Any
         if group_by == "hour":
@@ -2657,11 +2663,9 @@ class AnalyticsService:
                 timestamp = datetime.utcnow()
 
             time_series.append(
-                ResponseTimeDataPoint(
+                TokenAnalyticsDataPoint(
                     timestamp=timestamp,
-                    avg_duration_ms=round(
-                        avg_tokens, 2
-                    ),  # Using avg_duration_ms for tokens
+                    avg_tokens=round(avg_tokens, 2),
                     p50=float(tokens[p50_idx]),
                     p90=float(tokens[p90_idx]),
                     message_count=count,
@@ -2672,7 +2676,7 @@ class AnalyticsService:
 
     async def _get_token_distribution(
         self, base_filter: dict
-    ) -> list[DistributionBucket]:
+    ) -> list[TokenDistributionBucket]:
         """Get token usage distribution buckets."""
         # Expression to calculate total tokens
         total_tokens_expr = {
@@ -2731,7 +2735,7 @@ class AnalyticsService:
             bucket_label = bucket_labels.get(bucket_id, str(bucket_id))
 
             distribution.append(
-                DistributionBucket(
+                TokenDistributionBucket(
                     bucket=bucket_label, count=count, percentage=round(percentage, 2)
                 )
             )
@@ -2942,7 +2946,7 @@ class AnalyticsService:
 
     async def _calculate_token_message_length_correlation(
         self, base_filter: dict
-    ) -> PerformanceCorrelation | None:
+    ) -> TokenPerformanceCorrelation | None:
         """Calculate correlation between message length and token usage."""
         # Expression to calculate total tokens
         total_tokens_expr = {
@@ -3004,16 +3008,16 @@ class AnalyticsService:
         min_tokens = min(tokens) if tokens else 0
         impact = avg_tokens - min_tokens
 
-        return PerformanceCorrelation(
+        return TokenPerformanceCorrelation(
             factor="message_length_tokens",
             correlation_strength=round(correlation, 3),
-            impact_ms=impact,  # Using impact_ms for token impact
+            impact_tokens=impact,
             sample_size=len(data),
         )
 
     async def _calculate_token_tool_usage_correlation(
         self, base_filter: dict
-    ) -> PerformanceCorrelation | None:
+    ) -> TokenPerformanceCorrelation | None:
         """Calculate correlation between tool usage and token consumption."""
         # Expression to calculate total tokens
         total_tokens_expr = {
@@ -3068,16 +3072,16 @@ class AnalyticsService:
         min_tokens = min(avg_tokens) if avg_tokens else 0
         impact = avg_tokens_overall - min_tokens
 
-        return PerformanceCorrelation(
+        return TokenPerformanceCorrelation(
             factor="tool_usage_tokens",
             correlation_strength=round(correlation, 3),
-            impact_ms=impact,  # Using impact_ms for token impact
+            impact_tokens=impact,
             sample_size=sum(r["count"] for r in results),
         )
 
     async def _calculate_token_model_correlation(
         self, base_filter: dict
-    ) -> list[PerformanceCorrelation]:
+    ) -> list[TokenPerformanceCorrelation]:
         """Calculate token usage patterns by model."""
         # Expression to calculate total tokens
         total_tokens_expr = {
@@ -3131,10 +3135,10 @@ class AnalyticsService:
             impact = result["avgTokens"] - base_model["avgTokens"] if base_model else 0
 
             correlations.append(
-                PerformanceCorrelation(
+                TokenPerformanceCorrelation(
                     factor=f"model_{result['_id']}_tokens",
                     correlation_strength=round(relative_usage - 1, 3),
-                    impact_ms=impact,  # Using impact_ms for token impact
+                    impact_tokens=impact,
                     sample_size=result["count"],
                 )
             )
@@ -3143,7 +3147,7 @@ class AnalyticsService:
 
     async def _calculate_token_time_of_day_correlation(
         self, base_filter: dict
-    ) -> PerformanceCorrelation | None:
+    ) -> TokenPerformanceCorrelation | None:
         """Calculate correlation between time of day and token usage."""
         # Expression to calculate total tokens
         total_tokens_expr = {
@@ -3191,34 +3195,34 @@ class AnalyticsService:
         min_tokens = min(avg_tokens) if avg_tokens else 0
         impact = avg_tokens_overall - min_tokens
 
-        return PerformanceCorrelation(
+        return TokenPerformanceCorrelation(
             factor="time_of_day_tokens",
             correlation_strength=round(correlation, 3),
-            impact_ms=impact,  # Using impact_ms for token impact
+            impact_tokens=impact,
             sample_size=sum(r["count"] for r in results),
         )
 
     def _generate_token_performance_recommendations(
-        self, correlations: list[PerformanceCorrelation]
+        self, correlations: list[TokenPerformanceCorrelation]
     ) -> list[str]:
         """Generate recommendations based on token usage correlations."""
         recommendations = []
 
         for corr in correlations:
-            if "message_length" in corr.factor and corr.impact_ms > 10000:
+            if "message_length" in corr.factor and corr.impact_tokens > 10000:
                 if corr.correlation_strength > 0.7:
                     recommendations.append(
                         "Longer messages consume significantly more tokens. Consider being more concise in prompts."
                     )
 
-            elif "tool_usage" in corr.factor and corr.impact_ms > 5000:
+            elif "tool_usage" in corr.factor and corr.impact_tokens > 5000:
                 if corr.correlation_strength > 0.5:
                     recommendations.append(
                         "Tool usage increases token consumption. Review if all tool calls are necessary."
                     )
 
             elif "model_" in corr.factor and "_tokens" in corr.factor:
-                if corr.correlation_strength > 0.5 and corr.impact_ms > 10000:
+                if corr.correlation_strength > 0.5 and corr.impact_tokens > 10000:
                     model_name = corr.factor.replace("model_", "").replace(
                         "_tokens", ""
                     )

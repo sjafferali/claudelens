@@ -1,6 +1,7 @@
 import { useAnalyticsSummary } from '@/hooks/useAnalytics';
 import { TimeRange } from '@/api/analytics';
 import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
+import RecentSessions from '@/components/RecentSessions';
 
 export default function Dashboard() {
   const {
@@ -128,24 +129,7 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="p-6">
-              <div className="space-y-3">
-                {summary?.most_used_model && (
-                  <div className="flex justify-between items-center py-2 border-b border-secondary-c">
-                    <span className="text-sm text-muted-c">
-                      Most used model
-                    </span>
-                    <span className="text-sm font-medium text-secondary-c">
-                      {summary.most_used_model}
-                    </span>
-                  </div>
-                )}
-                <p className="text-sm text-muted-c">
-                  Data from last 30 days • Updated{' '}
-                  {summary
-                    ? new Date(summary.generated_at).toLocaleTimeString()
-                    : 'now'}
-                </p>
-              </div>
+              <RecentSessions />
             </div>
           </div>
         </div>
