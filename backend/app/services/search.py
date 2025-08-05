@@ -202,9 +202,14 @@ class SearchService:
                 conditions["timestamp"] = {"$lte": filters.end_date}
 
         if filters.has_code:
+            # Improved regex to catch various code patterns
+            code_pattern = r"(```|`[^`]+`|\b(function|def|class|import|from|require|var|let|const)\b|=>|\.\w+\()"
             conditions["$or"] = [
-                {"message.content": {"$regex": r"```", "$options": "i"}},
-                {"toolUseResult": {"$regex": r"```", "$options": "i"}},
+                {"message.content": {"$regex": code_pattern, "$options": "i"}},
+                {"toolUseResult": {"$regex": code_pattern, "$options": "i"}},
+                {
+                    "content": {"$regex": code_pattern, "$options": "i"}
+                },  # For direct content field
             ]
 
         if filters.min_cost is not None:
@@ -242,8 +247,8 @@ class SearchService:
         elif doc.get("message"):
             content = str(doc["message"])
 
-        # Create preview
-        preview = self._create_preview(content, query, max_length=200)
+        # Create preview with highlighting
+        preview = self._create_highlighted_snippet(content, query, max_length=200)
 
         # Create highlights
         highlights = []
@@ -318,7 +323,9 @@ class SearchService:
         if "content" in doc and isinstance(doc["content"], str):
             content = doc["content"]
             if content and query.lower() in content.lower():
-                snippet = self._create_preview(content, query, max_length=150)
+                snippet = self._create_highlighted_snippet(
+                    content, query, max_length=150
+                )
                 highlights.append(
                     SearchHighlight(field="content", snippet=snippet, score=1.0)
                 )
@@ -326,7 +333,9 @@ class SearchService:
         elif doc.get("message") and isinstance(doc["message"], dict):
             content = doc["message"].get("content", "")
             if content and query.lower() in content.lower():
-                snippet = self._create_preview(content, query, max_length=150)
+                snippet = self._create_highlighted_snippet(
+                    content, query, max_length=150
+                )
                 highlights.append(
                     SearchHighlight(field="message.content", snippet=snippet, score=1.0)
                 )
@@ -335,12 +344,67 @@ class SearchService:
         if doc.get("toolUseResult"):
             tool_result = str(doc["toolUseResult"])
             if query.lower() in tool_result.lower():
-                snippet = self._create_preview(tool_result, query, max_length=150)
+                snippet = self._create_highlighted_snippet(
+                    tool_result, query, max_length=150
+                )
                 highlights.append(
                     SearchHighlight(field="toolUseResult", snippet=snippet, score=0.8)
                 )
 
         return highlights
+
+    def _create_highlighted_snippet(
+        self, content: str, query: str, max_length: int = 150
+    ) -> str:
+        """Create a snippet with highlighted search terms."""
+        if not content:
+            return ""
+
+        # Split query into individual words for highlighting
+        query_words = query.split()
+
+        # Find the best match position
+        content_lower = content.lower()
+        query_lower = query.lower()
+
+        # Try to find exact phrase first
+        pos = content_lower.find(query_lower)
+
+        # If no exact match, find first word occurrence
+        if pos == -1:
+            for word in query_words:
+                word_lower = word.lower()
+                pos = content_lower.find(word_lower)
+                if pos != -1:
+                    break
+
+        # If still no match, return beginning
+        if pos == -1:
+            snippet = (
+                content[:max_length] + "..." if len(content) > max_length else content
+            )
+        else:
+            # Center preview around match
+            start = max(0, pos - max_length // 2)
+            end = min(len(content), pos + max_length // 2)
+            snippet = content[start:end]
+
+            # Add ellipsis
+            if start > 0:
+                snippet = "..." + snippet
+            if end < len(content):
+                snippet = snippet + "..."
+
+        # Highlight all matching words (case-insensitive)
+        for word in query_words:
+            if len(word) > 2:  # Skip very short words
+                # Use regex for whole word matching
+                import re
+
+                pattern = re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
+                snippet = pattern.sub(lambda m: f"<mark>{m.group()}</mark>", snippet)
+
+        return snippet
 
     def _enhance_code_query(self, query: str) -> str:
         """Enhance query for code search."""

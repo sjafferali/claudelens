@@ -35,6 +35,7 @@ export default function Search() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({});
+  const [allResults, setAllResults] = useState<SearchResult[]>([]);
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
@@ -69,11 +70,25 @@ export default function Search() {
     debouncedSetQuery(query);
   }, [query, debouncedSetQuery]);
 
+  // Update allResults when search mutation succeeds
+  useEffect(() => {
+    if (searchMutation.data) {
+      if (searchMutation.data.skip === 0) {
+        // New search, replace all results
+        setAllResults(searchMutation.data.results);
+      } else {
+        // Loading more, append results
+        setAllResults((prev) => [...prev, ...searchMutation.data.results]);
+      }
+    }
+  }, [searchMutation.data]);
+
   const handleSearch = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!query.trim()) return;
 
     setShowSuggestions(false);
+    setAllResults([]); // Clear previous results
     searchMutation.mutate({
       query: query.trim(),
       filters,
@@ -85,6 +100,7 @@ export default function Search() {
   const handleSuggestionClick = (suggestion: string) => {
     setQuery(suggestion);
     setShowSuggestions(false);
+    setAllResults([]); // Clear previous results
     searchMutation.mutate({
       query: suggestion,
       filters,
@@ -436,15 +452,15 @@ export default function Search() {
             </p>
           )}
 
-          {searchMutation.data && searchMutation.data.results.length === 0 && (
+          {searchMutation.data && allResults.length === 0 && (
             <p className="text-muted-foreground text-center py-8">
               No results found for "{searchMutation.data.query}"
             </p>
           )}
 
-          {searchMutation.data && searchMutation.data.results.length > 0 && (
+          {allResults.length > 0 && (
             <div className="space-y-4">
-              {searchMutation.data.results.map((result) => (
+              {allResults.map((result) => (
                 <div
                   key={result.message_id}
                   onClick={() => handleResultClick(result)}
@@ -502,35 +518,45 @@ export default function Search() {
                   )}
 
                   <div className="space-y-2">
-                    <p className="text-sm line-clamp-2">
-                      {result.content_preview}
-                    </p>
+                    <div className="text-sm line-clamp-2">
+                      <span
+                        dangerouslySetInnerHTML={{
+                          __html: result.content_preview.replace(
+                            /<mark>/g,
+                            '<mark class="bg-yellow-300 dark:bg-yellow-700 font-semibold px-0.5 rounded">'
+                          ),
+                        }}
+                      />
+                    </div>
                     {formatHighlights(result.highlights)}
                   </div>
                 </div>
               ))}
 
-              {searchMutation.data.total >
-                searchMutation.data.results.length && (
-                <div className="text-center py-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      searchMutation.mutate({
-                        query: searchMutation.data!.query,
-                        filters,
-                        skip:
-                          searchMutation.data!.skip +
-                          searchMutation.data!.limit,
-                        limit: 20,
-                        highlight: true,
-                      });
-                    }}
-                  >
-                    Load More
-                  </Button>
-                </div>
-              )}
+              {searchMutation.data &&
+                searchMutation.data.total > allResults.length && (
+                  <div className="text-center py-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        searchMutation.mutate({
+                          query: searchMutation.data!.query,
+                          filters,
+                          skip: allResults.length,
+                          limit: 20,
+                          highlight: true,
+                        });
+                      }}
+                      disabled={searchMutation.isPending}
+                    >
+                      {searchMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Load More'
+                      )}
+                    </Button>
+                  </div>
+                )}
             </div>
           )}
         </CardContent>

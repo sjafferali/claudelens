@@ -3,7 +3,7 @@ import math
 import re
 import statistics
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -1386,7 +1386,7 @@ class AnalyticsService:
         time_range: TimeRange = TimeRange.LAST_30_DAYS,
         error_severity: str | None = None,
     ) -> ErrorDetailsResponse:
-        """Get detailed error analytics from tool execution results."""
+        """Get detailed error analytics with improved detection."""
         # Build match filter
         match_filter = self._get_time_filter(time_range)
 
@@ -1401,123 +1401,265 @@ class AnalyticsService:
                     error_summary=ErrorSummary(by_type={}, by_tool={}),
                 )
 
-        # Pipeline to extract errors from toolUseResult fields
-        pipeline: list[dict[str, Any]] = [
-            {
-                "$match": {
-                    **match_filter,
-                    "toolUseResult": {"$exists": True, "$ne": None},
-                }
-            },
-            {
-                "$project": {
-                    "sessionId": 1,
-                    "timestamp": 1,
-                    "toolUseResult": 1,
-                    "hasError": {
-                        "$or": [
-                            {
-                                "$regexMatch": {
-                                    "input": {
-                                        "$convert": {
-                                            "input": "$toolUseResult",
-                                            "to": "string",
-                                            "onError": "",
-                                            "onNull": "",
-                                        }
-                                    },
-                                    "regex": "error|Error|ERROR|failed|Failed|FAILED",
-                                }
-                            },
-                            {
-                                "$ne": [
-                                    {"$ifNull": ["$toolUseResult.error", None]},
-                                    None,
-                                ]
-                            },
-                            {
-                                "$ne": [
-                                    {"$ifNull": ["$toolUseResult.stderr", None]},
-                                    None,
-                                ]
-                            },
-                            {
-                                "$eq": [
-                                    {"$ifNull": ["$toolUseResult.exitCode", 0]},
-                                    {"$ne": [0, 0]},
-                                ]
-                            },
-                        ]
-                    },
-                }
-            },
-            {"$match": {"hasError": True}},
-            {"$sort": {"timestamp": -1}},
-            {"$limit": 50},  # Limit to recent 50 errors
-        ]
-
-        error_docs = await self.db.messages.aggregate(pipeline).to_list(50)
-
         errors = []
         error_by_type: dict[str, int] = {}
         error_by_tool: dict[str, int] = {}
 
-        for doc in error_docs:
+        # 1. Find tool execution errors with better detection and tool name resolution
+        tool_error_pipeline: List[Dict[str, Any]] = [
+            {
+                "$match": {
+                    **match_filter,
+                    "type": "tool_result",
+                    "toolUseResult": {"$exists": True, "$ne": None},
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "messages",
+                    "let": {"parent_uuid": "$parentUuid"},
+                    "pipeline": [
+                        {"$match": {"$expr": {"$eq": ["$uuid", "$$parent_uuid"]}}},
+                        {"$project": {"messageData.name": 1}},
+                    ],
+                    "as": "tool_use_info",
+                }
+            },
+            {"$sort": {"timestamp": -1}},
+            {"$limit": 100},
+        ]
+
+        tool_results = await self.db.messages.aggregate(tool_error_pipeline).to_list(
+            100
+        )
+
+        for doc in tool_results:
             tool_result = doc.get("toolUseResult", {})
 
-            # Extract error information
-            error_message = ""
-            error_type = "unknown"
-            severity = "info"
+            # Extract tool name from parent tool_use message
             tool_name = "unknown"
-
-            # Try to extract tool name from various sources
-            if isinstance(tool_result, dict):
-                # Look for tool name in common fields
+            if doc.get("tool_use_info"):
                 tool_name = (
-                    tool_result.get("tool") or tool_result.get("command") or "unknown"
+                    doc["tool_use_info"][0]
+                    .get("messageData", {})
+                    .get("name", "unknown")
                 )
 
-                # Extract error message
-                if "error" in tool_result:
-                    error_message = str(tool_result["error"])
-                    error_type = "execution_error"
-                    severity = "critical"
-                elif "stderr" in tool_result and tool_result["stderr"]:
-                    error_message = str(tool_result["stderr"])
-                    error_type = "stderr"
-                    severity = "warning"
-                elif "exitCode" in tool_result and tool_result["exitCode"] != 0:
-                    error_message = f"Exit code: {tool_result['exitCode']}"
-                    error_type = "exit_code"
-                    severity = "warning"
-                else:
-                    # Look for error patterns in string representation
-                    tool_str = str(tool_result)
-                    if "error" in tool_str.lower() or "failed" in tool_str.lower():
-                        error_message = (
-                            tool_str[:200] + "..." if len(tool_str) > 200 else tool_str
-                        )
-                        error_type = "pattern_match"
-                        severity = "info"
+            # Better error detection logic
+            error_detail = None
 
-            # Apply severity filter if specified
-            if error_severity and severity != error_severity:
-                continue
+            # Check for explicit error field
+            if (
+                isinstance(tool_result, dict)
+                and "error" in tool_result
+                and tool_result["error"]
+            ):
+                error_detail = ErrorDetail(
+                    timestamp=doc["timestamp"],
+                    tool=tool_name,
+                    error_type="execution_error",
+                    severity="critical",
+                    message=str(tool_result["error"])[:500],
+                    context=f"Session: {doc['sessionId'][:8]}...",
+                )
 
-            # Count errors by type and tool
-            error_by_type[error_type] = error_by_type.get(error_type, 0) + 1
-            error_by_tool[tool_name] = error_by_tool.get(tool_name, 0) + 1
+            # Check for meaningful stderr (not just warnings)
+            elif (
+                isinstance(tool_result, dict)
+                and "stderr" in tool_result
+                and tool_result["stderr"]
+            ):
+                stderr = str(tool_result["stderr"])
+                # Only consider it an error if it contains actual error indicators
+                error_indicators = [
+                    "error:",
+                    "fatal:",
+                    "exception",
+                    "traceback",
+                    "permission denied",
+                    "not found",
+                    "no such file",
+                    "cannot",
+                    "failed to",
+                    "unable to",
+                ]
+                if any(indicator in stderr.lower() for indicator in error_indicators):
+                    error_detail = ErrorDetail(
+                        timestamp=doc["timestamp"],
+                        tool=tool_name,
+                        error_type="stderr_error",
+                        severity="warning",
+                        message=stderr[:500],
+                        context=f"Command: {tool_result.get('command', 'unknown')[:50]}",
+                    )
+
+            # Check for non-zero exit codes
+            elif (
+                isinstance(tool_result, dict)
+                and "exitCode" in tool_result
+                and tool_result["exitCode"] != 0
+            ):
+                stdout = tool_result.get("stdout", "")
+                stderr = tool_result.get("stderr", "")
+                message = f"Exit code {tool_result['exitCode']}"
+                if stderr:
+                    message += f": {stderr[:200]}"
+                elif stdout:
+                    message += f": {stdout[:200]}"
+
+                error_detail = ErrorDetail(
+                    timestamp=doc["timestamp"],
+                    tool=tool_name,
+                    error_type="exit_code_error",
+                    severity="warning",
+                    message=message,
+                    context=f"Session: {doc['sessionId'][:8]}...",
+                )
+
+            if error_detail:
+                # Apply severity filter
+                if not error_severity or error_detail.severity == error_severity:
+                    errors.append(error_detail)
+                    error_by_type[error_detail.error_type] = (
+                        error_by_type.get(error_detail.error_type, 0) + 1
+                    )
+                    error_by_tool[error_detail.tool] = (
+                        error_by_tool.get(error_detail.tool, 0) + 1
+                    )
+
+        # 2. Find API errors in assistant messages
+        api_error_pipeline: List[Dict[str, Any]] = [
+            {
+                "$match": {
+                    **match_filter,
+                    "type": "assistant",
+                    "$or": [
+                        {"content": {"$regex": "API Error:", "$options": "i"}},
+                        {"content": {"$regex": "overloaded_error", "$options": "i"}},
+                        {"content": {"$regex": "rate_limit_error", "$options": "i"}},
+                    ],
+                }
+            },
+            {"$sort": {"timestamp": -1}},
+            {"$limit": 50},
+        ]
+
+        api_errors = await self.db.messages.aggregate(api_error_pipeline).to_list(50)
+
+        for doc in api_errors:
+            content = str(doc.get("content", ""))
+
+            # Extract error details from API errors
+            error_type = "api_error"
+            severity = "critical"
+            message = content[:500]
+
+            if "overloaded" in content.lower():
+                error_type = "api_overloaded"
+                message = "Claude API is overloaded"
+            elif "rate_limit" in content.lower():
+                error_type = "api_rate_limit"
+                message = "Claude API rate limit exceeded"
 
             error_detail = ErrorDetail(
                 timestamp=doc["timestamp"],
-                tool=tool_name,
+                tool="claude_api",
                 error_type=error_type,
                 severity=severity,
-                message=error_message[:500],  # Truncate long messages
-                context=f"Session: {doc['sessionId'][:8]}...",
+                message=message,
+                context=f"Model: {doc.get('model', 'unknown')}",
             )
-            errors.append(error_detail)
+
+            if not error_severity or error_detail.severity == error_severity:
+                errors.append(error_detail)
+                error_by_type[error_detail.error_type] = (
+                    error_by_type.get(error_detail.error_type, 0) + 1
+                )
+                error_by_tool[error_detail.tool] = (
+                    error_by_tool.get(error_detail.tool, 0) + 1
+                )
+
+        # 3. Find tool errors mentioned in assistant messages (e.g., "Failed to read file")
+        tool_mention_pipeline: List[Dict[str, Any]] = [
+            {
+                "$match": {
+                    **match_filter,
+                    "type": "assistant",
+                    "$or": [
+                        {"content": {"$regex": "Failed to|failed to", "$options": "i"}},
+                        {"content": {"$regex": "Error:|ERROR:", "$options": "i"}},
+                        {"content": {"$regex": "Could not|could not", "$options": "i"}},
+                        {"content": {"$regex": "Unable to|unable to", "$options": "i"}},
+                    ],
+                }
+            },
+            {"$sort": {"timestamp": -1}},
+            {"$limit": 50},
+        ]
+
+        tool_mentions = await self.db.messages.aggregate(tool_mention_pipeline).to_list(
+            50
+        )
+
+        for doc in tool_mentions:
+            content = str(doc.get("content", ""))
+
+            # Skip if it's already captured as API error
+            if "API Error:" in content:
+                continue
+
+            # Extract error context
+            lines = content.split("\n")
+            error_lines = []
+            for line in lines:
+                lower_line = line.lower()
+                if any(
+                    phrase in lower_line
+                    for phrase in ["failed to", "error:", "could not", "unable to"]
+                ):
+                    error_lines.append(line.strip())
+
+            if error_lines:
+                message = " | ".join(error_lines[:3])[:500]
+
+                # Try to identify the tool from context
+                tool_name = "unknown"
+                tool_keywords = {
+                    "read": ["read", "reading", "file"],
+                    "write": ["write", "writing", "save", "create"],
+                    "bash": ["command", "execute", "run", "bash"],
+                    "search": ["search", "find", "grep"],
+                    "edit": ["edit", "modify", "update"],
+                }
+
+                for tool, keywords in tool_keywords.items():
+                    if any(kw in message.lower() for kw in keywords):
+                        tool_name = tool
+                        break
+
+                error_detail = ErrorDetail(
+                    timestamp=doc["timestamp"],
+                    tool=tool_name,
+                    error_type="operation_failed",
+                    severity="warning",
+                    message=message,
+                    context=f"Session: {doc['sessionId'][:8]}...",
+                )
+
+                if not error_severity or error_detail.severity == error_severity:
+                    errors.append(error_detail)
+                    error_by_type[error_detail.error_type] = (
+                        error_by_type.get(error_detail.error_type, 0) + 1
+                    )
+                    error_by_tool[error_detail.tool] = (
+                        error_by_tool.get(error_detail.tool, 0) + 1
+                    )
+
+        # Sort errors by timestamp descending
+        errors.sort(key=lambda x: x.timestamp, reverse=True)
+
+        # Limit to most recent errors
+        errors = errors[:50]
 
         error_summary = ErrorSummary(by_type=error_by_type, by_tool=error_by_tool)
 
@@ -3454,39 +3596,31 @@ class AnalyticsService:
             {
                 "$group": {
                     "_id": None,
-                    "total_input": {
-                        "$sum": {
-                            "$add": [
-                                {"$ifNull": ["$tokensInput", 0]},
-                                {"$ifNull": ["$inputTokens", 0]},
-                                {"$ifNull": ["$metadata.usage.input_tokens", 0]},
-                            ]
-                        }
+                    "total_input": {"$sum": {"$ifNull": ["$usage.input_tokens", 0]}},
+                    "total_output": {"$sum": {"$ifNull": ["$usage.output_tokens", 0]}},
+                    "total_cost": {
+                        "$sum": {"$ifNull": [{"$ifNull": ["$cost_usd", "$costUsd"]}, 0]}
                     },
-                    "total_output": {
-                        "$sum": {
-                            "$add": [
-                                {"$ifNull": ["$tokensOutput", 0]},
-                                {"$ifNull": ["$outputTokens", 0]},
-                                {"$ifNull": ["$metadata.usage.output_tokens", 0]},
-                            ]
-                        }
-                    },
-                    "total_cost": {"$sum": {"$ifNull": ["$costUsd", 0]}},
                     "message_count": {"$sum": 1},
-                    # Extract cache tokens from metadata if available
+                    # Extract cache tokens from usage field
+                    "cache_creation": {
+                        "$sum": {"$ifNull": ["$usage.cache_creation_input_tokens", 0]}
+                    },
+                    "cache_read": {
+                        "$sum": {"$ifNull": ["$usage.cache_read_input_tokens", 0]}
+                    },
                     "cache_tokens": {
                         "$sum": {
                             "$add": [
                                 {
                                     "$ifNull": [
-                                        "$metadata.usage.cache_creation_input_tokens",
+                                        "$usage.cache_creation_input_tokens",
                                         0,
                                     ]
                                 },
                                 {
                                     "$ifNull": [
-                                        "$metadata.usage.cache_read_input_tokens",
+                                        "$usage.cache_read_input_tokens",
                                         0,
                                     ]
                                 },
@@ -3505,8 +3639,8 @@ class AnalyticsService:
             )
 
         data = result[0]
-        total_input = data.get("total_input", 0)
-        total_output = data.get("total_output", 0)
+        total_input = int(self._safe_float(data.get("total_input", 0)))
+        total_output = int(self._safe_float(data.get("total_output", 0)))
         total_tokens = total_input + total_output
         total_cost = self._safe_float(data.get("total_cost", 0))
 
@@ -3569,10 +3703,7 @@ class AnalyticsService:
             {
                 "$match": {
                     **match_filter,
-                    "$or": [
-                        {"inputTokens": {"$exists": True}},
-                        {"tokensInput": {"$exists": True}},
-                    ],
+                    "usage": {"$exists": True},
                 }
             },
             {
@@ -3581,7 +3712,7 @@ class AnalyticsService:
                     "total_input": {
                         "$sum": {
                             "$ifNull": [
-                                {"$ifNull": ["$inputTokens", "$tokensInput"]},
+                                "$usage.input_tokens",
                                 0,
                             ]
                         }
@@ -3589,7 +3720,7 @@ class AnalyticsService:
                     "total_output": {
                         "$sum": {
                             "$ifNull": [
-                                {"$ifNull": ["$outputTokens", "$tokensOutput"]},
+                                "$usage.output_tokens",
                                 0,
                             ]
                         }
@@ -3598,19 +3729,17 @@ class AnalyticsService:
                         "$sum": {"$ifNull": [{"$ifNull": ["$cost_usd", "$costUsd"]}, 0]}
                     },
                     "message_count": {"$sum": 1},
-                    # Extract cache metrics from metadata
+                    # Extract cache metrics from usage field
                     "cache_creation": {
                         "$sum": {
                             "$ifNull": [
-                                "$metadata.usage.cache_creation_input_tokens",
+                                "$usage.cache_creation_input_tokens",
                                 0,
                             ]
                         }
                     },
                     "cache_read": {
-                        "$sum": {
-                            "$ifNull": ["$metadata.usage.cache_read_input_tokens", 0]
-                        }
+                        "$sum": {"$ifNull": ["$usage.cache_read_input_tokens", 0]}
                     },
                 }
             },
@@ -3642,13 +3771,21 @@ class AnalyticsService:
             )
 
         data = result[0]
-        total_input = data.get("total_input", 0)
-        total_output = data.get("total_output", 0)
-        cache_creation = data.get("cache_creation", 0) if include_cache_metrics else 0
-        cache_read = data.get("cache_read", 0) if include_cache_metrics else 0
+        total_input = int(self._safe_float(data.get("total_input", 0)))
+        total_output = int(self._safe_float(data.get("total_output", 0)))
+        cache_creation = (
+            int(self._safe_float(data.get("cache_creation", 0)))
+            if include_cache_metrics
+            else 0
+        )
+        cache_read = (
+            int(self._safe_float(data.get("cache_read", 0)))
+            if include_cache_metrics
+            else 0
+        )
         total_tokens = total_input + total_output
         total_cost = self._safe_float(data.get("total_cost", 0))
-        message_count = data.get("message_count", 1)
+        message_count = int(self._safe_float(data.get("message_count", 1)))
 
         # Build token breakdown
         token_breakdown = TokenBreakdown(
@@ -4697,14 +4834,31 @@ class AnalyticsService:
         # Extract file paths and extensions
         file_patterns = re.findall(r"\b\w+\.\w+\b", content_lower)
 
-        # Extract framework/library mentions
+        # Also extract file paths with slashes
+        path_patterns = re.findall(r"[\w/\-_]+\.\w+", content_lower)
+        file_patterns.extend(path_patterns)
+
+        # Extract framework/library mentions - expanded list
         tech_patterns = re.findall(
-            r"\b(?:react|vue|angular|python|javascript|typescript|node|express|django|flask|mongodb|postgresql|mysql|docker|kubernetes|aws|azure|gcp|github|gitlab|ci/cd|api|rest|graphql|jwt|oauth|npm|yarn|pip|conda|webpack|vite|babel|eslint|prettier|jest|vitest|pytest|jupyter|pandas|numpy|tensorflow|pytorch|sklearn|matplotlib|seaborn|plotly|d3|bootstrap|tailwind|sass|scss|css|html|json|yaml|xml|sql|nosql|redis|elasticsearch|nginx|apache|terraform|ansible|jenkins|gradle|maven|spring|django|rails|laravel|nextjs|nuxt|svelte|solid)\b",
+            r"\b(?:react|vue|angular|python|javascript|typescript|node|express|django|flask|mongodb|postgresql|mysql|docker|kubernetes|aws|azure|gcp|github|gitlab|ci/cd|api|rest|graphql|jwt|oauth|npm|yarn|pip|conda|webpack|vite|babel|eslint|prettier|jest|vitest|pytest|jupyter|pandas|numpy|tensorflow|pytorch|sklearn|matplotlib|seaborn|plotly|d3|bootstrap|tailwind|sass|scss|css|html|json|yaml|xml|sql|nosql|redis|elasticsearch|nginx|apache|terraform|ansible|jenkins|gradle|maven|spring|django|rails|laravel|nextjs|nuxt|svelte|solid|fastapi|sqlalchemy|alembic|pydantic|uvicorn|poetry|pytest|mypy|ruff|black|flake8|pre-commit|git|bash|linux|macos|windows|vscode|intellij|vim|emacs|chrome|firefox|safari|edge|postman|insomnia|swagger|openapi|grpc|websocket|mqtt|kafka|rabbitmq|celery|cron|systemd|prometheus|grafana|elasticsearch|kibana|logstash|sentry|datadog|newrelic|jenkins|circleci|travisci|githubactions|gitlab-ci|bitbucket|jira|confluence|slack|discord|teams|zoom|figma|sketch|adobe|photoshop|illustrator|premiere|aftereffects|blender|unity|unreal|godot|flutter|dart|kotlin|swift|objective-c|rust|go|golang|ruby|php|perl|scala|clojure|haskell|elixir|erlang|julia|r|matlab|fortran|c\+\+|cpp|java|csharp|dotnet|aspnet|blazor|xamarin|electron|ionic|capacitor|quasar|vuetify|material-ui|ant-design|chakra-ui|semantic-ui|bulma|foundation|materialize|jquery|backbone|ember|polymer|lit|stencil|alpine|htmx|turbo|stimulus|hotwire|phoenix|rails|sinatra|bottle|pyramid|tornado|sanic|starlette|gin|echo|fiber|iris|beego|revel|buffalo|chi|gorilla|mux|httprouter|fasthttp|actix|rocket|warp|tide|async-std|tokio|hyper|reqwest|surf|isahc|ureq|curl|wget|httpie|fetch|axios|superagent|got|node-fetch|request|bent|phin|needle|undici|ky|redaxios|cross-fetch|isomorphic-fetch|whatwg-fetch|unfetch|swr|react-query|apollo|relay|urql|graphql-request|mercurius|graphql-yoga|graphql-tools|graphql-codegen|graphql-inspector|graphql-voyager|graphiql|altair|playground|postwoman|hoppscotch|paw|bruno|thunderclient|restclient|soapui|katalon|selenium|cypress|playwright|puppeteer|webdriver|nightwatch|testcafe|codecept|detox|appium|espresso|xctest|robolectric|junit|testng|nunit|xunit|mstest|jasmine|karma|protractor|enzyme|react-testing-library|vue-test-utils|angular-testing|svelte-testing|solid-testing|vitest|uvu|ava|tap|qunit|intern|nightwatch|webdriverio|selenium-webdriver|chromedriver|geckodriver|safaridriver|edgedriver|iedriver)\b",
             content_lower,
         )
 
-        # Extract tool usage patterns
+        # Extract tool usage patterns - both old and new formats
         tool_patterns = re.findall(r"\[tool\s+(?:use|result):\s*(\w+)\]", content_lower)
+
+        # Also look for tool usage in different formats
+        tool_patterns2 = re.findall(
+            r"(?:using|calling|executing)\s+(?:the\s+)?(\w+)\s+tool", content_lower
+        )
+        tool_patterns.extend(tool_patterns2)
+
+        # Look for file operation indicators
+        file_op_patterns = re.findall(
+            r"(?:reading|writing|editing|creating|updating|deleting)\s+(?:file\s+)?([/\w\-_.]+\.\w+)",
+            content_lower,
+        )
+        file_patterns.extend(file_op_patterns)
 
         # Combine all extracted keywords
         keywords = []
@@ -4799,8 +4953,9 @@ class AnalyticsService:
         tool_usage: dict[str, int] = {}
 
         for message in messages:
-            if message.get("message", {}).get("content"):
-                content = message["message"]["content"]
+            # Extract content from message
+            content = message.get("content", "")
+            if content:
                 if isinstance(content, list):
                     # Handle Claude API format with content blocks
                     text_content = " ".join(
@@ -4814,9 +4969,9 @@ class AnalyticsService:
                 else:
                     all_content += " " + str(content)
 
-            # Track tool usage
-            if message.get("toolUseResult"):
-                tool_name = message["toolUseResult"].get("tool_name")
+            # Track tool usage from tool_use messages
+            if message.get("type") == "tool_use" and message.get("messageData"):
+                tool_name = message["messageData"].get("name")
                 if tool_name:
                     tool_usage[tool_name] = tool_usage.get(tool_name, 0) + 1
 

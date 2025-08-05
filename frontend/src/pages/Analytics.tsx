@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/common';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   useAnalyticsSummary,
   useActivityHeatmap,
@@ -307,19 +308,20 @@ export default function Analytics() {
         <CardContent className="py-4">
           <div className="flex items-center gap-4">
             <label className="text-sm font-medium">Filter by Session:</label>
-            <select
+            <SearchableSelect
               value={selectedSessionId || ''}
-              onChange={(e) => setSelectedSessionId(e.target.value || null)}
-              className="flex h-9 w-[400px] rounded-md border border-input bg-background dark:bg-background px-3 py-1 text-sm text-foreground ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            >
-              <option value="">All Sessions (Overall Analytics)</option>
-              {sessions?.items?.map((session: Session) => (
-                <option key={session.sessionId} value={session.sessionId}>
-                  {session.sessionId.slice(0, 8)}... - {session.messageCount}{' '}
-                  messages - {formatCost(session.totalCost || 0)}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setSelectedSessionId(value || null)}
+              placeholder="All Sessions (Overall Analytics)"
+              options={[
+                { value: '', label: 'All Sessions (Overall Analytics)' },
+                ...(sessions?.items?.map((session: Session) => ({
+                  value: session.sessionId,
+                  label: session.sessionId,
+                  description: `${session.messageCount} messages - ${formatCost(session.totalCost || 0)}`,
+                })) || []),
+              ]}
+              className="w-[400px]"
+            />
             {selectedSessionId && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
@@ -498,19 +500,19 @@ export default function Analytics() {
           {/* Session selector for live stats */}
           <div className="flex items-center gap-4 mt-4">
             <label className="text-sm font-medium">Monitor Session:</label>
-            <select
+            <SearchableSelect
               value={liveSessionId || ''}
-              onChange={(e) => setLiveSessionId(e.target.value || null)}
-              className="flex h-8 w-[300px] rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            >
-              <option value="">Choose a session to monitor...</option>
-              {sessions?.items?.map((session: Session) => (
-                <option key={session.sessionId} value={session.sessionId}>
-                  {session.sessionId.slice(0, 8)}... - {session.messageCount}{' '}
-                  messages - {formatCost(session.totalCost || 0)}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setLiveSessionId(value || null)}
+              placeholder="Choose a session to monitor..."
+              options={[
+                ...(sessions?.items?.map((session: Session) => ({
+                  value: session.sessionId,
+                  label: session.sessionId,
+                  description: `${session.messageCount} messages - ${formatCost(session.totalCost || 0)}`,
+                })) || []),
+              ]}
+              className="w-[300px]"
+            />
             {liveSessionId && (
               <button
                 onClick={() => setLiveSessionId(null)}
@@ -844,19 +846,19 @@ export default function Analytics() {
           </CardDescription>
           <div className="flex items-center gap-4 mt-4">
             <label className="text-sm font-medium">Select Session:</label>
-            <select
+            <SearchableSelect
               value={selectedSessionId || ''}
-              onChange={(e) => setSelectedSessionId(e.target.value || null)}
-              className="flex h-8 w-[300px] rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            >
-              <option value="">Choose a session to analyze...</option>
-              {sessions?.items?.map((session: Session) => (
-                <option key={session.sessionId} value={session.sessionId}>
-                  {session.sessionId.slice(0, 8)}... - {session.messageCount}{' '}
-                  messages - {formatCost(session.totalCost || 0)}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setSelectedSessionId(value || null)}
+              placeholder="Choose a session to analyze..."
+              options={[
+                ...(sessions?.items?.map((session: Session) => ({
+                  value: session.sessionId,
+                  label: session.sessionId,
+                  description: `${session.messageCount} messages - ${formatCost(session.totalCost || 0)}`,
+                })) || []),
+              ]}
+              className="w-[300px]"
+            />
           </div>
         </CardHeader>
         <CardContent>
