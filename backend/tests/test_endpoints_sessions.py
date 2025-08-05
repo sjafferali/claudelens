@@ -17,6 +17,7 @@ def test_client():
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
 
+    from app.api.dependencies import get_db
     from app.core.exceptions import ClaudeLensException
 
     app = FastAPI()
@@ -32,6 +33,11 @@ def test_client():
             },
         )
 
+    # Mock the database dependency
+    async def mock_get_db():
+        return AsyncMock()
+
+    app.dependency_overrides[get_db] = mock_get_db
     app.include_router(router, prefix="/api/v1/sessions")
     return TestClient(app)
 
