@@ -66,7 +66,7 @@ class SearchService:
             limit=limit,
             results=search_results,
             took_ms=duration_ms,
-            filters_applied=filters.dict(exclude_none=True) if filters else {},
+            filters_applied=filters.model_dump(exclude_none=True) if filters else {},
         )
 
     async def search_code(
@@ -535,7 +535,7 @@ class SearchService:
         """Log search for analytics."""
         log_entry = {
             "query": query,
-            "filters": filters.dict(exclude_none=True) if filters else {},
+            "filters": filters.model_dump(exclude_none=True) if filters else {},
             "result_count": result_count,
             "duration_ms": duration_ms,
             "timestamp": datetime.now(UTC),

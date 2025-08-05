@@ -57,7 +57,7 @@ class MessageIngest(BaseModel):
     def __init__(self, **data: Any) -> None:
         """Custom init to handle extra fields."""
         # Extract known fields
-        known_fields = set(self.__fields__.keys())
+        known_fields = set(self.__class__.model_fields.keys())
         known_data = {k: v for k, v in data.items() if k in known_fields}
         extra_data = {k: v for k, v in data.items() if k not in known_fields}
 

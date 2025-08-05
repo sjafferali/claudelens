@@ -14,18 +14,20 @@ This document tracks the tasks for systematically improving test coverage in the
 
 Last updated: 2025-08-05
 
-- Overall backend coverage: 37%
+- Overall backend coverage: 40% (improved from 37%)
 - Target coverage: 80%+
 
 ### Files with Lowest Coverage (Priority Targets)
 1. `app/services/ingest_debug.py` - 0% coverage
 2. `app/services/validation.py` - 100% coverage ✓
 3. `app/services/analytics.py` - 6% coverage (1700 lines!)
-4. `app/services/ingest.py` - 7% coverage
+4. `app/services/ingest.py` - 29% coverage ✓ (improved from 7%)
 5. `app/services/session.py` - 86% coverage ✓
 6. `app/services/message.py` - 98% coverage ✓
 7. `app/services/project.py` - 99% coverage ✓
 8. `app/api/api_v1/endpoints/projects.py` - 100% coverage ✓
+9. `app/api/api_v1/endpoints/sessions.py` - 98% coverage ✓ (new)
+10. `app/api/api_v1/endpoints/messages.py` - 59% coverage ✓ (new)
 
 ## Task List
 
@@ -64,30 +66,30 @@ Last updated: 2025-08-05
 - [x] Task 5.4: Run all backend tests and ensure they pass - 2025-08-05
 
 #### Sessions Endpoint Tests
-- [ ] Task 6.1: Write tests for `app/api/api_v1/endpoints/sessions.py` - test session endpoints
-- [ ] Task 6.2: Run all backend tests and ensure they pass
+- [x] Task 6.1: Write tests for `app/api/api_v1/endpoints/sessions.py` - test session endpoints - 2025-08-05
+- [x] Task 6.2: Run all backend tests and ensure they pass - 2025-08-05
 
 #### Messages Endpoint Tests
-- [ ] Task 7.1: Write tests for `app/api/api_v1/endpoints/messages.py` - test message list/filter
-- [ ] Task 7.2: Run all backend tests and ensure they pass
-- [ ] Task 7.3: Write tests for `app/api/api_v1/endpoints/messages.py` - test message CRUD
-- [ ] Task 7.4: Run all backend tests and ensure they pass
+- [x] Task 7.1: Write tests for `app/api/api_v1/endpoints/messages.py` - test message list/filter - 2025-08-05
+- [x] Task 7.2: Run all backend tests and ensure they pass - 2025-08-05
+- [x] Task 7.3: Write tests for `app/api/api_v1/endpoints/messages.py` - test message CRUD - 2025-08-05
+- [x] Task 7.4: Run all backend tests and ensure they pass - 2025-08-05
 
 ### Phase 3: Complex Service Tests
 
 #### Ingest Service Tests
-- [ ] Task 8.1: Write tests for `app/services/ingest.py` - test basic message ingestion
-- [ ] Task 8.2: Run all backend tests and ensure they pass
-- [ ] Task 8.3: Write tests for `app/services/ingest.py` - test batch processing
-- [ ] Task 8.4: Run all backend tests and ensure they pass
-- [ ] Task 8.5: Write tests for `app/services/ingest.py` - test error handling
-- [ ] Task 8.6: Run all backend tests and ensure they pass
+- [x] Task 8.1: Write tests for `app/services/ingest.py` - test basic message ingestion - 2025-08-05
+- [x] Task 8.2: Run all backend tests and ensure they pass - 2025-08-05
+- [x] Task 8.3: Write tests for `app/services/ingest.py` - test batch processing - 2025-08-05
+- [x] Task 8.4: Run all backend tests and ensure they pass - 2025-08-05
+- [x] Task 8.5: Write tests for `app/services/ingest.py` - test error handling - 2025-08-05
+- [x] Task 8.6: Run all backend tests and ensure they pass - 2025-08-05
 
 #### Search Service Tests
-- [ ] Task 9.1: Write tests for `app/services/search.py` - test basic search functionality
-- [ ] Task 9.2: Run all backend tests and ensure they pass
-- [ ] Task 9.3: Write tests for `app/services/search.py` - test advanced filters
-- [ ] Task 9.4: Run all backend tests and ensure they pass
+- [x] Task 9.1: Write tests for `app/services/search.py` - test basic search functionality - 2025-08-05
+- [x] Task 9.2: Run all backend tests and ensure they pass - 2025-08-05
+- [x] Task 9.3: Write tests for `app/services/search.py` - test advanced filters - 2025-08-05
+- [x] Task 9.4: Run all backend tests and ensure they pass - 2025-08-05
 
 #### Cost Calculation Tests
 - [ ] Task 10.1: Write tests for `app/services/cost_calculation.py` - test cost calculations
