@@ -561,7 +561,16 @@ class AnalyticsService:
                     "totalCost": {"$sum": "$costUsd"},
                     "avgResponseTime": {"$avg": "$durationMs"},
                     "models": {"$addToSet": "$model"},
-                    "sessionCount": {"$addToSet": "$sessionId"},
+                    "sessions": {"$addToSet": "$sessionId"},
+                }
+            },
+            {
+                "$project": {
+                    "messageCount": 1,
+                    "totalCost": 1,
+                    "avgResponseTime": 1,
+                    "modelCount": {"$size": "$models"},
+                    "sessionCount": {"$size": "$sessions"},
                 }
             },
         ]
@@ -608,13 +617,13 @@ class AnalyticsService:
                     "id": project_id,
                     "name": project_name,
                     "message_count": message_count,
-                    "session_count": len(result["sessionCount"]),
+                    "session_count": result["sessionCount"],
                     "total_cost": round(total_cost, 2),
                     "avg_cost_per_message": round(
                         total_cost / message_count if message_count > 0 else 0, 4
                     ),
                     "avg_response_time_ms": avg_response,
-                    "models_used": len(result["models"]),
+                    "models_used": result["modelCount"],
                 }
             )
 
@@ -659,17 +668,20 @@ class AnalyticsService:
         pipeline: list[dict[str, Any]] = [
             {"$match": time_filter},
             {"$group": group_stage},
-            {"$sort": {"_id": 1}},
-            {"$limit": points},
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
-
-        # Process results
+        # Add projection stage for sessions metric to count set size
         if metric == "sessions":
-            # Convert sets to counts
-            for result in results:
-                result["value"] = len(result["value"])
+            pipeline.append({"$project": {"_id": 1, "value": {"$size": "$value"}}})
+
+        pipeline.extend(
+            [
+                {"$sort": {"_id": 1}},
+                {"$limit": points},
+            ]
+        )
+
+        results = await self.db.messages.aggregate(pipeline).to_list(None)
 
         # Calculate trend statistics
         values = [r["value"] or 0 for r in results]
@@ -1739,7 +1751,7 @@ class AnalyticsService:
                     "_id": "$cwd",
                     "total_cost": {"$sum": "$costUsd"},
                     "message_count": {"$sum": 1},
-                    "session_ids": {"$addToSet": "$sessionId"},
+                    "session_count": {"$addToSet": "$sessionId"},
                     "last_active": {"$max": "$timestamp"},
                 }
             },
@@ -1749,8 +1761,7 @@ class AnalyticsService:
                     "path": "$_id",
                     "total_cost": {"$ifNull": ["$total_cost", 0]},
                     "message_count": 1,
-                    "session_count": {"$size": "$session_ids"},
-                    "session_ids": 1,
+                    "session_count": {"$size": "$session_count"},
                     "last_active": 1,
                 }
             },
@@ -2482,11 +2493,21 @@ class AnalyticsService:
                     "sessions": {"$addToSet": "$sessionId"},
                     "first_activity": {"$min": "$timestamp"},
                     "last_activity": {"$max": "$timestamp"},
-                    "tool_usage": {
+                    "tool_names": {
                         "$push": {
                             "$cond": [
                                 {"$ne": ["$toolUseResult", None]},
-                                {"$objectToArray": {"$ifNull": ["$toolUseResult", {}]}},
+                                {
+                                    "$map": {
+                                        "input": {
+                                            "$objectToArray": {
+                                                "$ifNull": ["$toolUseResult", {}]
+                                            }
+                                        },
+                                        "as": "tool",
+                                        "in": "$$tool.k",
+                                    }
+                                },
                                 [],
                             ]
                         }
@@ -2517,9 +2538,9 @@ class AnalyticsService:
                             1,
                         ]
                     },
-                    "tool_usage": {
+                    "tool_names": {
                         "$reduce": {
-                            "input": "$tool_usage",
+                            "input": "$tool_names",
                             "initialValue": [],
                             "in": {"$concatArrays": ["$$value", "$$this"]},
                         }
@@ -2560,9 +2581,8 @@ class AnalyticsService:
             # Calculate top operations
             top_operations = []
             tool_usage_counts: dict[str, int] = {}
-            for tool_data in result.get("tool_usage", []):
-                if isinstance(tool_data, dict) and "k" in tool_data:
-                    tool_name = tool_data["k"]
+            for tool_name in result.get("tool_names", []):
+                if tool_name:  # Skip empty/None tool names
                     tool_usage_counts[tool_name] = (
                         tool_usage_counts.get(tool_name, 0) + 1
                     )

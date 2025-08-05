@@ -392,12 +392,19 @@ class SyncEngine:
                     response_stats = await self._upload_batch(batch)
                     if response_stats:
                         # Update counts based on actual server response
-                        stats.messages_synced += response_stats.get(
-                            "messages_processed", 0
-                        )
-                        stats.messages_updated += response_stats.get(
-                            "messages_updated", 0
-                        )
+                        # When using force + overwrite, count updates as synced
+                        if self.force and self.overwrite_mode:
+                            total_processed = response_stats.get(
+                                "messages_processed", 0
+                            ) + response_stats.get("messages_updated", 0)
+                            stats.messages_synced += total_processed
+                        else:
+                            stats.messages_synced += response_stats.get(
+                                "messages_processed", 0
+                            )
+                            stats.messages_updated += response_stats.get(
+                                "messages_updated", 0
+                            )
                         stats.messages_skipped += response_stats.get(
                             "messages_skipped", 0
                         )
@@ -430,8 +437,19 @@ class SyncEngine:
                 response_stats = await self._upload_batch(batch)
                 if response_stats:
                     # Update counts based on actual server response
-                    stats.messages_synced += response_stats.get("messages_processed", 0)
-                    stats.messages_updated += response_stats.get("messages_updated", 0)
+                    # When using force + overwrite, count updates as synced
+                    if self.force and self.overwrite_mode:
+                        total_processed = response_stats.get(
+                            "messages_processed", 0
+                        ) + response_stats.get("messages_updated", 0)
+                        stats.messages_synced += total_processed
+                    else:
+                        stats.messages_synced += response_stats.get(
+                            "messages_processed", 0
+                        )
+                        stats.messages_updated += response_stats.get(
+                            "messages_updated", 0
+                        )
                     stats.messages_skipped += response_stats.get("messages_skipped", 0)
                     stats.errors += response_stats.get("messages_failed", 0)
                 else:
