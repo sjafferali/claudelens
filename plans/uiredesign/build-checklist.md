@@ -37,14 +37,14 @@ This checklist breaks down the conversation flow visualization improvements into
 *As a user, I want to quickly navigate to related messages so I can follow the conversation flow.*
 
 **Tasks:**
-- [ ] Add "Jump to parent" button to message headers
-- [ ] Add "View replies" button for messages with children
-- [ ] Implement smooth scroll to message on click
-- [ ] Add message ID to DOM elements for scroll targeting
-- [ ] Create `useMessageNavigation` hook
-- [ ] Add visual indicator for navigation target
-- [ ] Implement breadcrumb trail showing message path
-- [ ] Write tests for navigation functions
+- [x] Add "Jump to parent" button to message headers
+- [x] Add "View replies" button for messages with children
+- [x] Implement smooth scroll to message on click
+- [x] Add message ID to DOM elements for scroll targeting
+- [x] Create `useMessageNavigation` hook
+- [x] Add visual indicator for navigation target
+- [x] Implement breadcrumb trail showing message path
+- [x] Write tests for navigation functions
 
 ### 🔍 QA Checkpoint: Phase 1 Verification
 *Verify that all Phase 1 features are working correctly before proceeding to Phase 2.*

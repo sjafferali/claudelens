@@ -37,6 +37,8 @@ import {
   getBranchAlternatives,
 } from '@/utils/branch-detection';
 import { BranchSelector } from '@/components/BranchSelector';
+import { ConversationBreadcrumbs } from '@/components/ConversationBreadcrumbs';
+import { useMessageNavigation } from '@/hooks/useMessageNavigation';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -151,11 +153,40 @@ export default function SessionDetail() {
   const [expandedToolPairs, setExpandedToolPairs] = useState<Set<string>>(
     new Set()
   );
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
+    null
+  );
 
   // Calculate branch counts for all messages
   const messagesWithBranches = useMemo(
     () => calculateBranchCounts(allMessages),
     [allMessages]
+  );
+
+  // Use message navigation hook
+  const { getBreadcrumbPath, navigateToMessage } = useMessageNavigation(
+    messagesWithBranches,
+    messageRefs
+  );
+
+  // Get breadcrumb path for selected message
+  const breadcrumbPath = useMemo(() => {
+    if (!selectedMessageId) return [];
+    const selectedMessage = messagesWithBranches.find(
+      (m) =>
+        m._id === selectedMessageId ||
+        (m.uuid || m.messageUuid) === selectedMessageId
+    );
+    return selectedMessage ? getBreadcrumbPath(selectedMessage) : [];
+  }, [selectedMessageId, messagesWithBranches, getBreadcrumbPath]);
+
+  // Handle message selection
+  const handleMessageSelect = useCallback(
+    (messageId: string) => {
+      setSelectedMessageId(messageId);
+      navigateToMessage(messageId);
+    },
+    [navigateToMessage]
   );
 
   // Handle branch selection
@@ -587,6 +618,17 @@ export default function SessionDetail() {
 
           {/* Messages Container */}
           <div className="flex-1 overflow-hidden flex flex-col">
+            {/* Breadcrumb Navigation */}
+            {selectedMessageId && breadcrumbPath.length > 0 && (
+              <div className="px-6 py-3 border-b border-secondary-c bg-layer-secondary">
+                <ConversationBreadcrumbs
+                  path={breadcrumbPath}
+                  onNavigate={handleMessageSelect}
+                  currentMessageId={selectedMessageId}
+                />
+              </div>
+            )}
+
             {viewMode === 'timeline' && (
               <div
                 ref={scrollContainerRef}
@@ -604,6 +646,8 @@ export default function SessionDetail() {
                   onToggleToolPairExpanded={toggleToolPairExpanded}
                   onCopy={handleCopyToClipboard}
                   onSelectBranch={handleSelectBranch}
+                  onMessageSelect={handleMessageSelect}
+                  selectedMessageId={selectedMessageId}
                   activeBranches={activeBranches}
                   allMessages={messagesWithBranches}
                   messageRefs={messageRefs}
@@ -828,6 +872,8 @@ interface TimelineViewProps {
   onToggleToolPairExpanded: (pairId: string) => void;
   onCopy: (text: string, messageId: string) => void;
   onSelectBranch?: (messageUuid: string, parentUuid?: string) => void;
+  onMessageSelect?: (messageId: string) => void;
+  selectedMessageId?: string | null;
   activeBranches?: Map<string, string>;
   allMessages?: Message[];
   getMessageColors: (type: Message['type']) => { avatar: string; bg: string };
@@ -848,6 +894,8 @@ function TimelineView({
   onToggleToolPairExpanded,
   onCopy,
   onSelectBranch,
+  onMessageSelect,
+  selectedMessageId,
   activeBranches,
   allMessages,
   getMessageColors,
@@ -1361,13 +1409,23 @@ function TimelineView({
               }}
             >
               <div
+                onClick={() => {
+                  if (onMessageSelect) {
+                    const messageId =
+                      message.uuid || message.messageUuid || message._id;
+                    onMessageSelect(messageId);
+                  }
+                }}
                 className={cn(
-                  'rounded-xl p-4',
+                  'rounded-xl p-4 cursor-pointer',
                   colors.bg,
                   'border transition-all',
-                  isActiveBranch
-                    ? 'border-amber-500 ring-2 ring-amber-500/20'
-                    : 'border-secondary-c hover:border-primary-c',
+                  selectedMessageId ===
+                    (message.uuid || message.messageUuid || message._id)
+                    ? 'border-blue-500 ring-2 ring-blue-500/20'
+                    : isActiveBranch
+                      ? 'border-amber-500 ring-2 ring-amber-500/20'
+                      : 'border-secondary-c hover:border-primary-c',
                   isAlternativeBranch && 'opacity-60'
                 )}
               >

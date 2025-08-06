@@ -16,19 +16,26 @@ import {
   Zap,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getMessageUuid, getMessageCost } from '@/types/message-extensions';
 import { copyToClipboard } from '@/utils/clipboard';
 import { BranchIndicator } from './BranchIndicator';
+import { MessageNavigationButtons } from './MessageNavigationButtons';
+import { useMessageNavigation } from '@/hooks/useMessageNavigation';
 
 interface MessageListProps {
   messages: Message[];
   costMap?: Map<string, number>;
+  onSelectBranch?: (messageUuid: string, parentUuid?: string) => void;
 }
 
-export default function MessageList({ messages, costMap }: MessageListProps) {
+export default function MessageList({
+  messages,
+  costMap,
+  onSelectBranch,
+}: MessageListProps) {
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
   );
@@ -36,6 +43,16 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
     new Set()
   );
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const messageRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // Use message navigation hook
+  const {
+    hasParent,
+    hasChildren,
+    getChildrenCount,
+    navigateToParent,
+    navigateToChild,
+  } = useMessageNavigation(messages, messageRefs);
 
   const toggleExpanded = (messageId: string) => {
     setExpandedMessages((prev) => {
@@ -481,9 +498,25 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
           const isDifferentSender = previousMessage?.type !== message.type;
           const colors = getMessageColors(message.type);
 
+          const messageUuid = message.uuid || message.messageUuid;
+          const messageHasParent = hasParent(message);
+          const messageHasChildren = hasChildren(messageUuid);
+          const childrenCount = messageHasChildren
+            ? getChildrenCount(messageUuid)
+            : 0;
+
           return (
             <div
               key={message._id}
+              ref={(el) => {
+                if (el) {
+                  // Add multiple refs for different ID formats to ensure we can find the message
+                  messageRefs.current[message._id] = el;
+                  messageRefs.current[messageUuid] = el;
+                }
+              }}
+              data-message-id={message._id}
+              data-message-uuid={messageUuid}
               className={cn(
                 'relative transition-all duration-200',
                 isDifferentSender && !isFirstMessage && 'mt-8'
@@ -516,11 +549,32 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
                         branchCount={message.branchCount}
                         branchIndex={message.branchIndex}
                         onClick={() => {
-                          // TODO: Implement branch navigation
-                          console.log('Navigate to branches', message.branches);
+                          if (
+                            onSelectBranch &&
+                            message.branches &&
+                            message.branchCount
+                          ) {
+                            // Navigate to the next branch
+                            const currentIndex = message.branchIndex || 1;
+                            const nextIndex =
+                              currentIndex >= message.branchCount
+                                ? 1
+                                : currentIndex + 1;
+                            const nextBranch = message.branches[nextIndex - 1];
+                            onSelectBranch(nextBranch, message.parentUuid);
+                          }
                         }}
                       />
                     )}
+                    {/* Navigation buttons */}
+                    <MessageNavigationButtons
+                      message={message}
+                      hasParent={messageHasParent}
+                      hasChildren={messageHasChildren}
+                      childrenCount={childrenCount}
+                      onNavigateToParent={() => navigateToParent(message)}
+                      onNavigateToChildren={() => navigateToChild(messageUuid)}
+                    />
                   </div>
                   <button
                     onClick={() =>
@@ -639,10 +693,25 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
           };
 
           const resultPreview = getResultPreview(toolResultMessage.content);
+          const toolUseUuid = toolUseMessage.uuid || toolUseMessage.messageUuid;
+          const toolResultUuid =
+            toolResultMessage.uuid || toolResultMessage.messageUuid;
 
           return (
             <div
               key={pairId}
+              ref={(el) => {
+                if (el) {
+                  // Add refs for both tool messages
+                  messageRefs.current[toolUseMessage._id] = el;
+                  messageRefs.current[toolUseUuid] = el;
+                  messageRefs.current[toolResultMessage._id] = el;
+                  messageRefs.current[toolResultUuid] = el;
+                }
+              }}
+              data-message-id={pairId}
+              data-tool-use-uuid={toolUseUuid}
+              data-tool-result-uuid={toolResultUuid}
               className="relative transition-all duration-200 mt-4"
             >
               {/* Tool Pair Container */}
