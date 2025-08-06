@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClaudeLens - Import/Export Data Mockup</title>
+    <style>
+        /* Base Reset and Variables */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Light Mode Colors */
+            --color-primary: #3B82F6;
+            --color-secondary: #10B981;
+            --color-accent: #8B5CF6;
+            --color-warning: #F59E0B;
+            --color-error: #EF4444;
+            --color-success: #22C55E;
+            --color-background: #FFFFFF;
+            --color-surface: #F9FAFB;
+            --color-border: #E5E7EB;
+            --color-text-primary: #111827;
+            --color-text-secondary: #6B7280;
+            --color-muted: #F3F4F6;
+
+            /* Spacing */
+            --space-1: 0.25rem;
+            --space-2: 0.5rem;
+            --space-3: 0.75rem;
+            --space-4: 1rem;
+            --space-6: 1.5rem;
+            --space-8: 2rem;
+
+            /* Typography */
+            --text-xs: 0.75rem;
+            --text-sm: 0.875rem;
+            --text-base: 1rem;
+            --text-lg: 1.125rem;
+            --text-xl: 1.25rem;
+            --text-2xl: 1.5rem;
+
+            /* Border Radius */
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --radius-lg: 8px;
+            --radius-xl: 12px;
+        }
+
+        [data-theme="dark"] {
+            --color-background: #0F172A;
+            --color-surface: #1E293B;
+            --color-border: #334155;
+            --color-text-primary: #F9FAFB;
+            --color-text-secondary: #94A3B8;
+            --color-muted: #1E293B;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--color-background);
+            color: var(--color-text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+            padding: var(--space-8);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: var(--space-4);
+            right: var(--space-4);
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-2) var(--space-3);
+            cursor: pointer;
+            font-size: var(--text-lg);
+            transition: all 0.2s;
+            z-index: 1000;
+        }
+
+        .theme-toggle:hover {
+            background: var(--color-muted);
+            transform: scale(1.05);
+        }
+
+        /* Header */
+        .header {
+            margin-bottom: var(--space-8);
+        }
+
+        .header h1 {
+            font-size: var(--text-2xl);
+            font-weight: 700;
+            margin-bottom: var(--space-2);
+        }
+
+        .header p {
+            color: var(--color-text-secondary);
+            font-size: var(--text-base);
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-6);
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        .tab-button {
+            padding: var(--space-3) var(--space-6);
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--color-text-secondary);
+            font-size: var(--text-base);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: -2px;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .tab-button:hover {
+            color: var(--color-text-primary);
+        }
+
+        .tab-button.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            margin-bottom: var(--space-6);
+        }
+
+        .card-header {
+            margin-bottom: var(--space-4);
+        }
+
+        .card-title {
+            font-size: var(--text-lg);
+            font-weight: 600;
+            margin-bottom: var(--space-2);
+        }
+
+        .card-description {
+            color: var(--color-text-secondary);
+            font-size: var(--text-sm);
+        }
+
+        /* Export Section Styles */
+        .format-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: var(--space-3);
+            margin-bottom: var(--space-6);
+        }
+
+        .format-card {
+            padding: var(--space-4);
+            background: var(--color-background);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .format-card:hover {
+            border-color: var(--color-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .format-card.selected {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .format-card .icon {
+            font-size: var(--text-2xl);
+            margin-bottom: var(--space-2);
+        }
+
+        .format-card .label {
+            font-size: var(--text-sm);
+            font-weight: 500;
+        }
+
+        .format-card .description {
+            font-size: var(--text-xs);
+            opacity: 0.8;
+            margin-top: var(--space-1);
+        }
+
+        /* Selection Options */
+        .selection-options {
+            display: flex;
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
+            flex-wrap: wrap;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-4);
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .radio-option:hover {
+            border-color: var(--color-primary);
+        }
+
+        .radio-option input[type="radio"] {
+            accent-color: var(--color-primary);
+        }
+
+        .radio-option.selected {
+            background: var(--color-surface);
+            border-color: var(--color-primary);
+        }
+
+        /* Date Range */
+        .date-range-container {
+            display: flex;
+            gap: var(--space-3);
+            align-items: center;
+            margin-bottom: var(--space-4);
+        }
+
+        .date-input {
+            flex: 1;
+            padding: var(--space-2) var(--space-3);
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            font-size: var(--text-sm);
+            color: var(--color-text-primary);
+        }
+
+        .date-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Export Preview */
+        .preview-container {
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+            margin-bottom: var(--space-6);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-3);
+            padding-bottom: var(--space-3);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .preview-stats {
+            display: flex;
+            gap: var(--space-6);
+            font-size: var(--text-sm);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-value {
+            font-size: var(--text-xl);
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+
+        .stat-label {
+            color: var(--color-text-secondary);
+            font-size: var(--text-xs);
+        }
+
+        .preview-list {
+            space-y: var(--space-2);
+        }
+
+        .preview-item {
+            padding: var(--space-3);
+            background: var(--color-surface);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--space-2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-item input[type="checkbox"] {
+            accent-color: var(--color-primary);
+        }
+
+        /* Import Section Styles */
+        .drop-zone {
+            border: 2px dashed var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-8);
+            text-align: center;
+            background: var(--color-background);
+            transition: all 0.3s;
+            cursor: pointer;
+            margin-bottom: var(--space-6);
+        }
+
+        .drop-zone:hover {
+            border-color: var(--color-primary);
+            background: var(--color-surface);
+        }
+
+        .drop-zone.active {
+            border-color: var(--color-primary);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .drop-zone.error {
+            border-color: var(--color-error);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        .drop-zone.success {
+            border-color: var(--color-success);
+            background: rgba(34, 197, 94, 0.05);
+        }
+
+        .drop-zone-icon {
+            font-size: 48px;
+            margin-bottom: var(--space-4);
+        }
+
+        .drop-zone-text {
+            font-size: var(--text-base);
+            font-weight: 500;
+            margin-bottom: var(--space-2);
+        }
+
+        .drop-zone-hint {
+            font-size: var(--text-sm);
+            color: var(--color-text-secondary);
+        }
+
+        /* File Validation Feedback */
+        .validation-feedback {
+            padding: var(--space-3);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-4);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .validation-feedback.success {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--color-success);
+            border: 1px solid var(--color-success);
+        }
+
+        .validation-feedback.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--color-error);
+            border: 1px solid var(--color-error);
+        }
+
+        .validation-feedback.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--color-warning);
+            border: 1px solid var(--color-warning);
+        }
+
+        /* Import Mapping */
+        .mapping-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: var(--space-4);
+        }
+
+        .mapping-table th {
+            text-align: left;
+            padding: var(--space-3);
+            background: var(--color-surface);
+            border-bottom: 2px solid var(--color-border);
+            font-size: var(--text-sm);
+            font-weight: 600;
+        }
+
+        .mapping-table td {
+            padding: var(--space-3);
+            border-bottom: 1px solid var(--color-border);
+            font-size: var(--text-sm);
+        }
+
+        .mapping-select {
+            width: 100%;
+            padding: var(--space-2) var(--space-3);
+            background: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: var(--text-sm);
+        }
+
+        /* Conflict Resolution */
+        .conflict-item {
+            padding: var(--space-4);
+            background: var(--color-background);
+            border: 1px solid var(--color-warning);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-3);
+        }
+
+        .conflict-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-3);
+        }
+
+        .conflict-title {
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .conflict-options {
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        .conflict-option {
+            padding: var(--space-2) var(--space-3);
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: var(--text-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .conflict-option:hover {
+            border-color: var(--color-primary);
+        }
+
+        .conflict-option.selected {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .conflict-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-3);
+            font-size: var(--text-sm);
+        }
+
+        .comparison-side {
+            padding: var(--space-3);
+            background: var(--color-surface);
+            border-radius: var(--radius-sm);
+        }
+
+        .comparison-label {
+            font-weight: 500;
+            margin-bottom: var(--space-2);
+        }
+
+        /* Progress Indicators */
+        .progress-container {
+            margin-bottom: var(--space-4);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--color-border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: var(--space-2);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: var(--text-sm);
+            color: var(--color-text-secondary);
+        }
+
+        /* Export History */
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .history-table th {
+            text-align: left;
+            padding: var(--space-3);
+            background: var(--color-surface);
+            border-bottom: 2px solid var(--color-border);
+            font-size: var(--text-sm);
+            font-weight: 600;
+        }
+
+        .history-table td {
+            padding: var(--space-3);
+            border-bottom: 1px solid var(--color-border);
+            font-size: var(--text-sm);
+        }
+
+        .history-table tr:hover {
+            background: var(--color-surface);
+        }
+
+        .download-button {
+            padding: var(--space-1) var(--space-3);
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: var(--text-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .download-button:hover {
+            background: #2563EB;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: var(--space-3);
+            margin-top: var(--space-6);
+        }
+
+        .button {
+            padding: var(--space-3) var(--space-6);
+            border-radius: var(--radius-md);
+            font-size: var(--text-base);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .button-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .button-primary:hover {
+            background: #2563EB;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+        }
+
+        .button-secondary {
+            background: var(--color-surface);
+            color: var(--color-text-primary);
+            border: 1px solid var(--color-border);
+        }
+
+        .button-secondary:hover {
+            background: var(--color-muted);
+        }
+
+        /* Status Messages */
+        .status-message {
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-4);
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .status-message.info {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--color-primary);
+            border: 1px solid var(--color-primary);
+        }
+
+        .status-message.success {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--color-success);
+            border: 1px solid var(--color-success);
+        }
+
+        .status-message.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--color-error);
+            border: 1px solid var(--color-error);
+        }
+
+        /* Icons */
+        .icon {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--color-border);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: var(--space-4);
+            }
+
+            .format-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .selection-options {
+                flex-direction: column;
+            }
+
+            .date-range-container {
+                flex-direction: column;
+            }
+
+            .preview-stats {
+                flex-direction: column;
+                gap: var(--space-3);
+            }
+
+            .conflict-comparison {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .button {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .history-table {
+                font-size: var(--text-xs);
+            }
+
+            .tab-nav {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+            cursor: help;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--color-text-primary);
+            color: var(--color-background);
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-sm);
+            font-size: var(--text-xs);
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            margin-bottom: var(--space-1);
+            z-index: 100;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Theme Toggle -->
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+        <span id="theme-icon">🌙</span>
+    </button>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Import & Export Data</h1>
+            <p>Manage your conversation data with flexible import and export options</p>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-button active" onclick="switchTab('export')">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Export Data
+            </button>
+            <button class="tab-button" onclick="switchTab('import')">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                Import Data
+            </button>
+            <button class="tab-button" onclick="switchTab('history')">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                Export History
+            </button>
+        </div>
+
+        <!-- Export Tab Content -->
+        <div id="export-tab" class="tab-content active">
+            <!-- Format Selection -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">1. Choose Export Format</h2>
+                    <p class="card-description">Select the format that best suits your needs</p>
+                </div>
+                <div class="format-grid">
+                    <div class="format-card selected" onclick="selectFormat(this, 'json')">
+                        <div class="icon">📄</div>
+                        <div class="label">JSON</div>
+                        <div class="description">Complete data with metadata</div>
+                    </div>
+                    <div class="format-card" onclick="selectFormat(this, 'csv')">
+                        <div class="icon">📊</div>
+                        <div class="label">CSV</div>
+                        <div class="description">Spreadsheet compatible</div>
+                    </div>
+                    <div class="format-card" onclick="selectFormat(this, 'markdown')">
+                        <div class="icon">📝</div>
+                        <div class="label">Markdown</div>
+                        <div class="description">Human-readable format</div>
+                    </div>
+                    <div class="format-card" onclick="selectFormat(this, 'pdf')">
+                        <div class="icon">📋</div>
+                        <div class="label">PDF</div>
+                        <div class="description">Print-ready documents</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conversation Selection -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">2. Select Conversations</h2>
+                    <p class="card-description">Choose which conversations to include in the export</p>
+                </div>
+
+                <div class="selection-options">
+                    <label class="radio-option selected">
+                        <input type="radio" name="selection" value="all" checked>
+                        <span>All Conversations (156)</span>
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="selection" value="filtered">
+                        <span>Currently Filtered (42)</span>
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="selection" value="selected">
+                        <span>Selected Only (8)</span>
+                    </label>
+                </div>
+
+                <!-- Date Range Selector -->
+                <div class="date-range-container">
+                    <label style="min-width: 100px; font-size: var(--text-sm);">Date Range:</label>
+                    <input type="date" class="date-input" value="2024-01-01">
+                    <span style="padding: 0 var(--space-2);">to</span>
+                    <input type="date" class="date-input" value="2024-01-31">
+                </div>
+            </div>
+
+            <!-- Export Preview -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">3. Preview Export</h2>
+                    <p class="card-description">Review what will be included in your export</p>
+                </div>
+
+                <div class="preview-container">
+                    <div class="preview-header">
+                        <div class="preview-stats">
+                            <div class="stat-item">
+                                <span class="stat-value">156</span>
+                                <span class="stat-label">Conversations</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value">3,842</span>
+                                <span class="stat-label">Messages</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value">24.5 MB</span>
+                                <span class="stat-label">Est. Size</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value">$45.67</span>
+                                <span class="stat-label">Total Cost</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="preview-list">
+                        <div class="preview-item">
+                            <label style="display: flex; align-items: center; gap: var(--space-2);">
+                                <input type="checkbox" checked>
+                                <span>React Component Optimization</span>
+                            </label>
+                            <span style="color: var(--color-text-secondary); font-size: var(--text-xs);">42 messages • $2.45</span>
+                        </div>
+                        <div class="preview-item">
+                            <label style="display: flex; align-items: center; gap: var(--space-2);">
+                                <input type="checkbox" checked>
+                                <span>API Design Discussion</span>
+                            </label>
+                            <span style="color: var(--color-text-secondary); font-size: var(--text-xs);">28 messages • $1.89</span>
+                        </div>
+                        <div class="preview-item">
+                            <label style="display: flex; align-items: center; gap: var(--space-2);">
+                                <input type="checkbox" checked>
+                                <span>Database Schema Planning</span>
+                            </label>
+                            <span style="color: var(--color-text-secondary); font-size: var(--text-xs);">35 messages • $3.12</span>
+                        </div>
+                        <div class="preview-item">
+                            <label style="display: flex; align-items: center; gap: var(--space-2);">
+                                <input type="checkbox" checked>
+                                <span>Mobile App Architecture</span>
+                            </label>
+                            <span style="color: var(--color-text-secondary); font-size: var(--text-xs);">67 messages • $4.56</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Indicator -->
+                <div class="progress-container" id="export-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span>Exporting conversations...</span>
+                        <span>0%</span>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="button button-primary" onclick="startExport()">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Start Export
+                    </button>
+                    <button class="button button-secondary">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                        </svg>
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Tab Content -->
+        <div id="import-tab" class="tab-content">
+            <!-- Drag and Drop Zone -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">1. Select File to Import</h2>
+                    <p class="card-description">Upload your ClaudeLens export file or compatible format</p>
+                </div>
+
+                <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                    <div class="drop-zone-icon">📁</div>
+                    <div class="drop-zone-text">Drag and drop your file here</div>
+                    <div class="drop-zone-hint">or click to browse</div>
+                    <input type="file" id="file-input" style="display: none;" accept=".json,.csv,.md" onchange="handleFileSelect(event)">
+                </div>
+
+                <!-- File Validation Feedback -->
+                <div id="validation-feedback" style="display: none;"></div>
+            </div>
+
+            <!-- Import Preview/Mapping -->
+            <div class="card" id="import-preview-card" style="display: none;">
+                <div class="card-header">
+                    <h2 class="card-title">2. Review Import Data</h2>
+                    <p class="card-description">Map fields and preview the data to be imported</p>
+                </div>
+
+                <!-- File Info -->
+                <div class="status-message info">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <div>
+                        <strong>File: conversations_export.json</strong><br>
+                        <span style="font-size: var(--text-sm);">89 conversations • 2,341 messages • 12.4 MB</span>
+                    </div>
+                </div>
+
+                <!-- Field Mapping -->
+                <h3 style="font-size: var(--text-base); margin: var(--space-4) 0;">Field Mapping</h3>
+                <table class="mapping-table">
+                    <thead>
+                        <tr>
+                            <th>Source Field</th>
+                            <th>Map To</th>
+                            <th>Sample Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>conversation_id</td>
+                            <td>
+                                <select class="mapping-select">
+                                    <option>Session ID</option>
+                                    <option>External ID</option>
+                                    <option>Skip</option>
+                                </select>
+                            </td>
+                            <td style="color: var(--color-text-secondary);">conv_abc123...</td>
+                        </tr>
+                        <tr>
+                            <td>title</td>
+                            <td>
+                                <select class="mapping-select">
+                                    <option>Session Title</option>
+                                    <option>Summary</option>
+                                    <option>Skip</option>
+                                </select>
+                            </td>
+                            <td style="color: var(--color-text-secondary);">React Component...</td>
+                        </tr>
+                        <tr>
+                            <td>messages</td>
+                            <td>
+                                <select class="mapping-select">
+                                    <option>Messages</option>
+                                    <option>Skip</option>
+                                </select>
+                            </td>
+                            <td style="color: var(--color-text-secondary);">[Array: 42 items]</td>
+                        </tr>
+                        <tr>
+                            <td>created_at</td>
+                            <td>
+                                <select class="mapping-select">
+                                    <option>Created Date</option>
+                                    <option>Started At</option>
+                                    <option>Skip</option>
+                                </select>
+                            </td>
+                            <td style="color: var(--color-text-secondary);">2024-01-15T10:30:00Z</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Conflict Resolution -->
+            <div class="card" id="conflict-resolution-card" style="display: none;">
+                <div class="card-header">
+                    <h2 class="card-title">3. Resolve Conflicts</h2>
+                    <p class="card-description">Choose how to handle duplicate conversations</p>
+                </div>
+
+                <div class="status-message warning">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span>Found 12 conversations that already exist in your database</span>
+                </div>
+
+                <div style="margin-bottom: var(--space-4);">
+                    <label style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+                        <input type="checkbox" checked>
+                        <span style="font-size: var(--text-sm);">Apply to all conflicts</span>
+                    </label>
+                </div>
+
+                <div class="conflict-item">
+                    <div class="conflict-header">
+                        <div class="conflict-title">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 11 3 17l6 6 6-6-6-6z"></path>
+                                <path d="M15 7 9 13l6 6 6-6-6-6z"></path>
+                            </svg>
+                            <span>React Component Optimization</span>
+                        </div>
+                        <div class="conflict-options">
+                            <button class="conflict-option" onclick="selectConflictOption(this)">Skip</button>
+                            <button class="conflict-option selected" onclick="selectConflictOption(this)">Replace</button>
+                            <button class="conflict-option" onclick="selectConflictOption(this)">Merge</button>
+                        </div>
+                    </div>
+                    <div class="conflict-comparison">
+                        <div class="comparison-side">
+                            <div class="comparison-label">Existing Version</div>
+                            <div style="font-size: var(--text-xs); color: var(--color-text-secondary);">
+                                Messages: 42<br>
+                                Last Updated: 2024-01-10<br>
+                                Cost: $2.45
+                            </div>
+                        </div>
+                        <div class="comparison-side">
+                            <div class="comparison-label">Import Version</div>
+                            <div style="font-size: var(--text-xs); color: var(--color-text-secondary);">
+                                Messages: 48<br>
+                                Last Updated: 2024-01-15<br>
+                                Cost: $2.89
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="conflict-item">
+                    <div class="conflict-header">
+                        <div class="conflict-title">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 11 3 17l6 6 6-6-6-6z"></path>
+                                <path d="M15 7 9 13l6 6 6-6-6-6z"></path>
+                            </svg>
+                            <span>API Design Discussion</span>
+                        </div>
+                        <div class="conflict-options">
+                            <button class="conflict-option" onclick="selectConflictOption(this)">Skip</button>
+                            <button class="conflict-option" onclick="selectConflictOption(this)">Replace</button>
+                            <button class="conflict-option selected" onclick="selectConflictOption(this)">Merge</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import Progress -->
+            <div class="card" id="import-progress-card" style="display: none;">
+                <div class="card-header">
+                    <h2 class="card-title">4. Import Progress</h2>
+                    <p class="card-description">Your data is being imported</p>
+                </div>
+
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="import-progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="import-status">Preparing import...</span>
+                        <span id="import-percent">0%</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: var(--space-4); padding: var(--space-4); background: var(--color-background); border-radius: var(--radius-md); font-size: var(--text-sm);">
+                    <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2);">
+                        <div class="spinner"></div>
+                        <span id="current-item">Processing: React Component Optimization...</span>
+                    </div>
+                    <div style="color: var(--color-text-secondary);">
+                        <span id="import-stats">0 of 89 conversations imported</span>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="button button-primary" onclick="startImport()">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        Start Import
+                    </button>
+                    <button class="button button-secondary">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                        </svg>
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Tab Content -->
+        <div id="history-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Export History</h2>
+                    <p class="card-description">View and download your previous exports</p>
+                </div>
+
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Format</th>
+                            <th>Conversations</th>
+                            <th>Size</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>2024-01-31 14:23</td>
+                            <td>JSON</td>
+                            <td>156</td>
+                            <td>24.5 MB</td>
+                            <td><span style="color: var(--color-success);">✓ Complete</span></td>
+                            <td>
+                                <button class="download-button">Download</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2024-01-28 09:15</td>
+                            <td>CSV</td>
+                            <td>42</td>
+                            <td>8.3 MB</td>
+                            <td><span style="color: var(--color-success);">✓ Complete</span></td>
+                            <td>
+                                <button class="download-button">Download</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2024-01-25 16:45</td>
+                            <td>Markdown</td>
+                            <td>89</td>
+                            <td>15.7 MB</td>
+                            <td><span style="color: var(--color-success);">✓ Complete</span></td>
+                            <td>
+                                <button class="download-button">Download</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2024-01-22 11:30</td>
+                            <td>PDF</td>
+                            <td>23</td>
+                            <td>5.2 MB</td>
+                            <td><span style="color: var(--color-warning);">⚠ Expired</span></td>
+                            <td>
+                                <button class="download-button" disabled style="opacity: 0.5;">Expired</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2024-01-20 08:12</td>
+                            <td>JSON</td>
+                            <td>178</td>
+                            <td>28.9 MB</td>
+                            <td><span style="color: var(--color-success);">✓ Complete</span></td>
+                            <td>
+                                <button class="download-button">Download</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top: var(--space-4); padding: var(--space-3); background: var(--color-muted); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-secondary);">
+                    <strong>Note:</strong> Export files are available for download for 30 days. After that, you'll need to create a new export.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme Toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        const html = document.documentElement;
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            themeIcon.textContent = newTheme === 'light' ? '🌙' : '☀️';
+        });
+
+        // Tab Switching
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Show selected tab content
+            document.getElementById(tabName + '-tab').classList.add('active');
+
+            // Add active class to clicked button
+            event.target.closest('.tab-button').classList.add('active');
+        }
+
+        // Format Selection
+        function selectFormat(element, format) {
+            // Remove selected class from all format cards
+            document.querySelectorAll('.format-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // Add selected class to clicked card
+            element.classList.add('selected');
+
+            console.log('Selected format:', format);
+        }
+
+        // Selection Options
+        document.querySelectorAll('.radio-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.radio-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                this.classList.add('selected');
+                this.querySelector('input[type="radio"]').checked = true;
+            });
+        });
+
+        // Export Progress Simulation
+        function startExport() {
+            const progressContainer = document.getElementById('export-progress');
+            const progressFill = progressContainer.querySelector('.progress-fill');
+            const progressText = progressContainer.querySelector('.progress-text span:last-child');
+
+            progressContainer.style.display = 'block';
+
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 100) progress = 100;
+
+                progressFill.style.width = progress + '%';
+                progressText.textContent = Math.floor(progress) + '%';
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        alert('Export completed! File has been downloaded.');
+                        progressContainer.style.display = 'none';
+                        progressFill.style.width = '0%';
+                        progressText.textContent = '0%';
+                    }, 500);
+                }
+            }, 200);
+        }
+
+        // File Drop Zone
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('active');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('active');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('active');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            const validationFeedback = document.getElementById('validation-feedback');
+            const importPreviewCard = document.getElementById('import-preview-card');
+            const conflictResolutionCard = document.getElementById('conflict-resolution-card');
+
+            // Validate file type
+            const validTypes = ['application/json', 'text/csv', 'text/markdown', 'text/plain'];
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+
+            if (validTypes.includes(file.type) || ['json', 'csv', 'md'].includes(fileExtension)) {
+                // Success
+                dropZone.classList.add('success');
+                validationFeedback.className = 'validation-feedback success';
+                validationFeedback.innerHTML = `
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>File validated successfully: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                `;
+                validationFeedback.style.display = 'flex';
+
+                // Show preview and conflict resolution cards
+                setTimeout(() => {
+                    importPreviewCard.style.display = 'block';
+                    conflictResolutionCard.style.display = 'block';
+
+                    // Scroll to preview
+                    importPreviewCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 500);
+            } else {
+                // Error
+                dropZone.classList.add('error');
+                validationFeedback.className = 'validation-feedback error';
+                validationFeedback.innerHTML = `
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    <span>Invalid file type. Please upload a JSON, CSV, or Markdown file.</span>
+                `;
+                validationFeedback.style.display = 'flex';
+            }
+
+            // Reset drop zone state after 3 seconds
+            setTimeout(() => {
+                dropZone.classList.remove('success', 'error');
+            }, 3000);
+        }
+
+        // Conflict Resolution
+        function selectConflictOption(button) {
+            const options = button.parentElement.querySelectorAll('.conflict-option');
+            options.forEach(opt => opt.classList.remove('selected'));
+            button.classList.add('selected');
+        }
+
+        // Import Progress Simulation
+        function startImport() {
+            const progressCard = document.getElementById('import-progress-card');
+            const progressFill = document.getElementById('import-progress-fill');
+            const progressPercent = document.getElementById('import-percent');
+            const importStatus = document.getElementById('import-status');
+            const currentItem = document.getElementById('current-item');
+            const importStats = document.getElementById('import-stats');
+
+            progressCard.style.display = 'block';
+            progressCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            const items = [
+                'React Component Optimization',
+                'API Design Discussion',
+                'Database Schema Planning',
+                'Mobile App Architecture',
+                'Performance Tuning Session'
+            ];
+
+            let progress = 0;
+            let itemIndex = 0;
+            const totalItems = 89;
+
+            const interval = setInterval(() => {
+                progress += Math.random() * 5;
+                if (progress > 100) progress = 100;
+
+                progressFill.style.width = progress + '%';
+                progressPercent.textContent = Math.floor(progress) + '%';
+
+                // Update current item
+                const currentItemCount = Math.floor((progress / 100) * totalItems);
+                importStats.textContent = `${currentItemCount} of ${totalItems} conversations imported`;
+
+                // Cycle through items
+                if (Math.random() > 0.7 && itemIndex < items.length - 1) {
+                    itemIndex++;
+                    currentItem.textContent = `Processing: ${items[itemIndex]}...`;
+                }
+
+                // Update status
+                if (progress < 30) {
+                    importStatus.textContent = 'Validating data...';
+                } else if (progress < 60) {
+                    importStatus.textContent = 'Importing conversations...';
+                } else if (progress < 90) {
+                    importStatus.textContent = 'Processing messages...';
+                } else {
+                    importStatus.textContent = 'Finalizing import...';
+                }
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    importStatus.textContent = 'Import completed!';
+                    currentItem.innerHTML = '<span style="color: var(--color-success);">✓ All conversations imported successfully</span>';
+
+                    // Show success message
+                    setTimeout(() => {
+                        alert('Import completed successfully! 89 conversations have been imported.');
+                    }, 500);
+                }
+            }, 200);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set initial theme icon
+            const currentTheme = html.getAttribute('data-theme');
+            themeIcon.textContent = currentTheme === 'light' ? '🌙' : '☀️';
+        });
+    </script>
+</body>
+</html>

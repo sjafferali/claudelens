@@ -578,7 +578,7 @@ class SyncEngine:
         }
 
         try:
-            response = await client.post("/projects", json=project_data)
+            response = await client.post("/api/v1/projects", json=project_data)
             if response.status_code not in (
                 200,
                 201,
@@ -630,7 +630,7 @@ class SyncEngine:
         for attempt in range(retry_count):
             try:
                 response = await client.post(
-                    "/ingest/batch",  # Remove trailing slash - nginx adds it
+                    "/api/v1/ingest/batch",  # API v1 endpoint
                     json={"messages": messages, "overwrite_mode": self.overwrite_mode},
                     timeout=60.0,
                 )

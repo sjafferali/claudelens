@@ -16,6 +16,8 @@ class ClaudeMessageParser:
         - summary: Session summaries (stored separately)
         - user: User inputs with optional tool results
         - assistant: Claude responses with model info and costs
+        - tool_use: Tool operations (marked as sidechains)
+        - tool_result: Tool results (marked as sidechains)
 
         Returns None if message should be skipped.
         """
@@ -37,6 +39,43 @@ class ClaudeMessageParser:
         except Exception:
             return None
 
+        # Determine if this is a sidechain message
+        # Check explicit flag first, then infer from message type
+        is_sidechain = raw_message.get("isSidechain", False)
+
+        # If not explicitly marked, check if it's a tool-related message
+        # Tool operations are typically sidechains (parallel operations)
+        if not is_sidechain and msg_type in ["tool_use", "tool_result"]:
+            is_sidechain = True
+
+        # Also check message content for tool operation indicators
+        if not is_sidechain and "message" in raw_message:
+            msg_content = raw_message.get("message", {})
+            if isinstance(msg_content, dict):
+                # Check for tool_use content blocks in assistant messages
+                content_blocks = msg_content.get("content", [])
+                if isinstance(content_blocks, list):
+                    for block in content_blocks:
+                        if isinstance(block, dict) and block.get("type") == "tool_use":
+                            is_sidechain = True
+                            break
+
+                # Check for tool_use content patterns in string content
+                content = msg_content.get("content", "")
+                if isinstance(content, str):
+                    # Common tool operation patterns in Claude messages
+                    tool_indicators = [
+                        "🤖",  # Agent task indicator
+                        "Running agent task:",
+                        "Tool operation:",
+                        "Executing:",
+                        "Processing:",
+                        "<function_calls>",  # XML function call markers
+                        "<tool_use>",
+                    ]
+                    if any(indicator in content for indicator in tool_indicators):
+                        is_sidechain = True
+
         # Build normalized message
         message = {
             "uuid": raw_message["uuid"],
@@ -44,7 +83,7 @@ class ClaudeMessageParser:
             "timestamp": timestamp.isoformat(),
             "sessionId": raw_message.get("sessionId"),
             "parentUuid": raw_message.get("parentUuid"),
-            "isSidechain": raw_message.get("isSidechain", False),
+            "isSidechain": is_sidechain,
             "userType": raw_message.get("userType", "external"),
             "cwd": raw_message.get("cwd"),
             "version": raw_message.get("version"),
