@@ -561,6 +561,9 @@ class TestProjectsEndpoints:
         # Setup
         project_id = "507f1f77bcf86cd799439011"
         mock_service_instance = MagicMock()
+        mock_service_instance.get_project = AsyncMock(
+            return_value=MagicMock(stats=MagicMock(message_count=100))
+        )
         mock_service_instance.delete_project = AsyncMock(return_value=True)
         mock_project_service.return_value = mock_service_instance
 
@@ -573,8 +576,13 @@ class TestProjectsEndpoints:
             response = test_client.delete(f"/projects/{project_id}")
 
         # Assert
-        assert response.status_code == 204
-        assert response.content == b""
+        assert response.status_code == 200
+        response_data = response.json()
+        assert "message" in response_data
+        assert "async" in response_data
+        assert "project_id" in response_data
+        assert response_data["project_id"] == project_id
+        assert response_data["async"] is False  # Small project, sync deletion
         # Verify cascade was False by default
         mock_service_instance.delete_project.assert_called_once_with(
             ObjectId(project_id), cascade=False
@@ -588,6 +596,9 @@ class TestProjectsEndpoints:
         # Setup
         project_id = "507f1f77bcf86cd799439011"
         mock_service_instance = MagicMock()
+        mock_service_instance.get_project = AsyncMock(
+            return_value=MagicMock(stats=MagicMock(message_count=500))
+        )
         mock_service_instance.delete_project = AsyncMock(return_value=True)
         mock_project_service.return_value = mock_service_instance
 
@@ -600,11 +611,51 @@ class TestProjectsEndpoints:
             response = test_client.delete(f"/projects/{project_id}?cascade=true")
 
         # Assert
-        assert response.status_code == 204
+        assert response.status_code == 200
+        response_data = response.json()
+        assert "message" in response_data
+        assert "async" in response_data
+        assert "project_id" in response_data
+        assert response_data["project_id"] == project_id
+        assert response_data["async"] is False  # Still small project, sync deletion
         # Verify cascade was True
         mock_service_instance.delete_project.assert_called_once_with(
             ObjectId(project_id), cascade=True
         )
+
+    @pytest.mark.asyncio
+    async def test_delete_project_large_async(
+        self, test_client, mock_project_service, mock_db
+    ):
+        """Test deleting a large project triggers async deletion."""
+        # Setup
+        project_id = "507f1f77bcf86cd799439011"
+        mock_service_instance = MagicMock()
+        mock_service_instance.get_project = AsyncMock(
+            return_value=MagicMock(stats=MagicMock(message_count=2000))
+        )
+        mock_service_instance.delete_project_async = AsyncMock()
+        mock_project_service.return_value = mock_service_instance
+
+        # Mock get_db to return an async generator
+        async def mock_get_db():
+            yield mock_db
+
+        # Make request
+        with patch("app.api.dependencies.get_db", mock_get_db):
+            response = test_client.delete(f"/projects/{project_id}?cascade=true")
+
+        # Assert
+        assert response.status_code == 200
+        response_data = response.json()
+        assert "message" in response_data
+        assert "async" in response_data
+        assert "project_id" in response_data
+        assert "estimated_messages" in response_data
+        assert "note" in response_data
+        assert response_data["project_id"] == project_id
+        assert response_data["async"] is True  # Large project, async deletion
+        assert response_data["estimated_messages"] == 2000
 
     @pytest.mark.asyncio
     async def test_delete_project_not_found(
@@ -614,6 +665,9 @@ class TestProjectsEndpoints:
         # Setup
         project_id = "507f1f77bcf86cd799439011"
         mock_service_instance = MagicMock()
+        mock_service_instance.get_project = AsyncMock(
+            return_value=None
+        )  # Project doesn't exist
         mock_service_instance.delete_project = AsyncMock(return_value=False)
         mock_project_service.return_value = mock_service_instance
 

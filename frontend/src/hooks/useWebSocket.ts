@@ -5,6 +5,17 @@ export interface WebSocketMessage {
   [key: string]: unknown;
 }
 
+export interface DeletionProgressEvent extends WebSocketMessage {
+  type: 'deletion_progress';
+  project_id: string;
+  stage: string;
+  progress: number;
+  message: string;
+  completed: boolean;
+  error?: string;
+  timestamp: string;
+}
+
 export interface WebSocketOptions {
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
@@ -220,5 +231,21 @@ export function useWebSocket(
     close,
     reconnect,
     lastMessage,
+  };
+}
+
+export function useDeletionProgress(
+  onProgress?: (event: DeletionProgressEvent) => void
+) {
+  const { isConnected, lastMessage } = useWebSocket('/api/v1/ws/stats');
+
+  useEffect(() => {
+    if (lastMessage && lastMessage.type === 'deletion_progress' && onProgress) {
+      onProgress(lastMessage as DeletionProgressEvent);
+    }
+  }, [lastMessage, onProgress]);
+
+  return {
+    isConnected,
   };
 }

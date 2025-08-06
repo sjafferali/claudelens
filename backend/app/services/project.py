@@ -138,6 +138,142 @@ class ProjectService:
         result = await self.db.projects.delete_one({"_id": project_id})
         return result.deleted_count > 0
 
+    async def delete_project_async(
+        self, project_id: ObjectId, cascade: bool = False
+    ) -> None:
+        """Delete a project asynchronously with progress updates via WebSocket."""
+        from app.services.websocket_manager import connection_manager
+
+        project_id_str = str(project_id)
+
+        try:
+            # Start deletion process
+            await connection_manager.broadcast_deletion_progress(
+                project_id=project_id_str,
+                stage="initializing",
+                progress=0,
+                message="Starting project deletion...",
+            )
+
+            if cascade:
+                # Get all session IDs and count for progress tracking
+                await connection_manager.broadcast_deletion_progress(
+                    project_id=project_id_str,
+                    stage="analyzing",
+                    progress=10,
+                    message="Analyzing project data...",
+                )
+
+                session_ids = await self.db.sessions.distinct(
+                    "sessionId", {"projectId": project_id}
+                )
+
+                total_sessions = len(session_ids)
+                if total_sessions == 0:
+                    message_count = 0
+                else:
+                    # Count total messages for progress tracking
+                    message_count = await self.db.messages.count_documents(
+                        {"sessionId": {"$in": session_ids}}
+                    )
+
+                await connection_manager.broadcast_deletion_progress(
+                    project_id=project_id_str,
+                    stage="analyzing",
+                    progress=20,
+                    message=f"Found {message_count} messages in {total_sessions} sessions",
+                )
+
+                # Delete messages in batches for large projects
+                if message_count > 0:
+                    await connection_manager.broadcast_deletion_progress(
+                        project_id=project_id_str,
+                        stage="deleting_messages",
+                        progress=30,
+                        message=f"Deleting {message_count} messages...",
+                    )
+
+                    # Delete messages in batches of 1000 to avoid timeouts
+                    batch_size = 1000
+                    total_batches = (message_count + batch_size - 1) // batch_size
+
+                    for batch_idx in range(total_batches):
+                        skip = batch_idx * batch_size
+
+                        # Get batch of message IDs
+                        message_batch = (
+                            await self.db.messages.find(
+                                {"sessionId": {"$in": session_ids}}, {"_id": 1}
+                            )
+                            .skip(skip)
+                            .limit(batch_size)
+                            .to_list(batch_size)
+                        )
+
+                        if message_batch:
+                            message_ids = [msg["_id"] for msg in message_batch]
+                            await self.db.messages.delete_many(
+                                {"_id": {"$in": message_ids}}
+                            )
+
+                        progress = 30 + (batch_idx + 1) / total_batches * 50
+                        await connection_manager.broadcast_deletion_progress(
+                            project_id=project_id_str,
+                            stage="deleting_messages",
+                            progress=int(progress),
+                            message=f"Deleted batch {batch_idx + 1}/{total_batches} of messages",
+                        )
+
+                # Delete sessions
+                if total_sessions > 0:
+                    await connection_manager.broadcast_deletion_progress(
+                        project_id=project_id_str,
+                        stage="deleting_sessions",
+                        progress=80,
+                        message=f"Deleting {total_sessions} sessions...",
+                    )
+
+                    await self.db.sessions.delete_many({"projectId": project_id})
+
+                await connection_manager.broadcast_deletion_progress(
+                    project_id=project_id_str,
+                    stage="deleting_sessions",
+                    progress=90,
+                    message="All associated data deleted",
+                )
+
+            # Delete project
+            await connection_manager.broadcast_deletion_progress(
+                project_id=project_id_str,
+                stage="deleting_project",
+                progress=95,
+                message="Deleting project metadata...",
+            )
+
+            result = await self.db.projects.delete_one({"_id": project_id})
+
+            if result.deleted_count > 0:
+                await connection_manager.broadcast_deletion_progress(
+                    project_id=project_id_str,
+                    stage="completed",
+                    progress=100,
+                    message="Project successfully deleted",
+                    completed=True,
+                )
+            else:
+                raise ValueError("Project not found or already deleted")
+
+        except Exception as e:
+            await connection_manager.broadcast_deletion_progress(
+                project_id=project_id_str,
+                stage="error",
+                progress=0,
+                message="Deletion failed",
+                completed=True,
+                error=str(e),
+            )
+            raise
+
     async def get_project_statistics(self, project_id: ObjectId) -> dict | None:
         """Get detailed project statistics."""
         # Check project exists

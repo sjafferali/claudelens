@@ -128,25 +128,57 @@ async def update_project(
     )
 
 
-@router.delete("/{project_id}", status_code=204)
+@router.delete("/{project_id}", status_code=200)
 async def delete_project(
     project_id: str,
     db: CommonDeps,
     cascade: bool = Query(False, description="Delete all associated data"),
-) -> None:
+) -> dict:
     """Delete a project.
 
     If cascade=true, also deletes all sessions and messages.
     Otherwise, only deletes the project metadata.
+
+    For large projects, deletion happens asynchronously with progress updates via WebSocket.
     """
+    import asyncio
+
     if not ObjectId.is_valid(project_id):
         raise HTTPException(status_code=400, detail="Invalid project ID")
 
     service = ProjectService(db)
-    deleted = await service.delete_project(ObjectId(project_id), cascade=cascade)
 
-    if not deleted:
+    # Check if project exists
+    project = await service.get_project(ObjectId(project_id))
+    if not project:
         raise NotFoundError("Project", project_id)
+
+    # For projects with many messages, use async deletion
+    if cascade and project.stats and project.stats.message_count > 1000:
+        # Start async deletion in background
+        asyncio.create_task(
+            service.delete_project_async(ObjectId(project_id), cascade=cascade)
+        )
+
+        return {
+            "message": "Deletion started",
+            "async": True,
+            "project_id": project_id,
+            "estimated_messages": project.stats.message_count,
+            "note": "Progress updates will be sent via WebSocket",
+        }
+    else:
+        # Use synchronous deletion for smaller projects
+        deleted = await service.delete_project(ObjectId(project_id), cascade=cascade)
+
+        if not deleted:
+            raise NotFoundError("Project", project_id)
+
+        return {
+            "message": "Project deleted successfully",
+            "async": False,
+            "project_id": project_id,
+        }
 
 
 @router.get("/{project_id}/stats")

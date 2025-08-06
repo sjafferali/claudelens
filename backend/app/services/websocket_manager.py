@@ -12,6 +12,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.schemas.websocket import (
     AnimationType,
     ConnectionEvent,
+    DeletionProgressEvent,
     MessagePreview,
     NewMessageEvent,
     PongEvent,
@@ -122,6 +123,28 @@ class ConnectionManager:
             await self._broadcast_to_connections(
                 self.session_connections[session_id], event
             )
+
+    async def broadcast_deletion_progress(
+        self,
+        project_id: str,
+        stage: str,
+        progress: int,
+        message: str,
+        completed: bool = False,
+        error: str | None = None,
+    ) -> None:
+        """Broadcast project deletion progress to all connections."""
+        event = DeletionProgressEvent(
+            project_id=project_id,
+            stage=stage,
+            progress=progress,
+            message=message,
+            completed=completed,
+            error=error,
+        )
+
+        # Send to all active connections (global broadcast for project deletion)
+        await self._broadcast_to_connections(self.stats_connections, event)
 
     async def handle_websocket_messages(
         self, websocket: WebSocket, session_id: str | None = None

@@ -41,7 +41,13 @@ export const projectsApi = {
   async deleteProject(
     projectId: string,
     cascade: boolean = true
-  ): Promise<void> {
+  ): Promise<{
+    message: string;
+    async: boolean;
+    project_id: string;
+    estimated_messages?: number;
+    note?: string;
+  }> {
     const queryParams = new URLSearchParams();
     queryParams.append('cascade', cascade.toString());
 

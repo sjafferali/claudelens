@@ -94,6 +94,21 @@ class PongEvent(BaseModel):
     )
 
 
+class DeletionProgressEvent(BaseModel):
+    """WebSocket event for project deletion progress."""
+
+    type: Literal["deletion_progress"] = "deletion_progress"
+    project_id: str = Field(..., description="Project ID being deleted")
+    stage: str = Field(..., description="Current deletion stage")
+    progress: int = Field(..., ge=0, le=100, description="Progress percentage (0-100)")
+    message: str = Field(..., description="Progress message")
+    completed: bool = Field(False, description="Whether deletion is complete")
+    error: str | None = Field(None, description="Error message if deletion failed")
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow, description="Event timestamp"
+    )
+
+
 # Union type for all WebSocket events
 WebSocketEvent = Union[
     StatUpdateEvent,
@@ -101,6 +116,7 @@ WebSocketEvent = Union[
     ConnectionEvent,
     PingEvent,
     PongEvent,
+    DeletionProgressEvent,
 ]
 
 

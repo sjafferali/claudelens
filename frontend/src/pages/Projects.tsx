@@ -9,8 +9,14 @@ import {
   Button,
   ConfirmDialog,
 } from '@/components/common';
-import { useProjects, useProject, useDeleteProject } from '@/hooks/useProjects';
+import {
+  useProjects,
+  useProject,
+  useDeleteProject,
+  useInvalidateProjectQueries,
+} from '@/hooks/useProjects';
 import { useSessions } from '@/hooks/useSessions';
+import { DeletionProgressDialog } from '@/components/DeletionProgressDialog';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Loader2,
@@ -22,6 +28,15 @@ import {
 import { toast } from 'react-hot-toast';
 import { Project } from '@/api/types';
 import { getSessionTitle } from '@/utils/session';
+
+interface ApiError {
+  response?: {
+    data?: {
+      detail?: string;
+    };
+  };
+  message?: string;
+}
 
 export default function Projects() {
   const { projectId } = useParams();
@@ -43,6 +58,9 @@ function ProjectsList() {
     session_count: number;
     message_count: number;
   } | null>(null);
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
+  const [progressProjectId, setProgressProjectId] = useState<string>('');
+  const [progressProjectName, setProgressProjectName] = useState<string>('');
   const pageSize = 12;
 
   const { data, isLoading, error, refetch } = useProjects({
@@ -52,6 +70,7 @@ function ProjectsList() {
     sortOrder: 'desc',
   });
   const deleteProject = useDeleteProject();
+  const invalidateQueries = useInvalidateProjectQueries();
 
   // Filter projects based on search query
   const filteredProjects = useMemo(() => {
@@ -86,14 +105,29 @@ function ProjectsList() {
     if (!deleteProjectId) return;
 
     try {
-      await deleteProject.mutateAsync({
+      const response = await deleteProject.mutateAsync({
         projectId: deleteProjectId,
         cascade: true,
       });
-      toast.success('Project deleted successfully');
-      refetch();
-    } catch (error) {
-      toast.error('Failed to delete project');
+
+      if (response.async) {
+        // Show progress dialog for async deletion
+        setProgressProjectId(deleteProjectId);
+        setProgressProjectName(deleteProjectName);
+        setShowProgressDialog(true);
+        toast.success('Large project deletion started - tracking progress');
+      } else {
+        // Handle sync deletion
+        toast.success('Project deleted successfully');
+        refetch();
+      }
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      const errorMessage =
+        apiError?.response?.data?.detail ||
+        apiError?.message ||
+        'Failed to delete project. Please try again.';
+      toast.error(errorMessage);
       console.error('Delete project error:', error);
     }
     setDeleteProjectId(null);
@@ -288,11 +322,30 @@ function ProjectsList() {
             <p className="mt-2 text-sm font-semibold">
               This action cannot be undone.
             </p>
+            {deleteProjectStats && deleteProjectStats.message_count > 1000 && (
+              <p className="mt-2 text-sm text-blue-600">
+                Note: This is a large project. Deletion will happen in the
+                background with progress updates.
+              </p>
+            )}
           </div>
         }
         confirmLabel="Delete Project"
         onConfirm={handleDelete}
         onCancel={() => setDeleteProjectId(null)}
+      />
+
+      <DeletionProgressDialog
+        isOpen={showProgressDialog}
+        projectId={progressProjectId}
+        projectName={progressProjectName}
+        onClose={() => setShowProgressDialog(false)}
+        onComplete={() => {
+          setShowProgressDialog(false);
+          toast.success('Project deleted successfully');
+          invalidateQueries();
+          refetch();
+        }}
       />
     </div>
   );
@@ -301,6 +354,7 @@ function ProjectsList() {
 function ProjectDetail({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
   const { data: project, isLoading: projectLoading } = useProject(projectId);
   const { data: sessions, isLoading: sessionsLoading } = useSessions({
     projectId,
@@ -312,11 +366,28 @@ function ProjectDetail({ projectId }: { projectId: string }) {
 
   const handleDelete = async () => {
     try {
-      await deleteProject.mutateAsync({ projectId, cascade: true });
-      toast.success('Project deleted successfully');
-      navigate('/projects');
-    } catch (error) {
-      toast.error('Failed to delete project');
+      const response = await deleteProject.mutateAsync({
+        projectId,
+        cascade: true,
+      });
+
+      if (response.async) {
+        // Show progress dialog for async deletion
+        setShowProgressDialog(true);
+        setShowDeleteDialog(false);
+        toast.success('Large project deletion started - tracking progress');
+      } else {
+        // Handle sync deletion
+        toast.success('Project deleted successfully');
+        navigate('/projects');
+      }
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      const errorMessage =
+        apiError?.response?.data?.detail ||
+        apiError?.message ||
+        'Failed to delete project. Please try again.';
+      toast.error(errorMessage);
       console.error('Delete project error:', error);
     }
     setShowDeleteDialog(false);
@@ -495,11 +566,29 @@ function ProjectDetail({ projectId }: { projectId: string }) {
             <p className="mt-2 text-sm font-semibold">
               This action cannot be undone.
             </p>
+            {project.stats && project.stats.message_count > 1000 && (
+              <p className="mt-2 text-sm text-blue-600">
+                Note: This is a large project. Deletion will happen in the
+                background with progress updates.
+              </p>
+            )}
           </div>
         }
         confirmLabel="Delete Project"
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteDialog(false)}
+      />
+
+      <DeletionProgressDialog
+        isOpen={showProgressDialog}
+        projectId={projectId}
+        projectName={project.name}
+        onClose={() => setShowProgressDialog(false)}
+        onComplete={() => {
+          setShowProgressDialog(false);
+          toast.success('Project deleted successfully');
+          navigate('/projects');
+        }}
       />
     </div>
   );

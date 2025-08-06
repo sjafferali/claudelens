@@ -29,11 +29,27 @@ export function useDeleteProject() {
       projectId: string;
       cascade?: boolean;
     }) => projectsApi.deleteProject(projectId, cascade),
-    onSuccess: () => {
-      // Invalidate all project-related queries
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['project'] });
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    onSuccess: (response) => {
+      // Only invalidate queries if deletion completed synchronously
+      if (!response.async) {
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['project'] });
+        queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      }
+    },
+    onError: (error: unknown) => {
+      console.error('Project deletion failed:', error);
+      // The error will be handled by the component
     },
   });
+}
+
+export function useInvalidateProjectQueries() {
+  const queryClient = useQueryClient();
+
+  return () => {
+    queryClient.invalidateQueries({ queryKey: ['projects'] });
+    queryClient.invalidateQueries({ queryKey: ['project'] });
+    queryClient.invalidateQueries({ queryKey: ['sessions'] });
+  };
 }
