@@ -18,7 +18,7 @@ export function useMessageNavigation(
   // Find children of a message
   const getChildren = useCallback(
     (messageUuid: string): Message[] => {
-      return messages.filter((msg) => msg.parentUuid === messageUuid);
+      return messages.filter((msg) => msg.parent_uuid === messageUuid);
     },
     [messages]
   );
@@ -26,8 +26,8 @@ export function useMessageNavigation(
   // Find parent of a message
   const getParent = useCallback(
     (message: Message): Message | undefined => {
-      if (!message.parentUuid) return undefined;
-      return messageMap.get(message.parentUuid);
+      if (!message.parent_uuid) return undefined;
+      return messageMap.get(message.parent_uuid);
     },
     [messageMap]
   );
@@ -108,7 +108,7 @@ export function useMessageNavigation(
   // Check if message has parent
   const hasParent = useCallback(
     (message: Message): boolean => {
-      return !!message.parentUuid && !!messageMap.get(message.parentUuid);
+      return !!message.parent_uuid && !!messageMap.get(message.parent_uuid);
     },
     [messageMap]
   );

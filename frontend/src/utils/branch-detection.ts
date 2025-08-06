@@ -11,8 +11,8 @@ export function calculateBranchCounts(messages: Message[]): Message[] {
   messages.forEach((message) => {
     // Only group messages that actually have a parent UUID
     // Messages without a parent are NOT branches of each other
-    if (message.parentUuid) {
-      const parentId = message.parentUuid;
+    if (message.parent_uuid) {
+      const parentId = message.parent_uuid;
       if (!messagesByParent.has(parentId)) {
         messagesByParent.set(parentId, []);
       }

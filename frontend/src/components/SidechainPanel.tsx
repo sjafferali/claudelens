@@ -17,7 +17,7 @@ interface SidechainPanelProps {
   messages: Message[];
   isOpen: boolean;
   onClose: () => void;
-  onNavigateToParent?: (parentUuid: string) => void;
+  onNavigateToParent?: (parent_uuid: string) => void;
   className?: string;
 }
 
@@ -61,15 +61,17 @@ export function SidechainPanel({
       if (toolMsg) {
         console.log('[SidechainPanel] Sample tool message:', toolMsg);
         console.log(
-          '[SidechainPanel] Tool message parentUuid:',
-          toolMsg.parentUuid
+          '[SidechainPanel] Tool message parent_uuid:',
+          toolMsg.parent_uuid
         );
         console.log('[SidechainPanel] Tool message uuid:', toolMsg.uuid);
 
-        // Check if any tool messages have parentUuid
-        const toolMessagesWithParent = toolMessages.filter((m) => m.parentUuid);
+        // Check if any tool messages have parent_uuid
+        const toolMessagesWithParent = toolMessages.filter(
+          (m) => m.parent_uuid
+        );
         console.log(
-          '[SidechainPanel] Tool messages with parentUuid:',
+          '[SidechainPanel] Tool messages with parent_uuid:',
           toolMessagesWithParent.length
         );
       }
@@ -82,9 +84,9 @@ export function SidechainPanel({
         message.type === 'tool_use' ||
         message.type === 'tool_result';
 
-      if (isSidechainMessage && message.parentUuid) {
-        const existing = groups.get(message.parentUuid) || [];
-        groups.set(message.parentUuid, [...existing, message]);
+      if (isSidechainMessage && message.parent_uuid) {
+        const existing = groups.get(message.parent_uuid) || [];
+        groups.set(message.parent_uuid, [...existing, message]);
       }
     });
 
@@ -109,8 +111,8 @@ export function SidechainPanel({
   }, [messages]);
 
   // Get parent message details for each group
-  const getParentMessage = (parentUuid: string): Message | undefined => {
-    return messages.find((m) => (m.uuid || m.messageUuid) === parentUuid);
+  const getParentMessage = (parent_uuid: string): Message | undefined => {
+    return messages.find((m) => (m.uuid || m.messageUuid) === parent_uuid);
   };
 
   // Categorize sidechain type based on content
@@ -169,13 +171,13 @@ export function SidechainPanel({
     };
   };
 
-  const toggleGroup = (parentUuid: string) => {
+  const toggleGroup = (parent_uuid: string) => {
     setExpandedGroups((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(parentUuid)) {
-        newSet.delete(parentUuid);
+      if (newSet.has(parent_uuid)) {
+        newSet.delete(parent_uuid);
       } else {
-        newSet.add(parentUuid);
+        newSet.add(parent_uuid);
       }
       return newSet;
     });
@@ -252,19 +254,19 @@ export function SidechainPanel({
         ) : (
           <div className="p-3 space-y-3">
             {Array.from(sidechainGroups.entries()).map(
-              ([parentUuid, sidechainMessages]) => {
-                const parentMessage = getParentMessage(parentUuid);
-                const isExpanded = expandedGroups.has(parentUuid);
+              ([parent_uuid, sidechainMessages]) => {
+                const parentMessage = getParentMessage(parent_uuid);
+                const isExpanded = expandedGroups.has(parent_uuid);
                 const totalCount = sidechainMessages.length;
 
                 return (
                   <div
-                    key={parentUuid}
+                    key={parent_uuid}
                     className="bg-layer-tertiary border border-purple-500/20 rounded-lg overflow-hidden"
                   >
                     {/* Group Header */}
                     <button
-                      onClick={() => toggleGroup(parentUuid)}
+                      onClick={() => toggleGroup(parent_uuid)}
                       className="w-full px-3 py-2 flex items-center justify-between hover:bg-purple-500/5 transition-colors"
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -291,7 +293,7 @@ export function SidechainPanel({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  onNavigateToParent(parentUuid);
+                                  onNavigateToParent(parent_uuid);
                                 }}
                                 className="text-xs text-primary hover:text-primary-hover"
                               >

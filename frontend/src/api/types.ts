@@ -36,19 +36,20 @@ export interface Session {
 
 export interface Message {
   _id: string;
-  sessionId: string;
-  messageUuid: string;
-  uuid: string; // Add uuid field (same as messageUuid for compatibility)
+  session_id: string; // Changed from sessionId
+  messageUuid?: string; // Keep for backward compatibility
+  uuid: string; // Primary identifier
   type: 'user' | 'assistant' | 'system' | 'tool_use' | 'tool_result';
   role?: string;
   content: string;
   model?: string;
-  totalCost?: number;
-  cost_usd?: number; // Add cost_usd field
+  totalCost?: number; // Keep for backward compatibility
+  cost_usd?: number; // Snake case from API
   inputTokens?: number;
   outputTokens?: number;
   timestamp: string;
-  parentUuid?: string;
+  parent_uuid?: string; // Changed from parentUuid
+  created_at?: string; // Added from API
   metadata?: Record<string, unknown>;
   messageData?: Record<string, unknown>; // Original message data from Claude
   usage?: {

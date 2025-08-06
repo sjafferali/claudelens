@@ -76,11 +76,11 @@ function ConversationTreeContent({
     // Create edges
     const newEdges: Edge[] = [];
     messages.forEach((msg) => {
-      if (msg.parentUuid) {
-        const edgeId = `${msg.parentUuid}-${msg.uuid || msg._id}`;
+      if (msg.parent_uuid) {
+        const edgeId = `${msg.parent_uuid}-${msg.uuid || msg._id}`;
         newEdges.push({
           id: edgeId,
-          source: msg.parentUuid,
+          source: msg.parent_uuid,
           target: msg.uuid || msg._id,
           type: msg.isSidechain ? 'smoothstep' : 'default',
           animated: msg.uuid === activeMessageId || msg._id === activeMessageId,

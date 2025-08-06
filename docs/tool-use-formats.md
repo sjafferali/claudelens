@@ -49,6 +49,65 @@ Combines tool use and result messages into paired displays:
 - Provides unified expand/collapse controls
 - Maintains cost and timing information
 
+## Tool Message Extraction and Storage
+
+### How Tool Messages Are Created
+
+When Claude uses a tool, the original assistant message contains a `tool_use` content block. During the ingest process, ClaudeLens:
+
+1. **Identifies tool_use blocks** in assistant message content arrays
+2. **Extracts each tool operation** as a separate message
+3. **Creates tool_result messages** for the responses
+4. **Sets parent relationships** to maintain hierarchy
+
+### Extraction Pattern
+
+**Original Assistant Message:**
+```json
+{
+  "type": "assistant",
+  "uuid": "assistant-msg-123",
+  "message": {
+    "content": [
+      {
+        "type": "tool_use",
+        "id": "tool-call-001",
+        "name": "Read",
+        "input": {"file_path": "/path/to/file.txt"}
+      }
+    ]
+  }
+}
+```
+
+**Extracted Messages:**
+```json
+// 1. Modified assistant message
+{
+  "type": "assistant",
+  "uuid": "assistant-msg-123",
+  "content": "📄 Reading file: /path/to/file.txt"
+}
+
+// 2. Extracted tool_use message
+{
+  "type": "tool_use",
+  "uuid": "assistant-msg-123_tool_0",
+  "parentUuid": "assistant-msg-123",
+  "content": "{\"type\":\"tool_use\",\"name\":\"Read\",\"input\":{...}}",
+  "isSidechain": true
+}
+
+// 3. Extracted tool_result message
+{
+  "type": "tool_result",
+  "uuid": "assistant-msg-123_result_0",
+  "parentUuid": "assistant-msg-123_tool_0",
+  "content": "File contents here...",
+  "isSidechain": true
+}
+```
+
 ## Tool Use Messages
 
 Tool use messages are displayed using the `ToolDisplay` component, which provides specialized formatting for each tool type. The component uses color-coded categories and tool-specific icons to enhance readability.
@@ -987,3 +1046,109 @@ The new component-based architecture provides:
 6. **Accessibility**: Semantic HTML and ARIA labels throughout
 
 Remember: The goal is to make Claude's tool usage transparent and easy to follow, helping users understand what operations were performed without overwhelming them with details. The component architecture ensures consistency while allowing flexibility for tool-specific formatting needs.
+
+## Tool Extraction Patterns
+
+### Complete Tool Input Specifications
+
+This section documents the exact input format for each tool as they appear in Claude's messages and how they are extracted during the ingest process.
+
+#### File Operations
+
+**Read Tool:**
+- **Input Format:**
+  ```json
+  {
+    "name": "Read",
+    "input": {
+      "file_path": "/path/to/file.txt",
+      "offset": 0,      // Optional: line to start from
+      "limit": 100      // Optional: number of lines
+    }
+  }
+  ```
+- **Extraction**: Creates tool_use message with UUID pattern `{assistant_uuid}_tool_{index}`
+- **Display Summary**: "📄 Reading file: {file_path}"
+
+**Write Tool:**
+- **Input Format:**
+  ```json
+  {
+    "name": "Write",
+    "input": {
+      "file_path": "/path/to/file.txt",
+      "content": "File content..."
+    }
+  }
+  ```
+- **Extraction**: Creates tool_use message with full content preserved
+- **Display Summary**: "✏️ Writing to file: {file_path}"
+
+**Edit Tool:**
+- **Input Format:**
+  ```json
+  {
+    "name": "Edit",
+    "input": {
+      "file_path": "/path/to/file.txt",
+      "old_string": "original",
+      "new_string": "replacement",
+      "replace_all": false
+    }
+  }
+  ```
+- **Extraction**: Preserves edit details for undo/redo capability
+- **Display Summary**: "✏️ Editing file: {file_path}"
+
+#### Search Operations
+
+**Grep Tool:**
+- **Input Format:**
+  ```json
+  {
+    "name": "Grep",
+    "input": {
+      "pattern": "TODO|FIXME",
+      "path": "/src",
+      "glob": "*.js",
+      "output_mode": "content",
+      "-i": true,
+      "-n": true
+    }
+  }
+  ```
+- **Extraction**: Maintains all grep flags and options
+- **Display Summary**: "🔍 Searching for: {pattern}"
+
+**Bash Tool:**
+- **Input Format:**
+  ```json
+  {
+    "name": "Bash",
+    "input": {
+      "command": "npm test",
+      "description": "Run tests",
+      "timeout": 30000
+    }
+  }
+  ```
+- **Extraction**: Preserves command and timeout settings
+- **Display Summary**: "💻 Running command: {command}"
+
+### Parent-Child Relationships
+
+When extracting tool messages, the following parent-child relationships are established:
+
+1. **Assistant → Tool Use**: Tool use messages become children of the assistant message containing them
+2. **Tool Use → Tool Result**: Tool result messages become children of their corresponding tool use
+3. **UUID Pattern**:
+   - Assistant: `original-uuid`
+   - Tool Use: `original-uuid_tool_0`, `original-uuid_tool_1`, etc.
+   - Tool Result: `original-uuid_result_0`, `original-uuid_result_1`, etc.
+
+### Sidechain Marking
+
+All extracted tool messages are marked with `"isSidechain": true` to:
+- Group them in the sidechain panel
+- Keep the main conversation flow clean
+- Allow filtering of auxiliary operations

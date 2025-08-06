@@ -28,7 +28,7 @@ import { useMessageNavigation } from '@/hooks/useMessageNavigation';
 interface MessageListProps {
   messages: Message[];
   costMap?: Map<string, number>;
-  onSelectBranch?: (messageUuid: string, parentUuid?: string) => void;
+  onSelectBranch?: (messageUuid: string, parent_uuid?: string) => void;
 }
 
 export default function MessageList({
@@ -561,7 +561,7 @@ export default function MessageList({
                                 ? 1
                                 : currentIndex + 1;
                             const nextBranch = message.branches[nextIndex - 1];
-                            onSelectBranch(nextBranch, message.parentUuid);
+                            onSelectBranch(nextBranch, message.parent_uuid);
                           }
                         }}
                       />
