@@ -37,6 +37,7 @@ export function ForkConfirmationDialog({
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={handleCancel}
+        data-testid="backdrop"
       />
 
       {/* Dialog */}

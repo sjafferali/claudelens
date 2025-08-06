@@ -269,26 +269,26 @@ This checklist breaks down the conversation flow visualization improvements into
 - [x] Generate new session with fork metadata
 - [x] Copy conversation history up to fork point
 - [x] Add fork indicator in original session
-- [ ] Create "View forks" panel
+- [x] Create "View forks" panel
 - [x] Navigate to new forked session
 - [x] Track fork relationships in database
-- [ ] Write tests for forking logic
+- [x] Write tests for forking logic
 
 ### User Story 10: Merge Insights from Multiple Branches
 *As a user, I want to merge the best parts of different conversation branches so I can create an optimal solution.*
 
 **Tasks:**
-- [ ] Create `BranchMerge` dialog component
-- [ ] Add branch multi-selection interface
-- [ ] Implement merge strategy selector (sequential/intelligent/cherry-pick)
-- [ ] Create message selection checklist for cherry-pick
-- [ ] Add merge preview panel
-- [ ] Implement AI-powered intelligent merge
-- [ ] Generate merge summary message
-- [ ] Create new branch with merged content
-- [ ] Add merge history tracking
-- [ ] Implement conflict resolution UI
-- [ ] Write comprehensive merge tests
+- [x] Create `BranchMerge` dialog component
+- [x] Add branch multi-selection interface
+- [x] Implement merge strategy selector (sequential/intelligent/cherry-pick)
+- [x] Create message selection checklist for cherry-pick
+- [x] Add merge preview panel
+- [x] Implement AI-powered intelligent merge
+- [x] Generate merge summary message
+- [x] Create new branch with merged content
+- [x] Add merge history tracking
+- [x] Implement conflict resolution UI
+- [x] Write comprehensive merge tests
 
 ### 🔍 QA Checkpoint: Phase 3 Verification
 *Verify that all Phase 3 advanced features are working correctly.*
