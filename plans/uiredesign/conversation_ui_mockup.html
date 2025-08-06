@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClaudeLens - Enhanced Conversation View Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background: #1e293b;
+            border-right: 1px solid #334155;
+            padding: 20px;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: #f1f5f9;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .nav-item:hover {
+            background: #334155;
+        }
+
+        .nav-item.active {
+            background: #3b82f6;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0f172a;
+        }
+
+        /* Header */
+        .header {
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+            padding: 15px 30px;
+        }
+
+        .session-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .session-meta {
+            display: flex;
+            gap: 20px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        /* View Mode Tabs */
+        .view-tabs {
+            display: flex;
+            gap: 10px;
+            padding: 15px 30px;
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+        }
+
+        .view-tab {
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #334155;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .view-tab.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        /* Content Area */
+        .content-wrapper {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Message Timeline */
+        .message-timeline {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        /* Branch Indicator */
+        .branch-indicator {
+            background: #fbbf24;
+            color: #78350f;
+            padding: 8px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .branch-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .branch-nav button {
+            background: #f59e0b;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: white;
+        }
+
+        .branch-nav button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Messages */
+        .message {
+            margin-bottom: 20px;
+            padding: 15px 20px;
+            border-radius: 12px;
+            border-left: 4px solid transparent;
+            position: relative;
+        }
+
+        .message.user {
+            background: #1e3a5f;
+            border-left-color: #3b82f6;
+        }
+
+        .message.assistant {
+            background: #134e4a;
+            border-left-color: #10b981;
+        }
+
+        .message.sidechain {
+            background: #4c1d95;
+            border-left-color: #9333ea;
+            opacity: 0.8;
+            margin-left: 40px;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .message-author {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .message-content {
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+
+        .message-meta {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        /* Sidechain Indicator */
+        .sidechain-badge {
+            background: #9333ea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 10px;
+        }
+
+        /* Tree View */
+        .tree-view {
+            flex: 1;
+            padding: 30px;
+            display: none;
+        }
+
+        .tree-container {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tree-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .tree-node {
+            cursor: pointer;
+        }
+
+        .tree-node rect {
+            fill: #334155;
+            stroke: #475569;
+            stroke-width: 2;
+            rx: 8;
+        }
+
+        .tree-node.user rect {
+            fill: #1e3a5f;
+            stroke: #3b82f6;
+        }
+
+        .tree-node.assistant rect {
+            fill: #134e4a;
+            stroke: #10b981;
+        }
+
+        .tree-node.sidechain rect {
+            fill: #4c1d95;
+            stroke: #9333ea;
+            stroke-dasharray: 5, 5;
+        }
+
+        .tree-node text {
+            fill: #e2e8f0;
+            font-size: 12px;
+        }
+
+        .tree-edge {
+            fill: none;
+            stroke: #475569;
+            stroke-width: 2;
+        }
+
+        .tree-edge.sidechain {
+            stroke: #9333ea;
+            stroke-dasharray: 5, 5;
+        }
+
+        /* Sidechain Panel */
+        .sidechain-panel {
+            width: 300px;
+            background: #1e293b;
+            border-left: 1px solid #334155;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .sidechain-header {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidechain-item {
+            background: #334155;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 3px solid #9333ea;
+        }
+
+        .sidechain-type {
+            font-size: 11px;
+            color: #a78bfa;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .sidechain-content {
+            font-size: 13px;
+            color: #cbd5e1;
+            margin-bottom: 5px;
+        }
+
+        .sidechain-link {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        /* Mini Map */
+        .mini-map {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            padding: 5px;
+        }
+
+        .mini-map-title {
+            font-size: 10px;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+
+        .mini-map-content {
+            background: #1e293b;
+            height: calc(100% - 20px);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mini-node {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+        }
+
+        .mini-node.user {
+            background: #3b82f6;
+        }
+
+        .mini-node.assistant {
+            background: #10b981;
+        }
+
+        .mini-node.sidechain {
+            background: #9333ea;
+        }
+
+        .mini-node.active {
+            width: 8px;
+            height: 8px;
+            border: 2px solid #fbbf24;
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .legend-title {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+            font-size: 11px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        /* Branch Comparison View */
+        .comparison-view {
+            display: none;
+            flex: 1;
+            padding: 30px;
+        }
+
+        .comparison-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: 100%;
+        }
+
+        .comparison-pane {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .comparison-header {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #334155;
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 30px;
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+            font-size: 13px;
+        }
+
+        .breadcrumb-item {
+            color: #64748b;
+            cursor: pointer;
+        }
+
+        .breadcrumb-item:hover {
+            color: #3b82f6;
+        }
+
+        .breadcrumb-separator {
+            color: #475569;
+        }
+
+        /* Regeneration Counter */
+        .regen-badge {
+            background: #f59e0b;
+            color: #78350f;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">🔍 ClaudeLens</div>
+            <div class="nav-item">
+                <span>📊</span> Dashboard
+            </div>
+            <div class="nav-item">
+                <span>📁</span> Projects
+            </div>
+            <div class="nav-item active">
+                <span>💬</span> Sessions
+            </div>
+            <div class="nav-item">
+                <span>🔎</span> Search
+            </div>
+            <div class="nav-item">
+                <span>📈</span> Analytics
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <div class="session-title">
+                    Fix search navigation to scroll to correct message
+                </div>
+                <div class="session-meta">
+                    <span>📅 Aug 4, 2025</span>
+                    <span>💬 6 messages</span>
+                    <span>🌳 3 branches</span>
+                    <span>🔗 2 sidechains</span>
+                    <span>💰 $0.20</span>
+                </div>
+            </div>
+
+            <!-- Breadcrumbs -->
+            <div class="breadcrumbs">
+                <span class="breadcrumb-item">Sessions</span>
+                <span class="breadcrumb-separator">›</span>
+                <span class="breadcrumb-item">claudelens project</span>
+                <span class="breadcrumb-separator">›</span>
+                <span class="breadcrumb-item">Current conversation</span>
+                <span class="breadcrumb-separator">›</span>
+                <span style="color: #e2e8f0;">Branch 2</span>
+            </div>
+
+            <!-- View Mode Tabs -->
+            <div class="view-tabs">
+                <div class="view-tab active" onclick="showView('timeline')">
+                    📜 Timeline
+                </div>
+                <div class="view-tab" onclick="showView('tree')">
+                    🌳 Tree View
+                </div>
+                <div class="view-tab" onclick="showView('comparison')">
+                    🔀 Compare Branches
+                </div>
+                <div class="view-tab">
+                    📝 Raw
+                </div>
+            </div>
+
+            <!-- Content Wrapper -->
+            <div class="content-wrapper">
+                <!-- Timeline View -->
+                <div class="message-timeline" id="timeline-view">
+                    <!-- Branch Indicator -->
+                    <div class="branch-indicator">
+                        <div class="branch-nav">
+                            <button>‹</button>
+                            <span>Branch 2 of 3</span>
+                            <button>›</button>
+                        </div>
+                        <span style="font-size: 12px;">
+                            🔄 3 regenerations at this point
+                        </span>
+                    </div>
+
+                    <!-- User Message -->
+                    <div class="message user">
+                        <div class="message-header">
+                            <div class="message-author">
+                                <span>👤</span>
+                                <span>You</span>
+                            </div>
+                        </div>
+                        <div class="message-content">
+                            Fix the search results so that when you click a result, you are actually navigated to the correct message in the session rather than being redirect to a session and having to scroll to find the message.
+                        </div>
+                        <div class="message-meta">
+                            <span>🕐 04:28:01</span>
+                            <span>📤 Input</span>
+                        </div>
+                    </div>
+
+                    <!-- Assistant Response with Branches -->
+                    <div class="message assistant">
+                        <div class="message-header">
+                            <div class="message-author">
+                                <span>🤖</span>
+                                <span>Claude</span>
+                                <span style="font-size: 11px; color: #64748b;">opus-4</span>
+                                <span class="regen-badge">3 versions</span>
+                            </div>
+                        </div>
+                        <div class="message-content">
+                            I'll help you fix the search results navigation to correctly scroll to the specific message when clicked. Let me first understand the current implementation and then fix the issue.
+                        </div>
+                        <div class="message-meta">
+                            <span>🕐 04:28:05</span>
+                            <span>💰 $0.0911</span>
+                            <span>🔢 21.3k tokens</span>
+                        </div>
+                    </div>
+
+                    <!-- Sidechain Message -->
+                    <div class="message sidechain">
+                        <div class="message-header">
+                            <div class="message-author">
+                                <span>🔧</span>
+                                <span>Tool Operation</span>
+                                <span class="sidechain-badge">SIDECHAIN</span>
+                            </div>
+                        </div>
+                        <div class="message-content">
+                            🤖 Running agent task: Find search implementation
+                            <br><br>
+                            <span style="color: #64748b; font-size: 12px;">
+                                This is a parallel operation that doesn't interrupt the main conversation flow
+                            </span>
+                        </div>
+                        <div class="message-meta">
+                            <span>🕐 04:28:08</span>
+                            <span>🔗 Links to parent</span>
+                        </div>
+                    </div>
+
+                    <!-- Tool Result -->
+                    <div class="message assistant">
+                        <div class="message-header">
+                            <div class="message-author">
+                                <span>📋</span>
+                                <span>Tool Result</span>
+                            </div>
+                        </div>
+                        <div class="message-content">
+                            Found search implementation in components/Search.tsx and api/search.ts
+                            <br><br>
+                            <span style="font-family: monospace; background: #334155; padding: 8px; border-radius: 4px; display: block; margin-top: 10px;">
+                                Current navigation: router.push(`/sessions/${sessionId}`)
+                                <br>
+                                Missing: scroll to message with messageId
+                            </span>
+                        </div>
+                        <div class="message-meta">
+                            <span>🕐 04:28:10</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tree View -->
+                <div class="tree-view" id="tree-view">
+                    <div class="tree-container">
+                        <svg class="tree-svg" viewBox="0 0 800 600">
+                            <!-- Tree edges -->
+                            <path class="tree-edge" d="M 200 100 L 200 200"></path>
+                            <path class="tree-edge" d="M 200 200 L 100 300"></path>
+                            <path class="tree-edge" d="M 200 200 L 200 300"></path>
+                            <path class="tree-edge" d="M 200 200 L 300 300"></path>
+                            <path class="tree-edge sidechain" d="M 200 300 L 400 350"></path>
+                            <path class="tree-edge" d="M 200 300 L 200 400"></path>
+
+                            <!-- Tree nodes -->
+                            <g class="tree-node user" transform="translate(150, 80)">
+                                <rect width="100" height="40" rx="8"></rect>
+                                <text x="50" y="25" text-anchor="middle">You</text>
+                            </g>
+
+                            <g class="tree-node assistant" transform="translate(150, 180)">
+                                <rect width="100" height="40" rx="8"></rect>
+                                <text x="50" y="25" text-anchor="middle">Claude v1</text>
+                            </g>
+
+                            <g class="tree-node assistant" transform="translate(50, 280)">
+                                <rect width="100" height="40" rx="8"></rect>
+                                <text x="50" y="25" text-anchor="middle">Branch 1</text>
+                            </g>
+
+                            <g class="tree-node assistant" transform="translate(150, 280)">
+                                <rect width="100" height="40" rx="8" fill="#1e40af"></rect>
+                                <text x="50" y="25" text-anchor="middle">Branch 2 ✓</text>
+                            </g>
+
+                            <g class="tree-node assistant" transform="translate(250, 280)">
+                                <rect width="100" height="40" rx="8"></rect>
+                                <text x="50" y="25" text-anchor="middle">Branch 3</text>
+                            </g>
+
+                            <g class="tree-node sidechain" transform="translate(350, 330)">
+                                <rect width="100" height="40" rx="8"></rect>
+                                <text x="50" y="25" text-anchor="middle">Tool Call</text>
+                            </g>
+
+                            <g class="tree-node assistant" transform="translate(150, 380)">
+                                <rect width="100" height="40" rx="8"></rect>
+                                <text x="50" y="25" text-anchor="middle">Result</text>
+                            </g>
+                        </svg>
+
+                        <!-- Mini Map -->
+                        <div class="mini-map">
+                            <div class="mini-map-title">Conversation Overview</div>
+                            <div class="mini-map-content">
+                                <div class="mini-node user" style="left: 50%; top: 10%;"></div>
+                                <div class="mini-node assistant" style="left: 50%; top: 25%;"></div>
+                                <div class="mini-node assistant" style="left: 30%; top: 40%;"></div>
+                                <div class="mini-node assistant active" style="left: 50%; top: 40%;"></div>
+                                <div class="mini-node assistant" style="left: 70%; top: 40%;"></div>
+                                <div class="mini-node sidechain" style="left: 80%; top: 50%;"></div>
+                                <div class="mini-node assistant" style="left: 50%; top: 60%;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Legend -->
+                        <div class="legend">
+                            <div class="legend-title">Legend</div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #3b82f6;"></div>
+                                <span>User Message</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #10b981;"></div>
+                                <span>Assistant Response</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #9333ea;"></div>
+                                <span>Sidechain/Tool</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #1e40af;"></div>
+                                <span>Active Branch</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comparison View -->
+                <div class="comparison-view" id="comparison-view">
+                    <div class="comparison-container">
+                        <div class="comparison-pane">
+                            <div class="comparison-header">
+                                Branch 1 - First Attempt
+                            </div>
+                            <div class="message assistant">
+                                <div class="message-content">
+                                    I'll help fix the search navigation. Let me check the current implementation first...
+                                </div>
+                                <div class="message-meta">
+                                    <span>🕐 04:28:05</span>
+                                    <span>💰 $0.0822</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="comparison-pane">
+                            <div class="comparison-header">
+                                Branch 2 - Current (Selected)
+                            </div>
+                            <div class="message assistant">
+                                <div class="message-content">
+                                    I'll help you fix the search results navigation to correctly scroll to the specific message when clicked. Let me first understand the current implementation and then fix the issue.
+                                </div>
+                                <div class="message-meta">
+                                    <span>🕐 04:28:05</span>
+                                    <span>💰 $0.0911</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidechain Panel -->
+                <div class="sidechain-panel">
+                    <div class="sidechain-header">
+                        <span>🔗 Sidechains</span>
+                        <span style="font-size: 12px; color: #64748b;">2 items</span>
+                    </div>
+
+                    <div class="sidechain-item">
+                        <div class="sidechain-type">Tool Operation</div>
+                        <div class="sidechain-content">
+                            Running agent task: Find search implementation
+                        </div>
+                        <div class="sidechain-link">
+                            → Links to message at 04:28:05
+                        </div>
+                    </div>
+
+                    <div class="sidechain-item">
+                        <div class="sidechain-type">Background Process</div>
+                        <div class="sidechain-content">
+                            Analyzing codebase structure...
+                        </div>
+                        <div class="sidechain-link">
+                            → Links to message at 04:28:08
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #334155;">
+                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 15px;">
+                            📊 Flow Statistics
+                        </div>
+                        <div style="font-size: 12px; color: #94a3b8; line-height: 1.8;">
+                            <div>Total Branches: 3</div>
+                            <div>Max Branch Depth: 4</div>
+                            <div>Sidechains: 2</div>
+                            <div>Regenerations: 3</div>
+                            <div>Complexity Score: Medium</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showView(view) {
+            // Hide all views
+            document.getElementById('timeline-view').style.display = 'none';
+            document.getElementById('tree-view').style.display = 'none';
+            document.getElementById('comparison-view').style.display = 'none';
+
+            // Show selected view
+            if (view === 'timeline') {
+                document.getElementById('timeline-view').style.display = 'block';
+            } else if (view === 'tree') {
+                document.getElementById('tree-view').style.display = 'block';
+            } else if (view === 'comparison') {
+                document.getElementById('comparison-view').style.display = 'block';
+            }
+
+            // Update tab states
+            document.querySelectorAll('.view-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
