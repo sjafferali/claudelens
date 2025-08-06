@@ -232,16 +232,16 @@ This checklist breaks down the conversation flow visualization improvements into
 *As a user, I want to compare alternative responses side-by-side so I can evaluate which approach worked better.*
 
 **Tasks:**
-- [ ] Create `BranchComparison` view component
-- [ ] Implement split-pane layout
-- [ ] Add branch selection dropdowns
-- [ ] Create synchronized scrolling between panes
-- [ ] Highlight differences between branches
-- [ ] Add metrics comparison (cost, tokens, time)
-- [ ] Implement "Select this branch" action
-- [ ] Add export comparison feature
-- [ ] Style with clear visual separation
-- [ ] Write tests for comparison logic
+- [x] Create `BranchComparison` view component (ConversationBranchComparison)
+- [x] Implement split-pane layout
+- [x] Add branch selection dropdowns
+- [x] Create synchronized scrolling between panes
+- [x] Highlight differences between branches
+- [x] Add metrics comparison (cost, tokens, time)
+- [x] Implement "Select this branch" action
+- [x] Add export comparison feature
+- [x] Style with clear visual separation
+- [x] Write tests for comparison logic
 
 ### User Story 9: Fork Conversation to New Session
 *As a user, I want to fork a conversation at any point so I can explore a different direction without losing my original work.*
