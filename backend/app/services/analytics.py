@@ -823,8 +823,8 @@ class AnalyticsService:
                         {"$group": {"_id": "$sessionId"}},
                         {"$count": "count"},
                     ],
-                    # Count unique projects and get most active project in one pass
-                    "projectStats": [
+                    # Count unique projects
+                    "projectCount": [
                         # Group by sessionId first to reduce lookup size
                         {"$group": {"_id": "$sessionId"}},
                         {
@@ -836,25 +836,40 @@ class AnalyticsService:
                             }
                         },
                         {"$unwind": "$session"},
-                        {"$group": {"_id": "$session.projectId", "count": {"$sum": 1}}},
-                        {"$sort": {"count": -1}},
+                        {"$group": {"_id": "$session.projectId"}},
+                        {"$count": "count"},
+                    ],
+                    # Get most active project separately
+                    "mostActiveProject": [
+                        # Group by sessionId first
+                        {"$group": {"_id": "$sessionId", "messageCount": {"$sum": 1}}},
                         {
-                            "$facet": {
-                                "totalCount": [{"$count": "count"}],
-                                "mostActive": [
-                                    {"$limit": 1},
-                                    {
-                                        "$lookup": {
-                                            "from": "projects",
-                                            "localField": "_id",
-                                            "foreignField": "_id",
-                                            "as": "project",
-                                        }
-                                    },
-                                    {"$unwind": "$project"},
-                                ],
+                            "$lookup": {
+                                "from": "sessions",
+                                "localField": "_id",
+                                "foreignField": "sessionId",
+                                "as": "session",
                             }
                         },
+                        {"$unwind": "$session"},
+                        {
+                            "$group": {
+                                "_id": "$session.projectId",
+                                "totalMessages": {"$sum": "$messageCount"},
+                            }
+                        },
+                        {"$sort": {"totalMessages": -1}},
+                        {"$limit": 1},
+                        {
+                            "$lookup": {
+                                "from": "projects",
+                                "localField": "_id",
+                                "foreignField": "_id",
+                                "as": "project",
+                            }
+                        },
+                        {"$unwind": "$project"},
+                        {"$project": {"name": "$project.name", "totalMessages": 1}},
                     ],
                 }
             },
@@ -882,14 +897,14 @@ class AnalyticsService:
         session_stats = facet_results.get("sessionStats", [])
         session_count = session_stats[0]["count"] if session_stats else 0
 
-        # Extract project count and most active project
-        project_stats = facet_results.get("projectStats", [{}])[0]
-        total_count_result = project_stats.get("totalCount", [])
-        project_count = total_count_result[0]["count"] if total_count_result else 0
+        # Extract project count
+        project_count_stats = facet_results.get("projectCount", [])
+        project_count = project_count_stats[0]["count"] if project_count_stats else 0
 
-        most_active_result = project_stats.get("mostActive", [])
+        # Extract most active project
+        most_active_stats = facet_results.get("mostActiveProject", [])
         most_active_project = (
-            most_active_result[0]["project"]["name"] if most_active_result else None
+            most_active_stats[0]["name"] if most_active_stats else None
         )
 
         # Convert Decimal128 to float if needed
