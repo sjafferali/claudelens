@@ -17,6 +17,7 @@ import { Message } from '../api/types';
 import MessageNode from './MessageNode';
 import { calculateTreeLayout } from '../utils/tree-layout';
 import { Skeleton } from '@/components/common/LoadingSkeleton';
+import TreeLegend from './TreeLegend';
 
 interface ConversationTreeProps {
   messages: Message[];
@@ -39,6 +40,7 @@ function ConversationTreeContent({
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [loading, setLoading] = useState(true);
+  const [showLegend, setShowLegend] = useState(true);
 
   // Convert messages to nodes and edges
   useEffect(() => {
@@ -208,7 +210,13 @@ function ConversationTreeContent({
   }
 
   return (
-    <div className={`w-full h-full ${className}`}>
+    <div className={`w-full h-full relative ${className}`}>
+      {showLegend && (
+        <TreeLegend
+          onClose={() => setShowLegend(false)}
+          defaultCollapsed={false}
+        />
+      )}
       <ReactFlow
         nodes={nodes}
         edges={edges}

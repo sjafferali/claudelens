@@ -117,15 +117,6 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-// Hook for functional components
-export function useErrorHandler() {
-  return (error: Error) => {
-    console.error('Error caught by useErrorHandler:', error);
-    // You can add custom error reporting here
-    throw error; // Re-throw to be caught by ErrorBoundary
-  };
-}
-
 // Specialized error boundary for async components
 export function AsyncErrorBoundary({ children }: { children: ReactNode }) {
   return (

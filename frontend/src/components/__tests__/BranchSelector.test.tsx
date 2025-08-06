@@ -112,7 +112,7 @@ describe('BranchSelector', () => {
       expect(nextButton).toBeDisabled();
     });
 
-    it('should show correct tooltip text', () => {
+    it('should show correct aria labels', () => {
       render(
         <BranchSelector
           currentMessage={mockMessage}
@@ -122,10 +122,10 @@ describe('BranchSelector', () => {
       );
 
       const prevButton = screen.getByLabelText('Previous version');
-      expect(prevButton).toHaveAttribute('title', 'Previous version (Alt+←)');
+      expect(prevButton).toHaveAttribute('aria-label', 'Previous version');
 
       const nextButton = screen.getByLabelText('Next version');
-      expect(nextButton).toHaveAttribute('title', 'Next version (Alt+→)');
+      expect(nextButton).toHaveAttribute('aria-label', 'Next version');
     });
   });
 

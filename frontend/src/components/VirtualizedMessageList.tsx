@@ -10,7 +10,6 @@ import {
   ChevronUp,
   Check,
   Wrench,
-  GitBranch,
   Share2,
   Bug,
 } from 'lucide-react';
@@ -34,14 +33,12 @@ interface VirtualizedMessageListProps {
   costMap: Map<string, number>;
   activeBranches: Map<string, string>;
   onSelectBranch: (parentId: string, branchId: string) => void;
-  onMessageClick?: (messageId: string) => void;
   onDebugClick?: (message: Message) => void;
   messageRefs?: React.MutableRefObject<{
     [key: string]: HTMLDivElement | null;
   }>;
   sessionId: string;
   targetMessageId?: string | null;
-  selectedBranchId?: string | null;
 }
 
 export function VirtualizedMessageList({
@@ -49,28 +46,34 @@ export function VirtualizedMessageList({
   costMap,
   activeBranches,
   onSelectBranch,
-  onMessageClick,
   onDebugClick,
   messageRefs,
   sessionId,
   targetMessageId,
-  selectedBranchId,
 }: VirtualizedMessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   // Calculate filtered messages and branch counts
-  const { filteredMessages, branchCounts } = useMemo(() => {
-    const counts = calculateBranchCounts(messages);
+  const { filteredMessages } = useMemo(() => {
+    const withBranches = calculateBranchCounts(messages);
+
+    // Create a Map for branch counts lookup
+    const branchCountMap = new Map<string, number>();
+    withBranches.forEach((msg) => {
+      if (msg.parent_uuid && msg.branchCount) {
+        branchCountMap.set(msg.parent_uuid, msg.branchCount);
+      }
+    });
 
     // Filter messages based on active branches
-    const filtered = messages.filter((msg) => {
+    const filtered = withBranches.filter((msg) => {
       // Always show messages without parent (root messages)
       if (!msg.parent_uuid) return true;
 
       // Check if this message's parent has branches
-      const parentBranchCount = counts.get(msg.parent_uuid) || 0;
+      const parentBranchCount = branchCountMap.get(msg.parent_uuid) || 0;
       if (parentBranchCount <= 1) return true;
 
       // If parent has multiple branches, only show the active one
@@ -78,7 +81,7 @@ export function VirtualizedMessageList({
       return !activeBranchId || msg.uuid === activeBranchId;
     });
 
-    return { filteredMessages: filtered, branchCounts: counts };
+    return { filteredMessages: filtered };
   }, [messages, activeBranches]);
 
   // Estimate item size based on message type and content
@@ -100,14 +103,14 @@ export function VirtualizedMessageList({
       }
 
       // Add height for branches
-      const branchCount = branchCounts.get(message.parent_uuid || '') || 0;
+      const branchCount = message.branchCount || 0;
       if (branchCount > 1) {
         height += 40;
       }
 
       return Math.min(height, 500); // Cap at max height
     },
-    [filteredMessages, branchCounts]
+    [filteredMessages]
   );
 
   // Setup virtualizer
@@ -164,10 +167,10 @@ export function VirtualizedMessageList({
   const handleShareMessage = useCallback(
     (message: Message) => {
       const description = getMessageLinkDescription(message);
-      copyMessageLink(sessionId, message.uuid || message._id, selectedBranchId);
+      copyMessageLink(message, sessionId);
       toast.success(`Copied link to ${description}`);
     },
-    [sessionId, selectedBranchId]
+    [sessionId]
   );
 
   // Render a single message
@@ -177,11 +180,11 @@ export function VirtualizedMessageList({
       const cost = costMap.get(messageId) || 0;
       const isExpanded = expandedTools.has(messageId);
       const isCopied = copiedMessageId === messageId;
-      const branchCount = branchCounts.get(message.parent_uuid || '') || 0;
+      const branchCount = message.branchCount || 0;
       const alternatives =
-        branchCount > 1 ? getBranchAlternatives(messages, message) : [];
-      const currentBranchIndex =
-        alternatives.findIndex((alt) => alt.uuid === message.uuid) + 1;
+        branchCount > 1
+          ? getBranchAlternatives(messages, message.uuid || message._id)
+          : [];
 
       // Group tool messages
       if (message.type === 'tool_use' || message.type === 'tool_result') {
@@ -218,19 +221,11 @@ export function VirtualizedMessageList({
             {branchCount > 1 && (
               <div className="mb-3">
                 <BranchSelector
-                  currentBranchIndex={currentBranchIndex}
-                  totalBranches={branchCount}
-                  onSelectBranch={(direction) => {
-                    const newIndex =
-                      direction === 'next'
-                        ? currentBranchIndex % branchCount
-                        : (currentBranchIndex - 2 + branchCount) % branchCount;
-                    const newBranch = alternatives[newIndex];
-                    if (newBranch && message.parent_uuid) {
-                      onSelectBranch(
-                        message.parent_uuid,
-                        newBranch.uuid || newBranch._id
-                      );
+                  currentMessage={message}
+                  branchMessages={alternatives}
+                  onSelectBranch={(messageUuid) => {
+                    if (message.parent_uuid) {
+                      onSelectBranch(message.parent_uuid, messageUuid);
                     }
                   }}
                 />
@@ -295,18 +290,45 @@ export function VirtualizedMessageList({
 
                     {isExpanded && (
                       <div className="pl-6 space-y-2 border-l-2 border-purple-500/20">
-                        {toolMessages.map((toolMsg) => (
-                          <div
-                            key={toolMsg.uuid || toolMsg._id}
-                            className="text-sm"
-                          >
-                            {toolMsg.type === 'tool_use' ? (
-                              <ToolDisplay message={toolMsg} />
-                            ) : (
-                              <ToolResultDisplay message={toolMsg} />
-                            )}
-                          </div>
-                        ))}
+                        {toolMessages.map((toolMsg) => {
+                          if (toolMsg.type === 'tool_use') {
+                            // Parse tool info from content
+                            let toolName = 'Unknown Tool';
+                            let toolInput = {};
+                            try {
+                              const parsed = JSON.parse(toolMsg.content);
+                              toolName = parsed.name || 'Unknown Tool';
+                              toolInput = parsed.input || {};
+                            } catch (e) {
+                              // Fallback for unparseable content
+                            }
+                            return (
+                              <div
+                                key={toolMsg.uuid || toolMsg._id}
+                                className="text-sm"
+                              >
+                                <ToolDisplay
+                                  toolName={toolName}
+                                  toolInput={toolInput}
+                                  isCollapsed={!isExpanded}
+                                />
+                              </div>
+                            );
+                          } else {
+                            // tool_result
+                            return (
+                              <div
+                                key={toolMsg.uuid || toolMsg._id}
+                                className="text-sm"
+                              >
+                                <ToolResultDisplay
+                                  content={toolMsg.content}
+                                  isCollapsed={!isExpanded}
+                                />
+                              </div>
+                            );
+                          }
+                        })}
                       </div>
                     )}
                   </div>
@@ -352,7 +374,6 @@ export function VirtualizedMessageList({
       costMap,
       expandedTools,
       copiedMessageId,
-      branchCounts,
       messages,
       filteredMessages,
       messageRefs,

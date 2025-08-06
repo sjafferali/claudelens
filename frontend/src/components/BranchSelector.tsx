@@ -1,6 +1,7 @@
 import { cn } from '@/utils/cn';
 import { ChevronLeft, ChevronRight, GitBranch } from 'lucide-react';
 import { Message } from '@/api/types';
+import Tooltip from '@/components/common/Tooltip';
 
 interface BranchSelectorProps {
   currentMessage: Message;
@@ -58,21 +59,25 @@ export function BranchSelector({
       )}
     >
       {/* Previous button */}
-      <button
-        onClick={handlePrevious}
+      <Tooltip
+        content="Go to previous version (Alt+←)"
         disabled={currentIndex <= 1}
-        className={cn(
-          'p-1 rounded-full transition-all duration-200',
-          'hover:bg-amber-200 dark:hover:bg-amber-800/30',
-          currentIndex <= 1
-            ? 'opacity-50 cursor-not-allowed'
-            : 'hover:scale-110 active:scale-95'
-        )}
-        title="Previous version (Alt+←)"
-        aria-label="Previous version"
       >
-        <ChevronLeft className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
-      </button>
+        <button
+          onClick={handlePrevious}
+          disabled={currentIndex <= 1}
+          className={cn(
+            'p-1 rounded-full transition-all duration-200',
+            'hover:bg-amber-200 dark:hover:bg-amber-800/30',
+            currentIndex <= 1
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:scale-110 active:scale-95'
+          )}
+          aria-label="Previous version"
+        >
+          <ChevronLeft className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
+        </button>
+      </Tooltip>
 
       {/* Branch counter display */}
       <div className="flex items-center gap-1 px-2">
@@ -83,21 +88,25 @@ export function BranchSelector({
       </div>
 
       {/* Next button */}
-      <button
-        onClick={handleNext}
+      <Tooltip
+        content="Go to next version (Alt+→)"
         disabled={currentIndex >= totalBranches}
-        className={cn(
-          'p-1 rounded-full transition-all duration-200',
-          'hover:bg-amber-200 dark:hover:bg-amber-800/30',
-          currentIndex >= totalBranches
-            ? 'opacity-50 cursor-not-allowed'
-            : 'hover:scale-110 active:scale-95'
-        )}
-        title="Next version (Alt+→)"
-        aria-label="Next version"
       >
-        <ChevronRight className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
-      </button>
+        <button
+          onClick={handleNext}
+          disabled={currentIndex >= totalBranches}
+          className={cn(
+            'p-1 rounded-full transition-all duration-200',
+            'hover:bg-amber-200 dark:hover:bg-amber-800/30',
+            currentIndex >= totalBranches
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:scale-110 active:scale-95'
+          )}
+          aria-label="Next version"
+        >
+          <ChevronRight className="h-3.5 w-3.5 text-amber-700 dark:text-amber-300" />
+        </button>
+      </Tooltip>
     </div>
   );
 }

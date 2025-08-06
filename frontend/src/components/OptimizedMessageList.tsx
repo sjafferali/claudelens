@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState, useRef } from 'react';
 import { Message } from '@/api/types';
 import { format } from 'date-fns';
 import {
@@ -249,7 +249,8 @@ export const OptimizedMessageList = memo(
     sessionId,
     onDebugMessage,
   }: OptimizedMessageListProps) => {
-    const { navigateToMessage } = useMessageNavigation(messages);
+    const messageRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+    const { navigateToMessage } = useMessageNavigation(messages, messageRefs);
 
     // Memoize message filtering
     const filteredMessages = useMemo(() => {
@@ -265,7 +266,7 @@ export const OptimizedMessageList = memo(
 
       messages.forEach((msg) => {
         const id = getMessageUuid(msg);
-        if (msg.parent_uuid) {
+        if (id && msg.parent_uuid) {
           parents.set(id, true);
           children.set(msg.parent_uuid, true);
         }
@@ -285,10 +286,8 @@ export const OptimizedMessageList = memo(
     const handleShare = useCallback(
       (message: Message) => {
         if (!sessionId) return;
-        const messageId = getMessageUuid(message);
-        if (!messageId) return;
         const description = getMessageLinkDescription(message);
-        copyMessageLink(sessionId, messageId);
+        copyMessageLink(message, sessionId);
         toast.success(`Copied link to ${description}`);
       },
       [sessionId]
@@ -307,9 +306,9 @@ export const OptimizedMessageList = memo(
       <div className="divide-y divide-border">
         {filteredMessages.map((message, index) => {
           const messageId = getMessageUuid(message);
-          const cost = costMap.get(messageId) || 0;
-          const hasParent = parentMap.has(messageId);
-          const hasChildren = childrenMap.has(messageId);
+          const cost = messageId ? costMap.get(messageId) || 0 : 0;
+          const hasParent = messageId ? parentMap.has(messageId) : false;
+          const hasChildren = messageId ? childrenMap.has(messageId) : false;
 
           return (
             <MessageItem

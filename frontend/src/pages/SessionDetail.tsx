@@ -55,6 +55,10 @@ import {
 import { MessageDebugModal } from '@/components/MessageDebugModal';
 import toast from 'react-hot-toast';
 import { PageSkeleton } from '@/components/common/LoadingSkeleton';
+import Tooltip from '@/components/common/Tooltip';
+import HelpPanel from '@/components/HelpPanel';
+import { HelpCircle } from 'lucide-react';
+import ColorBlindSettings from '@/components/ColorBlindSettings';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -175,6 +179,7 @@ export default function SessionDetail() {
   const [isSidechainPanelOpen, setIsSidechainPanelOpen] = useState(false);
   const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
   const [debugMessage, setDebugMessage] = useState<Message | null>(null);
+  const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
 
   // Calculate branch counts for all messages
   const messagesWithBranches = useMemo(
@@ -689,92 +694,140 @@ export default function SessionDetail() {
             </div>
             <div className="flex items-center gap-4">
               <div className="flex gap-2">
-                <button
-                  onClick={() => setViewMode('timeline')}
-                  className={cn(
-                    'px-3 py-1.5 text-sm rounded-md transition-all',
-                    viewMode === 'timeline'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                  )}
-                >
-                  Timeline
-                </button>
-                <button
-                  onClick={() => setViewMode('compact')}
-                  className={cn(
-                    'px-3 py-1.5 text-sm rounded-md transition-all',
-                    viewMode === 'compact'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                  )}
-                >
-                  Compact
-                </button>
-                <button
-                  onClick={() => setViewMode('raw')}
-                  className={cn(
-                    'px-3 py-1.5 text-sm rounded-md transition-all',
-                    viewMode === 'raw'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                  )}
-                >
-                  Raw
-                </button>
-                <button
-                  onClick={() => setViewMode('tree')}
-                  className={cn(
-                    'px-3 py-1.5 text-sm rounded-md transition-all',
-                    viewMode === 'tree'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                  )}
-                >
-                  Tree
-                </button>
+                <Tooltip content="Show messages in chronological order">
+                  <button
+                    onClick={() => setViewMode('timeline')}
+                    className={cn(
+                      'px-3 py-1.5 text-sm rounded-md transition-all',
+                      viewMode === 'timeline'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                    )}
+                  >
+                    Timeline
+                  </button>
+                </Tooltip>
+                <Tooltip content="Condensed view with less spacing">
+                  <button
+                    onClick={() => setViewMode('compact')}
+                    className={cn(
+                      'px-3 py-1.5 text-sm rounded-md transition-all',
+                      viewMode === 'compact'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                    )}
+                  >
+                    Compact
+                  </button>
+                </Tooltip>
+                <Tooltip content="Plain text view without formatting">
+                  <button
+                    onClick={() => setViewMode('raw')}
+                    className={cn(
+                      'px-3 py-1.5 text-sm rounded-md transition-all',
+                      viewMode === 'raw'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                    )}
+                  >
+                    Raw
+                  </button>
+                </Tooltip>
+                <Tooltip content="Interactive tree visualization of conversation flow">
+                  <button
+                    onClick={() => setViewMode('tree')}
+                    className={cn(
+                      'px-3 py-1.5 text-sm rounded-md transition-all',
+                      viewMode === 'tree'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                    )}
+                  >
+                    Tree
+                  </button>
+                </Tooltip>
               </div>
 
               {/* Mini-map toggle */}
               <div className="border-l border-secondary-c pl-4">
-                <button
-                  onClick={() => setIsMiniMapOpen(!isMiniMapOpen)}
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all',
+                <Tooltip
+                  content={
                     isMiniMapOpen
-                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30'
-                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                  )}
-                  title={isMiniMapOpen ? 'Hide minimap' : 'Show minimap'}
+                      ? 'Hide conversation overview map'
+                      : 'Show conversation overview map for quick navigation'
+                  }
                 >
-                  <MapIcon className="h-4 w-4" />
-                  <span>Map</span>
-                </button>
+                  <button
+                    onClick={() => setIsMiniMapOpen(!isMiniMapOpen)}
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all',
+                      isMiniMapOpen
+                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                        : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                    )}
+                  >
+                    <MapIcon className="h-4 w-4" />
+                    <span>Map</span>
+                  </button>
+                </Tooltip>
               </div>
 
               {/* Sidechain panel toggle */}
               <div className="border-l border-secondary-c pl-4">
-                <button
-                  onClick={() => setIsSidechainPanelOpen(!isSidechainPanelOpen)}
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all',
+                <Tooltip
+                  content={
                     isSidechainPanelOpen
-                      ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30'
-                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                  )}
+                      ? 'Hide tool operations and auxiliary messages'
+                      : 'Show tool operations and auxiliary messages in a separate panel'
+                  }
                 >
-                  {isSidechainPanelOpen ? (
-                    <PanelRightClose className="h-4 w-4" />
-                  ) : (
-                    <PanelRightOpen className="h-4 w-4" />
-                  )}
-                  <span>Sidechains</span>
-                  {sidechainCount > 0 && (
-                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded-full">
-                      {sidechainCount}
-                    </span>
-                  )}
-                </button>
+                  <button
+                    onClick={() =>
+                      setIsSidechainPanelOpen(!isSidechainPanelOpen)
+                    }
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all',
+                      isSidechainPanelOpen
+                        ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30'
+                        : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                    )}
+                  >
+                    {isSidechainPanelOpen ? (
+                      <PanelRightClose className="h-4 w-4" />
+                    ) : (
+                      <PanelRightOpen className="h-4 w-4" />
+                    )}
+                    <span>Sidechains</span>
+                    {sidechainCount > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 text-xs bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded-full">
+                        {sidechainCount}
+                      </span>
+                    )}
+                  </button>
+                </Tooltip>
+              </div>
+
+              {/* Color blind settings */}
+              <div className="border-l border-secondary-c pl-4">
+                <ColorBlindSettings compact={true} />
+              </div>
+
+              {/* Help button */}
+              <div className="border-l border-secondary-c pl-4">
+                <Tooltip content="Open help and documentation">
+                  <button
+                    onClick={() => setIsHelpPanelOpen(!isHelpPanelOpen)}
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all',
+                      isHelpPanelOpen
+                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                        : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                    )}
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                    <span>Help</span>
+                  </button>
+                </Tooltip>
               </div>
             </div>
           </div>
@@ -1075,6 +1128,12 @@ export default function SessionDetail() {
           onClose={handleCloseDebugModal}
         />
       )}
+
+      {/* Help Panel */}
+      <HelpPanel
+        isOpen={isHelpPanelOpen}
+        onClose={() => setIsHelpPanelOpen(false)}
+      />
     </div>
   );
 }
@@ -1743,28 +1802,30 @@ function TimelineView({
                             )}
                           </span>
                           {onShareMessage && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onShareMessage(message);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-200"
-                              title="Copy link to this message"
-                            >
-                              <Share2 className="h-3 w-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
-                            </button>
+                            <Tooltip content="Copy link to this message (Cmd/Ctrl+Shift+L)">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onShareMessage(message);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-200"
+                              >
+                                <Share2 className="h-3 w-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
+                              </button>
+                            </Tooltip>
                           )}
                           {onDebugMessage && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDebugMessage(message);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-200"
-                              title="View message debug information"
-                            >
-                              <Bug className="h-3 w-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
-                            </button>
+                            <Tooltip content="View complete JSON data for this message">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDebugMessage(message);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-200"
+                              >
+                                <Bug className="h-3 w-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
+                              </button>
+                            </Tooltip>
                           )}
                         </div>
                       </div>
