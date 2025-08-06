@@ -150,8 +150,6 @@ Features:
 
 ### Phase 3: Advanced Features (Low Priority)
 1. Branch comparison view
-2. Fork management interface
-3. Conversation merge capabilities
 
 ## Technical Implementation Notes
 

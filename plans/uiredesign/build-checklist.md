@@ -259,21 +259,6 @@ This checklist breaks down the conversation flow visualization improvements into
 - [x] Style with clear visual separation
 - [x] Write tests for comparison logic
 
-### User Story 10: Merge Insights from Multiple Branches
-*As a user, I want to merge the best parts of different conversation branches so I can create an optimal solution.*
-
-**Tasks:**
-- [x] Create `BranchMerge` dialog component
-- [x] Add branch multi-selection interface
-- [x] Implement merge strategy selector (sequential/intelligent/cherry-pick)
-- [x] Create message selection checklist for cherry-pick
-- [x] Add merge preview panel
-- [x] Implement AI-powered intelligent merge
-- [x] Generate merge summary message
-- [x] Create new branch with merged content
-- [x] Add merge history tracking
-- [x] Implement conflict resolution UI
-- [x] Write comprehensive merge tests
 
 ### 🔍 QA Checkpoint: Phase 3 Verification
 *Verify that all Phase 3 advanced features are working correctly.*
@@ -289,17 +274,6 @@ This checklist breaks down the conversation flow visualization improvements into
   - Test "Select this branch" action works
   - Verify export comparison feature
 
-- [ ] **Merge Operations Testing:**
-  - Branch merge dialog opens correctly
-  - Multi-selection of branches works
-  - All merge strategies available (sequential/intelligent/cherry-pick)
-  - Cherry-pick allows individual message selection
-  - Merge preview shows expected result
-  - AI-powered merge produces coherent result
-  - Merge summary message generated
-  - New merged branch created successfully
-  - Merge history is tracked
-  - Conflict resolution UI works for conflicting merges
 
 - [ ] **Integration Testing:**
   - Compare → Select → Continue workflow works
@@ -363,13 +337,11 @@ This checklist breaks down the conversation flow visualization improvements into
 - [ ] Add sidechain aggregation endpoint
 - [ ] Implement conversation complexity scoring
 - [ ] Add branch path calculation
-- [ ] Create merge operation endpoint
 - [ ] Optimize message relationship queries
 - [ ] Add caching for tree structures
 
 ### Database Updates
 - [ ] Add indexes for parentUuid queries
-- [ ] Add merge history tracking
 - [ ] Optimize branch detection queries
 - [ ] Add conversation complexity metrics
 - [ ] Create materialized views for trees
@@ -383,13 +355,11 @@ This checklist breaks down the conversation flow visualization improvements into
 - [ ] Tree generation algorithm
 - [ ] Navigation path building
 - [ ] Sidechain filtering
-- [ ] Merge conflict resolution
 
 ### Integration Tests
 - [ ] Branch navigation flow
 - [ ] Tree view interactions
 - [ ] Sidechain panel updates
-- [ ] Merge operation workflow
 
 ### E2E Tests
 - [ ] Complete branch exploration flow

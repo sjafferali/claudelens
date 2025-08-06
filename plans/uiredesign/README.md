@@ -73,8 +73,6 @@ Interactive HTML mockup demonstrating all proposed improvements:
 
 ### Phase 3 (Advanced)
 - Branch comparison view
-- Fork management
-- Conversation merge capabilities
 
 ## Technical Components Needed
 

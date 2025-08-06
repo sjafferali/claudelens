@@ -47,8 +47,6 @@ import ConversationTree from '@/components/ConversationTree';
 import { SidechainPanel } from '@/components/SidechainPanel';
 import { ConversationMiniMap } from '@/components/ConversationMiniMap';
 import { ConversationBranchComparison } from '@/components/ConversationBranchComparison';
-import { BranchMergeDialog, MergeResult } from '@/components/BranchMergeDialog';
-import { GitMerge } from 'lucide-react';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -169,9 +167,6 @@ export default function SessionDetail() {
   const [isSidechainPanelOpen, setIsSidechainPanelOpen] = useState(false);
   const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
   const [comparisonMessage, setComparisonMessage] = useState<Message | null>(
-    null
-  );
-  const [mergeDialogMessage, setMergeDialogMessage] = useState<Message | null>(
     null
   );
 
@@ -435,41 +430,6 @@ export default function SessionDetail() {
     if (success) {
       setCopiedId(messageId);
       setTimeout(() => setCopiedId(null), 2000);
-    }
-  };
-
-  const handleMergeBranches = async (mergeResult: MergeResult) => {
-    if (!sessionId || !mergeDialogMessage) return;
-
-    try {
-      // Create a new branch with merged content
-      // This would normally call a backend API to persist the merge
-      console.log('Merge result:', mergeResult);
-
-      // For now, we'll create a new message chain locally
-      // In a real implementation, this would be sent to the backend
-      // const mergedMessages = mergeResult.mergedMessages;
-
-      // Add merge metadata to track the operation
-      const mergeMetadata = {
-        mergeStrategy: mergeResult.strategy,
-        sourceBranches: mergeResult.selectedBranches,
-        mergeSummary: mergeResult.summary,
-        conflicts: mergeResult.conflicts,
-        timestamp: new Date().toISOString(),
-      };
-
-      console.log('Created merged branch with metadata:', mergeMetadata);
-
-      // Close the dialog
-      setMergeDialogMessage(null);
-
-      // Optionally refresh the messages to show the new merged branch
-      // This would be done after the backend creates the merged branch
-      // queryClient.invalidateQueries(['session-messages', sessionId]);
-    } catch (error) {
-      console.error('Failed to merge branches:', error);
-      setMergeDialogMessage(null);
     }
   };
 
@@ -769,7 +729,6 @@ export default function SessionDetail() {
                   getMessageLabel={getMessageLabel}
                   getAvatarText={getAvatarText}
                   setComparisonMessage={setComparisonMessage}
-                  setMergeDialogMessage={setMergeDialogMessage}
                 />
                 {canLoadMore && (
                   <div className="flex justify-center py-6">
@@ -1035,17 +994,6 @@ export default function SessionDetail() {
           </div>
         </div>
       )}
-
-      {/* Branch Merge Dialog */}
-      {mergeDialogMessage && (
-        <BranchMergeDialog
-          open={!!mergeDialogMessage}
-          onOpenChange={(open) => !open && setMergeDialogMessage(null)}
-          messages={messagesWithBranches}
-          targetMessage={mergeDialogMessage}
-          onMerge={handleMergeBranches}
-        />
-      )}
     </div>
   );
 }
@@ -1072,7 +1020,6 @@ interface TimelineViewProps {
   getAvatarText: (type: Message['type']) => string;
   messageRefs: React.MutableRefObject<{ [key: string]: HTMLDivElement | null }>;
   setComparisonMessage?: (message: Message | null) => void;
-  setMergeDialogMessage?: (message: Message | null) => void;
 }
 
 function TimelineView({
@@ -1096,7 +1043,6 @@ function TimelineView({
   getAvatarText,
   messageRefs,
   setComparisonMessage,
-  setMergeDialogMessage,
 }: TimelineViewProps) {
   // Format message content based on type and content
   const formatMessageContent = (message: Message) => {
@@ -1704,29 +1650,6 @@ function TimelineView({
                           }
                           return null;
                         })()}
-                        {/* Merge button - only show for messages with branches */}
-                        {setMergeDialogMessage &&
-                          message.branchCount &&
-                          message.branchCount > 1 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMergeDialogMessage(message);
-                              }}
-                              className={cn(
-                                'px-2 py-0.5 text-xs rounded-md',
-                                'bg-purple-100 dark:bg-purple-900/30',
-                                'text-purple-700 dark:text-purple-300',
-                                'hover:bg-purple-200 dark:hover:bg-purple-800/30',
-                                'transition-colors',
-                                'flex items-center gap-1'
-                              )}
-                              title="Merge conversation branches"
-                            >
-                              <GitMerge className="h-3 w-3" />
-                              Merge
-                            </button>
-                          )}
                       </div>
                       <div className="flex items-center gap-3">
                         {getMessageCost(message) ||
