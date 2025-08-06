@@ -40,7 +40,6 @@ import {
   calculateBranchCounts,
   getBranchAlternatives,
 } from '@/utils/branch-detection';
-import { sessionsApi } from '@/api/sessions';
 import { BranchSelector } from '@/components/BranchSelector';
 import { ConversationBreadcrumbs } from '@/components/ConversationBreadcrumbs';
 import { useMessageNavigation } from '@/hooks/useMessageNavigation';
@@ -48,10 +47,8 @@ import ConversationTree from '@/components/ConversationTree';
 import { SidechainPanel } from '@/components/SidechainPanel';
 import { ConversationMiniMap } from '@/components/ConversationMiniMap';
 import { ConversationBranchComparison } from '@/components/ConversationBranchComparison';
-import { ForkConfirmationDialog } from '@/components/ForkConfirmationDialog';
-import { ForksPanel } from '@/components/ForksPanel';
 import { BranchMergeDialog, MergeResult } from '@/components/BranchMergeDialog';
-import { GitFork, GitMerge } from 'lucide-react';
+import { GitMerge } from 'lucide-react';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -170,12 +167,10 @@ export default function SessionDetail() {
     null
   );
   const [isSidechainPanelOpen, setIsSidechainPanelOpen] = useState(false);
-  const [isForksPanelOpen, setIsForksPanelOpen] = useState(false);
   const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
   const [comparisonMessage, setComparisonMessage] = useState<Message | null>(
     null
   );
-  const [forkMessage, setForkMessage] = useState<Message | null>(null);
   const [mergeDialogMessage, setMergeDialogMessage] = useState<Message | null>(
     null
   );
@@ -440,36 +435,6 @@ export default function SessionDetail() {
     if (success) {
       setCopiedId(messageId);
       setTimeout(() => setCopiedId(null), 2000);
-    }
-  };
-
-  const handleForkFromMessage = (messageId: string) => {
-    const message = messagesWithBranches.find((m) => m._id === messageId);
-    if (message) {
-      setForkMessage(message);
-    }
-  };
-
-  const handleConfirmFork = async (description?: string) => {
-    if (!forkMessage || !sessionId) return;
-
-    try {
-      // Call API to create fork
-      const result = await sessionsApi.forkSession(
-        sessionId,
-        forkMessage._id,
-        description
-      );
-
-      // Close the dialog
-      setForkMessage(null);
-
-      // Navigate to the new forked session
-      navigate(`/sessions/${result.forked_session_mongo_id}`);
-    } catch (error) {
-      console.error('Failed to create fork:', error);
-      // TODO: Show error message to user
-      setForkMessage(null);
     }
   };
 
@@ -762,27 +727,6 @@ export default function SessionDetail() {
                   )}
                 </button>
               </div>
-
-              {/* Forks panel toggle */}
-              <div className="border-l border-secondary-c pl-4">
-                <button
-                  onClick={() => setIsForksPanelOpen(!isForksPanelOpen)}
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all',
-                    isForksPanelOpen
-                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
-                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                  )}
-                >
-                  {isForksPanelOpen ? (
-                    <PanelRightClose className="h-4 w-4" />
-                  ) : (
-                    <PanelRightOpen className="h-4 w-4" />
-                  )}
-                  <GitFork className="h-4 w-4" />
-                  <span>Forks</span>
-                </button>
-              </div>
             </div>
           </div>
 
@@ -817,7 +761,6 @@ export default function SessionDetail() {
                   onCopy={handleCopyToClipboard}
                   onSelectBranch={handleSelectBranch}
                   onMessageSelect={handleMessageSelect}
-                  onForkFromMessage={handleForkFromMessage}
                   selectedMessageId={selectedMessageId}
                   activeBranches={activeBranches}
                   allMessages={messagesWithBranches}
@@ -933,16 +876,6 @@ export default function SessionDetail() {
                 handleMessageSelect(parentMessage._id);
               }
             }}
-          />
-        )}
-
-        {/* Forks Panel */}
-        {isForksPanelOpen && sessionId && (
-          <ForksPanel
-            sessionId={sessionId}
-            isOpen={isForksPanelOpen}
-            onClose={() => setIsForksPanelOpen(false)}
-            currentSessionData={session}
           />
         )}
 
@@ -1103,17 +1036,6 @@ export default function SessionDetail() {
         </div>
       )}
 
-      {/* Fork Confirmation Dialog */}
-      {forkMessage && (
-        <ForkConfirmationDialog
-          isOpen={!!forkMessage}
-          messagePreview={forkMessage.content.slice(0, 200)}
-          messageType={forkMessage.type as 'user' | 'assistant'}
-          onConfirm={handleConfirmFork}
-          onCancel={() => setForkMessage(null)}
-        />
-      )}
-
       {/* Branch Merge Dialog */}
       {mergeDialogMessage && (
         <BranchMergeDialog
@@ -1142,7 +1064,6 @@ interface TimelineViewProps {
   onCopy: (text: string, messageId: string) => void;
   onSelectBranch?: (messageUuid: string, parentUuid?: string) => void;
   onMessageSelect?: (messageId: string) => void;
-  onForkFromMessage?: (messageId: string) => void;
   selectedMessageId?: string | null;
   activeBranches?: Map<string, string>;
   allMessages?: Message[];
@@ -1167,7 +1088,6 @@ function TimelineView({
   onCopy,
   onSelectBranch,
   onMessageSelect,
-  onForkFromMessage,
   selectedMessageId,
   activeBranches,
   allMessages,
@@ -1784,29 +1704,6 @@ function TimelineView({
                           }
                           return null;
                         })()}
-                        {/* Fork button - only show for user and assistant messages */}
-                        {onForkFromMessage &&
-                          (message.type === 'user' ||
-                            message.type === 'assistant') && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onForkFromMessage(message._id);
-                              }}
-                              className={cn(
-                                'px-2 py-0.5 text-xs rounded-md',
-                                'bg-amber-100 dark:bg-amber-900/30',
-                                'text-amber-700 dark:text-amber-300',
-                                'hover:bg-amber-200 dark:hover:bg-amber-800/30',
-                                'transition-colors',
-                                'flex items-center gap-1'
-                              )}
-                              title="Fork conversation from here"
-                            >
-                              <GitFork className="h-3 w-3" />
-                              Fork
-                            </button>
-                          )}
                         {/* Merge button - only show for messages with branches */}
                         {setMergeDialogMessage &&
                           message.branchCount &&

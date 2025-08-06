@@ -144,35 +144,3 @@ async def generate_session_summary(session_id: str, db: CommonDeps) -> dict:
         raise NotFoundError("Session", session_id)
 
     return {"session_id": session_id, "summary": summary}
-
-
-@router.post("/{session_id}/fork")
-async def fork_session(
-    session_id: str,
-    db: CommonDeps,
-    message_id: str = Query(..., description="Message ID to fork from"),
-    description: str | None = Query(None, description="Optional fork description"),
-) -> dict:
-    """Fork a session from a specific message.
-
-    Creates a new session with all messages up to and including the specified message.
-    The new session can be continued independently from the original.
-    """
-    service = SessionService(db)
-
-    # Create the fork
-    new_session = await service.fork_session(
-        session_id=session_id, message_id=message_id, fork_description=description
-    )
-
-    if not new_session:
-        raise NotFoundError("Session or message", f"{session_id}/{message_id}")
-
-    return {
-        "original_session_id": session_id,
-        "forked_session_id": new_session["session_id"],
-        "forked_session_mongo_id": str(new_session["_id"]),
-        "fork_point_message_id": message_id,
-        "description": description,
-        "message_count": new_session["message_count"],
-    }

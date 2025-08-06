@@ -14,7 +14,6 @@ import {
   Coins,
   Hash,
   Zap,
-  GitFork,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useState, useRef } from 'react';
@@ -30,14 +29,12 @@ interface MessageListProps {
   messages: Message[];
   costMap?: Map<string, number>;
   onSelectBranch?: (messageUuid: string, parentUuid?: string) => void;
-  onForkFromMessage?: (messageId: string) => void;
 }
 
 export default function MessageList({
   messages,
   costMap,
   onSelectBranch,
-  onForkFromMessage,
 }: MessageListProps) {
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
@@ -579,18 +576,6 @@ export default function MessageList({
                       onNavigateToChildren={() => navigateToChild(messageUuid)}
                     />
                   </div>
-                  {/* Fork button - only show for user and assistant messages */}
-                  {onForkFromMessage &&
-                    (message.type === 'user' ||
-                      message.type === 'assistant') && (
-                      <button
-                        onClick={() => onForkFromMessage(message._id)}
-                        className="p-2 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all duration-200"
-                        title="Fork conversation from here"
-                      >
-                        <GitFork className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      </button>
-                    )}
                   <button
                     onClick={() =>
                       handleCopyToClipboard(

@@ -259,21 +259,6 @@ This checklist breaks down the conversation flow visualization improvements into
 - [x] Style with clear visual separation
 - [x] Write tests for comparison logic
 
-### User Story 9: Fork Conversation to New Session
-*As a user, I want to fork a conversation at any point so I can explore a different direction without losing my original work.*
-
-**Tasks:**
-- [x] Add "Fork from here" button to messages
-- [x] Create fork confirmation dialog
-- [x] Implement API endpoint for session forking
-- [x] Generate new session with fork metadata
-- [x] Copy conversation history up to fork point
-- [x] Add fork indicator in original session
-- [x] Create "View forks" panel
-- [x] Navigate to new forked session
-- [x] Track fork relationships in database
-- [x] Write tests for forking logic
-
 ### User Story 10: Merge Insights from Multiple Branches
 *As a user, I want to merge the best parts of different conversation branches so I can create an optimal solution.*
 
@@ -304,16 +289,6 @@ This checklist breaks down the conversation flow visualization improvements into
   - Test "Select this branch" action works
   - Verify export comparison feature
 
-- [ ] **Fork Functionality Testing:**
-  - "Fork from here" button appears on messages
-  - Fork confirmation dialog displays
-  - New session is created with correct metadata
-  - Conversation history copied up to fork point
-  - Fork indicator shows in original session
-  - "View forks" panel displays forked sessions
-  - Navigation to forked session works
-  - Fork relationships tracked in database
-
 - [ ] **Merge Operations Testing:**
   - Branch merge dialog opens correctly
   - Multi-selection of branches works
@@ -327,7 +302,6 @@ This checklist breaks down the conversation flow visualization improvements into
   - Conflict resolution UI works for conflicting merges
 
 - [ ] **Integration Testing:**
-  - Fork → Edit → Merge workflow completes
   - Compare → Select → Continue workflow works
   - All advanced features work with Phase 1 & 2 features
   - No regression in existing functionality
@@ -341,10 +315,8 @@ This checklist breaks down the conversation flow visualization improvements into
   ```
 
 - [ ] **Performance & Edge Cases:**
-  - Fork operation completes in <2 seconds
   - Merge handles 10+ branches without error
   - Comparison view handles long conversations (1000+ messages)
-  - Database properly indexes fork relationships
   - No memory leaks during complex operations
 
 **If any checks fail:** Mark this checkpoint as `[FAILED - <details>]` and mark the specific failing task(s) above as `[REWORK - <issue>]`
@@ -388,7 +360,6 @@ This checklist breaks down the conversation flow visualization improvements into
 
 ### API Enhancements
 - [ ] Add endpoint for branch statistics
-- [ ] Create endpoint for fork operations
 - [ ] Add sidechain aggregation endpoint
 - [ ] Implement conversation complexity scoring
 - [ ] Add branch path calculation
@@ -398,7 +369,6 @@ This checklist breaks down the conversation flow visualization improvements into
 
 ### Database Updates
 - [ ] Add indexes for parentUuid queries
-- [ ] Create fork relationship table
 - [ ] Add merge history tracking
 - [ ] Optimize branch detection queries
 - [ ] Add conversation complexity metrics
@@ -414,19 +384,16 @@ This checklist breaks down the conversation flow visualization improvements into
 - [ ] Navigation path building
 - [ ] Sidechain filtering
 - [ ] Merge conflict resolution
-- [ ] Fork relationship tracking
 
 ### Integration Tests
 - [ ] Branch navigation flow
 - [ ] Tree view interactions
 - [ ] Sidechain panel updates
-- [ ] Fork creation process
 - [ ] Merge operation workflow
 
 ### E2E Tests
 - [ ] Complete branch exploration flow
 - [ ] Tree view with large conversations
-- [ ] Fork and continue workflow
 - [ ] Branch comparison workflow
 
 ---
