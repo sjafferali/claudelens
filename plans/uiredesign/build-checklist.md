@@ -137,16 +137,16 @@ This checklist breaks down the conversation flow visualization improvements into
 *As a user, I want a mini-map overview so I can quickly understand conversation complexity and jump to different sections.*
 
 **Tasks:**
-- [ ] Create `ConversationMiniMap` component
-- [ ] Generate thumbnail representation of conversation structure
-- [ ] Add viewport indicator showing current position
-- [ ] Implement click-to-navigate on mini-map
-- [ ] Calculate complexity metrics (branches, depth)
-- [ ] Add color coding for message types
-- [ ] Position mini-map as floating overlay
-- [ ] Add show/hide toggle for mini-map
-- [ ] Highlight active message in mini-map
-- [ ] Write tests for mini-map generation
+- [x] Create `ConversationMiniMap` component
+- [x] Generate thumbnail representation of conversation structure
+- [x] Add viewport indicator showing current position
+- [x] Implement click-to-navigate on mini-map
+- [x] Calculate complexity metrics (branches, depth)
+- [x] Add color coding for message types
+- [x] Position mini-map as floating overlay
+- [x] Add show/hide toggle for mini-map
+- [x] Highlight active message in mini-map
+- [x] Write tests for mini-map generation
 
 ### User Story 7: Understand My Current Location
 *As a user, I want breadcrumb navigation so I always know where I am in the conversation hierarchy.*

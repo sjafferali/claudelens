@@ -11,6 +11,7 @@ import {
   GitBranch,
   PanelRightClose,
   PanelRightOpen,
+  Map,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -44,6 +45,7 @@ import { ConversationBreadcrumbs } from '@/components/ConversationBreadcrumbs';
 import { useMessageNavigation } from '@/hooks/useMessageNavigation';
 import ConversationTree from '@/components/ConversationTree';
 import { SidechainPanel } from '@/components/SidechainPanel';
+import { ConversationMiniMap } from '@/components/ConversationMiniMap';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -162,6 +164,7 @@ export default function SessionDetail() {
     null
   );
   const [isSidechainPanelOpen, setIsSidechainPanelOpen] = useState(false);
+  const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
 
   // Calculate branch counts for all messages
   const messagesWithBranches = useMemo(
@@ -639,6 +642,23 @@ export default function SessionDetail() {
                 </button>
               </div>
 
+              {/* Mini-map toggle */}
+              <div className="border-l border-secondary-c pl-4">
+                <button
+                  onClick={() => setIsMiniMapOpen(!isMiniMapOpen)}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all',
+                    isMiniMapOpen
+                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                  )}
+                  title={isMiniMapOpen ? 'Hide minimap' : 'Show minimap'}
+                >
+                  <Map className="h-4 w-4" />
+                  <span>Map</span>
+                </button>
+              </div>
+
               {/* Sidechain panel toggle */}
               <div className="border-l border-secondary-c pl-4">
                 <button
@@ -938,6 +958,16 @@ export default function SessionDetail() {
           </div>
         </div>
       </div>
+
+      {/* Conversation MiniMap */}
+      <ConversationMiniMap
+        messages={messagesWithBranches}
+        activeMessageId={selectedMessageId}
+        onNavigate={handleMessageSelect}
+        isOpen={isMiniMapOpen}
+        onToggle={() => setIsMiniMapOpen(!isMiniMapOpen)}
+        scrollContainerRef={scrollContainerRef}
+      />
     </div>
   );
 }
