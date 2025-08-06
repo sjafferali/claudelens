@@ -1,5 +1,5 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -32,17 +32,27 @@ import { getSessionTitle } from '@/utils/session';
 import { ToolDisplay } from '@/components/ToolDisplay';
 import { ToolResultDisplay } from '@/components/ToolResultDisplay';
 import { copyToClipboard } from '@/utils/clipboard';
-import { calculateBranchCounts } from '@/utils/branch-detection';
+import {
+  calculateBranchCounts,
+  getBranchAlternatives,
+} from '@/utils/branch-detection';
+import { BranchSelector } from '@/components/BranchSelector';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const targetMessageId = searchParams.get('messageId');
+  const selectedBranchId = searchParams.get('branch');
   const messageRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const MESSAGES_PER_PAGE = 100;
+
+  // Branch navigation state
+  const [activeBranches, setActiveBranches] = useState<Map<string, string>>(
+    new Map()
+  );
 
   // Reset pagination when session changes
   useEffect(() => {
@@ -148,8 +158,95 @@ export default function SessionDetail() {
     [allMessages]
   );
 
+  // Handle branch selection
+  const handleSelectBranch = useCallback(
+    (messageUuid: string, parentUuid?: string) => {
+      if (!parentUuid) {
+        // Find the parent UUID from the message
+        const message = messagesWithBranches.find(
+          (m) => (m.uuid || m.messageUuid) === messageUuid
+        );
+        if (message) {
+          parentUuid = message.parentUuid;
+        }
+      }
+
+      if (parentUuid) {
+        // Update active branches map
+        setActiveBranches((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(parentUuid, messageUuid);
+          return newMap;
+        });
+
+        // Update URL params
+        const newParams = new URLSearchParams(searchParams);
+        newParams.set('branch', messageUuid);
+        setSearchParams(newParams, { replace: true });
+
+        // Scroll to the selected branch message
+        setTimeout(() => {
+          const element = messageRefs.current[messageUuid];
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Add temporary highlight
+            element.classList.add('ring-2', 'ring-amber-500', 'ring-offset-2');
+            setTimeout(() => {
+              element.classList.remove(
+                'ring-2',
+                'ring-amber-500',
+                'ring-offset-2'
+              );
+            }, 1500);
+          }
+        }, 100);
+      }
+    },
+    [messagesWithBranches, searchParams, setSearchParams]
+  );
+
+  // Get filtered messages based on active branches
+  const filteredMessagesWithBranches = useMemo(() => {
+    if (activeBranches.size === 0) {
+      return messagesWithBranches;
+    }
+
+    // Build a set of messages to show based on active branches
+    const messagesToShow = new Set<string>();
+
+    // Process each message
+    messagesWithBranches.forEach((message) => {
+      const messageId = message.uuid || message.messageUuid;
+      const parentId = message.parentUuid;
+
+      // If this message has siblings (branches)
+      if (message.branchCount && message.branchCount > 1 && parentId) {
+        // Check if there's an active branch selection for this parent
+        const selectedBranch = activeBranches.get(parentId);
+        if (selectedBranch) {
+          // Only show the selected branch
+          if (messageId === selectedBranch) {
+            messagesToShow.add(messageId);
+          }
+        } else {
+          // No selection made, show the first branch (default)
+          if (message.branchIndex === 1) {
+            messagesToShow.add(messageId);
+          }
+        }
+      } else {
+        // Not a branched message, always show
+        messagesToShow.add(messageId);
+      }
+    });
+
+    return messagesWithBranches.filter((m) =>
+      messagesToShow.has(m.uuid || m.messageUuid)
+    );
+  }, [messagesWithBranches, activeBranches]);
+
   // Filter messages based on search
-  const filteredMessages = messagesWithBranches.filter((msg) =>
+  const filteredMessages = filteredMessagesWithBranches.filter((msg) =>
     msg.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -162,6 +259,59 @@ export default function SessionDetail() {
       setCollapsedToolResults(new Set(toolResultIds));
     }
   }, [allMessages]);
+
+  // Initialize active branches from URL params
+  useEffect(() => {
+    if (selectedBranchId && messagesWithBranches.length > 0) {
+      const message = messagesWithBranches.find(
+        (m) => (m.uuid || m.messageUuid) === selectedBranchId
+      );
+      if (message && message.parentUuid) {
+        setActiveBranches((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(message.parentUuid!, selectedBranchId);
+          return newMap;
+        });
+      }
+    }
+  }, [selectedBranchId, messagesWithBranches]);
+
+  // Keyboard shortcuts for branch navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Alt + Left/Right arrow for branch navigation
+      if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+
+        // Find the currently focused or visible message with branches
+        const visibleMessages = filteredMessages.filter(
+          (m) => m.branchCount && m.branchCount > 1
+        );
+        if (visibleMessages.length === 0) return;
+
+        // For simplicity, navigate branches of the first visible branched message
+        // In a more sophisticated implementation, you'd track the focused message
+        const targetMessage = visibleMessages[0];
+        if (!targetMessage.branches || !targetMessage.parentUuid) return;
+
+        const currentIndex = targetMessage.branchIndex || 1;
+        const totalBranches = targetMessage.branchCount || 1;
+
+        if (e.key === 'ArrowLeft' && currentIndex > 1) {
+          // Navigate to previous branch
+          const prevBranch = targetMessage.branches[currentIndex - 2];
+          handleSelectBranch(prevBranch, targetMessage.parentUuid);
+        } else if (e.key === 'ArrowRight' && currentIndex < totalBranches) {
+          // Navigate to next branch
+          const nextBranch = targetMessage.branches[currentIndex];
+          handleSelectBranch(nextBranch, targetMessage.parentUuid);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [filteredMessages, handleSelectBranch]);
 
   // Scroll to target message when navigating from search
   useEffect(() => {
@@ -453,6 +603,9 @@ export default function SessionDetail() {
                   onToggleToolResult={toggleToolResult}
                   onToggleToolPairExpanded={toggleToolPairExpanded}
                   onCopy={handleCopyToClipboard}
+                  onSelectBranch={handleSelectBranch}
+                  activeBranches={activeBranches}
+                  allMessages={messagesWithBranches}
                   messageRefs={messageRefs}
                   getMessageColors={getMessageColors}
                   getMessageLabel={getMessageLabel}
@@ -674,6 +827,9 @@ interface TimelineViewProps {
   onToggleToolResult: (messageId: string) => void;
   onToggleToolPairExpanded: (pairId: string) => void;
   onCopy: (text: string, messageId: string) => void;
+  onSelectBranch?: (messageUuid: string, parentUuid?: string) => void;
+  activeBranches?: Map<string, string>;
+  allMessages?: Message[];
   getMessageColors: (type: Message['type']) => { avatar: string; bg: string };
   getMessageLabel: (type: Message['type'], content?: string) => string;
   getAvatarText: (type: Message['type']) => string;
@@ -691,6 +847,9 @@ function TimelineView({
   onToggleToolResult,
   onToggleToolPairExpanded,
   onCopy,
+  onSelectBranch,
+  activeBranches,
+  allMessages,
   getMessageColors,
   getMessageLabel,
   getAvatarText,
@@ -1183,6 +1342,15 @@ function TimelineView({
           const isExpanded = expandedMessages.has(message._id);
           const isToolResultCollapsed = collapsedToolResults.has(message._id);
           const colors = getMessageColors(message.type);
+          const isActiveBranch =
+            message.parentUuid &&
+            activeBranches?.get(message.parentUuid) ===
+              (message.uuid || message.messageUuid);
+          const isAlternativeBranch =
+            message.branchCount &&
+            message.branchCount > 1 &&
+            message.branchIndex !== 1 &&
+            !isActiveBranch;
 
           return (
             <div
@@ -1196,7 +1364,11 @@ function TimelineView({
                 className={cn(
                   'rounded-xl p-4',
                   colors.bg,
-                  'border border-secondary-c hover:border-primary-c transition-all'
+                  'border transition-all',
+                  isActiveBranch
+                    ? 'border-amber-500 ring-2 ring-amber-500/20'
+                    : 'border-secondary-c hover:border-primary-c',
+                  isAlternativeBranch && 'opacity-60'
                 )}
               >
                 <div className="flex gap-4">
@@ -1219,6 +1391,24 @@ function TimelineView({
                             {message.model}
                           </span>
                         )}
+                        {message.branchCount &&
+                          message.branchCount > 1 &&
+                          onSelectBranch && (
+                            <BranchSelector
+                              currentMessage={message}
+                              branchMessages={
+                                allMessages
+                                  ? getBranchAlternatives(
+                                      allMessages,
+                                      message.uuid || message.messageUuid
+                                    )
+                                  : []
+                              }
+                              onSelectBranch={(uuid) =>
+                                onSelectBranch(uuid, message.parentUuid)
+                              }
+                            />
+                          )}
                       </div>
                       <div className="flex items-center gap-3">
                         {getMessageCost(message) ||

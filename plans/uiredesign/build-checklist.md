@@ -23,15 +23,15 @@ This checklist breaks down the conversation flow visualization improvements into
 *As a user, I want to switch between different versions of Claude's responses so I can find the best answer.*
 
 **Tasks:**
-- [ ] Create `BranchSelector` component with prev/next navigation
-- [ ] Add "Branch X of Y" display counter
-- [ ] Implement `onSelectBranch` handler in `SessionDetail.tsx`
-- [ ] Add keyboard shortcuts (Alt+←/→) for branch navigation
-- [ ] Store active branch UUID in component state
-- [ ] Update URL params to include branch selection
-- [ ] Add smooth transition animation between branches
-- [ ] Highlight currently selected branch in UI
-- [ ] Write tests for branch navigation logic
+- [x] Create `BranchSelector` component with prev/next navigation
+- [x] Add "Branch X of Y" display counter
+- [x] Implement `onSelectBranch` handler in `SessionDetail.tsx`
+- [x] Add keyboard shortcuts (Alt+←/→) for branch navigation
+- [x] Store active branch UUID in component state
+- [x] Update URL params to include branch selection
+- [x] Add smooth transition animation between branches
+- [x] Highlight currently selected branch in UI
+- [x] Write tests for branch navigation logic
 
 ### User Story 3: Jump to Parent and Child Messages
 *As a user, I want to quickly navigate to related messages so I can follow the conversation flow.*
