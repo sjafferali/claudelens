@@ -79,15 +79,13 @@ describe('branch-detection utilities', () => {
 
       const result = calculateBranchCounts(messages);
 
-      // All root messages should be branches of each other
+      // Root messages without a parent should NOT be considered branches of each other
+      // They are independent conversation starters
       result.forEach((msg) => {
-        expect(msg.branchCount).toBe(3);
-        expect(msg.branches).toEqual(['1', '2', '3']);
+        expect(msg.branchCount).toBeUndefined();
+        expect(msg.branchIndex).toBeUndefined();
+        expect(msg.branches).toBeUndefined();
       });
-
-      expect(result[0].branchIndex).toBe(1);
-      expect(result[1].branchIndex).toBe(2);
-      expect(result[2].branchIndex).toBe(3);
     });
 
     it('should sort branches by timestamp', () => {

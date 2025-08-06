@@ -497,7 +497,7 @@ class SessionService:
 
         # Get all messages up to and including the fork point
         # We need to build the message chain from the fork point back to the root
-        messages_to_copy = []
+        messages_to_copy: list[dict[str, Any]] = []
         current_uuid = fork_message["uuid"]
 
         # Build the path from fork message to root
@@ -545,7 +545,7 @@ class SessionService:
         }
 
         # Calculate costs and tokens
-        total_cost = 0
+        total_cost = 0.0
         input_tokens = 0
         output_tokens = 0
         tools_used = set()

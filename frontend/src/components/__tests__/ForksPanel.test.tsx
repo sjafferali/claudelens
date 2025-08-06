@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ForksPanel } from '../ForksPanel';
 import { sessionsApi } from '@/api/sessions';
 import { Session } from '@/api/types';
+import { SessionDetail } from '@/api/sessions';
 
 // Mock the navigate function
 const mockNavigate = vi.fn();
@@ -28,8 +29,6 @@ describe('ForksPanel', () => {
     endedAt: '2024-01-01T01:00:00Z',
     messageCount: 10,
     totalCost: 0.5,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T01:00:00Z',
   };
 
   const defaultProps = {
@@ -57,7 +56,12 @@ describe('ForksPanel', () => {
     // Mock a slow API response to ensure loading state is visible
     vi.mocked(sessionsApi.getSession).mockImplementation(
       () =>
-        new Promise((resolve) => setTimeout(() => resolve(mockSession), 100))
+        new Promise((resolve) =>
+          setTimeout(
+            () => resolve({ ...mockSession, modelsUsed: [] } as SessionDetail),
+            100
+          )
+        )
     );
 
     render(<ForksPanel {...defaultProps} currentSessionData={undefined} />);
@@ -117,10 +121,16 @@ describe('ForksPanel', () => {
       messageCount: 20,
     };
 
-    vi.mocked(sessionsApi.getSession).mockResolvedValue(parentSession);
+    vi.mocked(sessionsApi.getSession).mockResolvedValue({
+      ...parentSession,
+      modelsUsed: [],
+    } as SessionDetail);
 
     render(
-      <ForksPanel {...defaultProps} currentSessionData={forkedSession as any} />
+      <ForksPanel
+        {...defaultProps}
+        currentSessionData={forkedSession as Session}
+      />
     );
 
     await waitFor(() => {
@@ -169,15 +179,17 @@ describe('ForksPanel', () => {
     };
 
     vi.mocked(sessionsApi.getSession).mockImplementation(async (id) => {
-      if (id === 'fork-1') return fork1Session;
-      if (id === 'fork-2') return fork2Session;
-      return mockSession;
+      if (id === 'fork-1')
+        return { ...fork1Session, modelsUsed: [] } as SessionDetail;
+      if (id === 'fork-2')
+        return { ...fork2Session, modelsUsed: [] } as SessionDetail;
+      return { ...mockSession, modelsUsed: [] } as SessionDetail;
     });
 
     render(
       <ForksPanel
         {...defaultProps}
-        currentSessionData={sessionWithForks as any}
+        currentSessionData={sessionWithForks as Session}
       />
     );
 
@@ -203,7 +215,10 @@ describe('ForksPanel', () => {
     };
 
     render(
-      <ForksPanel {...defaultProps} currentSessionData={forkedSession as any} />
+      <ForksPanel
+        {...defaultProps}
+        currentSessionData={forkedSession as Session}
+      />
     );
 
     await waitFor(() => {
@@ -231,7 +246,7 @@ describe('ForksPanel', () => {
     render(
       <ForksPanel
         {...defaultProps}
-        currentSessionData={sessionWithForks as any}
+        currentSessionData={sessionWithForks as Session}
       />
     );
 
@@ -261,7 +276,10 @@ describe('ForksPanel', () => {
       .mockImplementation(() => {});
 
     render(
-      <ForksPanel {...defaultProps} currentSessionData={forkedSession as any} />
+      <ForksPanel
+        {...defaultProps}
+        currentSessionData={forkedSession as Session}
+      />
     );
 
     await waitFor(() => {
@@ -300,12 +318,13 @@ describe('ForksPanel', () => {
       ...mockSession,
       _id: 'fork-1',
       sessionId: 'fork-1-uuid',
-    });
+      modelsUsed: [],
+    } as SessionDetail);
 
     render(
       <ForksPanel
         {...defaultProps}
-        currentSessionData={sessionWithForks as any}
+        currentSessionData={sessionWithForks as Session}
       />
     );
 

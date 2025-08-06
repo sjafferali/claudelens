@@ -9,11 +9,15 @@ export function calculateBranchCounts(messages: Message[]): Message[] {
   const messagesByParent = new Map<string, Message[]>();
 
   messages.forEach((message) => {
-    const parentId = message.parentUuid || 'root';
-    if (!messagesByParent.has(parentId)) {
-      messagesByParent.set(parentId, []);
+    // Only group messages that actually have a parent UUID
+    // Messages without a parent are NOT branches of each other
+    if (message.parentUuid) {
+      const parentId = message.parentUuid;
+      if (!messagesByParent.has(parentId)) {
+        messagesByParent.set(parentId, []);
+      }
+      messagesByParent.get(parentId)!.push(message);
     }
-    messagesByParent.get(parentId)!.push(message);
   });
 
   // Create a map to store branch information for each message
