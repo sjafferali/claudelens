@@ -50,47 +50,47 @@ This checklist contains all UI/UX design mockup tasks that can be worked on inde
 *As a designer, I want to create a mockup of the prompt manager so we can plan the prompt library feature.*
 
 **Tasks:**
-- [ ] Create prompt manager page mockup
-- [ ] Design folder-based navigation structure (sidebar tree)
-- [ ] Mock up prompt card/list view toggle
-- [ ] Design prompt editor with syntax highlighting
-- [ ] Include prompt metadata fields (name, description, tags, version)
-- [ ] Create prompt template variable system UI
-- [ ] Design prompt search and filter interface
-- [ ] Mock up prompt sharing/collaboration features
-- [ ] Include prompt usage statistics display
-- [ ] Design prompt version history interface
-- [ ] Create prompt testing playground section
-- [ ] Mock up prompt import/export functionality
-- [ ] Design prompt categorization system (folders + tags)
-- [ ] Add favorite/starred prompts section
-- [ ] Save mockup to `/plans/uiredesign/mockups/prompt-manager.html`
-- [ ] Document prompt organization best practices
+- [x] Create prompt manager page mockup
+- [x] Design folder-based navigation structure (sidebar tree)
+- [x] Mock up prompt card/list view toggle
+- [x] Design prompt editor with syntax highlighting
+- [x] Include prompt metadata fields (name, description, tags, version)
+- [x] Create prompt template variable system UI
+- [x] Design prompt search and filter interface
+- [x] Mock up prompt sharing/collaboration features
+- [x] Include prompt usage statistics display
+- [x] Design prompt version history interface
+- [x] Create prompt testing playground section
+- [x] Mock up prompt import/export functionality
+- [x] Design prompt categorization system (folders + tags)
+- [x] Add favorite/starred prompts section
+- [x] Save mockup to `/plans/uiredesign/mockups/prompt-manager.html`
+- [x] Document prompt organization best practices
 
 ### Mockup Story 4: Design Conversation Snippets/Bookmarks UI
 *As a designer, I want to create a mockup of the conversation snippets feature so users can save and organize valuable parts of conversations.*
 
 **Tasks:**
-- [ ] Create snippet creation interface mockup
-- [ ] Design bookmark button for individual messages
-- [ ] Mock up snippet range selector (start/end messages)
-- [ ] Design snippet metadata form (title, description, tags)
-- [ ] Create snippets library page layout
-- [ ] Design snippet card view with preview
-- [ ] Mock up snippet collections/folders interface
-- [ ] Design snippet search and filter UI
-- [ ] Include snippet sharing interface (copy link, export)
-- [ ] Create snippet viewer modal with full context
-- [ ] Design snippet annotation system
-- [ ] Mock up related snippets suggestion feature
-- [ ] Create snippet quick access sidebar/panel
-- [ ] Design snippet usage analytics dashboard
-- [ ] Include snippet version history for edited snippets
-- [ ] Mock up collaborative snippet features (team snippets)
-- [ ] Design mobile-responsive snippet interface
-- [ ] Save mockup to `/plans/uiredesign/mockups/conversation-snippets.html`
-- [ ] Create secondary mockup for snippet viewer modal
-- [ ] Document snippet organization patterns
+- [x] Create snippet creation interface mockup
+- [x] Design bookmark button for individual messages
+- [x] Mock up snippet range selector (start/end messages)
+- [x] Design snippet metadata form (title, description, tags)
+- [x] Create snippets library page layout
+- [x] Design snippet card view with preview
+- [x] Mock up snippet collections/folders interface
+- [x] Design snippet search and filter UI
+- [x] Include snippet sharing interface (copy link, export)
+- [x] Create snippet viewer modal with full context
+- [x] Design snippet annotation system
+- [x] Mock up related snippets suggestion feature
+- [x] Create snippet quick access sidebar/panel
+- [x] Design snippet usage analytics dashboard
+- [x] Include snippet version history for edited snippets
+- [x] Mock up collaborative snippet features (team snippets)
+- [x] Design mobile-responsive snippet interface
+- [x] Save mockup to `/plans/uiredesign/mockups/conversation-snippets.html`
+- [x] Create secondary mockup for snippet viewer modal
+- [x] Document snippet organization patterns
 
 **Screens to mockup:**
 1. Snippet creation flow (selection → metadata → save)

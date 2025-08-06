@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClaudeLens - Prompt Manager Mockup</title>
+    <style>
+        /* CSS Variables for Theming */
+        :root {
+            --color-primary: #3B82F6;
+            --color-secondary: #10B981;
+            --color-accent: #8B5CF6;
+            --color-warning: #F59E0B;
+            --color-error: #EF4444;
+            --color-success: #22C55E;
+
+            --color-background: #FFFFFF;
+            --color-surface: #F9FAFB;
+            --color-surface-2: #F3F4F6;
+            --color-border: #E5E7EB;
+            --color-text-primary: #111827;
+            --color-text-secondary: #6B7280;
+            --color-text-tertiary: #9CA3AF;
+
+            --space-1: 0.25rem;
+            --space-2: 0.5rem;
+            --space-3: 0.75rem;
+            --space-4: 1rem;
+            --space-6: 1.5rem;
+            --space-8: 2rem;
+
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --radius-lg: 8px;
+
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --color-background: #0F172A;
+            --color-surface: #1E293B;
+            --color-surface-2: #334155;
+            --color-border: #334155;
+            --color-text-primary: #F9FAFB;
+            --color-text-secondary: #94A3B8;
+            --color-text-tertiary: #64748B;
+        }
+
+        /* Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            line-height: 1.5;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Layout Components */
+        .app-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background-color: var(--color-surface);
+            border-right: 1px solid var(--color-border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: var(--space-4);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .sidebar-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: var(--space-3);
+        }
+
+        .sidebar-actions {
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        .btn {
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-md);
+            border: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .btn-primary {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background-color: var(--color-surface-2);
+            color: var(--color-text-primary);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--color-border);
+        }
+
+        .btn-icon {
+            padding: var(--space-2);
+            background-color: transparent;
+            color: var(--color-text-secondary);
+        }
+
+        .btn-icon:hover {
+            background-color: var(--color-surface-2);
+        }
+
+        /* Folder Tree */
+        .folder-tree {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-3);
+        }
+
+        .tree-item {
+            margin-bottom: var(--space-1);
+        }
+
+        .tree-node {
+            display: flex;
+            align-items: center;
+            padding: var(--space-2) var(--space-2);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .tree-node:hover {
+            background-color: var(--color-surface-2);
+        }
+
+        .tree-node.selected {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        .tree-node.selected .tree-icon {
+            color: white;
+        }
+
+        .tree-expand {
+            width: 16px;
+            height: 16px;
+            margin-right: var(--space-1);
+            transition: transform 0.2s ease;
+        }
+
+        .tree-expand.expanded {
+            transform: rotate(90deg);
+        }
+
+        .tree-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: var(--space-2);
+            color: var(--color-text-tertiary);
+        }
+
+        .tree-label {
+            flex: 1;
+            font-size: 0.875rem;
+        }
+
+        .tree-count {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            background-color: var(--color-surface-2);
+            padding: 0 var(--space-2);
+            border-radius: 10px;
+        }
+
+        .tree-node.selected .tree-count {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .tree-children {
+            margin-left: var(--space-6);
+            display: none;
+        }
+
+        .tree-children.expanded {
+            display: block;
+        }
+
+        /* Favorites Section */
+        .favorites-section {
+            border-top: 1px solid var(--color-border);
+            padding: var(--space-4);
+        }
+
+        .favorites-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--color-text-tertiary);
+            margin-bottom: var(--space-2);
+        }
+
+        .favorite-item {
+            display: flex;
+            align-items: center;
+            padding: var(--space-2);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .favorite-item:hover {
+            background-color: var(--color-surface-2);
+        }
+
+        .star-icon {
+            width: 14px;
+            height: 14px;
+            margin-right: var(--space-2);
+            color: var(--color-warning);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background-color: var(--color-surface);
+            border-bottom: 1px solid var(--color-border);
+            padding: var(--space-4);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-3);
+        }
+
+        .header-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        /* Search and Filter Bar */
+        .search-filter-bar {
+            display: flex;
+            gap: var(--space-3);
+            align-items: center;
+        }
+
+        .search-container {
+            flex: 1;
+            max-width: 400px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: var(--space-2) var(--space-3);
+            padding-left: 36px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--color-text-tertiary);
+        }
+
+        .filter-chips {
+            display: flex;
+            gap: var(--space-2);
+            flex-wrap: wrap;
+        }
+
+        .filter-chip {
+            padding: var(--space-1) var(--space-3);
+            border: 1px solid var(--color-border);
+            border-radius: 16px;
+            font-size: 0.75rem;
+            background-color: var(--color-background);
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-chip.active {
+            background-color: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .view-toggle {
+            display: flex;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .view-toggle-btn {
+            padding: var(--space-2) var(--space-3);
+            background-color: var(--color-background);
+            border: none;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .view-toggle-btn.active {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-6);
+        }
+
+        /* Prompt Grid View */
+        .prompt-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: var(--space-4);
+        }
+
+        .prompt-card {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .prompt-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .prompt-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: var(--space-3);
+        }
+
+        .prompt-card-title {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: var(--space-1);
+        }
+
+        .prompt-card-version {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+        }
+
+        .prompt-card-star {
+            width: 20px;
+            height: 20px;
+            color: var(--color-text-tertiary);
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .prompt-card-star.starred {
+            color: var(--color-warning);
+            fill: var(--color-warning);
+        }
+
+        .prompt-card-description {
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: var(--space-3);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .prompt-card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-1);
+            margin-bottom: var(--space-3);
+        }
+
+        .tag {
+            padding: 2px var(--space-2);
+            background-color: var(--color-surface-2);
+            color: var(--color-text-secondary);
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+        }
+
+        .prompt-card-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: var(--space-3);
+            border-top: 1px solid var(--color-border);
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-1);
+        }
+
+        /* Prompt List View */
+        .prompt-list {
+            display: none;
+        }
+
+        .prompt-list.active {
+            display: block;
+        }
+
+        .prompt-list-item {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+            margin-bottom: var(--space-3);
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .prompt-list-item:hover {
+            box-shadow: var(--shadow-sm);
+        }
+
+        .prompt-list-icon {
+            width: 40px;
+            height: 40px;
+            background-color: var(--color-surface-2);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: var(--space-4);
+            color: var(--color-text-secondary);
+        }
+
+        .prompt-list-content {
+            flex: 1;
+        }
+
+        .prompt-list-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            margin-bottom: var(--space-1);
+        }
+
+        .prompt-list-title {
+            font-weight: 600;
+        }
+
+        .prompt-list-meta {
+            display: flex;
+            gap: var(--space-3);
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+        }
+
+        .prompt-list-actions {
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        /* Editor Panel */
+        .editor-panel {
+            position: fixed;
+            right: -600px;
+            top: 0;
+            width: 600px;
+            height: 100vh;
+            background-color: var(--color-surface);
+            border-left: 1px solid var(--color-border);
+            transition: right 0.3s ease;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-panel.open {
+            right: 0;
+        }
+
+        .editor-header {
+            padding: var(--space-4);
+            border-bottom: 1px solid var(--color-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .editor-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .editor-close {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            color: var(--color-text-secondary);
+        }
+
+        .editor-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--color-border);
+            background-color: var(--color-background);
+        }
+
+        .editor-tab {
+            padding: var(--space-3) var(--space-4);
+            background-color: transparent;
+            border: none;
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .editor-tab.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+
+        .editor-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-4);
+        }
+
+        .form-group {
+            margin-bottom: var(--space-4);
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: var(--space-2);
+            color: var(--color-text-primary);
+        }
+
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--color-primary);
+        }
+
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
+
+        .code-editor {
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-3);
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            min-height: 300px;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .variable-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+            margin-top: var(--space-2);
+        }
+
+        .variable-chip {
+            padding: var(--space-1) var(--space-2);
+            background-color: var(--color-accent);
+            color: white;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Playground Section */
+        .playground-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-4);
+            height: 400px;
+        }
+
+        .playground-input, .playground-output {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .playground-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: var(--space-2);
+        }
+
+        .playground-textarea {
+            flex: 1;
+            padding: var(--space-3);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            resize: none;
+        }
+
+        .playground-actions {
+            margin-top: var(--space-3);
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        /* Version History */
+        .version-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-3);
+        }
+
+        .version-item {
+            padding: var(--space-3);
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .version-item:hover {
+            border-color: var(--color-primary);
+        }
+
+        .version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-2);
+        }
+
+        .version-number {
+            font-weight: 600;
+            color: var(--color-primary);
+        }
+
+        .version-date {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+        }
+
+        .version-changes {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+        }
+
+        /* Statistics Display */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-4);
+            margin-bottom: var(--space-4);
+        }
+
+        .stat-card {
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: var(--space-3);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            margin-bottom: var(--space-1);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .usage-chart {
+            height: 200px;
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-text-tertiary);
+            font-size: 0.875rem;
+        }
+
+        /* Import/Export Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal {
+            background-color: var(--color-surface);
+            border-radius: var(--radius-lg);
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: var(--space-4);
+            border-bottom: 1px solid var(--color-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .modal-content {
+            padding: var(--space-4);
+        }
+
+        .modal-footer {
+            padding: var(--space-4);
+            border-top: 1px solid var(--color-border);
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--space-2);
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-8);
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .drop-zone:hover {
+            border-color: var(--color-primary);
+            background-color: var(--color-surface-2);
+        }
+
+        .drop-zone.active {
+            border-color: var(--color-primary);
+            background-color: var(--color-primary);
+            background-opacity: 0.1;
+        }
+
+        .drop-zone-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto var(--space-3);
+            color: var(--color-text-tertiary);
+        }
+
+        .drop-zone-text {
+            color: var(--color-text-secondary);
+            margin-bottom: var(--space-2);
+        }
+
+        .drop-zone-hint {
+            font-size: 0.875rem;
+            color: var(--color-text-tertiary);
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: var(--space-4);
+            right: var(--space-4);
+            z-index: 1000;
+            padding: var(--space-2);
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 1.25rem;
+        }
+
+        /* Mobile Responsive */
+        .mobile-menu-toggle {
+            display: none;
+            position: fixed;
+            top: var(--space-4);
+            left: var(--space-4);
+            z-index: 1000;
+            padding: var(--space-2);
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-toggle {
+                display: block;
+            }
+
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                height: 100vh;
+                z-index: 50;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+
+            .prompt-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .editor-panel {
+                width: 100%;
+                right: -100%;
+            }
+
+            .editor-panel.open {
+                right: 0;
+            }
+
+            .playground-container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .prompt-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            }
+        }
+
+        /* Sharing Features */
+        .share-panel {
+            padding: var(--space-4);
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+        }
+
+        .share-options {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-3);
+        }
+
+        .share-option {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .share-toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background-color: var(--color-border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .share-toggle.active {
+            background-color: var(--color-primary);
+        }
+
+        .share-toggle-handle {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border-radius: 50%;
+            transition: transform 0.2s ease;
+        }
+
+        .share-toggle.active .share-toggle-handle {
+            transform: translateX(20px);
+        }
+
+        .share-link {
+            display: flex;
+            gap: var(--space-2);
+            margin-top: var(--space-3);
+        }
+
+        .share-link-input {
+            flex: 1;
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background-color: var(--color-surface-2);
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+        }
+
+        /* Loading States */
+        .skeleton {
+            background: linear-gradient(90deg, var(--color-surface-2) 25%, var(--color-border) 50%, var(--color-surface-2) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: var(--space-8);
+        }
+
+        .empty-state-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto var(--space-4);
+            color: var(--color-text-tertiary);
+        }
+
+        .empty-state-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: var(--space-2);
+        }
+
+        .empty-state-description {
+            color: var(--color-text-secondary);
+            margin-bottom: var(--space-4);
+        }
+    </style>
+</head>
+<body>
+    <!-- Theme Toggle -->
+    <button id="theme-toggle" class="theme-toggle">🌙</button>
+
+    <!-- Mobile Menu Toggle -->
+    <button id="mobile-menu-toggle" class="mobile-menu-toggle">☰</button>
+
+    <!-- App Container -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2 class="sidebar-title">Prompt Library</h2>
+                <div class="sidebar-actions">
+                    <button class="btn btn-primary" onclick="openEditor('new')">
+                        <span>+</span> New Prompt
+                    </button>
+                    <button class="btn btn-icon" onclick="openImportModal()">
+                        <span>📥</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Folder Tree -->
+            <div class="folder-tree">
+                <div class="tree-item">
+                    <div class="tree-node selected">
+                        <span class="tree-expand expanded">▶</span>
+                        <span class="tree-icon">📁</span>
+                        <span class="tree-label">All Prompts</span>
+                        <span class="tree-count">42</span>
+                    </div>
+                    <div class="tree-children expanded">
+                        <div class="tree-item">
+                            <div class="tree-node">
+                                <span class="tree-expand">▶</span>
+                                <span class="tree-icon">📁</span>
+                                <span class="tree-label">Development</span>
+                                <span class="tree-count">15</span>
+                            </div>
+                        </div>
+                        <div class="tree-item">
+                            <div class="tree-node">
+                                <span class="tree-expand expanded">▶</span>
+                                <span class="tree-icon">📁</span>
+                                <span class="tree-label">Writing</span>
+                                <span class="tree-count">12</span>
+                            </div>
+                            <div class="tree-children expanded">
+                                <div class="tree-item">
+                                    <div class="tree-node">
+                                        <span class="tree-expand"></span>
+                                        <span class="tree-icon">📁</span>
+                                        <span class="tree-label">Blog Posts</span>
+                                        <span class="tree-count">5</span>
+                                    </div>
+                                </div>
+                                <div class="tree-item">
+                                    <div class="tree-node">
+                                        <span class="tree-expand"></span>
+                                        <span class="tree-icon">📁</span>
+                                        <span class="tree-label">Documentation</span>
+                                        <span class="tree-count">7</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tree-item">
+                            <div class="tree-node">
+                                <span class="tree-expand">▶</span>
+                                <span class="tree-icon">📁</span>
+                                <span class="tree-label">Analysis</span>
+                                <span class="tree-count">8</span>
+                            </div>
+                        </div>
+                        <div class="tree-item">
+                            <div class="tree-node">
+                                <span class="tree-expand">▶</span>
+                                <span class="tree-icon">📁</span>
+                                <span class="tree-label">Creative</span>
+                                <span class="tree-count">7</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Favorites Section -->
+            <div class="favorites-section">
+                <h3 class="favorites-title">Favorites</h3>
+                <div class="favorite-item">
+                    <span class="star-icon">⭐</span>
+                    <span>Code Review Assistant</span>
+                </div>
+                <div class="favorite-item">
+                    <span class="star-icon">⭐</span>
+                    <span>SQL Query Builder</span>
+                </div>
+                <div class="favorite-item">
+                    <span class="star-icon">⭐</span>
+                    <span>Blog Post Outline</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-top">
+                    <h1 class="header-title">Prompt Manager</h1>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="openExportModal()">
+                            <span>📤</span> Export
+                        </button>
+                        <button class="btn btn-secondary" onclick="toggleView()">
+                            <span>👁️</span> View
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search and Filter Bar -->
+                <div class="search-filter-bar">
+                    <div class="search-container">
+                        <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                        </svg>
+                        <input type="text" class="search-input" placeholder="Search prompts...">
+                    </div>
+
+                    <div class="filter-chips">
+                        <button class="filter-chip active">All</button>
+                        <button class="filter-chip">Recent</button>
+                        <button class="filter-chip">Most Used</button>
+                        <button class="filter-chip">Shared</button>
+                        <button class="filter-chip">Draft</button>
+                    </div>
+
+                    <div class="view-toggle">
+                        <button class="view-toggle-btn active" onclick="setView('grid')">Grid</button>
+                        <button class="view-toggle-btn" onclick="setView('list')">List</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Prompt Grid View -->
+                <div class="prompt-grid" id="prompt-grid">
+                    <!-- Prompt Card 1 -->
+                    <div class="prompt-card" onclick="openEditor('edit', 1)">
+                        <div class="prompt-card-header">
+                            <div>
+                                <div class="prompt-card-title">Code Review Assistant</div>
+                                <div class="prompt-card-version">v2.1.0</div>
+                            </div>
+                            <svg class="prompt-card-star starred" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        </div>
+                        <div class="prompt-card-description">
+                            Analyze code for potential issues, suggest improvements, and ensure best practices are followed.
+                        </div>
+                        <div class="prompt-card-tags">
+                            <span class="tag">development</span>
+                            <span class="tag">code-quality</span>
+                            <span class="tag">review</span>
+                        </div>
+                        <div class="prompt-card-stats">
+                            <div class="stat-item">
+                                <span>📊</span> 324 uses
+                            </div>
+                            <div class="stat-item">
+                                <span>📅</span> 2 days ago
+                            </div>
+                            <div class="stat-item">
+                                <span>👥</span> Shared
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Card 2 -->
+                    <div class="prompt-card" onclick="openEditor('edit', 2)">
+                        <div class="prompt-card-header">
+                            <div>
+                                <div class="prompt-card-title">SQL Query Builder</div>
+                                <div class="prompt-card-version">v1.3.2</div>
+                            </div>
+                            <svg class="prompt-card-star starred" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        </div>
+                        <div class="prompt-card-description">
+                            Generate optimized SQL queries from natural language descriptions. Supports multiple database dialects.
+                        </div>
+                        <div class="prompt-card-tags">
+                            <span class="tag">database</span>
+                            <span class="tag">sql</span>
+                            <span class="tag">query</span>
+                        </div>
+                        <div class="prompt-card-stats">
+                            <div class="stat-item">
+                                <span>📊</span> 256 uses
+                            </div>
+                            <div class="stat-item">
+                                <span>📅</span> 1 week ago
+                            </div>
+                            <div class="stat-item">
+                                <span>🔒</span> Private
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Card 3 -->
+                    <div class="prompt-card" onclick="openEditor('edit', 3)">
+                        <div class="prompt-card-header">
+                            <div>
+                                <div class="prompt-card-title">Blog Post Outline</div>
+                                <div class="prompt-card-version">v1.0.0</div>
+                            </div>
+                            <svg class="prompt-card-star" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        </div>
+                        <div class="prompt-card-description">
+                            Create structured blog post outlines with SEO-friendly headings and content suggestions.
+                        </div>
+                        <div class="prompt-card-tags">
+                            <span class="tag">writing</span>
+                            <span class="tag">blog</span>
+                            <span class="tag">seo</span>
+                        </div>
+                        <div class="prompt-card-stats">
+                            <div class="stat-item">
+                                <span>📊</span> 189 uses
+                            </div>
+                            <div class="stat-item">
+                                <span>📅</span> 3 days ago
+                            </div>
+                            <div class="stat-item">
+                                <span>👥</span> Team
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Card 4 -->
+                    <div class="prompt-card" onclick="openEditor('edit', 4)">
+                        <div class="prompt-card-header">
+                            <div>
+                                <div class="prompt-card-title">Unit Test Generator</div>
+                                <div class="prompt-card-version">v1.5.0</div>
+                            </div>
+                            <svg class="prompt-card-star" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        </div>
+                        <div class="prompt-card-description">
+                            Generate comprehensive unit tests for functions and classes with edge case coverage.
+                        </div>
+                        <div class="prompt-card-tags">
+                            <span class="tag">testing</span>
+                            <span class="tag">development</span>
+                            <span class="tag">automation</span>
+                        </div>
+                        <div class="prompt-card-stats">
+                            <div class="stat-item">
+                                <span>📊</span> 412 uses
+                            </div>
+                            <div class="stat-item">
+                                <span>📅</span> Today
+                            </div>
+                            <div class="stat-item">
+                                <span>👥</span> Shared
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Card 5 -->
+                    <div class="prompt-card" onclick="openEditor('edit', 5)">
+                        <div class="prompt-card-header">
+                            <div>
+                                <div class="prompt-card-title">API Documentation</div>
+                                <div class="prompt-card-version">v2.0.1</div>
+                            </div>
+                            <svg class="prompt-card-star" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        </div>
+                        <div class="prompt-card-description">
+                            Generate clear and comprehensive API documentation with examples and best practices.
+                        </div>
+                        <div class="prompt-card-tags">
+                            <span class="tag">documentation</span>
+                            <span class="tag">api</span>
+                            <span class="tag">technical</span>
+                        </div>
+                        <div class="prompt-card-stats">
+                            <div class="stat-item">
+                                <span>📊</span> 178 uses
+                            </div>
+                            <div class="stat-item">
+                                <span>📅</span> 5 days ago
+                            </div>
+                            <div class="stat-item">
+                                <span>🔒</span> Private
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Card 6 -->
+                    <div class="prompt-card" onclick="openEditor('edit', 6)">
+                        <div class="prompt-card-header">
+                            <div>
+                                <div class="prompt-card-title">Data Analysis Report</div>
+                                <div class="prompt-card-version">v1.2.0</div>
+                            </div>
+                            <svg class="prompt-card-star starred" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        </div>
+                        <div class="prompt-card-description">
+                            Analyze datasets and generate comprehensive reports with insights and visualizations.
+                        </div>
+                        <div class="prompt-card-tags">
+                            <span class="tag">analysis</span>
+                            <span class="tag">data</span>
+                            <span class="tag">reporting</span>
+                        </div>
+                        <div class="prompt-card-stats">
+                            <div class="stat-item">
+                                <span>📊</span> 267 uses
+                            </div>
+                            <div class="stat-item">
+                                <span>📅</span> Yesterday
+                            </div>
+                            <div class="stat-item">
+                                <span>👥</span> Team
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prompt List View (Hidden by default) -->
+                <div class="prompt-list" id="prompt-list">
+                    <!-- List items would go here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Editor Panel -->
+    <div class="editor-panel" id="editor-panel">
+        <div class="editor-header">
+            <h2 class="editor-title">Edit Prompt</h2>
+            <svg class="editor-close" onclick="closeEditor()" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+        </div>
+
+        <div class="editor-tabs">
+            <button class="editor-tab active" onclick="switchTab('edit')">Edit</button>
+            <button class="editor-tab" onclick="switchTab('test')">Test</button>
+            <button class="editor-tab" onclick="switchTab('versions')">Versions</button>
+            <button class="editor-tab" onclick="switchTab('stats')">Statistics</button>
+            <button class="editor-tab" onclick="switchTab('share')">Sharing</button>
+        </div>
+
+        <div class="editor-content">
+            <!-- Edit Tab -->
+            <div id="edit-tab">
+                <div class="form-group">
+                    <label class="form-label">Prompt Name</label>
+                    <input type="text" class="form-input" value="Code Review Assistant">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea">Analyze code for potential issues, suggest improvements, and ensure best practices are followed.</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Prompt Content</label>
+                    <div class="code-editor" contenteditable="true">You are an expert code reviewer. Analyze the following code for:
+
+1. Potential bugs and errors
+2. Performance improvements
+3. Security vulnerabilities
+4. Code style and best practices
+5. Readability and maintainability
+
+Code to review:
+{{code}}
+
+Programming language: {{language}}
+
+Please provide detailed feedback with specific suggestions for improvement.</div>
+                    <div class="variable-chips">
+                        <span class="variable-chip">{{code}}</span>
+                        <span class="variable-chip">{{language}}</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Tags</label>
+                    <input type="text" class="form-input" value="development, code-quality, review">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Version</label>
+                    <input type="text" class="form-input" value="2.1.0">
+                </div>
+
+                <div class="form-group">
+                    <button class="btn btn-primary">Save Changes</button>
+                    <button class="btn btn-secondary">Save as New Version</button>
+                </div>
+            </div>
+
+            <!-- Test Tab (Hidden) -->
+            <div id="test-tab" style="display: none;">
+                <div class="playground-container">
+                    <div class="playground-input">
+                        <label class="playground-label">Input Variables</label>
+                        <textarea class="playground-textarea" placeholder="Enter your test input here..."></textarea>
+                    </div>
+                    <div class="playground-output">
+                        <label class="playground-label">Output Preview</label>
+                        <textarea class="playground-textarea" readonly placeholder="Output will appear here..."></textarea>
+                    </div>
+                </div>
+                <div class="playground-actions">
+                    <button class="btn btn-primary">Run Test</button>
+                    <button class="btn btn-secondary">Clear</button>
+                </div>
+            </div>
+
+            <!-- Versions Tab (Hidden) -->
+            <div id="versions-tab" style="display: none;">
+                <div class="version-list">
+                    <div class="version-item">
+                        <div class="version-header">
+                            <span class="version-number">v2.1.0</span>
+                            <span class="version-date">2 days ago</span>
+                        </div>
+                        <div class="version-changes">Added support for multiple programming languages and improved error detection</div>
+                    </div>
+                    <div class="version-item">
+                        <div class="version-header">
+                            <span class="version-number">v2.0.0</span>
+                            <span class="version-date">1 week ago</span>
+                        </div>
+                        <div class="version-changes">Major update: Complete rewrite with better analysis patterns</div>
+                    </div>
+                    <div class="version-item">
+                        <div class="version-header">
+                            <span class="version-number">v1.5.0</span>
+                            <span class="version-date">2 weeks ago</span>
+                        </div>
+                        <div class="version-changes">Added security vulnerability detection</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Tab (Hidden) -->
+            <div id="stats-tab" style="display: none;">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Uses</div>
+                        <div class="stat-value">324</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Avg. Response Time</div>
+                        <div class="stat-value">2.3s</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Success Rate</div>
+                        <div class="stat-value">98.5%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">User Rating</div>
+                        <div class="stat-value">4.8/5</div>
+                    </div>
+                </div>
+                <div class="usage-chart">
+                    [Usage chart visualization would go here]
+                </div>
+            </div>
+
+            <!-- Sharing Tab (Hidden) -->
+            <div id="share-tab" style="display: none;">
+                <div class="share-panel">
+                    <div class="share-options">
+                        <div class="share-option">
+                            <div class="share-toggle active">
+                                <div class="share-toggle-handle"></div>
+                            </div>
+                            <div>
+                                <div class="form-label">Share with Team</div>
+                                <div class="form-hint">Team members can view and use this prompt</div>
+                            </div>
+                        </div>
+                        <div class="share-option">
+                            <div class="share-toggle">
+                                <div class="share-toggle-handle"></div>
+                            </div>
+                            <div>
+                                <div class="form-label">Public Access</div>
+                                <div class="form-hint">Anyone with the link can access this prompt</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="share-link">
+                        <input type="text" class="share-link-input" value="https://claudelens.app/prompts/abc123" readonly>
+                        <button class="btn btn-primary">Copy Link</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import/Export Modal -->
+    <div class="modal-overlay" id="import-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Import Prompts</h2>
+                <svg class="editor-close" onclick="closeImportModal()" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="modal-content">
+                <div class="drop-zone" id="drop-zone">
+                    <svg class="drop-zone-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <div class="drop-zone-text">Drop your file here or click to browse</div>
+                    <div class="drop-zone-hint">Supports JSON, CSV, and Markdown formats</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+                <button class="btn btn-primary">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" id="export-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Export Prompts</h2>
+                <svg class="editor-close" onclick="closeExportModal()" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="modal-content">
+                <div class="form-group">
+                    <label class="form-label">Export Format</label>
+                    <select class="form-input">
+                        <option>JSON</option>
+                        <option>CSV</option>
+                        <option>Markdown</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Export Selection</label>
+                    <select class="form-input">
+                        <option>All Prompts (42)</option>
+                        <option>Current Folder</option>
+                        <option>Favorites Only</option>
+                        <option>Selected Prompts</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Include</label>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <label><input type="checkbox" checked> Prompt content</label>
+                        <label><input type="checkbox" checked> Metadata</label>
+                        <label><input type="checkbox" checked> Version history</label>
+                        <label><input type="checkbox"> Usage statistics</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeExportModal()">Cancel</button>
+                <button class="btn btn-primary">Export</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme Toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            themeToggle.textContent = newTheme === 'light' ? '🌙' : '☀️';
+        });
+
+        // Mobile Menu Toggle
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const sidebar = document.getElementById('sidebar');
+
+        mobileMenuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('mobile-open');
+        });
+
+        // Tree Expansion
+        document.querySelectorAll('.tree-expand').forEach(expand => {
+            expand.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = e.target.closest('.tree-item');
+                const children = item.querySelector('.tree-children');
+                if (children) {
+                    children.classList.toggle('expanded');
+                    e.target.classList.toggle('expanded');
+                }
+            });
+        });
+
+        // Tree Node Selection
+        document.querySelectorAll('.tree-node').forEach(node => {
+            node.addEventListener('click', () => {
+                document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('selected'));
+                node.classList.add('selected');
+            });
+        });
+
+        // Filter Chips
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+            });
+        });
+
+        // View Toggle
+        function setView(view) {
+            const grid = document.getElementById('prompt-grid');
+            const list = document.getElementById('prompt-list');
+            const buttons = document.querySelectorAll('.view-toggle-btn');
+
+            buttons.forEach(btn => btn.classList.remove('active'));
+
+            if (view === 'grid') {
+                grid.style.display = 'grid';
+                list.classList.remove('active');
+                buttons[0].classList.add('active');
+            } else {
+                grid.style.display = 'none';
+                list.classList.add('active');
+                buttons[1].classList.add('active');
+            }
+        }
+
+        // Editor Panel
+        function openEditor(mode, id) {
+            const panel = document.getElementById('editor-panel');
+            panel.classList.add('open');
+
+            if (mode === 'new') {
+                document.querySelector('.editor-title').textContent = 'New Prompt';
+                // Clear form fields for new prompt
+            } else {
+                document.querySelector('.editor-title').textContent = 'Edit Prompt';
+                // Load prompt data
+            }
+        }
+
+        function closeEditor() {
+            const panel = document.getElementById('editor-panel');
+            panel.classList.remove('open');
+        }
+
+        // Editor Tab Switching
+        function switchTab(tabName) {
+            const tabs = document.querySelectorAll('.editor-tab');
+            const contents = ['edit-tab', 'test-tab', 'versions-tab', 'stats-tab', 'share-tab'];
+
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.style.display = 'none';
+            });
+
+            const tabIndex = ['edit', 'test', 'versions', 'stats', 'share'].indexOf(tabName);
+            if (tabIndex !== -1) {
+                tabs[tabIndex].classList.add('active');
+                const contentElement = document.getElementById(contents[tabIndex]);
+                if (contentElement) contentElement.style.display = 'block';
+            }
+        }
+
+        // Star Toggle
+        document.querySelectorAll('.prompt-card-star').forEach(star => {
+            star.addEventListener('click', (e) => {
+                e.stopPropagation();
+                star.classList.toggle('starred');
+            });
+        });
+
+        // Import/Export Modals
+        function openImportModal() {
+            document.getElementById('import-modal').classList.add('open');
+        }
+
+        function closeImportModal() {
+            document.getElementById('import-modal').classList.remove('open');
+        }
+
+        function openExportModal() {
+            document.getElementById('export-modal').classList.add('open');
+        }
+
+        function closeExportModal() {
+            document.getElementById('export-modal').classList.remove('open');
+        }
+
+        // Drag and Drop
+        const dropZone = document.getElementById('drop-zone');
+
+        if (dropZone) {
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('active');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('active');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('active');
+                const files = e.dataTransfer.files;
+                console.log('Files dropped:', files);
+            });
+
+            dropZone.addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json,.csv,.md';
+                input.onchange = (e) => {
+                    const files = e.target.files;
+                    console.log('Files selected:', files);
+                };
+                input.click();
+            });
+        }
+
+        // Share Toggle
+        document.querySelectorAll('.share-toggle').forEach(toggle => {
+            toggle.addEventListener('click', () => {
+                toggle.classList.toggle('active');
+            });
+        });
+
+        // Search functionality
+        const searchInput = document.querySelector('.search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                // Filter prompts based on search term
+                console.log('Searching for:', searchTerm);
+            });
+        }
+
+        // Sample data for demonstration
+        const samplePrompts = [
+            {
+                id: 1,
+                name: "Code Review Assistant",
+                version: "2.1.0",
+                description: "Analyze code for potential issues, suggest improvements, and ensure best practices are followed.",
+                tags: ["development", "code-quality", "review"],
+                uses: 324,
+                lastUsed: "2 days ago",
+                starred: true,
+                shared: true
+            },
+            {
+                id: 2,
+                name: "SQL Query Builder",
+                version: "1.3.2",
+                description: "Generate optimized SQL queries from natural language descriptions.",
+                tags: ["database", "sql", "query"],
+                uses: 256,
+                lastUsed: "1 week ago",
+                starred: true,
+                shared: false
+            }
+        ];
+
+        // Initialize the mockup
+        console.log('Prompt Manager mockup loaded');
+        console.log('Sample prompts available:', samplePrompts);
+    </script>
+</body>
+</html>

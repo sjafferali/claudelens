@@ -282,21 +282,139 @@ This checklist breaks down the conversation flow visualization improvements into
 - **Root Cause**: Claude's export format doesn't include parent-child relationships for tool messages
 - **Next Steps**: Would need to infer parentUuid based on message order or timestamps during import
 
-### User Story 12: Fix Tree View Layout - Prevent Node Overlap
+### User Story 12: Fix API Field Name Mapping
+*As a developer, I want the API to return consistent camelCase field names so the frontend receives data in the expected format.*
+
+**Tasks:**
+- [ ] Identify all snake_case fields in API responses (parent_uuid, session_id, cost_usd, created_at)
+- [ ] Update backend message service to return camelCase fields
+- [ ] Update session service to return camelCase fields
+- [ ] Create Pydantic response models with proper field aliases
+- [ ] Test API responses have correct field names
+- [ ] Verify frontend receives parentUuid instead of parent_uuid
+- [ ] Check that existing frontend code works with corrected field names
+- [ ] Update API documentation to reflect camelCase conventions
+
+### User Story 13: Fix Tool Message Parent Relationships in Ingest
+*As a developer, I want tool messages to be correctly parented to their containing assistant message so they form proper hierarchies.*
+
+**Tasks:**
+- [ ] Update ingest.py to set tool_use parentUuid to containing assistant message UUID
+- [ ] Update ingest.py to set tool_result parentUuid to corresponding tool_use UUID
+- [ ] Ensure tool messages get isSidechain: true flag
+- [ ] Update content extraction to preserve tool operation details
+- [ ] Test with conversations containing single tool use
+- [ ] Test with conversations containing multiple sequential tool uses
+- [ ] Test with conversations containing nested tool operations
+- [ ] Verify tool message UUIDs follow pattern: {assistant_uuid}_tool_{index}
+- [ ] Add logging for tool message extraction and parent assignment
+
+### User Story 14: Update Frontend to Handle Corrected Message Hierarchy
+*As a user, I want the UI to properly display the corrected message hierarchy with tool operations as children of assistant messages.*
+
+**Tasks:**
+- [ ] Update MessageList to handle deeper nesting levels
+- [ ] Modify tree building logic to place tool messages as children
+- [ ] Update branch detection to ignore tool message false branches
+- [ ] Fix sidechain panel grouping to use corrected parentUuid
+- [ ] Update message navigation to traverse corrected hierarchy
+- [ ] Adjust indentation/visual nesting for tool messages
+- [ ] Update breadcrumb navigation for deeper trees
+- [ ] Test with conversations containing many tool operations
+- [ ] Verify sidechain panel shows correct groupings
+
+### User Story 15: Create Migration Script for Existing Data
+*As a developer, I want to migrate existing messages to the correct hierarchy structure so old data works with the new system.*
+
+**Tasks:**
+- [ ] Create script to identify tool_use and tool_result messages
+- [ ] Map tool messages to their containing assistant messages
+- [ ] Update parentUuid for all tool_use messages
+- [ ] Update parentUuid for all tool_result messages
+- [ ] Add isSidechain flag to tool messages if missing
+- [ ] Create backup before migration
+- [ ] Add dry-run mode to preview changes
+- [ ] Log all changes made during migration
+- [ ] Test rollback procedure
+- [ ] Document migration process
+
+### 🔍 QA Checkpoint: Message Hierarchy Fix Verification
+*Verify that all message hierarchy fixes are working correctly before proceeding.*
+
+**QA Tasks:**
+- [ ] **API Field Name Testing:**
+  - Call `/api/v1/messages/` endpoint and verify camelCase fields
+  - Check parentUuid is present (not parent_uuid)
+  - Verify sessionId, costUsd, createdAt use camelCase
+  - Test with Playwright: navigate to session and check console for no undefined parentUuid warnings
+
+- [ ] **Tool Message Hierarchy Testing with Playwright:**
+  - Navigate to a session with tool operations
+  - Open browser console and verify no parentUuid undefined errors
+  - Click on Sidechains tab
+  - Verify sidechain panel shows groups (not "0 groups")
+  - Expand a sidechain group
+  - Verify tool operations are listed under assistant messages
+  - Check that tool messages show correct parent relationship
+
+- [ ] **Tree View Testing:**
+  - Switch to Tree view
+  - Verify tool messages appear as children of assistant messages
+  - Check that tool messages don't create false branches
+  - Verify tree layout handles deep nesting properly
+  - Test zoom and pan with complex tool hierarchies
+
+- [ ] **Documentation Verification:**
+  - Review `/docs/message-hierarchy-structure.md`
+  - Verify implementation matches documented structure
+  - Check that all examples work as described
+  - Validate field mappings are correct
+
+- [ ] **Data Integrity Checks:**
+  - Query database for tool messages with correct parentUuid
+  - Verify no orphaned tool messages
+  - Check tool_use → tool_result parent relationships
+  - Confirm isSidechain flag is set on tool messages
+
+- [ ] **Performance Testing:**
+  - Load session with 100+ tool operations
+  - Verify UI remains responsive
+  - Check sidechain panel loads quickly
+  - Test tree view performance with deep nesting
+
+**If any checks fail:** Mark this checkpoint as `[FAILED - <details>]` and mark the specific failing task(s) above as `[REWORK - <issue>]`
+
+### User Story 16: Update Documentation for New Message Structure
+*As a developer, I want all documentation to accurately reflect the new message hierarchy so future development is based on correct information.*
+
+**Tasks:**
+- [ ] Update `/docs/message-handling-types.md` with corrected hierarchy
+- [ ] Update `/docs/claude-data-structure.md` with new parent relationships
+- [ ] Update `/docs/API.md` with camelCase field specifications
+- [ ] Review and update `/docs/tool-use-formats.md` for accuracy
+- [ ] Add migration notes to `/docs/README.md`
+- [ ] Update inline code comments referencing old structure
+- [ ] Create changelog entry for hierarchy changes
+- [ ] Update example conversations in documentation
+- [ ] Document the sidechain detection logic
+- [ ] Add troubleshooting section for hierarchy issues
+
+### User Story 17: Fix Tree View Layout - Prevent Node Overlap
 *As a user, I want the tree view to properly layout messages so I can see the conversation structure clearly.*
 
 **Tasks:**
 - [ ] Investigate why React Flow nodes start layered on top of each other
 - [ ] Check tree layout algorithm in `ConversationTree.tsx`
-- [ ] Verify node positioning calculations
+- [ ] Verify node positioning calculations work with new deeper hierarchies
 - [ ] Check if dagre or other layout library is properly configured
-- [ ] Add initial node spacing/positioning
-- [ ] Test with different conversation structures
+- [ ] Add initial node spacing/positioning for tool message children
+- [ ] Test with different conversation structures including deep tool chains
 - [ ] Implement auto-layout on tree view load
 - [ ] Add loading state while layout calculates
 - [ ] Verify zoom/pan controls work after fix
+- [ ] Handle the increased depth from tool message nesting
 
-### User Story 13: Enhance Direct Message Linking
+### User Story 18: Enhance Direct Message Linking
 *As a user, I want to easily share links to specific messages so I can reference exact points in conversations.*
 
 **Tasks:**
@@ -312,7 +430,7 @@ This checklist breaks down the conversation flow visualization improvements into
 
 **Note:** Basic message linking already works via `?messageId=` parameter. This enhances UX.
 
-### User Story 14: Fix Scroll Position Reset on Load More
+### User Story 19: Fix Scroll Position Reset on Load More
 *As a user, I want the scroll position to remain stable when loading more messages so I don't lose my place in the conversation.*
 
 **Tasks:**
@@ -327,7 +445,7 @@ This checklist breaks down the conversation flow visualization improvements into
 - [ ] Add loading indicator that doesn't affect layout
 - [ ] Test with conversations of various sizes (100, 500, 1000+ messages)
 
-### User Story 15: Add Message Debug View
+### User Story 20: Add Message Debug View
 *As a developer/power user, I want to view the complete JSON data for any message so I can understand all stored information.*
 
 **Tasks:**
@@ -342,7 +460,7 @@ This checklist breaks down the conversation flow visualization improvements into
 - [ ] Include parent/child relationship data
 - [ ] Add option to export single message JSON
 
-### User Story 16: Add Message Position Indicators
+### User Story 21: Add Message Position Indicators
 *As a user, I want to see my position in the conversation so I can navigate back to specific messages easily.*
 
 **Tasks:**
@@ -357,7 +475,7 @@ This checklist breaks down the conversation flow visualization improvements into
 - [ ] Add keyboard shortcut for "Go to message" (Cmd/Ctrl+G)
 - [ ] Show position in mini-map tooltip
 
-### User Story 17: Fix and Display Conversation Summaries
+### User Story 22: Fix and Display Conversation Summaries
 *As a user, I want to see Claude's auto-generated summaries for my conversations so I can quickly understand what each session was about.*
 
 **Tasks:**
@@ -375,7 +493,7 @@ This checklist breaks down the conversation flow visualization improvements into
 
 **Note:** Claude already provides summaries in the data - we're just not storing/displaying them properly.
 
-### User Story 18: Implement Regex Search Support
+### User Story 23: Implement Regex Search Support
 *As a power user, I want to use regex patterns in search so I can find complex patterns in conversations.*
 
 **Tasks:**

@@ -1,0 +1,2095 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClaudeLens - Conversation Snippets & Bookmarks Mockup</title>
+    <style>
+        /* CSS Custom Properties for Theming */
+        :root {
+            /* Primary Colors */
+            --color-primary: #3B82F6;
+            --color-primary-hover: #2563EB;
+            --color-secondary: #10B981;
+            --color-accent: #8B5CF6;
+
+            /* Status Colors */
+            --color-warning: #F59E0B;
+            --color-error: #EF4444;
+            --color-success: #22C55E;
+
+            /* Light Mode Colors */
+            --color-background: #FFFFFF;
+            --color-surface: #F9FAFB;
+            --color-surface-hover: #F3F4F6;
+            --color-border: #E5E7EB;
+            --color-text-primary: #111827;
+            --color-text-secondary: #6B7280;
+            --color-text-tertiary: #9CA3AF;
+
+            /* Shadows */
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            /* Dark Mode Colors */
+            --color-background: #0F172A;
+            --color-surface: #1E293B;
+            --color-surface-hover: #334155;
+            --color-border: #334155;
+            --color-text-primary: #F9FAFB;
+            --color-text-secondary: #94A3B8;
+            --color-text-tertiary: #64748B;
+
+            /* Dark Mode Shadows */
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            line-height: 1.5;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 9999;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 2px solid var(--color-border);
+            background-color: var(--color-surface);
+            color: var(--color-text-primary);
+            cursor: pointer;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-md);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Layout Container */
+        .app-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background-color: var(--color-surface);
+            border-right: 1px solid var(--color-border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .sidebar-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .nav-section {
+            margin-bottom: 2rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+            padding: 0 0.5rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.625rem 0.75rem;
+            border-radius: 6px;
+            color: var(--color-text-primary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            margin-bottom: 0.25rem;
+            position: relative;
+        }
+
+        .nav-item:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .nav-item.active {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        .nav-item-icon {
+            width: 20px;
+            height: 20px;
+            opacity: 0.7;
+        }
+
+        .nav-item-badge {
+            margin-left: auto;
+            background-color: var(--color-primary);
+            color: white;
+            font-size: 0.75rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .nav-item.active .nav-item-badge {
+            background-color: white;
+            color: var(--color-primary);
+        }
+
+        /* Collections Tree */
+        .collections-tree {
+            padding: 0.5rem 0;
+        }
+
+        .collection-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            margin-bottom: 0.125rem;
+        }
+
+        .collection-item:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .collection-toggle {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+        }
+
+        .collection-toggle.expanded {
+            transform: rotate(90deg);
+        }
+
+        .collection-icon {
+            width: 16px;
+            height: 16px;
+            opacity: 0.6;
+        }
+
+        .collection-name {
+            flex: 1;
+            font-size: 0.875rem;
+            color: var(--color-text-primary);
+        }
+
+        .collection-count {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+        }
+
+        .subcollections {
+            margin-left: 1.5rem;
+            display: none;
+        }
+
+        .subcollections.expanded {
+            display: block;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header Bar */
+        .header-bar {
+            background-color: var(--color-surface);
+            border-bottom: 1px solid var(--color-border);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .search-container {
+            flex: 1;
+            max-width: 600px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.625rem 1rem 0.625rem 2.5rem;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            opacity: 0.5;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .btn-primary {
+            background-color: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--color-primary-hover);
+        }
+
+        .btn-icon {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Filter Bar */
+        .filter-bar {
+            background-color: var(--color-background);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+        }
+
+        .filter-select {
+            padding: 0.375rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+
+        .view-toggle {
+            margin-left: auto;
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.25rem;
+            background-color: var(--color-surface);
+            border-radius: 6px;
+        }
+
+        .view-btn {
+            padding: 0.375rem 0.625rem;
+            border: none;
+            background-color: transparent;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .view-btn:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .view-btn.active {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        /* Snippets Grid */
+        .snippets-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+        .snippets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1rem;
+        }
+
+        /* Snippet Card */
+        .snippet-card {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 1rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .snippet-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .snippet-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .snippet-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .snippet-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+        }
+
+        .snippet-actions {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .action-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background-color: var(--color-background);
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            background-color: var(--color-surface-hover);
+            color: var(--color-text-primary);
+        }
+
+        .snippet-preview {
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            max-height: 120px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .snippet-preview::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(transparent, var(--color-background));
+        }
+
+        .message-preview {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .message-role {
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            min-width: 60px;
+        }
+
+        .message-role.user {
+            color: var(--color-primary);
+        }
+
+        .message-role.assistant {
+            color: var(--color-secondary);
+        }
+
+        .message-content {
+            flex: 1;
+            color: var(--color-text-primary);
+            line-height: 1.4;
+        }
+
+        .snippet-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+        }
+
+        .tag {
+            padding: 0.25rem 0.625rem;
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            transition: all 0.2s ease;
+        }
+
+        .tag:hover {
+            background-color: var(--color-primary);
+            border-color: var(--color-primary);
+            color: white;
+        }
+
+        /* List View */
+        .snippets-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .snippet-list-item {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .snippet-list-item:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .snippet-list-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--color-border);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .snippet-list-content {
+            flex: 1;
+        }
+
+        .snippet-list-title {
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .snippet-list-description {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .snippet-list-meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+        }
+
+        /* Creation Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 2rem;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background-color: var(--color-surface);
+            border-radius: 12px;
+            box-shadow: var(--shadow-xl);
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--color-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background-color: transparent;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+        .form-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.625rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 0.625rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            min-height: 80px;
+            resize: vertical;
+            transition: all 0.2s ease;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Message Selection */
+        .message-selection {
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .message-item {
+            padding: 0.75rem;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .message-item:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .message-item.selected {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-color: var(--color-primary);
+        }
+
+        .message-item-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .message-checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--color-border);
+            border-radius: 3px;
+            background-color: var(--color-background);
+            cursor: pointer;
+        }
+
+        .message-checkbox.checked {
+            background-color: var(--color-primary);
+            border-color: var(--color-primary);
+        }
+
+        .message-checkbox.checked::after {
+            content: '✓';
+            color: white;
+            display: block;
+            text-align: center;
+            line-height: 14px;
+            font-size: 12px;
+        }
+
+        .message-timestamp {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            margin-left: auto;
+        }
+
+        .message-text {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+            line-height: 1.4;
+            padding-left: 1.5rem;
+        }
+
+        /* Tag Input */
+        .tag-input-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            padding: 0.5rem;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background-color: var(--color-background);
+            min-height: 42px;
+        }
+
+        .tag-input-container:focus-within {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .tag-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background-color: var(--color-primary);
+            color: white;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        .tag-remove {
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+
+        .tag-remove:hover {
+            opacity: 1;
+        }
+
+        .tag-input {
+            flex: 1;
+            min-width: 100px;
+            border: none;
+            background: transparent;
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            outline: none;
+        }
+
+        /* Modal Footer */
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--color-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-footer-info {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+        }
+
+        .modal-footer-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        /* Viewer Modal */
+        .viewer-modal {
+            max-width: 1000px;
+        }
+
+        .viewer-content {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .viewer-main {
+            flex: 1;
+        }
+
+        .viewer-sidebar {
+            width: 300px;
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .conversation-messages {
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .conversation-message {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+        }
+
+        .conversation-message:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--color-surface);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .message-avatar.user {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        .message-avatar.assistant {
+            background-color: var(--color-secondary);
+            color: white;
+        }
+
+        .message-body {
+            flex: 1;
+        }
+
+        .message-body-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-body-role {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .message-body-time {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+        }
+
+        .message-body-content {
+            font-size: 0.875rem;
+            line-height: 1.5;
+            color: var(--color-text-primary);
+        }
+
+        /* Annotations */
+        .annotations-section {
+            margin-top: 1.5rem;
+        }
+
+        .annotations-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .annotations-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .annotation-item {
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .annotation-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .annotation-author {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+
+        .annotation-time {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+        }
+
+        .annotation-text {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+            line-height: 1.4;
+        }
+
+        .annotation-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            background-color: var(--color-background);
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            resize: none;
+            min-height: 60px;
+        }
+
+        /* Quick Access Panel */
+        .quick-access-panel {
+            position: fixed;
+            right: -320px;
+            top: 0;
+            bottom: 0;
+            width: 320px;
+            background-color: var(--color-surface);
+            border-left: 1px solid var(--color-border);
+            box-shadow: var(--shadow-xl);
+            transition: right 0.3s ease;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .quick-access-panel.open {
+            right: 0;
+        }
+
+        .quick-access-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--color-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .quick-access-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .quick-access-close {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background-color: transparent;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .quick-access-close:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .quick-access-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .quick-snippet {
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .quick-snippet:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .quick-snippet-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .quick-snippet-preview {
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* Analytics Dashboard */
+        .analytics-container {
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-change {
+            font-size: 0.75rem;
+            color: var(--color-success);
+        }
+
+        .stat-change.negative {
+            color: var(--color-error);
+        }
+
+        /* Chart Container */
+        .chart-container {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .chart-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .chart-placeholder {
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-text-tertiary);
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -280px;
+                top: 0;
+                bottom: 0;
+                z-index: 50;
+            }
+
+            .sidebar.mobile-open {
+                left: 0;
+            }
+
+            .snippets-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-bar {
+                flex-wrap: wrap;
+            }
+
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .viewer-content {
+                flex-direction: column;
+            }
+
+            .viewer-sidebar {
+                width: 100%;
+            }
+        }
+
+        /* Mobile Menu Toggle */
+        .mobile-menu-toggle {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background-color: var(--color-surface);
+            color: var(--color-text-primary);
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-toggle {
+                display: flex;
+            }
+        }
+
+        /* Sharing Modal */
+        .share-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .share-option {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .share-option:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .share-icon {
+            width: 40px;
+            height: 40px;
+            background-color: var(--color-surface);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .share-details {
+            flex: 1;
+        }
+
+        .share-title {
+            font-weight: 500;
+            color: var(--color-text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .share-description {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+        }
+
+        /* Version History */
+        .version-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .version-item {
+            padding: 0.75rem;
+            background-color: var(--color-background);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .version-item:hover {
+            background-color: var(--color-surface-hover);
+        }
+
+        .version-item.current {
+            border-color: var(--color-primary);
+        }
+
+        .version-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .version-number {
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+
+        .version-date {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+        }
+
+        .version-changes {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+        }
+
+        /* Loading States */
+        .skeleton {
+            background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-hover) 50%, var(--color-surface) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .skeleton-text {
+            height: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .skeleton-card {
+            height: 180px;
+            border-radius: 8px;
+        }
+
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            opacity: 0.3;
+            margin-bottom: 1rem;
+        }
+
+        .empty-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-description {
+            font-size: 0.875rem;
+            color: var(--color-text-secondary);
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" id="themeToggle">🌙</button>
+
+    <!-- Main App Container -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h1 class="sidebar-title">
+                    📌 Snippets
+                </h1>
+            </div>
+
+            <nav class="sidebar-nav">
+                <!-- Quick Access -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Quick Access</div>
+                    <a href="#" class="nav-item active">
+                        <span class="nav-item-icon">📚</span>
+                        <span>All Snippets</span>
+                        <span class="nav-item-badge">156</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <span class="nav-item-icon">⭐</span>
+                        <span>Favorites</span>
+                        <span class="nav-item-badge">24</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <span class="nav-item-icon">🕐</span>
+                        <span>Recent</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <span class="nav-item-icon">👥</span>
+                        <span>Shared with Me</span>
+                        <span class="nav-item-badge">8</span>
+                    </a>
+                    <a href="#" class="nav-item">
+                        <span class="nav-item-icon">📊</span>
+                        <span>Analytics</span>
+                    </a>
+                </div>
+
+                <!-- Collections -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Collections</div>
+                    <div class="collections-tree">
+                        <div class="collection-item">
+                            <span class="collection-toggle expanded">▶</span>
+                            <span class="collection-icon">📁</span>
+                            <span class="collection-name">Development</span>
+                            <span class="collection-count">42</span>
+                        </div>
+                        <div class="subcollections expanded">
+                            <div class="collection-item">
+                                <span class="collection-toggle"></span>
+                                <span class="collection-icon">📄</span>
+                                <span class="collection-name">React Patterns</span>
+                                <span class="collection-count">15</span>
+                            </div>
+                            <div class="collection-item">
+                                <span class="collection-toggle"></span>
+                                <span class="collection-icon">📄</span>
+                                <span class="collection-name">API Design</span>
+                                <span class="collection-count">12</span>
+                            </div>
+                            <div class="collection-item">
+                                <span class="collection-toggle"></span>
+                                <span class="collection-icon">📄</span>
+                                <span class="collection-name">Testing</span>
+                                <span class="collection-count">15</span>
+                            </div>
+                        </div>
+
+                        <div class="collection-item">
+                            <span class="collection-toggle">▶</span>
+                            <span class="collection-icon">📁</span>
+                            <span class="collection-name">Research</span>
+                            <span class="collection-count">28</span>
+                        </div>
+
+                        <div class="collection-item">
+                            <span class="collection-toggle">▶</span>
+                            <span class="collection-icon">📁</span>
+                            <span class="collection-name">Writing</span>
+                            <span class="collection-count">35</span>
+                        </div>
+
+                        <div class="collection-item">
+                            <span class="collection-toggle">▶</span>
+                            <span class="collection-icon">📁</span>
+                            <span class="collection-name">Learning</span>
+                            <span class="collection-count">51</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tags -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Popular Tags</div>
+                    <div style="padding: 0.5rem;">
+                        <div class="snippet-tags">
+                            <span class="tag">javascript</span>
+                            <span class="tag">python</span>
+                            <span class="tag">react</span>
+                            <span class="tag">api</span>
+                            <span class="tag">database</span>
+                            <span class="tag">tutorial</span>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="header-bar">
+                <button class="mobile-menu-toggle" id="mobileMenuToggle">☰</button>
+
+                <div class="search-container">
+                    <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                    </svg>
+                    <input type="text" class="search-input" placeholder="Search snippets by title, content, or tags...">
+                </div>
+
+                <div class="header-actions">
+                    <button class="btn" id="importBtn">
+                        <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                        Import
+                    </button>
+                    <button class="btn" id="exportBtn">
+                        <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        Export
+                    </button>
+                    <button class="btn btn-primary" id="createSnippetBtn">
+                        <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+                        </svg>
+                        New Snippet
+                    </button>
+                </div>
+            </header>
+
+            <!-- Filter Bar -->
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label class="filter-label">Collection:</label>
+                    <select class="filter-select">
+                        <option>All Collections</option>
+                        <option>Development</option>
+                        <option>Research</option>
+                        <option>Writing</option>
+                        <option>Learning</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Sort by:</label>
+                    <select class="filter-select">
+                        <option>Recently Created</option>
+                        <option>Recently Modified</option>
+                        <option>Most Used</option>
+                        <option>Alphabetical</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Date:</label>
+                    <select class="filter-select">
+                        <option>All Time</option>
+                        <option>Today</option>
+                        <option>This Week</option>
+                        <option>This Month</option>
+                        <option>Custom Range</option>
+                    </select>
+                </div>
+
+                <div class="view-toggle">
+                    <button class="view-btn active" data-view="grid">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM13 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2h-2z"/>
+                        </svg>
+                    </button>
+                    <button class="view-btn" data-view="list">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Snippets Container -->
+            <div class="snippets-container">
+                <div class="snippets-grid" id="snippetsGrid">
+                    <!-- Snippet Card 1 -->
+                    <div class="snippet-card">
+                        <div class="snippet-header">
+                            <div>
+                                <h3 class="snippet-title">React Hook Pattern</h3>
+                                <div class="snippet-meta">
+                                    <span>📅 2 hours ago</span>
+                                    <span>💬 156 messages</span>
+                                    <span>⭐ Favorite</span>
+                                </div>
+                            </div>
+                            <div class="snippet-actions">
+                                <button class="action-btn" title="View">👁️</button>
+                                <button class="action-btn" title="Share">🔗</button>
+                                <button class="action-btn" title="More">⋮</button>
+                            </div>
+                        </div>
+
+                        <div class="snippet-preview">
+                            <div class="message-preview">
+                                <span class="message-role user">User:</span>
+                                <span class="message-content">How can I create a custom React hook for handling form state?</span>
+                            </div>
+                            <div class="message-preview">
+                                <span class="message-role assistant">Claude:</span>
+                                <span class="message-content">I'll help you create a custom React hook for managing form state. Here's a comprehensive solution...</span>
+                            </div>
+                        </div>
+
+                        <div class="snippet-tags">
+                            <span class="tag">react</span>
+                            <span class="tag">hooks</span>
+                            <span class="tag">forms</span>
+                            <span class="tag">javascript</span>
+                        </div>
+                    </div>
+
+                    <!-- Snippet Card 2 -->
+                    <div class="snippet-card">
+                        <div class="snippet-header">
+                            <div>
+                                <h3 class="snippet-title">Python Data Analysis</h3>
+                                <div class="snippet-meta">
+                                    <span>📅 Yesterday</span>
+                                    <span>💬 89 messages</span>
+                                </div>
+                            </div>
+                            <div class="snippet-actions">
+                                <button class="action-btn" title="View">👁️</button>
+                                <button class="action-btn" title="Share">🔗</button>
+                                <button class="action-btn" title="More">⋮</button>
+                            </div>
+                        </div>
+
+                        <div class="snippet-preview">
+                            <div class="message-preview">
+                                <span class="message-role user">User:</span>
+                                <span class="message-content">I need to analyze a large CSV dataset with pandas...</span>
+                            </div>
+                            <div class="message-preview">
+                                <span class="message-role assistant">Claude:</span>
+                                <span class="message-content">I'll guide you through analyzing your CSV data with pandas. Let's start by loading and exploring the data...</span>
+                            </div>
+                        </div>
+
+                        <div class="snippet-tags">
+                            <span class="tag">python</span>
+                            <span class="tag">pandas</span>
+                            <span class="tag">data-analysis</span>
+                        </div>
+                    </div>
+
+                    <!-- Snippet Card 3 -->
+                    <div class="snippet-card">
+                        <div class="snippet-header">
+                            <div>
+                                <h3 class="snippet-title">API Design Best Practices</h3>
+                                <div class="snippet-meta">
+                                    <span>📅 3 days ago</span>
+                                    <span>💬 234 messages</span>
+                                    <span>⭐ Favorite</span>
+                                </div>
+                            </div>
+                            <div class="snippet-actions">
+                                <button class="action-btn" title="View">👁️</button>
+                                <button class="action-btn" title="Share">🔗</button>
+                                <button class="action-btn" title="More">⋮</button>
+                            </div>
+                        </div>
+
+                        <div class="snippet-preview">
+                            <div class="message-preview">
+                                <span class="message-role user">User:</span>
+                                <span class="message-content">What are the best practices for designing RESTful APIs?</span>
+                            </div>
+                            <div class="message-preview">
+                                <span class="message-role assistant">Claude:</span>
+                                <span class="message-content">Here are comprehensive RESTful API design best practices that will help you create scalable and maintainable APIs...</span>
+                            </div>
+                        </div>
+
+                        <div class="snippet-tags">
+                            <span class="tag">api</span>
+                            <span class="tag">rest</span>
+                            <span class="tag">architecture</span>
+                            <span class="tag">best-practices</span>
+                        </div>
+                    </div>
+
+                    <!-- More snippet cards... -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Quick Access Panel -->
+    <div class="quick-access-panel" id="quickAccessPanel">
+        <div class="quick-access-header">
+            <h3 class="quick-access-title">Quick Access</h3>
+            <button class="quick-access-close" id="quickAccessClose">✕</button>
+        </div>
+        <div class="quick-access-content">
+            <div class="quick-snippet">
+                <div class="quick-snippet-title">React Hook Pattern</div>
+                <div class="quick-snippet-preview">Custom hook for form state management with validation...</div>
+            </div>
+            <div class="quick-snippet">
+                <div class="quick-snippet-title">Python Data Analysis</div>
+                <div class="quick-snippet-preview">Pandas DataFrame operations for large CSV datasets...</div>
+            </div>
+            <div class="quick-snippet">
+                <div class="quick-snippet-title">API Design Best Practices</div>
+                <div class="quick-snippet-preview">RESTful API design patterns and conventions...</div>
+            </div>
+            <div class="quick-snippet">
+                <div class="quick-snippet-title">SQL Optimization</div>
+                <div class="quick-snippet-preview">Query optimization techniques for large databases...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Creation Modal -->
+    <div class="modal-overlay" id="createModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Create New Snippet</h2>
+                <button class="modal-close" id="closeCreateModal">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Snippet Details -->
+                <div class="form-section">
+                    <label class="form-label">Snippet Title *</label>
+                    <input type="text" class="form-input" placeholder="Enter a descriptive title for this snippet">
+                </div>
+
+                <div class="form-section">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea" placeholder="Add a description to help you remember what this snippet is about"></textarea>
+                </div>
+
+                <!-- Message Selection -->
+                <div class="form-section">
+                    <label class="form-label">Select Messages *</label>
+                    <div class="message-selection">
+                        <div class="message-item">
+                            <div class="message-item-header">
+                                <div class="message-checkbox"></div>
+                                <span class="message-role user">User</span>
+                                <span class="message-timestamp">10:30 AM</span>
+                            </div>
+                            <div class="message-text">How can I create a custom React hook for handling form state?</div>
+                        </div>
+
+                        <div class="message-item selected">
+                            <div class="message-item-header">
+                                <div class="message-checkbox checked"></div>
+                                <span class="message-role assistant">Claude</span>
+                                <span class="message-timestamp">10:31 AM</span>
+                            </div>
+                            <div class="message-text">I'll help you create a custom React hook for managing form state. Here's a comprehensive solution with validation support...</div>
+                        </div>
+
+                        <div class="message-item selected">
+                            <div class="message-item-header">
+                                <div class="message-checkbox checked"></div>
+                                <span class="message-role user">User</span>
+                                <span class="message-timestamp">10:35 AM</span>
+                            </div>
+                            <div class="message-text">Can you add validation to this hook?</div>
+                        </div>
+
+                        <div class="message-item selected">
+                            <div class="message-item-header">
+                                <div class="message-checkbox checked"></div>
+                                <span class="message-role assistant">Claude</span>
+                                <span class="message-timestamp">10:36 AM</span>
+                            </div>
+                            <div class="message-text">Absolutely! Let me enhance the hook with validation capabilities. Here's an updated version...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Collection Selection -->
+                <div class="form-section">
+                    <label class="form-label">Collection</label>
+                    <select class="form-input">
+                        <option>Select a collection...</option>
+                        <option>Development / React Patterns</option>
+                        <option>Development / API Design</option>
+                        <option>Development / Testing</option>
+                        <option>Research</option>
+                        <option>Writing</option>
+                        <option>Learning</option>
+                    </select>
+                </div>
+
+                <!-- Tags -->
+                <div class="form-section">
+                    <label class="form-label">Tags</label>
+                    <div class="tag-input-container">
+                        <span class="tag-chip">react <span class="tag-remove">✕</span></span>
+                        <span class="tag-chip">hooks <span class="tag-remove">✕</span></span>
+                        <input type="text" class="tag-input" placeholder="Add tags...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <div class="modal-footer-info">
+                    4 messages selected • Approximately 2.3k tokens
+                </div>
+                <div class="modal-footer-actions">
+                    <button class="btn" id="cancelCreate">Cancel</button>
+                    <button class="btn btn-primary" id="saveSnippet">Create Snippet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Viewer Modal -->
+    <div class="modal-overlay" id="viewerModal">
+        <div class="modal viewer-modal">
+            <div class="modal-header">
+                <h2 class="modal-title">React Hook Pattern</h2>
+                <button class="modal-close" id="closeViewerModal">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="viewer-content">
+                    <div class="viewer-main">
+                        <!-- Conversation Messages -->
+                        <div class="conversation-messages">
+                            <div class="conversation-message">
+                                <div class="message-avatar user">U</div>
+                                <div class="message-body">
+                                    <div class="message-body-header">
+                                        <span class="message-body-role">User</span>
+                                        <span class="message-body-time">10:30 AM</span>
+                                    </div>
+                                    <div class="message-body-content">
+                                        How can I create a custom React hook for handling form state?
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="conversation-message">
+                                <div class="message-avatar assistant">C</div>
+                                <div class="message-body">
+                                    <div class="message-body-header">
+                                        <span class="message-body-role">Claude</span>
+                                        <span class="message-body-time">10:31 AM</span>
+                                    </div>
+                                    <div class="message-body-content">
+                                        I'll help you create a custom React hook for managing form state. Here's a comprehensive solution with validation support:
+
+                                        ```javascript
+                                        import { useState, useCallback } from 'react';
+
+                                        const useForm = (initialValues = {}, validationRules = {}) => {
+                                          const [values, setValues] = useState(initialValues);
+                                          const [errors, setErrors] = useState({});
+                                          const [touched, setTouched] = useState({});
+
+                                          // Handle input changes
+                                          const handleChange = useCallback((e) => {
+                                            const { name, value, type, checked } = e.target;
+                                            setValues(prev => ({
+                                              ...prev,
+                                              [name]: type === 'checkbox' ? checked : value
+                                            }));
+                                          }, []);
+
+                                          // More implementation details...
+                                        };
+                                        ```
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Annotations Section -->
+                        <div class="annotations-section">
+                            <div class="annotations-header">
+                                <h3 class="annotations-title">Annotations</h3>
+                                <button class="btn">Add Note</button>
+                            </div>
+
+                            <div class="annotation-item">
+                                <div class="annotation-header">
+                                    <span class="annotation-author">You</span>
+                                    <span class="annotation-time">2 hours ago</span>
+                                </div>
+                                <div class="annotation-text">
+                                    This pattern works great for simple forms. For complex forms with dynamic fields, consider using a library like react-hook-form.
+                                </div>
+                            </div>
+
+                            <textarea class="annotation-input" placeholder="Add a note..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="viewer-sidebar">
+                        <div class="form-section">
+                            <h4 style="margin-bottom: 0.75rem;">Snippet Details</h4>
+
+                            <div style="margin-bottom: 1rem;">
+                                <div class="snippet-meta" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                    <span>📁 Development / React Patterns</span>
+                                    <span>📅 Created 2 hours ago</span>
+                                    <span>✏️ Modified 1 hour ago</span>
+                                    <span>👁️ Viewed 12 times</span>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 1rem;">
+                                <label class="form-label">Tags</label>
+                                <div class="snippet-tags">
+                                    <span class="tag">react</span>
+                                    <span class="tag">hooks</span>
+                                    <span class="tag">forms</span>
+                                    <span class="tag">javascript</span>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 1rem;">
+                                <label class="form-label">Related Snippets</label>
+                                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                    <a href="#" style="color: var(--color-primary); text-decoration: none; font-size: 0.875rem;">Form Validation Patterns</a>
+                                    <a href="#" style="color: var(--color-primary); text-decoration: none; font-size: 0.875rem;">useReducer vs useState</a>
+                                    <a href="#" style="color: var(--color-primary); text-decoration: none; font-size: 0.875rem;">React Performance Tips</a>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <button class="btn" style="width: 100%;">📋 Copy Link</button>
+                                <button class="btn" style="width: 100%;">📤 Export</button>
+                                <button class="btn" style="width: 100%;">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme Toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const html = document.documentElement;
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            themeToggle.textContent = newTheme === 'light' ? '🌙' : '☀️';
+        });
+
+        // Mobile Menu Toggle
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const sidebar = document.getElementById('sidebar');
+
+        if (mobileMenuToggle) {
+            mobileMenuToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('mobile-open');
+            });
+        }
+
+        // View Toggle
+        const viewBtns = document.querySelectorAll('.view-btn');
+        const snippetsGrid = document.getElementById('snippetsGrid');
+
+        viewBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                viewBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const view = btn.getAttribute('data-view');
+                if (view === 'list') {
+                    snippetsGrid.classList.remove('snippets-grid');
+                    snippetsGrid.classList.add('snippets-list');
+                } else {
+                    snippetsGrid.classList.remove('snippets-list');
+                    snippetsGrid.classList.add('snippets-grid');
+                }
+            });
+        });
+
+        // Create Modal
+        const createSnippetBtn = document.getElementById('createSnippetBtn');
+        const createModal = document.getElementById('createModal');
+        const closeCreateModal = document.getElementById('closeCreateModal');
+        const cancelCreate = document.getElementById('cancelCreate');
+
+        createSnippetBtn.addEventListener('click', () => {
+            createModal.classList.add('active');
+        });
+
+        closeCreateModal.addEventListener('click', () => {
+            createModal.classList.remove('active');
+        });
+
+        cancelCreate.addEventListener('click', () => {
+            createModal.classList.remove('active');
+        });
+
+        // Viewer Modal
+        const viewerModal = document.getElementById('viewerModal');
+        const closeViewerModal = document.getElementById('closeViewerModal');
+
+        // Open viewer when clicking on snippet cards
+        document.querySelectorAll('.snippet-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (!e.target.closest('.action-btn')) {
+                    viewerModal.classList.add('active');
+                }
+            });
+        });
+
+        closeViewerModal.addEventListener('click', () => {
+            viewerModal.classList.remove('active');
+        });
+
+        // Quick Access Panel
+        const quickAccessPanel = document.getElementById('quickAccessPanel');
+        const quickAccessClose = document.getElementById('quickAccessClose');
+
+        // Toggle quick access panel (could be triggered by a keyboard shortcut)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'k') {
+                e.preventDefault();
+                quickAccessPanel.classList.toggle('open');
+            }
+        });
+
+        quickAccessClose.addEventListener('click', () => {
+            quickAccessPanel.classList.remove('open');
+        });
+
+        // Collection Tree Toggle
+        document.querySelectorAll('.collection-toggle').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const parent = toggle.closest('.collection-item');
+                const subcollections = parent.nextElementSibling;
+
+                if (subcollections && subcollections.classList.contains('subcollections')) {
+                    toggle.classList.toggle('expanded');
+                    subcollections.classList.toggle('expanded');
+                }
+            });
+        });
+
+        // Message Selection in Create Modal
+        document.querySelectorAll('.message-item').forEach(item => {
+            item.addEventListener('click', () => {
+                item.classList.toggle('selected');
+                const checkbox = item.querySelector('.message-checkbox');
+                checkbox.classList.toggle('checked');
+            });
+        });
+
+        // Tag Input
+        const tagInput = document.querySelector('.tag-input');
+        if (tagInput) {
+            tagInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.target.value.trim()) {
+                    e.preventDefault();
+                    const tagContainer = e.target.parentElement;
+                    const newTag = document.createElement('span');
+                    newTag.className = 'tag-chip';
+                    newTag.innerHTML = `${e.target.value} <span class="tag-remove">✕</span>`;
+                    tagContainer.insertBefore(newTag, e.target);
+                    e.target.value = '';
+
+                    // Add remove functionality
+                    newTag.querySelector('.tag-remove').addEventListener('click', () => {
+                        newTag.remove();
+                    });
+                }
+            });
+        }
+
+        // Remove existing tags
+        document.querySelectorAll('.tag-remove').forEach(removeBtn => {
+            removeBtn.addEventListener('click', () => {
+                removeBtn.parentElement.remove();
+            });
+        });
+
+        // Sample bookmark button functionality for messages
+        function addBookmarkButtons() {
+            // This would be added to actual message components in the conversation view
+            console.log('Bookmark buttons would be added to individual messages in the conversation view');
+        }
+
+        // Initialize
+        addBookmarkButtons();
+    </script>
+</body>
+</html>
