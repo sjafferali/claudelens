@@ -101,19 +101,20 @@ export function getSidechainType(message: Message): SidechainTypeInfo {
         };
       }
 
-      if (toolName.includes('grep') || toolName.includes('search')) {
-        return {
-          type: 'search',
-          label: 'Search',
-          color: 'text-green-500',
-        };
-      }
-
+      // Check for web operations before search (since WebSearch contains 'search')
       if (toolName.includes('web')) {
         return {
           type: 'web',
           label: 'Web',
           color: 'text-purple-500',
+        };
+      }
+
+      if (toolName.includes('grep') || toolName.includes('search')) {
+        return {
+          type: 'search',
+          label: 'Search',
+          color: 'text-green-500',
         };
       }
 
