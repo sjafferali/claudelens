@@ -282,18 +282,20 @@ This checklist breaks down the conversation flow visualization improvements into
 - **Root Cause**: Claude's export format doesn't include parent-child relationships for tool messages
 - **Next Steps**: Would need to infer parentUuid based on message order or timestamps during import
 
-### User Story 12: Fix API Field Name Mapping
-*As a developer, I want the API to return consistent camelCase field names so the frontend receives data in the expected format.*
+### User Story 12: Update Frontend to Use Snake_Case Field Names
+*As a developer, I want the frontend to use the snake_case field names from the API so messages have proper parent relationships.*
 
 **Tasks:**
-- [ ] Identify all snake_case fields in API responses (parent_uuid, session_id, cost_usd, created_at)
-- [ ] Update backend message service to return camelCase fields
-- [ ] Update session service to return camelCase fields
-- [ ] Create Pydantic response models with proper field aliases
-- [ ] Test API responses have correct field names
-- [ ] Verify frontend receives parentUuid instead of parent_uuid
-- [ ] Check that existing frontend code works with corrected field names
-- [ ] Update API documentation to reflect camelCase conventions
+- [ ] Update Message type interface to use snake_case fields (parent_uuid, session_id, cost_usd, created_at)
+- [ ] Create field mapping utility to convert between snake_case and camelCase if needed
+- [ ] Update SidechainPanel to use parent_uuid instead of parentUuid
+- [ ] Update MessageList to use parent_uuid for parent relationships
+- [ ] Update ConversationTree to use parent_uuid for tree building
+- [ ] Update branch detection logic to use parent_uuid
+- [ ] Update message navigation hooks to use parent_uuid
+- [ ] Search and replace all instances of parentUuid with parent_uuid in frontend
+- [ ] Test that messages now have defined parent_uuid values
+- [ ] Verify sidechain panel can access parent relationships
 
 ### User Story 13: Fix Tool Message Parent Relationships in Ingest
 *As a developer, I want tool messages to be correctly parented to their containing assistant message so they form proper hierarchies.*
@@ -343,10 +345,10 @@ This checklist breaks down the conversation flow visualization improvements into
 
 **QA Tasks:**
 - [ ] **API Field Name Testing:**
-  - Call `/api/v1/messages/` endpoint and verify camelCase fields
-  - Check parentUuid is present (not parent_uuid)
-  - Verify sessionId, costUsd, createdAt use camelCase
-  - Test with Playwright: navigate to session and check console for no undefined parentUuid warnings
+  - Call `/api/v1/messages/` endpoint and verify snake_case fields are present
+  - Check parent_uuid field exists in API response
+  - Verify session_id, cost_usd, created_at are available
+  - Test with Playwright: navigate to session and check console for no undefined parent_uuid warnings
 
 - [ ] **Tool Message Hierarchy Testing with Playwright:**
   - Navigate to a session with tool operations

@@ -149,29 +149,34 @@ All fields use camelCase in the database:
 - `model`: Model identifier (for assistant messages)
 
 ### API Response Fields
-The API should return fields in camelCase to match frontend expectations:
-- `uuid` (not `message_uuid`)
-- `parentUuid` (not `parent_uuid`)
-- `sessionId` (not `session_id`)
-- `costUsd` (not `cost_usd`)
-- `createdAt` (not `created_at`)
+The API returns fields in snake_case (Python convention):
+- `uuid`
+- `parent_uuid` (database: `parentUuid`)
+- `session_id` (database: `sessionId`)
+- `cost_usd` (database: `costUsd`)
+- `created_at` (database: `createdAt`)
+- `message_uuid` (alias field)
+- `parent_uuid_alias` (alias field)
+- `session_id_alias` (alias field)
 
 ### Frontend Type Definitions
+The frontend should use snake_case fields to match API responses:
 ```typescript
 interface Message {
   _id: string;
   uuid: string;
-  parentUuid?: string;
-  sessionId: string;
+  parent_uuid?: string;  // Changed from parentUuid
+  session_id: string;     // Changed from sessionId
   type: 'user' | 'assistant' | 'tool_use' | 'tool_result';
   content: string;
   timestamp: string;
-  isSidechain?: boolean;
+  isSidechain?: boolean;  // May need to become is_sidechain
   model?: string;
-  costUsd?: number;
+  cost_usd?: number;      // Changed from costUsd
+  created_at?: string;    // Changed from createdAt
   usage?: {
-    inputTokens?: number;
-    outputTokens?: number;
+    input_tokens?: number;  // Changed from inputTokens
+    output_tokens?: number; // Changed from outputTokens
   };
 }
 ```
@@ -286,16 +291,16 @@ Sidechain Panel:
 **Current (Incorrect):**
 - Tool messages have `parentUuid` pointing to same parent as assistant
 - Tool messages are siblings of assistant messages
-- Field names use snake_case in API responses
+- Frontend expects camelCase but API returns snake_case fields
 
 **Target (Correct):**
 - Tool messages have `parentUuid` pointing to containing assistant
 - Tool messages are children of assistant messages
-- Field names use camelCase throughout
+- Frontend uses snake_case fields to match API responses
 
 ### Migration Steps
 1. Update ingest process to set correct `parentUuid` for tool messages
-2. Fix API response field naming (snake_case → camelCase)
+2. Update frontend to use snake_case field names (parent_uuid, session_id, etc.)
 3. Run migration script to update existing messages
 4. Update frontend to handle both old and new structures during transition
 

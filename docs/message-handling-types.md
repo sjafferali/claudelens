@@ -2,101 +2,12 @@
 
 ## Overview
 
-This document provides a comprehensive analysis of all message handling types and conversation patterns found in Claude's data structure. Based on analysis of 389 conversation sessions containing over 36,000 messages, we've identified distinct patterns for how Claude manages conversation flow, branches, and relationships between messages.
+This document analyzes conversation patterns and flow types in Claude's data structure. For detailed message hierarchy and tool operation handling, see [message-hierarchy-structure.md](./message-hierarchy-structure.md).
 
 ## Table of Contents
-1. [Core Message Types](#core-message-types)
-2. [Conversation Flow Patterns](#conversation-flow-patterns)
-3. [Message Relationships](#message-relationships)
-4. [Data Structure Details](#data-structure-details)
-5. [Statistics from Analysis](#statistics-from-analysis)
-
----
-
-## Core Message Types
-
-### 1. User Messages
-Messages initiated by the user to Claude.
-
-```json
-{
-  "type": "user",
-  "message": {
-    "role": "user",
-    "content": "User's question or request"
-  },
-  "userType": "external",
-  "uuid": "unique-message-id",
-  "parentUuid": "previous-message-id",
-  "sessionId": "session-id",
-  "timestamp": "2025-08-05T17:50:42.778Z"
-}
-```
-
-### 2. Assistant Messages
-Claude's responses to user messages.
-
-```json
-{
-  "type": "assistant",
-  "message": {
-    "role": "assistant",
-    "content": [{"type": "text", "text": "Claude's response"}]
-  },
-  "model": "claude-opus-4-20250514",
-  "costUsd": 0.0911,
-  "uuid": "unique-message-id",
-  "parentUuid": "user-message-id",
-  "sessionId": "session-id",
-  "usage": {
-    "input_tokens": 1000,
-    "output_tokens": 500
-  }
-}
-```
-
-### 3. Tool Use Messages
-Messages representing tool operations or function calls.
-
-```json
-{
-  "type": "tool_use",
-  "message": {
-    "role": "assistant",
-    "content": "Tool operation details"
-  },
-  "toolUseResult": {
-    "tool_name": "Task",
-    "parameters": {},
-    "result": "Tool execution result"
-  }
-}
-```
-
-### 4. Tool Result Messages
-Results returned from tool operations.
-
-```json
-{
-  "type": "tool_result",
-  "message": {
-    "content": "Tool execution output"
-  },
-  "parentUuid": "tool-use-message-id"
-}
-```
-
-### 5. Summary Messages
-Metadata messages containing session summaries.
-
-```json
-{
-  "type": "summary",
-  "summary": "Brief description of conversation",
-  "leafUuid": "id-of-current-branch-head",
-  "sessionId": "session-id"
-}
-```
+1. [Conversation Flow Patterns](#conversation-flow-patterns)
+2. [Statistics from Analysis](#statistics-from-analysis)
+3. [Implementation Considerations](#implementation-considerations)
 
 ---
 
@@ -173,43 +84,32 @@ User →   ├→ Assistant v2 → Different continuation...
 }
 ```
 
-### 3. Sidechains (Parallel Operations)
-**4,171 sidechain messages found across 13 conversations**
+### 3. Tool Operations and Sidechains
+**Tool operations extracted from assistant messages**
 
-Parallel conversation threads that don't interrupt the main flow, typically used for auxiliary operations like tool calls or background processing.
+Tool operations in Claude are embedded within assistant messages and extracted during ingest as separate tool_use and tool_result messages marked as sidechains.
 
 ```
-User → Assistant → User → Assistant
-           ↓
-      [Sidechain: Tool operation]
-      [Sidechain: Processing...]
-      [Sidechain: Result]
+User → Assistant (initial response)
+       └── Assistant (with tool_use content)
+           ├── Tool Use (extracted, isSidechain: true)
+           │   └── Tool Result (extracted, isSidechain: true)
+           └── Assistant (continuation with results)
 ```
 
 **Characteristics:**
-- Marked with `isSidechain: true`
-- Parallel to main conversation
-- Often represents tool operations
-- Doesn't block main thread
+- Tool operations are embedded in assistant message content blocks
+- Extracted as separate messages during ingest
+- Marked with `isSidechain: true` for UI grouping
+- Parent-child chain: Assistant → Tool Use → Tool Result
 
 **Use Cases:**
-- Tool operations (file reading, web searches)
-- Background processing
-- Agent tasks
-- Thinking processes
+- File operations (Read, Write, Edit)
+- Code execution (Bash, Python)
+- Web operations (Search, Fetch)
+- Task management (TodoWrite)
 
-**Data Example:**
-```json
-{
-  "uuid": "sidechain-msg-1",
-  "parentUuid": "main-thread-msg",
-  "isSidechain": true,  // Key identifier
-  "type": "tool_use",
-  "message": {
-    "content": "🤖 Running agent task: Find search implementation"
-  }
-}
-```
+**Important:** See [message-hierarchy-structure.md](./message-hierarchy-structure.md) for complete tool operation handling details.
 
 ### 4. Forking (New Session from Existing)
 **Capability exists but 0 instances found in analyzed data**
@@ -274,76 +174,6 @@ Branch C: Solution 3 ─┘
 
 ---
 
-## Message Relationships
-
-### Parent-Child Relationships
-Every message (except conversation starters) has a `parentUuid` linking to its predecessor.
-
-```javascript
-{
-  "uuid": "child-message-id",
-  "parentUuid": "parent-message-id",  // Links to parent
-}
-```
-
-### Sibling Relationships
-Messages sharing the same `parentUuid` are siblings (branches).
-
-```javascript
-// Siblings - same parent, different UUIDs
-[
-  { "uuid": "sibling-1", "parentUuid": "parent-123" },
-  { "uuid": "sibling-2", "parentUuid": "parent-123" },
-  { "uuid": "sibling-3", "parentUuid": "parent-123" }
-]
-```
-
-### Leaf Nodes
-Messages with no children represent conversation endpoints or current active branches.
-
-```javascript
-// Summary tracks the active leaf
-{
-  "type": "summary",
-  "leafUuid": "current-active-message-id"
-}
-```
-
----
-
-## Data Structure Details
-
-### Key Fields for Relationship Tracking
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `uuid` | string | Unique identifier for each message |
-| `parentUuid` | string \| null | Links to parent message (null for first message) |
-| `sessionId` | string | Groups messages into conversations |
-| `isSidechain` | boolean | Marks parallel/auxiliary operations |
-| `leafUuid` | string | In summaries, points to current branch head |
-| `timestamp` | ISO 8601 | Temporal ordering and timing |
-| `type` | string | Message type classification |
-| `model` | string | AI model used (assistant messages) |
-| `costUsd` | number | Cost calculation for the message |
-
-### Session Structure
-
-Each session file (`.jsonl`) contains:
-1. **Summary message** (first line) - Session metadata
-2. **Conversation messages** - Chronologically ordered
-3. **Relationship data** - Parent-child links preserved
-
-Example session file structure:
-```jsonl
-{"type":"summary","summary":"Session description","leafUuid":"..."}
-{"type":"user","uuid":"msg-1","parentUuid":null,"content":"..."}
-{"type":"assistant","uuid":"msg-2","parentUuid":"msg-1","content":"..."}
-{"type":"tool_use","uuid":"msg-3","parentUuid":"msg-2","isSidechain":true,"content":"..."}
-```
-
----
-
 ## Statistics from Analysis
 
 Based on analysis of the Claude data directory:
@@ -362,10 +192,10 @@ Based on analysis of the Claude data directory:
 - **Maximum Branching Factor**: 5 (one message with 5 alternatives)
 - **Average Branches per Branching Point**: 2.3
 
-### Sidechain Statistics
-- **Total Sidechain Messages**: 4,171
-- **Sessions with Sidechains**: 13 (3.3%)
-- **Average Sidechains per Session**: 321 (when present)
+### Tool Operation Statistics
+- **Tool messages in test data**: Multiple tool_use/tool_result pairs
+- **Sessions with tool operations**: Common in development workflows
+- **Tool types observed**: Read, Write, Edit, Bash, Grep, Search, TodoWrite
 
 ### Complexity Metrics
 - **Linear Conversations**: 386 (99.2%)
@@ -378,27 +208,33 @@ Based on analysis of the Claude data directory:
 ## Implementation Considerations
 
 ### For UI Development
-1. **Branch Navigation**: Need UI elements to switch between alternatives
-2. **Sidechain Display**: Separate visualization for parallel operations
-3. **Tree Visualization**: Graph-based view for complex conversations
-4. **Fork Management**: UI for creating and managing session forks
+1. **Branch Navigation**: UI elements to switch between alternatives
+2. **Sidechain Panel**: Group tool operations under their parent assistant message
+3. **Tree Visualization**: Handle deeper nesting from tool message hierarchies
+4. **Message Indentation**: Visual nesting for tool operations
 
 ### For Backend Development
-1. **Efficient Querying**: Index on `parentUuid` for relationship traversal
-2. **Branch Detection**: Algorithm to identify messages with multiple children
-3. **Sidechain Filtering**: Toggle to include/exclude sidechains
-4. **Fork Tracking**: Maintain references between forked sessions
+1. **Tool Extraction**: Extract tool_use blocks from assistant messages during ingest
+2. **Parent Assignment**: Set correct parentUuid for extracted tool messages
+3. **Field Naming**: Ensure API returns camelCase fields (parentUuid, not parent_uuid)
+4. **Sidechain Marking**: Automatically mark tool_use/tool_result as isSidechain: true
 
 ### For Data Processing
-1. **Tree Building**: Convert flat message list to hierarchical structure
-2. **Branch Path Calculation**: Determine active path through branches
-3. **Complexity Scoring**: Metrics for conversation complexity
-4. **Merge Conflict Resolution**: Rules for combining branches
+1. **Message Chain Detection**: Identify assistant message chains with tool operations
+2. **Tool Pairing**: Ensure tool_use messages have corresponding tool_result
+3. **Migration**: Update existing messages to correct hierarchy structure
+4. **Validation**: Verify parent-child relationships are consistent
+
+**Note:** See [message-hierarchy-structure.md](./message-hierarchy-structure.md) for detailed implementation specifications.
 
 ---
 
 ## Conclusion
 
-Claude's message handling system supports rich conversation patterns beyond simple linear flows. While 99% of conversations remain linear, the system's capability to handle branches, sidechains, and potentially forks enables complex problem-solving and exploration. The UI should evolve to visualize these relationships, making the full power of Claude's conversation management accessible to users.
+Claude's conversation system supports multiple patterns:
+- **Linear flows** for simple interactions (99% of conversations)
+- **Branching** for alternative responses and regeneration
+- **Tool operations** embedded in assistant messages, extracted as sidechains
+- **Future capabilities** for forking and merging conversations
 
-The presence of 4,171 sidechain messages and 3,075 branching points in the analyzed data demonstrates that these features are actively used but currently hidden in linear timeline views. Implementing proper visualization for these patterns would significantly enhance user understanding and navigation of complex conversations.
+The key insight is that tool operations are not separate messages in the raw data but are embedded within assistant message content blocks. During ingest, these are extracted and properly structured to maintain correct parent-child relationships, enabling features like the sidechain panel to group and hide auxiliary operations from the main conversation flow.

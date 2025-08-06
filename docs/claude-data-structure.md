@@ -251,12 +251,15 @@ Assistant messages represent Claude's responses, including text responses and to
 
 **When Generated:** When Claude provides a text response.
 
-#### 3.2 Tool Use Message
+#### 3.2 Tool Use in Assistant Messages
+
+Tool operations are embedded within assistant message content blocks, not as separate messages in the raw data.
 
 **Structure:**
 ```json
 {
   "type": "assistant",
+  "parentUuid": "previous-assistant-uuid",  // Forms assistant chains
   "message": {
     "content": [
       {
@@ -277,6 +280,8 @@ Assistant messages represent Claude's responses, including text responses and to
 ```json
 {
   "type": "assistant",
+  "uuid": "assistant-msg-789",
+  "parentUuid": "assistant-msg-456",  // Chain of assistant messages
   "message": {
     "content": [
       {
@@ -284,7 +289,7 @@ Assistant messages represent Claude's responses, including text responses and to
         "id": "toolu_012Y23HdApDEuKgTHaWa7Jgj",
         "name": "Read",
         "input": {
-          "file_path": "/Users/sjafferali/github/personal/claudelens/docker-compose.yml"
+          "file_path": "/home/user/project/config.json"
         }
       }
     ],
@@ -293,7 +298,13 @@ Assistant messages represent Claude's responses, including text responses and to
 }
 ```
 
-**When Generated:** When Claude decides to use a tool.
+**Important Notes:**
+- Tool operations create **chains of assistant messages**
+- Each assistant with tool_use has parentUuid pointing to the previous assistant
+- During ingest, tool_use blocks are extracted as separate messages
+- See [message-hierarchy-structure.md](./message-hierarchy-structure.md) for extraction details
+
+**When Generated:** When Claude decides to use a tool, creating an assistant message chain.
 
 #### 3.3 Thinking Response
 
@@ -417,26 +428,53 @@ Assistant messages can contain multiple content types in a single response.
 
 ## Special Message Properties
 
-### Sidechain Messages
+### Sidechain Messages and Tool Extraction
 
-Some messages have `"isSidechain": true`, indicating they are part of a parallel conversation branch (e.g., when Claude spawns an agent or explores alternatives). These messages:
-- Are typically used for internal exploration or agent tasks
-- May not be shown in the main conversation flow
-- Have the same structure but are marked with the sidechain flag
+Messages marked with `"isSidechain": true` are auxiliary operations that should be grouped separately from the main conversation flow.
 
-**Example:**
+**Types of Sidechain Messages:**
+1. **Extracted Tool Operations**: tool_use and tool_result messages created during ingest
+2. **Explicit Sidechains**: Messages already marked with isSidechain in the raw data
+3. **Agent Operations**: Internal explorations or parallel tasks
+
+**Tool Extraction Process:**
+When the backend ingests an assistant message with tool_use content blocks:
+1. The main assistant message is stored with the text content
+2. Each tool_use block is extracted as a separate `type: "tool_use"` message
+3. Tool results are stored as `type: "tool_result"` messages
+4. Extracted messages are marked with `isSidechain: true`
+5. Parent relationships are set: Assistant → tool_use → tool_result
+
+**Example of Extracted Tool Messages:**
 ```json
+// Original assistant message with tool_use
 {
-  "parentUuid": null,
-  "isSidechain": true,  // Marks this as a sidechain message
-  "userType": "external",
-  "type": "user",
-  "message": {
-    "role": "user",
-    "content": "Find the main application files..."
-  }
+  "type": "assistant",
+  "uuid": "assistant-msg-789",
+  "parentUuid": "assistant-msg-456"
+  // ... contains tool_use in content
+}
+
+// Extracted tool_use message (created during ingest)
+{
+  "type": "tool_use",
+  "uuid": "assistant-msg-789_tool_0",
+  "parentUuid": "assistant-msg-789",  // Points to containing assistant
+  "isSidechain": true,
+  "content": "{\"type\": \"tool_use\", \"name\": \"Read\", ...}"
+}
+
+// Extracted tool_result message
+{
+  "type": "tool_result",
+  "uuid": "assistant-msg-789_result_0",
+  "parentUuid": "assistant-msg-789_tool_0",  // Points to tool_use
+  "isSidechain": true,
+  "content": "File contents..."
 }
 ```
+
+**Note:** See [message-hierarchy-structure.md](./message-hierarchy-structure.md) for complete details on tool message handling.
 
 ## Additional Files
 
@@ -459,13 +497,28 @@ Some messages have `"isSidechain": true`, indicating they are part of a parallel
 1. **Message Creation**: User input or Claude response generates a message
 2. **JSONL Storage**: Message is appended to the appropriate project/session JSONL file
 3. **CLI Sync**: The CLI tool reads these JSONL files and syncs to the backend
-4. **Backend Processing**: Messages are validated, deduplicated, and stored in MongoDB
-5. **Session Management**: Sessions and projects are automatically created/updated based on message metadata
+4. **Tool Extraction**: Backend extracts tool_use blocks from assistant messages:
+   - Creates separate tool_use messages with parentUuid pointing to assistant
+   - Creates tool_result messages with parentUuid pointing to tool_use
+   - Marks extracted messages with isSidechain: true
+5. **Backend Processing**: Messages are validated, deduplicated, and stored in MongoDB
+6. **Session Management**: Sessions and projects are automatically created/updated based on message metadata
+7. **API Response**: Backend returns messages with snake_case field names
 
 ## Usage Notes
 
 - Messages are immutable once created
 - Parent-child relationships form conversation threads
+- Assistant messages with tool_use form chains (not siblings)
+- Tool operations are extracted during ingest, not stored as separate messages in raw data
 - Tool results are always paired with their invocation
 - Summaries are generated for completed conversations
 - All timestamps are in ISO 8601 format with timezone
+- API returns snake_case field names (parent_uuid, session_id, cost_usd)
+- Frontend should use snake_case to match API responses
+
+## Related Documentation
+
+- [message-hierarchy-structure.md](./message-hierarchy-structure.md) - Detailed hierarchy and tool extraction
+- [message-handling-types.md](./message-handling-types.md) - Conversation patterns and flow types
+- [API.md](./API.md) - API endpoint specifications
