@@ -57,6 +57,10 @@ export interface Message {
     cache_creation_input_tokens?: number;
     cache_read_input_tokens?: number;
   };
+  isSidechain?: boolean; // Mark messages that are sidechains
+  branchCount?: number; // Number of alternative versions available
+  branchIndex?: number; // Current branch index (1-based)
+  branches?: string[]; // UUIDs of all branch alternatives
 }
 
 // Token Analytics Types

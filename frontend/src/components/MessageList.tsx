@@ -21,6 +21,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getMessageUuid, getMessageCost } from '@/types/message-extensions';
 import { copyToClipboard } from '@/utils/clipboard';
+import { BranchIndicator } from './BranchIndicator';
 
 interface MessageListProps {
   messages: Message[];
@@ -509,6 +510,16 @@ export default function MessageList({ messages, costMap }: MessageListProps) {
                       <span className="text-xs px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full font-medium border border-slate-200 dark:border-slate-700">
                         {message.model}
                       </span>
+                    )}
+                    {message.branchCount && message.branchCount > 1 && (
+                      <BranchIndicator
+                        branchCount={message.branchCount}
+                        branchIndex={message.branchIndex}
+                        onClick={() => {
+                          // TODO: Implement branch navigation
+                          console.log('Navigate to branches', message.branches);
+                        }}
+                      />
                     )}
                   </div>
                   <button

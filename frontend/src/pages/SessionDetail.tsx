@@ -1,5 +1,5 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -32,6 +32,7 @@ import { getSessionTitle } from '@/utils/session';
 import { ToolDisplay } from '@/components/ToolDisplay';
 import { ToolResultDisplay } from '@/components/ToolResultDisplay';
 import { copyToClipboard } from '@/utils/clipboard';
+import { calculateBranchCounts } from '@/utils/branch-detection';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -141,8 +142,14 @@ export default function SessionDetail() {
     new Set()
   );
 
+  // Calculate branch counts for all messages
+  const messagesWithBranches = useMemo(
+    () => calculateBranchCounts(allMessages),
+    [allMessages]
+  );
+
   // Filter messages based on search
-  const filteredMessages = allMessages.filter((msg) =>
+  const filteredMessages = messagesWithBranches.filter((msg) =>
     msg.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 

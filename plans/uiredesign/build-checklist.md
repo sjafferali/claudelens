@@ -11,13 +11,13 @@ This checklist breaks down the conversation flow visualization improvements into
 *As a user, I want to know when a message has alternative responses so I can explore different options Claude provided.*
 
 **Tasks:**
-- [ ] Add `branchCount` calculation to message processing logic
-- [ ] Create `BranchIndicator` component showing "X versions available"
-- [ ] Add branch count badge to message headers in `MessageList.tsx`
-- [ ] Style branch indicator with amber color scheme
-- [ ] Add hover tooltip showing "Click to see alternatives"
-- [ ] Write unit tests for branch detection logic
-- [ ] Update message type definitions to include branch metadata
+- [x] Add `branchCount` calculation to message processing logic
+- [x] Create `BranchIndicator` component showing "X versions available"
+- [x] Add branch count badge to message headers in `MessageList.tsx`
+- [x] Style branch indicator with amber color scheme
+- [x] Add hover tooltip showing "Click to see alternatives"
+- [x] Write unit tests for branch detection logic
+- [x] Update message type definitions to include branch metadata
 
 ### User Story 2: Navigate Between Alternative Responses
 *As a user, I want to switch between different versions of Claude's responses so I can find the best answer.*
