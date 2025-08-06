@@ -136,21 +136,6 @@ describe('ConversationMiniMap', () => {
     expect(screen.getByText('Sidechains:')).toBeInTheDocument();
   });
 
-  it('should calculate complexity correctly', () => {
-    render(
-      <ConversationMiniMap
-        messages={mockMessages}
-        isOpen={true}
-        onToggle={vi.fn()}
-      />
-    );
-
-    expect(screen.getByText('Complexity:')).toBeInTheDocument();
-    // Complexity = log2(5) * (1 + 1 * 0.1) ≈ 2.32 * 1.1 ≈ 2.6
-    const complexityElement = screen.getByText(/2\.\d/);
-    expect(complexityElement).toBeInTheDocument();
-  });
-
   it('should toggle between expanded and minimized states', () => {
     render(
       <ConversationMiniMap
@@ -366,7 +351,7 @@ describe('ConversationMiniMap', () => {
       />
     );
 
-    // Should show increased complexity
+    // Should show message count
     expect(screen.getByText('7')).toBeInTheDocument(); // 7 messages
     // Use getAllByText since there are multiple "1" values in the UI
     const onesFound = screen.getAllByText('1');

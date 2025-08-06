@@ -46,7 +46,6 @@ import { useMessageNavigation } from '@/hooks/useMessageNavigation';
 import ConversationTree from '@/components/ConversationTree';
 import { SidechainPanel } from '@/components/SidechainPanel';
 import { ConversationMiniMap } from '@/components/ConversationMiniMap';
-import { ConversationBranchComparison } from '@/components/ConversationBranchComparison';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -166,9 +165,6 @@ export default function SessionDetail() {
   );
   const [isSidechainPanelOpen, setIsSidechainPanelOpen] = useState(false);
   const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
-  const [comparisonMessage, setComparisonMessage] = useState<Message | null>(
-    null
-  );
 
   // Calculate branch counts for all messages
   const messagesWithBranches = useMemo(
@@ -728,7 +724,6 @@ export default function SessionDetail() {
                   getMessageColors={getMessageColors}
                   getMessageLabel={getMessageLabel}
                   getAvatarText={getAvatarText}
-                  setComparisonMessage={setComparisonMessage}
                 />
                 {canLoadMore && (
                   <div className="flex justify-center py-6">
@@ -973,27 +968,6 @@ export default function SessionDetail() {
         onToggle={() => setIsMiniMapOpen(!isMiniMapOpen)}
         scrollContainerRef={scrollContainerRef}
       />
-
-      {/* Branch Comparison Modal */}
-      {comparisonMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="w-full max-w-7xl max-h-[90vh] overflow-hidden">
-            <ConversationBranchComparison
-              messages={messagesWithBranches}
-              targetMessage={comparisonMessage}
-              onSelectBranch={(branchUuid) => {
-                handleSelectBranch(
-                  branchUuid,
-                  comparisonMessage.parentUuid || ''
-                );
-                setComparisonMessage(null);
-              }}
-              onClose={() => setComparisonMessage(null)}
-              className="h-full"
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1019,7 +993,6 @@ interface TimelineViewProps {
   getMessageLabel: (type: Message['type'], content?: string) => string;
   getAvatarText: (type: Message['type']) => string;
   messageRefs: React.MutableRefObject<{ [key: string]: HTMLDivElement | null }>;
-  setComparisonMessage?: (message: Message | null) => void;
 }
 
 function TimelineView({
@@ -1042,7 +1015,6 @@ function TimelineView({
   getMessageLabel,
   getAvatarText,
   messageRefs,
-  setComparisonMessage,
 }: TimelineViewProps) {
   // Format message content based on type and content
   const formatMessageContent = (message: Message) => {
@@ -1608,26 +1580,6 @@ function TimelineView({
                                   onSelectBranch(uuid, message.parentUuid)
                                 }
                               />
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (setComparisonMessage) {
-                                    setComparisonMessage(message);
-                                  }
-                                }}
-                                className={cn(
-                                  'px-2 py-1 text-xs rounded-lg',
-                                  'bg-amber-100 dark:bg-amber-900/30',
-                                  'text-amber-700 dark:text-amber-300',
-                                  'hover:bg-amber-200 dark:hover:bg-amber-800/30',
-                                  'transition-colors',
-                                  'flex items-center gap-1'
-                                )}
-                                title="Compare branches side-by-side"
-                              >
-                                <GitBranch className="h-3 w-3" />
-                                Compare
-                              </button>
                             </>
                           )}
                         {/* Sidechain count badge */}

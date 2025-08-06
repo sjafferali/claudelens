@@ -1,4 +1,5 @@
 """Tests for database utilities in app/core/database.py."""
+
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 

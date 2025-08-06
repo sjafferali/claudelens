@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Script to update text index for search functionality."""
+
 import asyncio
 import logging
 

@@ -1,4 +1,5 @@
 """API dependencies."""
+
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException
@@ -14,7 +15,7 @@ async def get_db() -> AsyncIOMotorDatabase:
 
 
 async def verify_api_key_header(
-    x_api_key: Annotated[str | None, Header()] = None
+    x_api_key: Annotated[str | None, Header()] = None,
 ) -> str:
     """Verify API key from header."""
     if not x_api_key:

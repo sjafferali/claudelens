@@ -879,7 +879,7 @@ class TestAnalyticsServiceConversationFlow:
         for i in range(100):
             message = {
                 "uuid": f"msg-{i}",
-                "parentUuid": f"msg-{i-1}" if i > 0 else None,
+                "parentUuid": f"msg-{i - 1}" if i > 0 else None,
                 "type": "user" if i % 2 == 0 else "assistant",
                 "isSidechain": False,
                 "costUsd": 0.01 if i % 2 == 1 else 0.0,

@@ -1,4 +1,5 @@
 """Custom APIRouter that handles both with and without trailing slashes."""
+
 from collections.abc import Callable
 from typing import Any
 

@@ -1,4 +1,5 @@
 """Tests for database initialization utilities."""
+
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -20,9 +21,10 @@ class TestDatabaseInitialization:
         """Test successful database initialization."""
         db = Mock()
 
-        with patch("app.core.db_init.create_collections") as mock_collections, patch(
-            "app.core.db_init.create_indexes"
-        ) as mock_indexes:
+        with (
+            patch("app.core.db_init.create_collections") as mock_collections,
+            patch("app.core.db_init.create_indexes") as mock_indexes,
+        ):
             mock_collections.return_value = None
             mock_indexes.return_value = None
 
@@ -36,9 +38,10 @@ class TestDatabaseInitialization:
         """Test database initialization with collection creation error."""
         db = Mock()
 
-        with patch("app.core.db_init.create_collections") as mock_collections, patch(
-            "app.core.db_init.create_indexes"
-        ) as mock_indexes:
+        with (
+            patch("app.core.db_init.create_collections") as mock_collections,
+            patch("app.core.db_init.create_indexes") as mock_indexes,
+        ):
             mock_collections.side_effect = Exception("Collection creation failed")
 
             with pytest.raises(Exception, match="Collection creation failed"):
@@ -51,9 +54,10 @@ class TestDatabaseInitialization:
         """Test database initialization with index creation error."""
         db = Mock()
 
-        with patch("app.core.db_init.create_collections") as mock_collections, patch(
-            "app.core.db_init.create_indexes"
-        ) as mock_indexes:
+        with (
+            patch("app.core.db_init.create_collections") as mock_collections,
+            patch("app.core.db_init.create_indexes") as mock_indexes,
+        ):
             mock_collections.return_value = None
             mock_indexes.side_effect = Exception("Index creation failed")
 

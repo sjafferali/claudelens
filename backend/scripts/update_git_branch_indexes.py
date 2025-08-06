@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Script to update MongoDB indexes for git branch analytics optimization."""
+
 import asyncio
 import logging
 import os

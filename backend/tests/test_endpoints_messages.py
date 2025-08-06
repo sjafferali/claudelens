@@ -1,4 +1,5 @@
 """Tests for messages API endpoints."""
+
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 

@@ -1,4 +1,5 @@
 """Debug version of ingestion service with extensive logging."""
+
 import asyncio
 import hashlib
 import json
@@ -141,7 +142,7 @@ class IngestServiceDebug:
             new_messages = []
             for i, message in enumerate(messages):
                 logger.debug(
-                    f"Processing message {i+1}/{len(messages)}: {message.uuid}"
+                    f"Processing message {i + 1}/{len(messages)}: {message.uuid}"
                 )
 
                 # Generate hash for deduplication

@@ -1,4 +1,5 @@
 """WebSocket connection manager for real-time updates."""
+
 import asyncio
 import json
 import logging

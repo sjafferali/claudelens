@@ -1,4 +1,5 @@
 """Tests for the debug version of ingestion service."""
+
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock
 

@@ -160,7 +160,6 @@ export function ConversationMiniMap({
         maxDepth: maxDepth + 1,
         branchCount,
         sidechainCount,
-        complexity: Math.log2(messages.length) * (1 + branchCount * 0.1),
       },
     };
   }, [messages]);
@@ -528,12 +527,6 @@ export function ConversationMiniMap({
             </span>
           </div>
         )}
-        <div className="flex justify-between text-xs">
-          <span className="text-slate-500">Complexity:</span>
-          <span className="text-slate-300 font-medium">
-            {metrics.complexity.toFixed(1)}
-          </span>
-        </div>
       </div>
 
       {/* Legend */}

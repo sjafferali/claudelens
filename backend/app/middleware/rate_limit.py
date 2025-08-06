@@ -1,4 +1,5 @@
 """Rate limiting middleware."""
+
 import asyncio
 import time
 from collections import defaultdict

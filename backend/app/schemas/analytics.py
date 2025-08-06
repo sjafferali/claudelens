@@ -1,4 +1,5 @@
 """Analytics schemas."""
+
 from datetime import datetime
 from enum import Enum
 

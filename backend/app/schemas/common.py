@@ -1,4 +1,5 @@
 """Common schemas used across the API."""
+
 from datetime import datetime
 from typing import Generic, TypeVar
 

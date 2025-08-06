@@ -1,4 +1,5 @@
 """Search API endpoints."""
+
 from typing import Any
 
 from fastapi import HTTPException, Query

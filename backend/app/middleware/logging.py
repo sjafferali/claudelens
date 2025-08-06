@@ -1,4 +1,5 @@
 """Logging middleware."""
+
 import logging
 import time
 import uuid

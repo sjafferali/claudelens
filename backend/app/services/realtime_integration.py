@@ -1,4 +1,5 @@
 """Integration service for real-time updates with ingest system."""
+
 import asyncio
 import logging
 from typing import Any, Dict

@@ -1,4 +1,5 @@
 """Tests for testcontainers MongoDB integration."""
+
 import os
 from unittest.mock import Mock, mock_open, patch
 
@@ -44,8 +45,9 @@ class TestGetTestcontainerMongoDBURL:
             "mongodb://test:test@localhost:27017/test"
         )
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", mock_container
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", mock_container),
         ):
             result = get_testcontainer_mongodb_url()
             expected = "mongodb://test:test@localhost:27017/claudelens?authSource=admin"
@@ -61,9 +63,11 @@ class TestGetTestcontainerMongoDBURL:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", mock_open()):
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()),
+        ):
             result = get_testcontainer_mongodb_url()
 
             expected = "mongodb://test:test@localhost:27017/claudelens?authSource=admin"
@@ -86,13 +90,14 @@ class TestGetTestcontainerMongoDBURL:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(
-            os.environ, {"USE_TEST_DB": "true", "ENVIRONMENT": "test"}, clear=False
-        ), patch("app.core.testcontainers_db._mongo_container", None), patch(
-            "builtins.open", mock_open()
-        ), patch(
-            "app.core.testcontainers_db.atexit.register"
-        ) as mock_atexit:
+        with (
+            patch.dict(
+                os.environ, {"USE_TEST_DB": "true", "ENVIRONMENT": "test"}, clear=False
+            ),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()),
+            patch("app.core.testcontainers_db.atexit.register") as mock_atexit,
+        ):
             result = get_testcontainer_mongodb_url()
 
             assert result is not None
@@ -104,8 +109,9 @@ class TestGetTestcontainerMongoDBURL:
         """Test handling container start failure."""
         mock_container_class.side_effect = Exception("Container start failed")
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
         ):
             result = get_testcontainer_mongodb_url()
             assert result is None
@@ -119,9 +125,11 @@ class TestGetTestcontainerMongoDBURL:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", side_effect=IOError("Write failed")):
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", side_effect=IOError("Write failed")),
+        ):
             # Should still return URL even if file write fails
             result = get_testcontainer_mongodb_url()
             assert result is not None
@@ -140,9 +148,11 @@ class TestURLParsing:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", mock_open()):
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()),
+        ):
             result = get_testcontainer_mongodb_url()
             expected = "mongodb://test:test@localhost:27017/claudelens?authSource=admin"
             assert result == expected
@@ -156,9 +166,11 @@ class TestURLParsing:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", mock_open()):
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()),
+        ):
             result = get_testcontainer_mongodb_url()
             expected = "mongodb://test:test@localhost:27017/claudelens?authSource=admin"
             assert result == expected
@@ -172,9 +184,11 @@ class TestURLParsing:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", mock_open()):
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()),
+        ):
             result = get_testcontainer_mongodb_url()
             expected = "mongodb://test:test@localhost:27017/claudelens?authSource=admin"
             assert result == expected
@@ -186,9 +200,11 @@ class TestURLParsing:
         mock_container.get_connection_url.return_value = "invalid-url"
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", mock_open()):
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()),
+        ):
             result = get_testcontainer_mongodb_url()
             # Should still try to process it
             expected = "invalid-url/claudelens?authSource=admin"
@@ -202,11 +218,11 @@ class TestStopTestcontainerMongoDB:
         """Test stopping active container."""
         mock_container = Mock()
 
-        with patch(
-            "app.core.testcontainers_db._mongo_container", mock_container
-        ), patch("os.path.exists", return_value=True), patch(
-            "os.remove"
-        ) as mock_remove:
+        with (
+            patch("app.core.testcontainers_db._mongo_container", mock_container),
+            patch("os.path.exists", return_value=True),
+            patch("os.remove") as mock_remove,
+        ):
             stop_testcontainer_mongodb()
 
             mock_container.stop.assert_called_once()
@@ -223,9 +239,10 @@ class TestStopTestcontainerMongoDB:
         mock_container = Mock()
         mock_container.stop.side_effect = Exception("Stop failed")
 
-        with patch(
-            "app.core.testcontainers_db._mongo_container", mock_container
-        ), patch("os.path.exists", return_value=False):
+        with (
+            patch("app.core.testcontainers_db._mongo_container", mock_container),
+            patch("os.path.exists", return_value=False),
+        ):
             # Should not raise exception
             stop_testcontainer_mongodb()
 
@@ -233,10 +250,10 @@ class TestStopTestcontainerMongoDB:
         """Test handling temp file cleanup failure."""
         mock_container = Mock()
 
-        with patch(
-            "app.core.testcontainers_db._mongo_container", mock_container
-        ), patch("os.path.exists", return_value=True), patch(
-            "os.remove", side_effect=OSError("Remove failed")
+        with (
+            patch("app.core.testcontainers_db._mongo_container", mock_container),
+            patch("os.path.exists", return_value=True),
+            patch("os.remove", side_effect=OSError("Remove failed")),
         ):
             # Should not raise exception
             stop_testcontainer_mongodb()
@@ -246,11 +263,13 @@ class TestStopTestcontainerMongoDB:
         """Test stopping when logging system is already shut down."""
         mock_container = Mock()
 
-        with patch(
-            "app.core.testcontainers_db._mongo_container", mock_container
-        ), patch("os.path.exists", return_value=False), patch(
-            "app.core.testcontainers_db.logger.info",
-            side_effect=ValueError("Logging down"),
+        with (
+            patch("app.core.testcontainers_db._mongo_container", mock_container),
+            patch("os.path.exists", return_value=False),
+            patch(
+                "app.core.testcontainers_db.logger.info",
+                side_effect=ValueError("Logging down"),
+            ),
         ):
             # Should still stop container
             stop_testcontainer_mongodb()
@@ -301,11 +320,14 @@ class TestEnvironmentVariableHandling:
         """Test that existing URL takes priority over container creation."""
         existing_url = "mongodb://existing:url@host:port/db"
 
-        with patch.dict(
-            os.environ,
-            {"USE_TEST_DB": "true", "TESTCONTAINER_MONGODB_URL": existing_url},
-            clear=False,
-        ), patch("testcontainers.mongodb.MongoDbContainer") as mock_container_class:
+        with (
+            patch.dict(
+                os.environ,
+                {"USE_TEST_DB": "true", "TESTCONTAINER_MONGODB_URL": existing_url},
+                clear=False,
+            ),
+            patch("testcontainers.mongodb.MongoDbContainer") as mock_container_class,
+        ):
             result = get_testcontainer_mongodb_url()
 
             assert result == existing_url
@@ -325,10 +347,11 @@ class TestTempFileHandling:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", mock_open()) as mock_file, patch(
-            "tempfile.gettempdir", return_value="/tmp"
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()) as mock_file,
+            patch("tempfile.gettempdir", return_value="/tmp"),
         ):
             result = get_testcontainer_mongodb_url()
 
@@ -347,9 +370,11 @@ class TestTempFileHandling:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", side_effect=IOError("File write failed")):
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", side_effect=IOError("File write failed")),
+        ):
             # Should still return URL even if file write fails
             result = get_testcontainer_mongodb_url()
             assert result is not None
@@ -358,12 +383,11 @@ class TestTempFileHandling:
         """Test successful temp file cleanup."""
         mock_container = Mock()
 
-        with patch(
-            "app.core.testcontainers_db._mongo_container", mock_container
-        ), patch("os.path.exists", return_value=True), patch(
-            "os.remove"
-        ) as mock_remove, patch(
-            "tempfile.gettempdir", return_value="/tmp"
+        with (
+            patch("app.core.testcontainers_db._mongo_container", mock_container),
+            patch("os.path.exists", return_value=True),
+            patch("os.remove") as mock_remove,
+            patch("tempfile.gettempdir", return_value="/tmp"),
         ):
             stop_testcontainer_mongodb()
 
@@ -374,11 +398,11 @@ class TestTempFileHandling:
         """Test temp file cleanup when file doesn't exist."""
         mock_container = Mock()
 
-        with patch(
-            "app.core.testcontainers_db._mongo_container", mock_container
-        ), patch("os.path.exists", return_value=False), patch(
-            "os.remove"
-        ) as mock_remove:
+        with (
+            patch("app.core.testcontainers_db._mongo_container", mock_container),
+            patch("os.path.exists", return_value=False),
+            patch("os.remove") as mock_remove,
+        ):
             stop_testcontainer_mongodb()
 
             # Should not try to remove non-existent file
@@ -397,9 +421,11 @@ class TestRegexURLParsing:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", mock_open()):
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()),
+        ):
             result = get_testcontainer_mongodb_url()
             expected = "mongodb://user:pass@host:27017/claudelens?authSource=admin"
             assert result == expected
@@ -413,9 +439,11 @@ class TestRegexURLParsing:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", mock_open()):
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()),
+        ):
             result = get_testcontainer_mongodb_url()
             expected = "mongodb://user:pass@host:27017/claudelens?authSource=admin"
             assert result == expected
@@ -429,9 +457,11 @@ class TestRegexURLParsing:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", mock_open()):
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()),
+        ):
             result = get_testcontainer_mongodb_url()
             expected = "mongodb://user:pass@host:27017/claudelens?authSource=admin"
             assert result == expected
@@ -449,13 +479,13 @@ class TestContainerLifecycle:
         )
         mock_container_class.return_value = mock_container
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
-        ), patch("builtins.open", mock_open()), patch(
-            "os.path.exists", return_value=True
-        ), patch(
-            "os.remove"
-        ) as mock_remove:
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
+            patch("builtins.open", mock_open()),
+            patch("os.path.exists", return_value=True),
+            patch("os.remove") as mock_remove,
+        ):
             # Start container
             url = get_testcontainer_mongodb_url()
             assert url is not None
@@ -492,8 +522,9 @@ class TestErrorScenarios:
         # Simulate import error
         mock_container_class.side_effect = ImportError("testcontainers not installed")
 
-        with patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False), patch(
-            "app.core.testcontainers_db._mongo_container", None
+        with (
+            patch.dict(os.environ, {"USE_TEST_DB": "true"}, clear=False),
+            patch("app.core.testcontainers_db._mongo_container", None),
         ):
             result = get_testcontainer_mongodb_url()
             assert result is None
@@ -502,13 +533,13 @@ class TestErrorScenarios:
         """Test stop handling when logging throws errors."""
         mock_container = Mock()
 
-        with patch(
-            "app.core.testcontainers_db._mongo_container", mock_container
-        ), patch(
-            "app.core.testcontainers_db.logger.info",
-            side_effect=ValueError("Logging error"),
-        ), patch(
-            "os.path.exists", return_value=False
+        with (
+            patch("app.core.testcontainers_db._mongo_container", mock_container),
+            patch(
+                "app.core.testcontainers_db.logger.info",
+                side_effect=ValueError("Logging error"),
+            ),
+            patch("os.path.exists", return_value=False),
         ):
             # Should not raise exception
             stop_testcontainer_mongodb()
@@ -519,13 +550,16 @@ class TestErrorScenarios:
         mock_container = Mock()
         mock_container.stop.side_effect = Exception("Stop failed")
 
-        with patch(
-            "app.core.testcontainers_db._mongo_container", mock_container
-        ), patch(
-            "app.core.testcontainers_db.logger.info", side_effect=OSError("Log failed")
-        ), patch(
-            "app.core.testcontainers_db.logger.error",
-            side_effect=ValueError("Error log failed"),
+        with (
+            patch("app.core.testcontainers_db._mongo_container", mock_container),
+            patch(
+                "app.core.testcontainers_db.logger.info",
+                side_effect=OSError("Log failed"),
+            ),
+            patch(
+                "app.core.testcontainers_db.logger.error",
+                side_effect=ValueError("Error log failed"),
+            ),
         ):
             # Should handle all errors gracefully
             stop_testcontainer_mongodb()

@@ -1,4 +1,5 @@
 """Analytics service implementation."""
+
 import math
 import re
 import statistics

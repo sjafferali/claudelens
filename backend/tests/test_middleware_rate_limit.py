@@ -1,4 +1,5 @@
 """Tests for rate limit middleware."""
+
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 

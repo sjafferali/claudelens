@@ -34,7 +34,6 @@ import TokenUsageChart from '../components/TokenUsageChart';
 import TokenPercentileRibbon from '../components/TokenPercentileRibbon';
 import BranchActivityChart from '../components/BranchActivityChart';
 import BranchLifecycle from '../components/BranchLifecycle';
-import BranchComparison from '../components/BranchComparison';
 import { DepthHistogram } from '../components/DepthHistogram';
 import { DepthCorrelation } from '../components/DepthCorrelation';
 import { ConversationPatterns } from '../components/ConversationPatterns';
@@ -1048,12 +1047,6 @@ export default function Analytics() {
             {/* Branch Lifecycle and Comparison */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <BranchLifecycle
-                timeRange={timeRange}
-                onTimeRangeChange={setTimeRange}
-                data={gitBranchData}
-                loading={gitBranchLoading}
-              />
-              <BranchComparison
                 timeRange={timeRange}
                 onTimeRangeChange={setTimeRange}
                 data={gitBranchData}

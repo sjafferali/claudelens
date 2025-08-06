@@ -1,4 +1,5 @@
 """Session schemas."""
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer

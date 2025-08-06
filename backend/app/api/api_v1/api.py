@@ -1,4 +1,5 @@
 """Main API router."""
+
 from app.api.api_v1.endpoints import (
     analytics,
     ingest,

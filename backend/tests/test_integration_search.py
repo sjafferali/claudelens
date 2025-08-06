@@ -1,4 +1,5 @@
 """Integration tests for search functionality."""
+
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 

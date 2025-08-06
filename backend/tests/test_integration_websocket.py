@@ -1,4 +1,5 @@
 """Integration tests for WebSocket real-time updates."""
+
 import asyncio
 import json
 from datetime import datetime

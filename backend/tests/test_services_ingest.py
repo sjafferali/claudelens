@@ -1,4 +1,5 @@
 """Tests for ingest service."""
+
 import asyncio
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -71,9 +72,10 @@ class TestIngestService:
         messages = [sample_message_ingest]
 
         # Mock the process session messages method
-        with patch.object(
-            ingest_service, "_process_session_messages"
-        ) as mock_process, patch.object(ingest_service, "_log_ingestion") as mock_log:
+        with (
+            patch.object(ingest_service, "_process_session_messages") as mock_process,
+            patch.object(ingest_service, "_log_ingestion") as mock_log,
+        ):
             stats = await ingest_service.ingest_messages(messages)
 
             assert stats.messages_received == 1
@@ -111,9 +113,10 @@ class TestIngestService:
             ),
         ]
 
-        with patch.object(
-            ingest_service, "_process_session_messages"
-        ) as mock_process, patch.object(ingest_service, "_log_ingestion") as mock_log:
+        with (
+            patch.object(ingest_service, "_process_session_messages") as mock_process,
+            patch.object(ingest_service, "_log_ingestion") as mock_log,
+        ):
             stats = await ingest_service.ingest_messages(messages)
 
             assert stats.messages_received == 3
@@ -128,9 +131,10 @@ class TestIngestService:
         """Test ingesting messages with overwrite mode."""
         messages = [sample_message_ingest]
 
-        with patch.object(
-            ingest_service, "_process_session_messages"
-        ) as mock_process, patch.object(ingest_service, "_log_ingestion"):
+        with (
+            patch.object(ingest_service, "_process_session_messages") as mock_process,
+            patch.object(ingest_service, "_log_ingestion"),
+        ):
             stats = await ingest_service.ingest_messages(messages, overwrite_mode=True)
 
             assert stats.messages_received == 1
@@ -149,14 +153,17 @@ class TestIngestService:
         stats = IngestStats(messages_received=1)
 
         # Mock dependencies
-        with patch.object(
-            ingest_service, "_ensure_session", return_value=ObjectId()
-        ) as mock_ensure, patch.object(
-            ingest_service, "_get_existing_hashes", return_value=set()
-        ) as mock_hashes, patch.object(
-            ingest_service, "_message_to_doc", return_value=[{"uuid": "msg_123"}]
-        ), patch.object(
-            ingest_service, "_hash_message", return_value="hash123"
+        with (
+            patch.object(
+                ingest_service, "_ensure_session", return_value=ObjectId()
+            ) as mock_ensure,
+            patch.object(
+                ingest_service, "_get_existing_hashes", return_value=set()
+            ) as mock_hashes,
+            patch.object(
+                ingest_service, "_message_to_doc", return_value=[{"uuid": "msg_123"}]
+            ),
+            patch.object(ingest_service, "_hash_message", return_value="hash123"),
         ):
             # Mock database insert
             ingest_service.db.messages.insert_many = AsyncMock()
@@ -179,14 +186,15 @@ class TestIngestService:
         stats = IngestStats(messages_received=1)
 
         # Mock dependencies - None return indicates existing session
-        with patch.object(
-            ingest_service, "_ensure_session", return_value=None
-        ) as mock_ensure, patch.object(
-            ingest_service, "_get_existing_hashes", return_value=set()
-        ), patch.object(
-            ingest_service, "_message_to_doc", return_value=[{"uuid": "msg_123"}]
-        ), patch.object(
-            ingest_service, "_hash_message", return_value="hash123"
+        with (
+            patch.object(
+                ingest_service, "_ensure_session", return_value=None
+            ) as mock_ensure,
+            patch.object(ingest_service, "_get_existing_hashes", return_value=set()),
+            patch.object(
+                ingest_service, "_message_to_doc", return_value=[{"uuid": "msg_123"}]
+            ),
+            patch.object(ingest_service, "_hash_message", return_value="hash123"),
         ):
             # Mock database insert
             ingest_service.db.messages.insert_many = AsyncMock()
@@ -207,12 +215,12 @@ class TestIngestService:
         stats = IngestStats(messages_received=1)
 
         # Mock dependencies - existing hash should cause skip
-        with patch.object(
-            ingest_service, "_ensure_session", return_value=None
-        ), patch.object(
-            ingest_service, "_get_existing_hashes", return_value={"hash123"}
-        ), patch.object(
-            ingest_service, "_hash_message", return_value="hash123"
+        with (
+            patch.object(ingest_service, "_ensure_session", return_value=None),
+            patch.object(
+                ingest_service, "_get_existing_hashes", return_value={"hash123"}
+            ),
+            patch.object(ingest_service, "_hash_message", return_value="hash123"),
         ):
             # Mock database insert (should not be called)
             ingest_service.db.messages.insert_many = AsyncMock()
@@ -233,13 +241,14 @@ class TestIngestService:
         messages = [sample_message_ingest]
         stats = IngestStats(messages_received=1)
 
-        with patch.object(
-            ingest_service, "_ensure_session", return_value=None
-        ), patch.object(
-            ingest_service,
-            "_message_to_doc",
-            return_value=[{"uuid": "msg_123", "_id": ObjectId()}],
-        ) as mock_to_doc:
+        with (
+            patch.object(ingest_service, "_ensure_session", return_value=None),
+            patch.object(
+                ingest_service,
+                "_message_to_doc",
+                return_value=[{"uuid": "msg_123", "_id": ObjectId()}],
+            ) as mock_to_doc,
+        ):
             # Mock database bulk_write
             ingest_service.db.messages.bulk_write = AsyncMock()
 
@@ -267,14 +276,15 @@ class TestIngestService:
         ]
         stats = IngestStats(messages_received=1)
 
-        with patch.object(
-            ingest_service, "_ensure_session", return_value=None
-        ), patch.object(
-            ingest_service, "_get_existing_hashes", return_value=set()
-        ), patch.object(
-            ingest_service, "_hash_message", return_value="hash123"
-        ), patch.object(
-            ingest_service, "_message_to_doc", side_effect=Exception("Processing error")
+        with (
+            patch.object(ingest_service, "_ensure_session", return_value=None),
+            patch.object(ingest_service, "_get_existing_hashes", return_value=set()),
+            patch.object(ingest_service, "_hash_message", return_value="hash123"),
+            patch.object(
+                ingest_service,
+                "_message_to_doc",
+                side_effect=Exception("Processing error"),
+            ),
         ):
             await ingest_service._process_session_messages(session_id, messages, stats)
 
@@ -419,9 +429,12 @@ class TestIngestService:
             await asyncio.sleep(0.01)
             return None
 
-        with patch.object(
-            ingest_service, "_process_session_messages", side_effect=mock_process
-        ), patch.object(ingest_service, "_log_ingestion"):
+        with (
+            patch.object(
+                ingest_service, "_process_session_messages", side_effect=mock_process
+            ),
+            patch.object(ingest_service, "_log_ingestion"),
+        ):
             start_time = datetime.now(UTC)
             await ingest_service.ingest_messages(messages)
             duration = (datetime.now(UTC) - start_time).total_seconds()
@@ -456,9 +469,10 @@ class TestIngestServiceBatchProcessing:
                     )
                 )
 
-        with patch.object(
-            ingest_service, "_process_session_messages"
-        ) as mock_process, patch.object(ingest_service, "_log_ingestion"):
+        with (
+            patch.object(ingest_service, "_process_session_messages") as mock_process,
+            patch.object(ingest_service, "_log_ingestion"),
+        ):
             stats = await ingest_service.ingest_messages(messages)
 
             assert stats.messages_received == 100
@@ -500,9 +514,10 @@ class TestIngestServiceBatchProcessing:
             ),
         ]
 
-        with patch.object(
-            ingest_service, "_process_session_messages"
-        ) as mock_process, patch.object(ingest_service, "_log_ingestion"):
+        with (
+            patch.object(ingest_service, "_process_session_messages") as mock_process,
+            patch.object(ingest_service, "_log_ingestion"),
+        ):
             stats = await ingest_service.ingest_messages(messages)
 
             assert stats.messages_received == 3
@@ -546,11 +561,14 @@ class TestIngestServiceBatchProcessing:
                 stats.messages_skipped += 1
                 stats.sessions_updated += 1
 
-        with patch.object(
-            ingest_service,
-            "_process_session_messages",
-            side_effect=mock_process_session,
-        ), patch.object(ingest_service, "_log_ingestion"):
+        with (
+            patch.object(
+                ingest_service,
+                "_process_session_messages",
+                side_effect=mock_process_session,
+            ),
+            patch.object(ingest_service, "_log_ingestion"),
+        ):
             stats = await ingest_service.ingest_messages(messages)
 
             assert stats.messages_received == 2
@@ -591,11 +609,14 @@ class TestIngestServiceBatchProcessing:
                 stats.messages_processed += 1
                 stats.sessions_created += 1
 
-        with patch.object(
-            ingest_service,
-            "_process_session_messages",
-            side_effect=mock_process_session,
-        ), patch.object(ingest_service, "_log_ingestion"):
+        with (
+            patch.object(
+                ingest_service,
+                "_process_session_messages",
+                side_effect=mock_process_session,
+            ),
+            patch.object(ingest_service, "_log_ingestion"),
+        ):
             # Should not raise exception - uses return_exceptions=True
             stats = await ingest_service.ingest_messages(messages)
 
@@ -643,11 +664,14 @@ class TestIngestServiceBatchProcessing:
             session_groups[session_id] = [msg.uuid for msg in session_messages]
             stats.messages_processed += len(session_messages)
 
-        with patch.object(
-            ingest_service,
-            "_process_session_messages",
-            side_effect=capture_session_groups,
-        ), patch.object(ingest_service, "_log_ingestion"):
+        with (
+            patch.object(
+                ingest_service,
+                "_process_session_messages",
+                side_effect=capture_session_groups,
+            ),
+            patch.object(ingest_service, "_log_ingestion"),
+        ):
             await ingest_service.ingest_messages(messages)
 
             # Verify grouping
@@ -673,11 +697,14 @@ class TestIngestServiceBatchProcessing:
             """Simulate slow processing."""
             await asyncio.sleep(0.05)  # 50ms delay
 
-        with patch.object(
-            ingest_service,
-            "_process_session_messages",
-            side_effect=slow_process_session,
-        ), patch.object(ingest_service, "_log_ingestion") as mock_log:
+        with (
+            patch.object(
+                ingest_service,
+                "_process_session_messages",
+                side_effect=slow_process_session,
+            ),
+            patch.object(ingest_service, "_log_ingestion") as mock_log,
+        ):
             stats = await ingest_service.ingest_messages(messages)
 
             # Should record at least 50ms duration
@@ -690,9 +717,10 @@ class TestIngestServiceBatchProcessing:
         # This is more of a defensive test - normally wouldn't happen
         # but good to ensure the code is robust
 
-        with patch.object(
-            ingest_service, "_process_session_messages"
-        ) as mock_process, patch.object(ingest_service, "_log_ingestion") as mock_log:
+        with (
+            patch.object(ingest_service, "_process_session_messages") as mock_process,
+            patch.object(ingest_service, "_log_ingestion") as mock_log,
+        ):
             stats = await ingest_service.ingest_messages([])
 
             assert stats.messages_received == 0
@@ -731,11 +759,14 @@ class TestIngestServiceBatchProcessing:
             """Capture overwrite mode for each session."""
             overwrite_calls.append((session_id, overwrite_mode))
 
-        with patch.object(
-            ingest_service,
-            "_process_session_messages",
-            side_effect=capture_overwrite_mode,
-        ), patch.object(ingest_service, "_log_ingestion"):
+        with (
+            patch.object(
+                ingest_service,
+                "_process_session_messages",
+                side_effect=capture_overwrite_mode,
+            ),
+            patch.object(ingest_service, "_log_ingestion"),
+        ):
             # Test with overwrite_mode=True
             await ingest_service.ingest_messages(messages, overwrite_mode=True)
 
@@ -757,12 +788,13 @@ class TestIngestServiceErrorHandling:
         messages = [sample_message_ingest]
         stats = IngestStats(messages_received=1)
 
-        with patch.object(
-            ingest_service, "_ensure_session", return_value=None
-        ), patch.object(
-            ingest_service,
-            "_message_to_doc",
-            return_value=[{"uuid": "msg_123", "_id": ObjectId()}],
+        with (
+            patch.object(ingest_service, "_ensure_session", return_value=None),
+            patch.object(
+                ingest_service,
+                "_message_to_doc",
+                return_value=[{"uuid": "msg_123", "_id": ObjectId()}],
+            ),
         ):
             # Mock bulk_write to raise an exception
             ingest_service.db.messages.bulk_write = AsyncMock(
@@ -786,14 +818,13 @@ class TestIngestServiceErrorHandling:
         messages = [sample_message_ingest]
         stats = IngestStats(messages_received=1)
 
-        with patch.object(
-            ingest_service, "_ensure_session", return_value=None
-        ), patch.object(
-            ingest_service, "_get_existing_hashes", return_value=set()
-        ), patch.object(
-            ingest_service, "_message_to_doc", return_value=[{"uuid": "msg_123"}]
-        ), patch.object(
-            ingest_service, "_hash_message", return_value="hash123"
+        with (
+            patch.object(ingest_service, "_ensure_session", return_value=None),
+            patch.object(ingest_service, "_get_existing_hashes", return_value=set()),
+            patch.object(
+                ingest_service, "_message_to_doc", return_value=[{"uuid": "msg_123"}]
+            ),
+            patch.object(ingest_service, "_hash_message", return_value="hash123"),
         ):
             # Mock insert_many to raise an exception
             ingest_service.db.messages.insert_many = AsyncMock(
@@ -884,16 +915,15 @@ class TestIngestServiceErrorHandling:
         messages = [sample_message_ingest]
         stats = IngestStats(messages_received=1)
 
-        with patch.object(
-            ingest_service, "_ensure_session", return_value=None
-        ), patch.object(
-            ingest_service, "_get_existing_hashes", return_value=set()
-        ), patch.object(
-            ingest_service, "_hash_message", return_value="hash123"
-        ), patch.object(
-            ingest_service,
-            "_message_to_doc",
-            side_effect=Exception("Conversion failed"),
+        with (
+            patch.object(ingest_service, "_ensure_session", return_value=None),
+            patch.object(ingest_service, "_get_existing_hashes", return_value=set()),
+            patch.object(ingest_service, "_hash_message", return_value="hash123"),
+            patch.object(
+                ingest_service,
+                "_message_to_doc",
+                side_effect=Exception("Conversion failed"),
+            ),
         ):
             await ingest_service._process_session_messages(session_id, messages, stats)
 
@@ -910,18 +940,18 @@ class TestIngestServiceErrorHandling:
         messages = [sample_message_ingest]
         stats = IngestStats(messages_received=1)
 
-        with patch.object(
-            ingest_service, "_ensure_session", return_value=None
-        ), patch.object(
-            ingest_service, "_get_existing_hashes", return_value=set()
-        ), patch.object(
-            ingest_service, "_message_to_doc", return_value=[{"uuid": "msg_123"}]
-        ), patch.object(
-            ingest_service, "_hash_message", return_value="hash123"
-        ), patch.object(
-            ingest_service,
-            "_update_session_stats",
-            side_effect=Exception("Stats update failed"),
+        with (
+            patch.object(ingest_service, "_ensure_session", return_value=None),
+            patch.object(ingest_service, "_get_existing_hashes", return_value=set()),
+            patch.object(
+                ingest_service, "_message_to_doc", return_value=[{"uuid": "msg_123"}]
+            ),
+            patch.object(ingest_service, "_hash_message", return_value="hash123"),
+            patch.object(
+                ingest_service,
+                "_update_session_stats",
+                side_effect=Exception("Stats update failed"),
+            ),
         ):
             # Mock successful insert
             ingest_service.db.messages.insert_many = AsyncMock(
@@ -1001,20 +1031,21 @@ class TestIngestServiceErrorHandling:
         messages = [sample_message_ingest]
         stats = IngestStats(messages_received=1)
 
-        with patch.object(
-            ingest_service, "_ensure_session", return_value=None
-        ), patch.object(
-            ingest_service, "_get_existing_hashes", return_value=set()
-        ), patch.object(
-            ingest_service, "_message_to_doc", return_value=[{"uuid": "msg_123"}]
-        ), patch.object(
-            ingest_service, "_hash_message", return_value="hash123"
-        ), patch(
-            "app.services.realtime_integration.get_integration_service"
-        ) as mock_get_service, patch.object(
-            ingest_service,
-            "_update_session_stats",
-            side_effect=Exception("Integration service failed"),
+        with (
+            patch.object(ingest_service, "_ensure_session", return_value=None),
+            patch.object(ingest_service, "_get_existing_hashes", return_value=set()),
+            patch.object(
+                ingest_service, "_message_to_doc", return_value=[{"uuid": "msg_123"}]
+            ),
+            patch.object(ingest_service, "_hash_message", return_value="hash123"),
+            patch(
+                "app.services.realtime_integration.get_integration_service"
+            ) as mock_get_service,
+            patch.object(
+                ingest_service,
+                "_update_session_stats",
+                side_effect=Exception("Integration service failed"),
+            ),
         ):
             # Mock successful insert
             mock_result = MagicMock()
@@ -1139,9 +1170,14 @@ class TestIngestServiceErrorHandling:
                 stats.messages_processed += len(session_messages)
                 stats.sessions_created += 1
 
-        with patch.object(
-            ingest_service, "_process_session_messages", side_effect=selective_failure
-        ), patch.object(ingest_service, "_log_ingestion"):
+        with (
+            patch.object(
+                ingest_service,
+                "_process_session_messages",
+                side_effect=selective_failure,
+            ),
+            patch.object(ingest_service, "_log_ingestion"),
+        ):
             # Should not raise exception due to return_exceptions=True
             stats = await ingest_service.ingest_messages(messages)
 

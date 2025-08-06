@@ -1,4 +1,5 @@
 """Tests for the session service."""
+
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 

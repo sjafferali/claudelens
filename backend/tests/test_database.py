@@ -1,4 +1,5 @@
 """Test database connections and operations."""
+
 import pytest
 
 from app.core.database import close_mongodb_connection, connect_to_mongodb, get_database

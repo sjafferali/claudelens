@@ -1,4 +1,5 @@
 """Message validation service."""
+
 import re
 from typing import Any
 

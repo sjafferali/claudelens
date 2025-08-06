@@ -1,4 +1,5 @@
 """Clean sample data from the database."""
+
 import asyncio
 import os
 

@@ -1,4 +1,5 @@
 """Data models package."""
+
 from .message import MessageInDB
 from .project import ProjectInDB
 from .session import SessionInDB

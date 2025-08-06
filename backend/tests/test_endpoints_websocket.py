@@ -1,4 +1,5 @@
 """Tests for WebSocket endpoints."""
+
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 

@@ -1,4 +1,5 @@
 """Tests for logging middleware."""
+
 import logging
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch

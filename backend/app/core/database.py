@@ -1,4 +1,5 @@
 """MongoDB database connection and utilities."""
+
 import logging
 
 from motor.motor_asyncio import (

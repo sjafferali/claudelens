@@ -1,4 +1,5 @@
 """Tests for ingestion API endpoints."""
+
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -224,10 +225,11 @@ class TestIngestBatch:
             projects_created=["project-1", "project-2"],
         )
 
-        with patch(
-            "app.api.api_v1.endpoints.ingest.IngestService"
-        ) as mock_service_class, patch(
-            "app.api.api_v1.endpoints.ingest.update_project_metadata"
+        with (
+            patch(
+                "app.api.api_v1.endpoints.ingest.IngestService"
+            ) as mock_service_class,
+            patch("app.api.api_v1.endpoints.ingest.update_project_metadata"),
         ):
             mock_service = Mock()
             mock_service.ingest_messages = AsyncMock(return_value=stats)

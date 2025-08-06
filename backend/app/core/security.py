@@ -1,4 +1,5 @@
 """Security utilities."""
+
 import secrets
 
 from app.core.config import settings

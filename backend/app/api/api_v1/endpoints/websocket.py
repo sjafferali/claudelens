@@ -1,4 +1,5 @@
 """WebSocket endpoints for real-time updates."""
+
 import asyncio
 import logging
 from typing import Any

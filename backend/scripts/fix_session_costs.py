@@ -1,4 +1,5 @@
 """Script to fix session costs by recalculating them from messages."""
+
 import asyncio
 import sys
 from pathlib import Path

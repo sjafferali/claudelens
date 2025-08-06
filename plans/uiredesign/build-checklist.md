@@ -244,39 +244,177 @@ This checklist breaks down the conversation flow visualization improvements into
 
 ## 🔀 Phase 3: Advanced Features
 
-### User Story 8: Compare Different Branches Side-by-Side
-*As a user, I want to compare alternative responses side-by-side so I can evaluate which approach worked better.*
+### User Story 10: Clean Up Deprioritized Features
+*As a developer, I want to remove code for deprioritized features so the codebase remains clean and maintainable.*
 
 **Tasks:**
-- [x] Create `BranchComparison` view component (ConversationBranchComparison)
-- [x] Implement split-pane layout
-- [x] Add branch selection dropdowns
-- [x] Create synchronized scrolling between panes
-- [x] Highlight differences between branches
-- [x] Add metrics comparison (cost, tokens, time)
-- [x] Implement "Select this branch" action
-- [x] Add export comparison feature
-- [x] Style with clear visual separation
-- [x] Write tests for comparison logic
+- [x] Search for any undo/redo navigation implementation
+- [x] Remove any onboarding tour components or dependencies
+- [x] Check for and remove video tutorial references in documentation
+- [x] Remove any conversation complexity scoring code
+- [x] Remove branch path calculation utilities if they exist
+- [x] Remove references to materialized views in backend
+- [x] Update any imports/exports affected by removals
+- [x] Verify frontend builds without errors after cleanup
+- [x] Verify backend tests pass after cleanup
 
+**Note:** See `/plans/uiredesign/deprioritized-features.md` for detailed reasoning on why these features were removed.
+
+### User Story 11: Fix Sidechain Panel - Show Tool Operations
+*As a user, I want to see tool operations in the sidechain panel so I can understand what operations Claude performed.*
+
+**Tasks:**
+- [ ] Investigate why sidechain panel shows "0 groups" for all conversations
+- [ ] Check if messages are properly marked with `isSidechain: true` in database
+- [ ] Verify sidechain filtering logic in `SidechainPanel.tsx`
+- [ ] Check if tool_use/tool_result messages should be marked as sidechains
+- [ ] Fix sidechain detection/marking during data import
+- [ ] Test with conversations containing tool operations
+- [ ] Verify panel shows tool calls, file operations, searches
+- [ ] Update sidechain categorization if needed
+- [ ] Add debug logging to trace sidechain filtering
+
+### User Story 12: Fix Tree View Layout - Prevent Node Overlap
+*As a user, I want the tree view to properly layout messages so I can see the conversation structure clearly.*
+
+**Tasks:**
+- [ ] Investigate why React Flow nodes start layered on top of each other
+- [ ] Check tree layout algorithm in `ConversationTree.tsx`
+- [ ] Verify node positioning calculations
+- [ ] Check if dagre or other layout library is properly configured
+- [ ] Add initial node spacing/positioning
+- [ ] Test with different conversation structures
+- [ ] Implement auto-layout on tree view load
+- [ ] Add loading state while layout calculates
+- [ ] Verify zoom/pan controls work after fix
+
+### User Story 13: Enhance Direct Message Linking
+*As a user, I want to easily share links to specific messages so I can reference exact points in conversations.*
+
+**Tasks:**
+- [ ] Add "Copy link" button to message headers
+- [ ] Generate shareable URL with messageId parameter
+- [ ] Add toast notification when link is copied
+- [ ] Implement keyboard shortcut for copying message link (Cmd/Ctrl+Shift+L)
+- [ ] Add "Share" icon next to message timestamp
+- [ ] Create URL shortener for long message IDs (optional)
+- [ ] Add deep linking support for branches (messageId + branchIndex)
+- [ ] Test link sharing across different browsers
+- [ ] Document linking format in help text
+
+**Note:** Basic message linking already works via `?messageId=` parameter. This enhances UX.
+
+### User Story 14: Fix Scroll Position Reset on Load More
+*As a user, I want the scroll position to remain stable when loading more messages so I don't lose my place in the conversation.*
+
+**Tasks:**
+- [ ] Investigate intermittent scroll reset when clicking "Load More"
+- [ ] Check if virtual scrolling is interfering with scroll position
+- [ ] Store scroll position before loading new messages
+- [ ] Calculate height of new messages added
+- [ ] Restore scroll position with offset for new content
+- [ ] Test with different browser/OS combinations
+- [ ] Add scroll anchor to maintain visual position
+- [ ] Implement smooth transition when adding messages
+- [ ] Add loading indicator that doesn't affect layout
+- [ ] Test with conversations of various sizes (100, 500, 1000+ messages)
+
+### User Story 15: Add Message Debug View
+*As a developer/power user, I want to view the complete JSON data for any message so I can understand all stored information.*
+
+**Tasks:**
+- [ ] Add small debug icon (🐛 or {}) to message headers
+- [ ] Create modal/drawer for JSON data display
+- [ ] Implement JSON syntax highlighting
+- [ ] Add copy-to-clipboard for JSON data
+- [ ] Include all message fields (metadata, tokens, costs, etc.)
+- [ ] Make debug mode toggleable in settings/preferences
+- [ ] Add keyboard shortcut to toggle debug mode (Cmd/Ctrl+Shift+D)
+- [ ] Format timestamps in human-readable format
+- [ ] Include parent/child relationship data
+- [ ] Add option to export single message JSON
+
+### User Story 16: Add Message Position Indicators
+*As a user, I want to see my position in the conversation so I can navigate back to specific messages easily.*
+
+**Tasks:**
+- [ ] Add unobtrusive message numbering (e.g., #1 of 267)
+- [ ] Display position in top-right corner of message header
+- [ ] Use subtle gray text to avoid visual clutter
+- [ ] Add option to toggle position indicators
+- [ ] Include position in URL when sharing links
+- [ ] Show position range in viewport (e.g., "Viewing 45-52 of 267")
+- [ ] Add position-based navigation ("Jump to message #")
+- [ ] Update positions when messages are filtered/hidden
+- [ ] Add keyboard shortcut for "Go to message" (Cmd/Ctrl+G)
+- [ ] Show position in mini-map tooltip
+
+### User Story 17: Fix and Display Conversation Summaries
+*As a user, I want to see Claude's auto-generated summaries for my conversations so I can quickly understand what each session was about.*
+
+**Tasks:**
+- [ ] Investigate why summaries from Claude aren't being stored in MongoDB
+- [ ] Check sync_engine.py summary attachment logic (lines 244-257, 499-525)
+- [ ] Verify if summary field exists in MongoDB session documents
+- [ ] Fix data import to properly store summary with sessions
+- [ ] Add summary field to Session schema if missing
+- [ ] Update SessionService to handle summary data
+- [ ] Display summary in session list cards (truncated)
+- [ ] Show full summary in session detail header
+- [ ] Add "Edit summary" capability for manual corrections
+- [ ] Include summary in search indexing
+- [ ] Test with new sync to verify summaries are captured
+
+**Note:** Claude already provides summaries in the data - we're just not storing/displaying them properly.
+
+### User Story 18: Design Improved Filter UI
+*As a designer, I want to create a mockup of an intuitive visual filter interface so we can plan the implementation of better search filters.*
+
+**Tasks:**
+- [ ] Research current filter UI pain points
+- [ ] Review existing text-based filter implementation
+- [ ] Create HTML/CSS mockup for improved filter UI
+- [ ] Include multi-select dropdown design for message types
+- [ ] Design visual toggle switches for boolean filters
+- [ ] Mock up date range picker interface
+- [ ] Design cost range slider with min/max inputs
+- [ ] Include filter preset selector in design
+- [ ] Add visual indicators for active filters
+- [ ] Design filter summary bar showing applied filters
+- [ ] Create responsive mobile version of filter UI
+- [ ] Save mockup to `/plans/uiredesign/mockups/filter-ui-improvement.html`
+- [ ] Document design decisions and rationale
+- [ ] Get feedback on mockup before implementation
+
+### User Story 19: Implement Regex Search Support
+*As a power user, I want to use regex patterns in search so I can find complex patterns in conversations.*
+
+**Tasks:**
+- [ ] Add regex/text mode toggle to search bar
+- [ ] Implement regex pattern validation
+- [ ] Add error handling for invalid regex patterns
+- [ ] Create regex syntax helper dropdown
+- [ ] Add common regex pattern templates
+- [ ] Implement regex pattern history
+- [ ] Add regex match highlighting in results
+- [ ] Test regex performance with large datasets
+- [ ] Add regex pattern testing preview
+- [ ] Create regex documentation/cheatsheet
+- [ ] Add keyboard shortcut for regex mode (Cmd/Ctrl+/)
+- [ ] Implement regex search in backend API
+- [ ] Add regex caching for repeated patterns
+- [ ] Test with complex patterns (lookahead, groups, etc.)
+- [ ] Add regex pattern sharing functionality
+
+**Note:** See `/plans/uiredesign/deprioritized-features.md` for detailed reasoning on why some features were removed.
 
 ### 🔍 QA Checkpoint: Phase 3 Verification
 *Verify that all Phase 3 advanced features are working correctly.*
 
 **QA Tasks:**
-- [ ] **Branch Comparison Testing with Playwright:**
-  - Open comparison view with 2+ branches
-  - Verify split-pane layout displays correctly
-  - Test branch selection dropdowns work
-  - Confirm synchronized scrolling between panes
-  - Check differences are highlighted
-  - Verify metrics comparison (cost, tokens) displays
-  - Test "Select this branch" action works
-  - Verify export comparison feature
 
 
 - [ ] **Integration Testing:**
-  - Compare → Select → Continue workflow works
   - All advanced features work with Phase 1 & 2 features
   - No regression in existing functionality
 
@@ -289,8 +427,6 @@ This checklist breaks down the conversation flow visualization improvements into
   ```
 
 - [ ] **Performance & Edge Cases:**
-  - Merge handles 10+ branches without error
-  - Comparison view handles long conversations (1000+ messages)
   - No memory leaks during complex operations
 
 **If any checks fail:** Mark this checkpoint as `[FAILED - <details>]` and mark the specific failing task(s) above as `[REWORK - <issue>]`
@@ -299,7 +435,7 @@ This checklist breaks down the conversation flow visualization improvements into
 
 ## 🎨 UI Polish & Performance
 
-### User Story 11: Experience Smooth Interactions
+### User Story 8: Experience Smooth Interactions
 *As a user, I want the UI to be responsive and smooth so I can navigate complex conversations effortlessly.*
 
 **Tasks:**
@@ -310,17 +446,15 @@ This checklist breaks down the conversation flow visualization improvements into
 - [ ] Implement progressive tree rendering
 - [ ] Add error boundaries for graceful failures
 - [ ] Cache processed conversation structures
-- [ ] Implement undo/redo for navigation
 - [ ] Add keyboard shortcut overlay
 - [ ] Performance test with large conversations (1000+ messages)
 
-### User Story 12: Understand Visual Indicators
+### User Story 9: Understand Visual Indicators
 *As a user, I want clear visual legends and help text so I understand what all the indicators mean.*
 
 **Tasks:**
 - [ ] Create `Legend` component for tree view
 - [ ] Add tooltips to all interactive elements
-- [ ] Create onboarding tour for new features
 - [ ] Add help panel with feature documentation
 - [ ] Implement color blind friendly palette option
 - [ ] Add icon legend for message types
@@ -335,8 +469,6 @@ This checklist breaks down the conversation flow visualization improvements into
 ### API Enhancements
 - [ ] Add endpoint for branch statistics
 - [ ] Add sidechain aggregation endpoint
-- [ ] Implement conversation complexity scoring
-- [ ] Add branch path calculation
 - [ ] Optimize message relationship queries
 - [ ] Add caching for tree structures
 
@@ -344,7 +476,6 @@ This checklist breaks down the conversation flow visualization improvements into
 - [ ] Add indexes for parentUuid queries
 - [ ] Optimize branch detection queries
 - [ ] Add conversation complexity metrics
-- [ ] Create materialized views for trees
 
 ---
 
@@ -364,14 +495,12 @@ This checklist breaks down the conversation flow visualization improvements into
 ### E2E Tests
 - [ ] Complete branch exploration flow
 - [ ] Tree view with large conversations
-- [ ] Branch comparison workflow
 
 ---
 
 ## 📝 Documentation Tasks
 
 - [ ] Update user guide with new features
-- [ ] Create video tutorials for complex features
 - [ ] Document keyboard shortcuts
 - [ ] Write API documentation for new endpoints
 - [ ] Create troubleshooting guide

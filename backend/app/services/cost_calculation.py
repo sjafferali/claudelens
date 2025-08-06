@@ -1,4 +1,5 @@
 """Cost calculation service using direct pricing data."""
+
 import logging
 from typing import Any, Dict, Optional
 

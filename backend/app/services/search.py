@@ -1,4 +1,5 @@
 """Search service implementation."""
+
 import logging
 import re
 from datetime import UTC, datetime

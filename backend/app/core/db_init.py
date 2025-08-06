@@ -1,4 +1,5 @@
 """Database initialization and migration utilities."""
+
 import logging
 from typing import Any
 

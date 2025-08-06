@@ -1,4 +1,5 @@
 """Testcontainers MongoDB integration for development."""
+
 import atexit
 import logging
 import os

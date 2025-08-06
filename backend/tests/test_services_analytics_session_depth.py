@@ -229,7 +229,7 @@ class TestAnalyticsServiceSessionDepth:
         for i in range(2):
             messages.append(
                 {
-                    "uuid": f"s1_msg{i+1}",
+                    "uuid": f"s1_msg{i + 1}",
                     "sessionId": "session1",
                     "parentUuid": f"s1_msg{i}" if i > 0 else None,
                     "isSidechain": False,
@@ -244,7 +244,7 @@ class TestAnalyticsServiceSessionDepth:
         for i in range(4):
             messages.append(
                 {
-                    "uuid": f"s2_msg{i+1}",
+                    "uuid": f"s2_msg{i + 1}",
                     "sessionId": "session2",
                     "parentUuid": f"s2_msg{i}" if i > 0 else None,
                     "isSidechain": False,
@@ -259,7 +259,7 @@ class TestAnalyticsServiceSessionDepth:
         for i in range(8):
             messages.append(
                 {
-                    "uuid": f"s3_msg{i+1}",
+                    "uuid": f"s3_msg{i + 1}",
                     "sessionId": "session3",
                     "parentUuid": f"s3_msg{i}" if i > 0 else None,
                     "isSidechain": False,
@@ -1066,7 +1066,7 @@ class TestAnalyticsServiceSessionDepth:
         for i in range(7):
             session2_msgs.append(
                 {
-                    "uuid": f"s2_{i+1}",
+                    "uuid": f"s2_{i + 1}",
                     "sessionId": "session2",
                     "parentUuid": f"s2_{i}" if i > 0 else None,
                     "isSidechain": False,
