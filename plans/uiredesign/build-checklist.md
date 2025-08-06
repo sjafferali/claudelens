@@ -263,15 +263,15 @@ This checklist breaks down the conversation flow visualization improvements into
 *As a user, I want to fork a conversation at any point so I can explore a different direction without losing my original work.*
 
 **Tasks:**
-- [ ] Add "Fork from here" button to messages
-- [ ] Create fork confirmation dialog
-- [ ] Implement API endpoint for session forking
-- [ ] Generate new session with fork metadata
-- [ ] Copy conversation history up to fork point
-- [ ] Add fork indicator in original session
+- [x] Add "Fork from here" button to messages
+- [x] Create fork confirmation dialog
+- [x] Implement API endpoint for session forking
+- [x] Generate new session with fork metadata
+- [x] Copy conversation history up to fork point
+- [x] Add fork indicator in original session
 - [ ] Create "View forks" panel
-- [ ] Navigate to new forked session
-- [ ] Track fork relationships in database
+- [x] Navigate to new forked session
+- [x] Track fork relationships in database
 - [ ] Write tests for forking logic
 
 ### User Story 10: Merge Insights from Multiple Branches

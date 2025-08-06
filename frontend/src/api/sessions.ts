@@ -107,4 +107,28 @@ export const sessionsApi = {
     );
     return response;
   },
+
+  async forkSession(
+    sessionId: string,
+    messageId: string,
+    description?: string
+  ): Promise<{
+    original_session_id: string;
+    forked_session_id: string;
+    forked_session_mongo_id: string;
+    fork_point_message_id: string;
+    description?: string;
+    message_count: number;
+  }> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('message_id', messageId);
+    if (description) {
+      queryParams.append('description', description);
+    }
+
+    const response = await apiClient.post(
+      `/sessions/${sessionId}/fork?${queryParams.toString()}`
+    );
+    return response;
+  },
 };
