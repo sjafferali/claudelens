@@ -8,13 +8,13 @@ import { Message } from '@/api/types';
 
 const mockMessage: Message = {
   _id: '1',
-  sessionId: 'session1',
+  session_id: 'session1',
   messageUuid: 'uuid-1',
   uuid: 'uuid-1',
   type: 'user',
   content: 'Test message',
   timestamp: '2024-01-01T00:00:00Z',
-  parentUuid: 'parent-uuid',
+  parent_uuid: 'parent-uuid',
 };
 
 describe('MessageNavigationButtons', () => {

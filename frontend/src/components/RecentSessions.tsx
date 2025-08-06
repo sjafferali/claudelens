@@ -60,17 +60,17 @@ export default function RecentSessions() {
               <div className="flex items-center gap-4 mt-2 text-xs text-muted-c">
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  {formatDistanceToNow(new Date(session.startedAt), {
+                  {formatDistanceToNow(new Date(session.started_at), {
                     addSuffix: true,
                   })}
                 </span>
                 <span className="flex items-center gap-1">
                   <MessageSquare className="h-3 w-3" />
-                  {session.messageCount} messages
+                  {session.message_count} messages
                 </span>
                 <span className="flex items-center gap-1">
                   <DollarSign className="h-3 w-3" />
-                  {formatCost(session.totalCost || 0)}
+                  {formatCost(session.total_cost || 0)}
                 </span>
               </div>
             </div>

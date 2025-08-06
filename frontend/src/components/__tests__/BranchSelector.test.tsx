@@ -6,13 +6,13 @@ import { Message } from '@/api/types';
 describe('BranchSelector', () => {
   const mockMessage: Message = {
     _id: 'msg1',
-    sessionId: 'session1',
+    session_id: 'session1',
     messageUuid: 'uuid1',
     uuid: 'uuid1',
     type: 'assistant',
     content: 'Test message',
     timestamp: '2024-01-01T00:00:00Z',
-    parentUuid: 'parent1',
+    parent_uuid: 'parent1',
     branchCount: 3,
     branchIndex: 2,
     branches: ['uuid0', 'uuid1', 'uuid2'],

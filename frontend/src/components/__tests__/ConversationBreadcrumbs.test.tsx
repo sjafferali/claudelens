@@ -6,7 +6,7 @@ import { Message } from '@/api/types';
 const mockPath: Message[] = [
   {
     _id: '1',
-    sessionId: 'session1',
+    session_id: 'session1',
     messageUuid: 'uuid-1',
     uuid: 'uuid-1',
     type: 'user',
@@ -15,23 +15,23 @@ const mockPath: Message[] = [
   },
   {
     _id: '2',
-    sessionId: 'session1',
+    session_id: 'session1',
     messageUuid: 'uuid-2',
     uuid: 'uuid-2',
     type: 'assistant',
     content: 'I can help you with various tasks',
     timestamp: '2024-01-01T00:00:01Z',
-    parentUuid: 'uuid-1',
+    parent_uuid: 'uuid-1',
   },
   {
     _id: '3',
-    sessionId: 'session1',
+    session_id: 'session1',
     messageUuid: 'uuid-3',
     uuid: 'uuid-3',
     type: 'user',
     content: 'Tell me about React',
     timestamp: '2024-01-01T00:00:02Z',
-    parentUuid: 'uuid-2',
+    parent_uuid: 'uuid-2',
   },
 ];
 
@@ -80,23 +80,23 @@ describe('ConversationBreadcrumbs', () => {
       ...mockPath,
       {
         _id: '4',
-        sessionId: 'session1',
+        session_id: 'session1',
         messageUuid: 'uuid-4',
         uuid: 'uuid-4',
         type: 'assistant',
         content: 'React is a JavaScript library',
         timestamp: '2024-01-01T00:00:03Z',
-        parentUuid: 'uuid-3',
+        parent_uuid: 'uuid-3',
       },
       {
         _id: '5',
-        sessionId: 'session1',
+        session_id: 'session1',
         messageUuid: 'uuid-5',
         uuid: 'uuid-5',
         type: 'user',
         content: 'Tell me more',
         timestamp: '2024-01-01T00:00:04Z',
-        parentUuid: 'uuid-4',
+        parent_uuid: 'uuid-4',
       },
     ];
 

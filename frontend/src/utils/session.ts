@@ -5,14 +5,14 @@
  */
 export function getSessionTitle(session: {
   summary?: string | null;
-  sessionId: string;
+  session_id: string;
 }): string {
   if (session.summary) {
     return session.summary;
   }
 
   // Fallback to session ID prefix if no summary
-  return `Session ${session.sessionId.slice(0, 8)}...`;
+  return `Session ${session.session_id.slice(0, 8)}...`;
 }
 
 /**
@@ -22,7 +22,7 @@ export function getSessionTitle(session: {
  * @returns Shortened title
  */
 export function getShortSessionTitle(
-  session: { summary?: string | null; sessionId: string },
+  session: { summary?: string | null; session_id: string },
   maxLength: number = 50
 ): string {
   const title = getSessionTitle(session);

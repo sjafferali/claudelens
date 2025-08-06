@@ -391,9 +391,10 @@ class SessionService:
                 summary = question_match.group(1).strip()
                 # Capitalize first letter
                 summary = summary[0].upper() + summary[1:] if summary else summary
-                # Limit length
-                if len(summary) > 100:
-                    summary = summary[:97] + "..."
+                # Don't truncate if this looks like a complete summary
+                # Only truncate if it's very long and seems like raw content
+                if len(summary) > 200 and not summary.startswith("#"):
+                    summary = summary[:197] + "..."
             else:
                 # Look for imperative sentences or statements
                 sentences = re.split(r"[.!?]+", content)
@@ -401,9 +402,10 @@ class SessionService:
                     summary = sentences[0].strip()
                     # Capitalize first letter
                     summary = summary[0].upper() + summary[1:] if summary else summary
-                    # Limit length
-                    if len(summary) > 100:
-                        summary = summary[:97] + "..."
+                    # Don't truncate if this looks like a complete summary
+                    # Only truncate if it's very long and seems like raw content
+                    if len(summary) > 200 and not summary.startswith("#"):
+                        summary = summary[:197] + "..."
                 else:
                     # Fallback to truncated content
                     summary = content[:100]

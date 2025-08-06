@@ -10,18 +10,18 @@ import { Message } from '@/api/types';
 // Helper function to create a test message
 function createMessage(
   uuid: string,
-  parentUuid?: string,
+  parent_uuid?: string,
   timestamp: string = '2024-01-01T00:00:00Z'
 ): Message {
   return {
     _id: uuid,
-    sessionId: 'session-1',
+    session_id: 'session-1',
     messageUuid: uuid,
     uuid,
     type: 'assistant',
     content: `Message ${uuid}`,
     timestamp,
-    parentUuid,
+    parent_uuid,
   };
 }
 

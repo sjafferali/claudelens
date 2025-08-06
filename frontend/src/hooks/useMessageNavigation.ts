@@ -10,7 +10,9 @@ export function useMessageNavigation(
     const map = new Map<string, Message>();
     messages.forEach((msg) => {
       const uuid = msg.uuid || msg.messageUuid;
-      map.set(uuid, msg);
+      if (uuid) {
+        map.set(uuid, msg);
+      }
     });
     return map;
   }, [messages]);

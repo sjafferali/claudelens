@@ -7,7 +7,7 @@ describe('SidechainPanel', () => {
   const mockMessages: Message[] = [
     {
       _id: '1',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-1',
       uuid: 'msg-1',
       type: 'user',
@@ -17,7 +17,7 @@ describe('SidechainPanel', () => {
     },
     {
       _id: '2',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-2',
       uuid: 'msg-2',
       type: 'tool_use',
@@ -26,34 +26,34 @@ describe('SidechainPanel', () => {
         input: { file_path: '/test.txt' },
       }),
       timestamp: '2024-01-01T10:01:00Z',
-      parentUuid: 'msg-1',
+      parent_uuid: 'msg-1',
       isSidechain: true,
     },
     {
       _id: '3',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-3',
       uuid: 'msg-3',
       type: 'tool_result',
       content: 'File contents',
       timestamp: '2024-01-01T10:01:01Z',
-      parentUuid: 'msg-1',
+      parent_uuid: 'msg-1',
       isSidechain: true,
     },
     {
       _id: '4',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-4',
       uuid: 'msg-4',
       type: 'assistant',
       content: 'Main conversation message 2',
       timestamp: '2024-01-01T10:02:00Z',
-      parentUuid: 'msg-1',
+      parent_uuid: 'msg-1',
       isSidechain: false,
     },
     {
       _id: '5',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-5',
       uuid: 'msg-5',
       type: 'tool_use',
@@ -62,7 +62,7 @@ describe('SidechainPanel', () => {
         input: { query: 'test search' },
       }),
       timestamp: '2024-01-01T10:03:00Z',
-      parentUuid: 'msg-4',
+      parent_uuid: 'msg-4',
       isSidechain: true,
     },
   ];
@@ -104,22 +104,28 @@ describe('SidechainPanel', () => {
         />
       );
 
-      // Expand the first group
-      const expandButtons = screen.getAllByRole('button');
-      const firstGroupButton = expandButtons.find((btn) =>
-        btn.textContent?.includes('2 operations')
+      // Expand the first group - it's now a div, not a button
+      const groupHeaders = screen.getAllByText(/operations?/);
+      const firstGroupHeader = groupHeaders.find((element) =>
+        element.textContent?.includes('2 operations')
       );
 
-      expect(firstGroupButton).toBeInTheDocument();
+      expect(firstGroupHeader).toBeInTheDocument();
 
-      if (firstGroupButton) {
-        fireEvent.click(firstGroupButton);
+      // Click on the parent element (the group header div)
+      if (firstGroupHeader) {
+        const groupHeaderDiv = firstGroupHeader.closest(
+          'div[class*="cursor-pointer"]'
+        );
+        if (groupHeaderDiv) {
+          fireEvent.click(groupHeaderDiv);
 
-        // Should show both sidechain messages for msg-1
-        expect(
-          screen.getByText(/Read: .*file_path.*test\.txt/)
-        ).toBeInTheDocument();
-        expect(screen.getByText(/File contents/)).toBeInTheDocument();
+          // Should show both sidechain messages for msg-1
+          expect(
+            screen.getByText(/Read: .*file_path.*test\.txt/)
+          ).toBeInTheDocument();
+          expect(screen.getByText(/File contents/)).toBeInTheDocument();
+        }
       }
     });
 
@@ -127,7 +133,7 @@ describe('SidechainPanel', () => {
       const nonSidechainMessages: Message[] = [
         {
           _id: '1',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'msg-1',
           uuid: 'msg-1',
           type: 'user',
@@ -283,7 +289,7 @@ describe('SidechainPanel', () => {
       const messagesWithoutParent: Message[] = [
         {
           _id: '1',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'msg-1',
           uuid: 'msg-1',
           type: 'tool_use',
@@ -313,7 +319,7 @@ describe('SidechainPanel', () => {
       const messagesWithBadJson: Message[] = [
         {
           _id: '1',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'msg-1',
           uuid: 'msg-1',
           type: 'user',
@@ -322,13 +328,13 @@ describe('SidechainPanel', () => {
         },
         {
           _id: '2',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'msg-2',
           uuid: 'msg-2',
           type: 'tool_use',
           content: 'Not valid JSON',
           timestamp: '2024-01-01T10:01:00Z',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           isSidechain: true,
         },
       ];

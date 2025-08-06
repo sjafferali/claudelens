@@ -37,45 +37,7 @@ export function SidechainPanel({
   const sidechainGroups = useMemo(() => {
     const groups = new Map<string, Message[]>();
 
-    // Debug logging
-    console.log('[SidechainPanel] Total messages:', messages.length);
-    const sidechainMessages = messages.filter((m) => m.isSidechain);
-    console.log(
-      '[SidechainPanel] Sidechain messages found:',
-      sidechainMessages.length
-    );
-
-    // Also check for tool_use and tool_result messages even if not marked as sidechain
-    const toolMessages = messages.filter(
-      (m) => m.type === 'tool_use' || m.type === 'tool_result'
-    );
-    console.log(
-      '[SidechainPanel] Tool messages (tool_use/tool_result):',
-      toolMessages.length
-    );
-
-    // Log a sample of messages to see their structure
-    if (messages.length > 0) {
-      console.log('[SidechainPanel] Sample message:', messages[0]);
-      const toolMsg = toolMessages[0];
-      if (toolMsg) {
-        console.log('[SidechainPanel] Sample tool message:', toolMsg);
-        console.log(
-          '[SidechainPanel] Tool message parent_uuid:',
-          toolMsg.parent_uuid
-        );
-        console.log('[SidechainPanel] Tool message uuid:', toolMsg.uuid);
-
-        // Check if any tool messages have parent_uuid
-        const toolMessagesWithParent = toolMessages.filter(
-          (m) => m.parent_uuid
-        );
-        console.log(
-          '[SidechainPanel] Tool messages with parent_uuid:',
-          toolMessagesWithParent.length
-        );
-      }
-    }
+    // Filter messages to only those that are sidechains or tool operations
 
     messages.forEach((message) => {
       // Include messages marked as sidechain OR tool_use/tool_result types
@@ -88,15 +50,6 @@ export function SidechainPanel({
         const existing = groups.get(message.parent_uuid) || [];
         groups.set(message.parent_uuid, [...existing, message]);
       }
-    });
-
-    console.log('[SidechainPanel] Groups created:', groups.size);
-    groups.forEach((msgs, parentId) => {
-      console.log(
-        `[SidechainPanel] Group for parent ${parentId}:`,
-        msgs.length,
-        'messages'
-      );
     });
 
     // Sort messages within each group by timestamp
@@ -265,9 +218,9 @@ export function SidechainPanel({
                     className="bg-layer-tertiary border border-purple-500/20 rounded-lg overflow-hidden"
                   >
                     {/* Group Header */}
-                    <button
+                    <div
+                      className="w-full px-3 py-2 flex items-center justify-between hover:bg-purple-500/5 transition-colors cursor-pointer"
                       onClick={() => toggleGroup(parent_uuid)}
-                      className="w-full px-3 py-2 flex items-center justify-between hover:bg-purple-500/5 transition-colors"
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div className="text-purple-500">
@@ -320,7 +273,7 @@ export function SidechainPanel({
                           </span>
                         ))}
                       </div>
-                    </button>
+                    </div>
 
                     {/* Expanded Content */}
                     {isExpanded && (

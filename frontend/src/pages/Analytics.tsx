@@ -40,7 +40,6 @@ import { ConversationPatterns } from '../components/ConversationPatterns';
 import { DepthOptimizer } from '../components/DepthOptimizer';
 import LiveStatCards from '../components/LiveStatCards';
 import {
-  Loader2,
   TrendingUp,
   TrendingDown,
   DollarSign,
@@ -63,6 +62,10 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import {
+  PageSkeleton,
+  ChartSkeleton,
+} from '@/components/common/LoadingSkeleton';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -253,11 +256,7 @@ export default function Analytics() {
   };
 
   if (summaryLoading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <PageSkeleton title={true} filters={true} content="stats" />;
   }
 
   return (
@@ -294,9 +293,9 @@ export default function Analytics() {
               options={[
                 { value: '', label: 'All Sessions (Overall Analytics)' },
                 ...(sessions?.items?.map((session: Session) => ({
-                  value: session.sessionId,
-                  label: session.sessionId,
-                  description: `${session.messageCount} messages - ${formatCost(session.totalCost || 0)}`,
+                  value: session.session_id,
+                  label: session.session_id,
+                  description: `${session.message_count} messages - ${formatCost(session.total_cost || 0)}`,
                 })) || []),
               ]}
               className="w-[400px]"
@@ -332,8 +331,8 @@ export default function Analytics() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {sessions?.items
-                  ?.find((s) => s.sessionId === selectedSessionId)
-                  ?.messageCount?.toLocaleString() || 0}
+                  ?.find((s) => s.session_id === selectedSessionId)
+                  ?.message_count?.toLocaleString() || 0}
               </div>
               <p className="text-xs text-muted-foreground">
                 In selected session
@@ -481,9 +480,9 @@ export default function Analytics() {
               placeholder="Choose a session to monitor..."
               options={[
                 ...(sessions?.items?.map((session: Session) => ({
-                  value: session.sessionId,
-                  label: session.sessionId,
-                  description: `${session.messageCount} messages - ${formatCost(session.totalCost || 0)}`,
+                  value: session.session_id,
+                  label: session.session_id,
+                  description: `${session.message_count} messages - ${formatCost(session.total_cost || 0)}`,
                 })) || []),
               ]}
               className="w-[300px]"
@@ -530,9 +529,7 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 {sessionCostBreakdownLoading ? (
-                  <div className="flex h-64 items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <ChartSkeleton height={300} />
                 ) : sessionCostBreakdown?.cost_breakdown?.by_model ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
@@ -591,9 +588,7 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 {sessionToolUsageLoading ? (
-                  <div className="flex h-64 items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <ChartSkeleton height={300} />
                 ) : sessionToolUsage?.tools &&
                   sessionToolUsage.tools.length > 0 ? (
                   <div className="space-y-4">
@@ -647,9 +642,7 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 {costLoading ? (
-                  <div className="flex h-64 items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <ChartSkeleton height={300} />
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={processCostData()}>
@@ -694,9 +687,7 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 {modelLoading ? (
-                  <div className="flex h-64 items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <ChartSkeleton height={300} />
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
@@ -748,9 +739,7 @@ export default function Analytics() {
           </CardHeader>
           <CardContent>
             {heatmapLoading ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
+              <ChartSkeleton height={256} />
             ) : (
               <div className="overflow-x-auto">
                 <div className="min-w-[800px]">
@@ -823,9 +812,9 @@ export default function Analytics() {
               placeholder="Choose a session to analyze..."
               options={[
                 ...(sessions?.items?.map((session: Session) => ({
-                  value: session.sessionId,
-                  label: session.sessionId,
-                  description: `${session.messageCount} messages - ${formatCost(session.totalCost || 0)}`,
+                  value: session.session_id,
+                  label: session.session_id,
+                  description: `${session.message_count} messages - ${formatCost(session.total_cost || 0)}`,
                 })) || []),
               ]}
               className="w-[300px]"
@@ -841,9 +830,7 @@ export default function Analytics() {
               </div>
             </div>
           ) : flowLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <ChartSkeleton height={600} />
           ) : conversationFlow ? (
             <div className="h-[600px] border dark:border-gray-700 rounded-lg relative overflow-hidden">
               <ConversationFlowVisualization data={conversationFlow} />
@@ -880,9 +867,7 @@ export default function Analytics() {
             </CardHeader>
             <CardContent>
               {tokenAnalyticsLoading ? (
-                <div className="flex h-64 items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
+                <ChartSkeleton height={256} />
               ) : tokenAnalyticsData ? (
                 <TokenUsageChart data={tokenAnalyticsData} groupBy="hour" />
               ) : (
@@ -902,9 +887,7 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 {tokenAnalyticsLoading ? (
-                  <div className="flex h-32 items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
+                  <ChartSkeleton height={128} />
                 ) : tokenAnalyticsData ? (
                   <TokenPercentileRibbon
                     percentiles={tokenAnalyticsData.percentiles}
@@ -983,9 +966,7 @@ export default function Analytics() {
         </CardHeader>
         <CardContent>
           {depthLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <ChartSkeleton height={256} />
           ) : depthData ? (
             <div className="space-y-6">
               {/* Top Row - Histogram and Correlations */}
@@ -1119,9 +1100,7 @@ export default function Analytics() {
         </CardHeader>
         <CardContent>
           {directoryLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <ChartSkeleton height={256} />
           ) : !directoryData ? (
             <div className="flex h-64 items-center justify-center text-muted-foreground">
               <div className="text-center">

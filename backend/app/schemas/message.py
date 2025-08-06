@@ -34,14 +34,8 @@ class Message(MessageBase):
     id: str = Field(alias="_id")
     created_at: datetime
 
-    # Additional fields for frontend compatibility
-    messageUuid: str | None = Field(default=None, alias="message_uuid")
-    sessionId: str | None = Field(default=None, alias="session_id_alias")
-    parentUuid: str | None = Field(default=None, alias="parent_uuid_alias")
-    totalCost: float | None = None
+    # Additional fields
     cost_usd: float | None = None
-    inputTokens: int | None = None
-    outputTokens: int | None = None
     usage: dict[str, Any] | None = None
 
     model_config = ConfigDict(populate_by_name=True)

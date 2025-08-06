@@ -21,6 +21,12 @@ ClaudeLens v0.1.0 is approaching its first stable release with comprehensive ana
 
 #### Enhanced User Interface
 - **Improved Search UI**: Enhanced search interface with advanced model filtering support ([cb0aab3](https://github.com/sjafferali/claudelens/commit/cb0aab3))
+- **Message Hierarchy Visualization**: Redesigned conversation UI with proper tool operation hierarchy and sidechain panel
+  - **Branch Navigation**: Interactive branch selection with "Branch X of Y" indicators and keyboard shortcuts
+  - **Tree View**: Visual conversation tree showing parent-child relationships and tool operations
+  - **Sidechain Panel**: Dedicated panel for tool operations grouped by parent message
+  - **Mini-Map Navigation**: Conversation overview with complexity metrics and click-to-navigate
+  - **Breadcrumb Navigation**: Clear path indicators showing current position in conversation hierarchy
 - **Responsive Design**: Optimized UI components for all screen sizes with improved accessibility
 - **Real-time Updates**: WebSocket-based live updates for session and global statistics
 - **Interactive Visualizations**: Advanced charts and graphs using Recharts and ReactFlow
@@ -40,6 +46,12 @@ ClaudeLens v0.1.0 is approaching its first stable release with comprehensive ana
 - **Cost Display**: Fixed message cost display and UI overflow issues ([f398f9c](https://github.com/sjafferali/claudelens/commit/f398f9c))
 
 #### Data Processing & UI Fixes
+- **Message Hierarchy Corrections**: Fixed tool message parent-child relationships and field naming consistency
+  - **Tool Message Parenting**: Corrected tool_use messages to be children of containing assistant messages
+  - **Tool Result Hierarchy**: Fixed tool_result messages to be children of corresponding tool_use messages
+  - **Field Name Consistency**: Updated frontend to use snake_case fields (parent_uuid, session_id) from API
+  - **Sidechain Detection**: Improved automatic detection and marking of tool operations as sidechains
+  - **Branch Detection**: Fixed false branch detection caused by tool messages
 - **Analytics Aggregation**: Corrected data aggregation issues in analytics and sync engine counting ([5d20ba8](https://github.com/sjafferali/claudelens/commit/5d20ba8))
 - **MongoDB Query Errors**: Improved database query reliability and error handling ([a06db66](https://github.com/sjafferali/claudelens/commit/a06db66))
 - **Session ID Resolution**: Fixed undefined session IDs in various components

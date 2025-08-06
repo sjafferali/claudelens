@@ -526,14 +526,14 @@ POST /api/v1/ingest/batch
     {
       "uuid": "msg_uuid_123",
       "type": "user",
-      "sessionId": "session_456",
+      "session_id": "session_456",      // snake_case field
       "timestamp": "2025-08-05T10:30:00Z",
       "message": {
         "content": "Hello, can you help me with Python?"
       },
-      "parentUuid": null,
+      "parent_uuid": null,              // snake_case field
       "model": null,
-      "costUsd": null
+      "cost_usd": null                  // snake_case field
     }
   ],
   "overwrite_mode": false
@@ -646,17 +646,20 @@ Comprehensive health check including database connectivity.
 #### Message Schema
 ```json
 {
-  "id": "string",              // Database ID
+  "_id": "string",             // Database ID
   "uuid": "string",            // Claude message UUID
-  "type": "user|assistant|summary",
-  "session_id": "string",
+  "parent_uuid": "string",     // Parent message UUID (snake_case)
+  "type": "user|assistant|tool_use|tool_result|summary",
+  "session_id": "string",      // Session identifier (snake_case)
   "content": "string",
   "timestamp": "datetime",
+  "created_at": "datetime",    // Creation timestamp (snake_case)
   "model": "string",
-  "cost_usd": "number",
+  "cost_usd": "number",        // Cost in USD (snake_case)
+  "isSidechain": "boolean",    // Sidechain flag for tool operations
   "usage": {
-    "input_tokens": "number",
-    "output_tokens": "number"
+    "input_tokens": "number",  // Token usage (snake_case)
+    "output_tokens": "number"  // Token usage (snake_case)
   },
   "tool_use": [
     {

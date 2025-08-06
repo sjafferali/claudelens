@@ -12,7 +12,7 @@ describe('Sidechain Filtering Utilities', () => {
   const mockMessages: Message[] = [
     {
       _id: '1',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-1',
       uuid: 'msg-1',
       type: 'user',
@@ -22,7 +22,7 @@ describe('Sidechain Filtering Utilities', () => {
     },
     {
       _id: '2',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-2',
       uuid: 'msg-2',
       type: 'tool_use',
@@ -31,23 +31,23 @@ describe('Sidechain Filtering Utilities', () => {
         input: { file_path: '/test.txt' },
       }),
       timestamp: '2024-01-01T10:01:00Z',
-      parentUuid: 'msg-1',
+      parent_uuid: 'msg-1',
       isSidechain: true,
     },
     {
       _id: '3',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-3',
       uuid: 'msg-3',
       type: 'tool_result',
       content: 'File contents here',
       timestamp: '2024-01-01T10:01:01Z',
-      parentUuid: 'msg-1',
+      parent_uuid: 'msg-1',
       isSidechain: true,
     },
     {
       _id: '4',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-4',
       uuid: 'msg-4',
       type: 'assistant',
@@ -57,24 +57,24 @@ describe('Sidechain Filtering Utilities', () => {
     },
     {
       _id: '5',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-5',
       uuid: 'msg-5',
       type: 'tool_use',
       content: JSON.stringify({ name: 'WebSearch', input: { query: 'test' } }),
       timestamp: '2024-01-01T10:03:00Z',
-      parentUuid: 'msg-4',
+      parent_uuid: 'msg-4',
       isSidechain: true,
     },
     {
       _id: '6',
-      sessionId: 'session-1',
+      session_id: 'session-1',
       messageUuid: 'msg-6',
       uuid: 'msg-6',
       type: 'tool_use',
       content: JSON.stringify({ name: 'Grep', input: { pattern: 'test' } }),
       timestamp: '2024-01-01T10:04:00Z',
-      parentUuid: 'msg-4',
+      parent_uuid: 'msg-4',
       isSidechain: true,
     },
   ];
@@ -92,7 +92,7 @@ describe('Sidechain Filtering Utilities', () => {
       const nonSidechains: Message[] = [
         {
           _id: '1',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'msg-1',
           uuid: 'msg-1',
           type: 'user',
@@ -109,7 +109,7 @@ describe('Sidechain Filtering Utilities', () => {
       const messagesWithUndefined: Message[] = [
         {
           _id: '1',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'msg-1',
           uuid: 'msg-1',
           type: 'user',
@@ -145,7 +145,7 @@ describe('Sidechain Filtering Utilities', () => {
         ...mockMessages,
         {
           _id: '7',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'msg-7',
           uuid: 'msg-7',
           type: 'tool_use',
@@ -175,7 +175,7 @@ describe('Sidechain Filtering Utilities', () => {
       const mixedMessages: Message[] = [
         {
           _id: '1',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'parent',
           uuid: 'parent',
           type: 'user',
@@ -184,24 +184,24 @@ describe('Sidechain Filtering Utilities', () => {
         },
         {
           _id: '2',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'child-1',
           uuid: 'child-1',
           type: 'assistant',
           content: 'Regular child',
           timestamp: '2024-01-01T10:01:00Z',
-          parentUuid: 'parent',
+          parent_uuid: 'parent',
           isSidechain: false,
         },
         {
           _id: '3',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'child-2',
           uuid: 'child-2',
           type: 'tool_use',
           content: 'Sidechain child',
           timestamp: '2024-01-01T10:02:00Z',
-          parentUuid: 'parent',
+          parent_uuid: 'parent',
           isSidechain: true,
         },
       ];
@@ -230,7 +230,7 @@ describe('Sidechain Filtering Utilities', () => {
       fileOps.forEach((op) => {
         const message: Message = {
           _id: '1',
-          sessionId: 's1',
+          session_id: 's1',
           messageUuid: 'm1',
           uuid: 'm1',
           type: 'tool_use',
@@ -249,7 +249,7 @@ describe('Sidechain Filtering Utilities', () => {
       searchOps.forEach((op) => {
         const message: Message = {
           _id: '1',
-          sessionId: 's1',
+          session_id: 's1',
           messageUuid: 'm1',
           uuid: 'm1',
           type: 'tool_use',
@@ -268,7 +268,7 @@ describe('Sidechain Filtering Utilities', () => {
       webOps.forEach((op) => {
         const message: Message = {
           _id: '1',
-          sessionId: 's1',
+          session_id: 's1',
           messageUuid: 'm1',
           uuid: 'm1',
           type: 'tool_use',
@@ -285,7 +285,7 @@ describe('Sidechain Filtering Utilities', () => {
     it('should identify errors', () => {
       const message: Message = {
         _id: '1',
-        sessionId: 's1',
+        session_id: 's1',
         messageUuid: 'm1',
         uuid: 'm1',
         type: 'tool_result',
@@ -301,7 +301,7 @@ describe('Sidechain Filtering Utilities', () => {
     it('should handle malformed JSON gracefully', () => {
       const message: Message = {
         _id: '1',
-        sessionId: 's1',
+        session_id: 's1',
         messageUuid: 'm1',
         uuid: 'm1',
         type: 'tool_use',
@@ -316,7 +316,7 @@ describe('Sidechain Filtering Utilities', () => {
     it('should default to tool type for tool_result', () => {
       const message: Message = {
         _id: '1',
-        sessionId: 's1',
+        session_id: 's1',
         messageUuid: 'm1',
         uuid: 'm1',
         type: 'tool_result',
@@ -361,7 +361,7 @@ describe('Sidechain Filtering Utilities', () => {
       const nonSidechains: Message[] = [
         {
           _id: '1',
-          sessionId: 'session-1',
+          session_id: 'session-1',
           messageUuid: 'msg-1',
           uuid: 'msg-1',
           type: 'user',

@@ -17,25 +17,25 @@ export const messageFieldMap: Record<string, string> = {
 /**
  * Convert a message object from camelCase to snake_case
  */
-export function toSnakeCase<T extends Record<string, any>>(obj: T): T {
-  const result: any = {};
+export function toSnakeCase<T extends Record<string, unknown>>(obj: T): T {
+  const result: Record<string, unknown> = {};
 
   for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const snakeKey = messageFieldMap[key] || key;
       result[snakeKey] = obj[key];
     }
   }
 
-  return result;
+  return result as T;
 }
 
 /**
  * Convert a message object from snake_case to camelCase
  * This is primarily for backward compatibility
  */
-export function toCamelCase<T extends Record<string, any>>(obj: T): T {
-  const result: any = {};
+export function toCamelCase<T extends Record<string, unknown>>(obj: T): T {
+  const result: Record<string, unknown> = {};
   const reverseMap: Record<string, string> = {};
 
   // Create reverse mapping
@@ -44,13 +44,13 @@ export function toCamelCase<T extends Record<string, any>>(obj: T): T {
   }
 
   for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const camelKey = reverseMap[key] || key;
       result[camelKey] = obj[key];
     }
   }
 
-  return result;
+  return result as T;
 }
 
 /**

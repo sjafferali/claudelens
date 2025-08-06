@@ -34,9 +34,9 @@ All messages (except summaries) share these common fields:
 ```json
 {
   "uuid": "unique-message-id",
-  "parentUuid": "parent-message-id or null",
-  "sessionId": "session-identifier",
-  "type": "user|assistant|summary",
+  "parent_uuid": "parent-message-id or null",  // snake_case in API responses
+  "session_id": "session-identifier",          // snake_case in API responses
+  "type": "user|assistant|tool_use|tool_result|summary",
   "timestamp": "2025-08-02T04:52:07.349Z",
   "isSidechain": false,
   "userType": "external",
@@ -259,7 +259,7 @@ Tool operations are embedded within assistant message content blocks, not as sep
 ```json
 {
   "type": "assistant",
-  "parentUuid": "previous-assistant-uuid",  // Forms assistant chains
+  "parent_uuid": "previous-assistant-uuid",  // Forms assistant chains (snake_case)
   "message": {
     "content": [
       {
@@ -281,7 +281,7 @@ Tool operations are embedded within assistant message content blocks, not as sep
 {
   "type": "assistant",
   "uuid": "assistant-msg-789",
-  "parentUuid": "assistant-msg-456",  // Chain of assistant messages
+  "parent_uuid": "assistant-msg-456",  // Chain of assistant messages (snake_case)
   "message": {
     "content": [
       {
@@ -300,8 +300,9 @@ Tool operations are embedded within assistant message content blocks, not as sep
 
 **Important Notes:**
 - Tool operations create **chains of assistant messages**
-- Each assistant with tool_use has parentUuid pointing to the previous assistant
-- During ingest, tool_use blocks are extracted as separate messages
+- Each assistant with tool_use has parent_uuid pointing to the previous assistant (snake_case)
+- During ingest, tool_use blocks are extracted as separate tool_use and tool_result messages
+- Extracted tool messages have proper parent_uuid relationships: Assistant → Tool Use → Tool Result
 - See [message-hierarchy-structure.md](./message-hierarchy-structure.md) for extraction details
 
 **When Generated:** When Claude decides to use a tool, creating an assistant message chain.
@@ -443,7 +444,9 @@ When the backend ingests an assistant message with tool_use content blocks:
 2. Each tool_use block is extracted as a separate `type: "tool_use"` message
 3. Tool results are stored as `type: "tool_result"` messages
 4. Extracted messages are marked with `isSidechain: true`
-5. Parent relationships are set: Assistant → tool_use → tool_result
+5. Parent relationships use snake_case field names and correct hierarchy:
+   - Tool Use: `parent_uuid` points to containing Assistant message
+   - Tool Result: `parent_uuid` points to corresponding Tool Use message
 
 **Example of Extracted Tool Messages:**
 ```json
@@ -451,7 +454,7 @@ When the backend ingests an assistant message with tool_use content blocks:
 {
   "type": "assistant",
   "uuid": "assistant-msg-789",
-  "parentUuid": "assistant-msg-456"
+  "parent_uuid": "assistant-msg-456"  // snake_case field name
   // ... contains tool_use in content
 }
 
@@ -459,7 +462,7 @@ When the backend ingests an assistant message with tool_use content blocks:
 {
   "type": "tool_use",
   "uuid": "assistant-msg-789_tool_0",
-  "parentUuid": "assistant-msg-789",  // Points to containing assistant
+  "parent_uuid": "assistant-msg-789",  // Points to containing assistant (snake_case)
   "isSidechain": true,
   "content": "{\"type\": \"tool_use\", \"name\": \"Read\", ...}"
 }
@@ -468,7 +471,7 @@ When the backend ingests an assistant message with tool_use content blocks:
 {
   "type": "tool_result",
   "uuid": "assistant-msg-789_result_0",
-  "parentUuid": "assistant-msg-789_tool_0",  // Points to tool_use
+  "parent_uuid": "assistant-msg-789_tool_0",  // Points to tool_use (snake_case)
   "isSidechain": true,
   "content": "File contents..."
 }
@@ -498,8 +501,8 @@ When the backend ingests an assistant message with tool_use content blocks:
 2. **JSONL Storage**: Message is appended to the appropriate project/session JSONL file
 3. **CLI Sync**: The CLI tool reads these JSONL files and syncs to the backend
 4. **Tool Extraction**: Backend extracts tool_use blocks from assistant messages:
-   - Creates separate tool_use messages with parentUuid pointing to assistant
-   - Creates tool_result messages with parentUuid pointing to tool_use
+   - Creates separate tool_use messages with parent_uuid pointing to assistant (snake_case)
+   - Creates tool_result messages with parent_uuid pointing to tool_use (snake_case)
    - Marks extracted messages with isSidechain: true
 5. **Backend Processing**: Messages are validated, deduplicated, and stored in MongoDB
 6. **Session Management**: Sessions and projects are automatically created/updated based on message metadata
@@ -508,14 +511,16 @@ When the backend ingests an assistant message with tool_use content blocks:
 ## Usage Notes
 
 - Messages are immutable once created
-- Parent-child relationships form conversation threads
+- Parent-child relationships form conversation threads using snake_case field names
 - Assistant messages with tool_use form chains (not siblings)
-- Tool operations are extracted during ingest, not stored as separate messages in raw data
+- Tool operations are extracted during ingest with proper parent_uuid hierarchy:
+  - Tool Use messages: parent_uuid points to containing Assistant
+  - Tool Result messages: parent_uuid points to corresponding Tool Use
 - Tool results are always paired with their invocation
 - Summaries are generated for completed conversations
 - All timestamps are in ISO 8601 format with timezone
-- API returns snake_case field names (parent_uuid, session_id, cost_usd)
-- Frontend should use snake_case to match API responses
+- API returns snake_case field names (parent_uuid, session_id, cost_usd, created_at)
+- Frontend uses snake_case fields to match API responses
 
 ## Related Documentation
 

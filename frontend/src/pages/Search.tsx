@@ -8,6 +8,11 @@ import {
   User,
   Code2,
   Filter,
+  Regex,
+  Type,
+  AlertCircle,
+  HelpCircle,
+  Copy,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
@@ -28,6 +33,64 @@ import {
 import { useAvailableModels } from '@/hooks/useModels';
 import { SearchFilters, SearchResult } from '@/api/search';
 import { formatDistanceToNow } from 'date-fns';
+import {
+  SearchResultSkeleton,
+  ListSkeleton,
+} from '@/components/common/LoadingSkeleton';
+
+// Common regex patterns for quick access
+const REGEX_PATTERNS = [
+  {
+    name: 'Function definitions',
+    pattern: '\\b(function|def|func)\\s+\\w+',
+    description: 'Match function declarations',
+  },
+  {
+    name: 'Import statements',
+    pattern: '^(import|from|require)\\s+.+',
+    description: 'Match import/require statements',
+  },
+  {
+    name: 'URLs',
+    pattern: 'https?://[^\\s]+',
+    description: 'Match HTTP/HTTPS URLs',
+  },
+  {
+    name: 'Email addresses',
+    pattern: '[\\w\\.]+@[\\w\\.]+',
+    description: 'Match email addresses',
+  },
+  {
+    name: 'Code comments',
+    pattern: '(//.*|/\\*.*\\*/|#.*)',
+    description: 'Match code comments',
+  },
+  {
+    name: 'Error messages',
+    pattern: '(error|exception|failed|failure)\\s*:?.*',
+    description: 'Match error-related text',
+  },
+  {
+    name: 'API endpoints',
+    pattern: '/(api|v\\d+)/[\\w/]+',
+    description: 'Match API endpoint paths',
+  },
+  {
+    name: 'Variable declarations',
+    pattern: '\\b(var|let|const|my|local)\\s+\\w+',
+    description: 'Match variable declarations',
+  },
+  {
+    name: 'Class definitions',
+    pattern: '\\bclass\\s+\\w+',
+    description: 'Match class declarations',
+  },
+  {
+    name: 'Hex colors',
+    pattern: '#[0-9a-fA-F]{3,6}\\b',
+    description: 'Match hex color codes',
+  },
+];
 
 export default function Search() {
   const navigate = useNavigate();
@@ -36,6 +99,94 @@ export default function Search() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({});
   const [allResults, setAllResults] = useState<SearchResult[]>([]);
+  const [isRegexMode, setIsRegexMode] = useState(false);
+  const [regexError, setRegexError] = useState<string | null>(null);
+  const [showRegexHelper, setShowRegexHelper] = useState(false);
+  const [regexHistory, setRegexHistory] = useState<string[]>([]);
+  const [showRegexTester, setShowRegexTester] = useState(false);
+  const [testText, setTestText] = useState(
+    'Sample text to test your regex pattern.\nYou can include function definitions, import statements,\nerror messages, or any other text you want to search for.'
+  );
+
+  // Load regex history from localStorage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('regexSearchHistory');
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        if (Array.isArray(parsed)) {
+          setRegexHistory(parsed.slice(0, 10)); // Keep only last 10 patterns
+        }
+      } catch (e) {
+        console.error('Failed to parse regex history:', e);
+      }
+    }
+  }, []);
+
+  // Save regex pattern to history
+  const saveToRegexHistory = (pattern: string) => {
+    if (!pattern || pattern.trim().length === 0) return;
+
+    // Remove duplicates and add to beginning
+    const newHistory = [
+      pattern,
+      ...regexHistory.filter((p) => p !== pattern),
+    ].slice(0, 10);
+    setRegexHistory(newHistory);
+    localStorage.setItem('regexSearchHistory', JSON.stringify(newHistory));
+  };
+
+  // Clear regex history
+  const clearRegexHistory = () => {
+    setRegexHistory([]);
+    localStorage.removeItem('regexSearchHistory');
+  };
+
+  // Test regex pattern and get highlighted result
+  const getHighlightedTestText = () => {
+    if (!query || !isRegexMode || regexError) {
+      return testText;
+    }
+
+    try {
+      const regex = new RegExp(query, 'gi');
+      const matches = testText.match(regex);
+
+      if (!matches) {
+        return testText;
+      }
+
+      // Replace matches with highlighted version
+      let highlightedText = testText;
+      const uniqueMatches = [...new Set(matches)];
+
+      uniqueMatches.forEach((match) => {
+        const escapedMatch = match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const matchRegex = new RegExp(escapedMatch, 'gi');
+        highlightedText = highlightedText.replace(
+          matchRegex,
+          `<mark class="bg-yellow-400 dark:bg-yellow-600 text-black dark:text-black font-bold px-1 rounded">${match}</mark>`
+        );
+      });
+
+      return highlightedText;
+    } catch (e) {
+      return testText;
+    }
+  };
+
+  // Count regex matches in test text
+  const countMatches = () => {
+    if (!query || !isRegexMode || regexError) return 0;
+
+    try {
+      const regex = new RegExp(query, 'gi');
+      const matches = testText.match(regex);
+      return matches ? matches.length : 0;
+    } catch (e) {
+      return 0;
+    }
+  };
 
   // Count active filters
   const activeFilterCount = useMemo(() => {
@@ -87,6 +238,19 @@ export default function Search() {
     e?.preventDefault();
     if (!query.trim()) return;
 
+    // Validate regex if in regex mode
+    if (isRegexMode) {
+      try {
+        new RegExp(query);
+        setRegexError(null);
+        // Save valid regex pattern to history
+        saveToRegexHistory(query.trim());
+      } catch (error) {
+        setRegexError('Invalid regex pattern: ' + (error as Error).message);
+        return;
+      }
+    }
+
     setShowSuggestions(false);
     setAllResults([]); // Clear previous results
     searchMutation.mutate({
@@ -94,6 +258,7 @@ export default function Search() {
       filters,
       limit: 20,
       highlight: true,
+      is_regex: isRegexMode,
     });
   };
 
@@ -106,6 +271,7 @@ export default function Search() {
       filters,
       limit: 20,
       highlight: true,
+      is_regex: isRegexMode,
     });
   };
 
@@ -181,6 +347,286 @@ export default function Search() {
         <CardContent>
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="relative">
+              <div className="flex gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegexMode(false);
+                    setRegexError(null);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors ${
+                    !isRegexMode
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover:bg-accent'
+                  }`}
+                  title="Text search mode"
+                >
+                  <Type className="h-4 w-4" />
+                  <span className="text-sm">Text</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegexMode(true);
+                    setShowSuggestions(false);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors ${
+                    isRegexMode
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover:bg-accent'
+                  }`}
+                  title="Regular expression mode"
+                >
+                  <Regex className="h-4 w-4" />
+                  <span className="text-sm">Regex</span>
+                </button>
+
+                {/* Regex Helper Buttons */}
+                {isRegexMode && (
+                  <div className="flex gap-2 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRegexHelper(!showRegexHelper);
+                        setShowRegexTester(false);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors ${
+                        showRegexHelper
+                          ? 'bg-accent'
+                          : 'bg-muted hover:bg-accent'
+                      }`}
+                      title="Regex pattern help"
+                    >
+                      <HelpCircle className="h-4 w-4" />
+                      <span className="text-sm">Pattern Help</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRegexTester(!showRegexTester);
+                        setShowRegexHelper(false);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors ${
+                        showRegexTester
+                          ? 'bg-accent'
+                          : 'bg-muted hover:bg-accent'
+                      }`}
+                      title="Test regex pattern"
+                    >
+                      <Code2 className="h-4 w-4" />
+                      <span className="text-sm">Test Pattern</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Regex Helper Dropdown */}
+              {isRegexMode && showRegexHelper && (
+                <div className="mb-4 p-4 bg-muted/50 rounded-lg border border-border">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold text-sm">
+                      Regex Pattern Helper
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowRegexHelper(false)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {/* Recent Regex Patterns */}
+                  {regexHistory.length > 0 && (
+                    <div className="mb-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h5 className="font-medium text-sm text-muted-foreground">
+                          Recent Patterns
+                        </h5>
+                        <button
+                          type="button"
+                          onClick={clearRegexHistory}
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {regexHistory.map((pattern, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => {
+                              setQuery(pattern);
+                              setRegexError(null);
+                            }}
+                            className="px-2 py-1 bg-background hover:bg-accent rounded text-xs font-mono truncate max-w-[200px] border border-border"
+                            title={pattern}
+                          >
+                            {pattern}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <h5 className="font-medium text-sm text-muted-foreground mb-2">
+                    Common Patterns
+                  </h5>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+                    {REGEX_PATTERNS.map((pattern) => (
+                      <div
+                        key={pattern.name}
+                        className="flex items-center justify-between p-2 bg-background rounded hover:bg-accent group cursor-pointer"
+                        onClick={() => {
+                          setQuery(pattern.pattern);
+                          setRegexError(null);
+                        }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">
+                            {pattern.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {pattern.description}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(pattern.pattern);
+                          }}
+                          className="ml-2 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Copy pattern"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="text-xs text-muted-foreground">
+                    <div className="font-semibold mb-1">Quick Reference:</div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <div>
+                        <code className="bg-background px-1 rounded">.</code> -
+                        Any character
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">*</code> -
+                        Zero or more
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">+</code> -
+                        One or more
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">?</code> -
+                        Zero or one
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">^</code> -
+                        Start of line
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">$</code> -
+                        End of line
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">\b</code> -
+                        Word boundary
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">\w</code> -
+                        Word character
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">\d</code> -
+                        Digit
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">\s</code> -
+                        Whitespace
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">
+                          [abc]
+                        </code>{' '}
+                        - Character set
+                      </div>
+                      <div>
+                        <code className="bg-background px-1 rounded">
+                          (a|b)
+                        </code>{' '}
+                        - Alternation
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Regex Tester */}
+              {isRegexMode && showRegexTester && (
+                <div className="mb-4 p-4 bg-muted/50 rounded-lg border border-border">
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-sm">
+                        Test Your Pattern
+                      </h4>
+                      {query && !regexError && (
+                        <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded">
+                          {countMatches()} match
+                          {countMatches() !== 1 ? 'es' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowRegexTester(false)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">
+                        Test Text (editable)
+                      </label>
+                      <textarea
+                        value={testText}
+                        onChange={(e) => setTestText(e.target.value)}
+                        className="w-full h-32 p-2 bg-background border border-input rounded text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                        placeholder="Enter text to test your regex pattern..."
+                      />
+                    </div>
+
+                    {query && !regexError && (
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">
+                          Preview with Highlights
+                        </label>
+                        <div
+                          className="p-2 bg-background border border-input rounded text-sm font-mono whitespace-pre-wrap break-words max-h-32 overflow-auto"
+                          dangerouslySetInnerHTML={{
+                            __html: getHighlightedTestText(),
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {!query && (
+                      <div className="text-sm text-muted-foreground text-center py-4">
+                        Enter a regex pattern above to see matches highlighted
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <div className="relative flex-1">
                   <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -189,15 +635,47 @@ export default function Search() {
                     value={query}
                     onChange={(e) => {
                       setQuery(e.target.value);
-                      setShowSuggestions(true);
+                      if (!isRegexMode) {
+                        setShowSuggestions(true);
+                      }
+                      // Validate regex on change
+                      if (isRegexMode && e.target.value) {
+                        try {
+                          new RegExp(e.target.value);
+                          setRegexError(null);
+                        } catch (error) {
+                          setRegexError(
+                            'Invalid pattern: ' + (error as Error).message
+                          );
+                        }
+                      } else {
+                        setRegexError(null);
+                      }
                     }}
-                    onFocus={() => setShowSuggestions(true)}
-                    placeholder="Search for messages, code, or topics..."
-                    className="pl-10 pr-4 py-2 w-full bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                    onFocus={() => !isRegexMode && setShowSuggestions(true)}
+                    placeholder={
+                      isRegexMode
+                        ? 'Enter regex pattern...'
+                        : 'Search for messages, code, or topics...'
+                    }
+                    className={`pl-10 pr-4 py-2 w-full bg-background border rounded-md focus:outline-none focus:ring-2 ${
+                      regexError
+                        ? 'border-destructive focus:ring-destructive'
+                        : 'border-input focus:ring-ring'
+                    }`}
                   />
 
-                  {/* Suggestions dropdown */}
-                  {showSuggestions &&
+                  {/* Error message for invalid regex */}
+                  {regexError && (
+                    <div className="absolute top-full left-0 mt-1 flex items-center gap-2 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{regexError}</span>
+                    </div>
+                  )}
+
+                  {/* Suggestions dropdown (not shown in regex mode) */}
+                  {!isRegexMode &&
+                    showSuggestions &&
                     ((suggestions && suggestions.length > 0) ||
                       (recentSearches &&
                         recentSearches.length > 0 &&
@@ -443,9 +921,11 @@ export default function Search() {
           )}
 
           {searchMutation.isPending && (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <ListSkeleton
+              items={5}
+              component={SearchResultSkeleton}
+              className="py-4"
+            />
           )}
 
           {searchMutation.isError && (
@@ -549,6 +1029,7 @@ export default function Search() {
                           skip: allResults.length,
                           limit: 20,
                           highlight: true,
+                          is_regex: isRegexMode,
                         });
                       }}
                       disabled={searchMutation.isPending}

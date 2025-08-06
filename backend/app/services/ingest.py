@@ -383,8 +383,8 @@ class IngestService:
                 if text_parts:
                     all_parts.extend(text_parts)
 
-                # If no text content but has tool uses, add a more detailed summary
-                if not all_parts and tool_use_parts:
+                # Add tool use summaries if there are tool uses
+                if tool_use_parts:
                     tool_summaries = []
                     for tool_part in tool_use_parts:
                         tool_name = tool_part.get("name", "Unknown")
@@ -464,20 +464,30 @@ class IngestService:
                 docs.append(main_doc)
 
                 # Create separate tool_use messages
+                logger.info(
+                    f"Creating {len(tool_use_parts)} tool_use messages from assistant message {message.uuid}"
+                )
                 for i, tool_part in enumerate(tool_use_parts):
+                    tool_uuid = f"{message.uuid}_tool_{i}"
                     tool_doc = {
                         "_id": ObjectId(),
-                        "uuid": f"{message.uuid}_tool_{i}",
+                        "uuid": tool_uuid,
                         "sessionId": session_id,
                         "type": "tool_use",
                         "timestamp": message.timestamp,
-                        "parentUuid": message.parentUuid,
+                        "parentUuid": message.uuid,  # Parent is the assistant message
+                        "isSidechain": True,  # Mark tool messages as sidechains
                         "createdAt": datetime.now(UTC),
                     }
 
                     # Store tool use content as JSON
                     tool_doc["content"] = json.dumps(tool_part, ensure_ascii=False)
                     tool_doc["messageData"] = tool_part
+
+                    tool_name = tool_part.get("name", "Unknown")
+                    logger.debug(
+                        f"Created tool_use message {tool_uuid} for tool '{tool_name}' with parent {message.uuid}"
+                    )
 
                     # Add optional fields (but exclude costUsd for tool messages)
                     self._add_optional_fields(tool_doc, message, exclude_cost=True)
@@ -531,16 +541,26 @@ class IngestService:
                     docs.append(main_doc)
 
                 # Create separate tool_result messages
+                logger.info(
+                    f"Creating {len(tool_result_parts)} tool_result messages from user message {message.uuid}"
+                )
                 for i, result_part in enumerate(tool_result_parts):
+                    result_uuid = f"{message.uuid}_result_{i}"
+                    parent_tool_uuid = f"{message.parentUuid}_tool_{i}"
                     result_doc = {
                         "_id": ObjectId(),
-                        "uuid": f"{message.uuid}_result_{i}",
+                        "uuid": result_uuid,
                         "sessionId": session_id,
                         "type": "tool_result",
                         "timestamp": message.timestamp,
-                        "parentUuid": message.parentUuid,
+                        "parentUuid": parent_tool_uuid,  # Parent is the corresponding tool_use message
+                        "isSidechain": True,  # Mark tool result messages as sidechains
                         "createdAt": datetime.now(UTC),
                     }
+
+                    logger.debug(
+                        f"Created tool_result message {result_uuid} with parent {parent_tool_uuid}"
+                    )
 
                     # Extract tool result content
                     tool_content = result_part.get("content", "")
@@ -705,6 +725,9 @@ class IngestService:
         for field in optional_fields:
             value = getattr(message, field, None)
             if value is not None:
+                # Don't overwrite manually set isSidechain for tool messages
+                if field == "isSidechain" and "isSidechain" in doc:
+                    continue
                 doc[field] = value
 
         # Handle costUsd - calculate if not provided but we have usage data
@@ -828,14 +851,30 @@ class IngestService:
                 },
             )
 
-            # Generate summary if session doesn't have one yet
+            # Extract summary from messages if available, or generate if needed
             if update_result.modified_count > 0:
                 session = await self.db.sessions.find_one({"sessionId": session_id})
                 if session and not session.get("summary"):
-                    from .session import SessionService
+                    # First, try to find a summary in the messages
+                    message_with_summary = await self.db.messages.find_one(
+                        {
+                            "sessionId": session_id,
+                            "summary": {"$exists": True, "$ne": None},
+                        }
+                    )
 
-                    session_service = SessionService(self.db)
-                    await session_service.generate_summary(str(session["_id"]))
+                    if message_with_summary and message_with_summary.get("summary"):
+                        # Extract summary from message and store it on the session
+                        await self.db.sessions.update_one(
+                            {"sessionId": session_id},
+                            {"$set": {"summary": message_with_summary["summary"]}},
+                        )
+                    else:
+                        # Fallback to generating summary
+                        from .session import SessionService
+
+                        session_service = SessionService(self.db)
+                        await session_service.generate_summary(str(session["_id"]))
 
     async def _log_ingestion(self, stats: IngestStats) -> None:
         """Log ingestion statistics."""

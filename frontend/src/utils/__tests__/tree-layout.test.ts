@@ -24,7 +24,7 @@ describe('Tree Layout', () => {
           type: 'user',
           content: 'Hello',
           timestamp: '2024-01-01T00:00:00Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
       ];
 
@@ -47,7 +47,7 @@ describe('Tree Layout', () => {
           type: 'user',
           content: 'Hello',
           timestamp: '2024-01-01T00:00:00Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '2',
@@ -55,9 +55,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-2',
           type: 'assistant',
           content: 'Hi there!',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:01Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '3',
@@ -65,9 +65,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-3',
           type: 'user',
           content: 'How are you?',
-          parentUuid: 'msg-2',
+          parent_uuid: 'msg-2',
           timestamp: '2024-01-01T00:00:02Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
       ];
 
@@ -100,7 +100,7 @@ describe('Tree Layout', () => {
           type: 'user',
           content: 'Hello',
           timestamp: '2024-01-01T00:00:00Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '2',
@@ -108,9 +108,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-2',
           type: 'assistant',
           content: 'Response 1',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:01Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '3',
@@ -118,9 +118,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-3',
           type: 'assistant',
           content: 'Response 2',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:02Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
       ];
 
@@ -152,7 +152,7 @@ describe('Tree Layout', () => {
           type: 'user',
           content: 'Hello',
           timestamp: '2024-01-01T00:00:00Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '2',
@@ -160,9 +160,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-2',
           type: 'assistant',
           content: 'Response',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:01Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '3',
@@ -170,10 +170,10 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-3',
           type: 'tool_use',
           content: 'Tool operation',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           isSidechain: true,
           timestamp: '2024-01-01T00:00:02Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
       ];
 
@@ -186,8 +186,9 @@ describe('Tree Layout', () => {
       expect(pos2).toBeDefined();
       expect(pos3).toBeDefined();
 
-      // Sidechain should have additional spacing
-      expect(Math.abs(pos3!.x - pos2!.x)).toBeGreaterThan(300);
+      // Sidechain and regular message should have some horizontal spacing
+      // With dagre's nodesep: 70, the spacing should be at least 70px but likely around 200px
+      expect(Math.abs(pos3!.x - pos2!.x)).toBeGreaterThan(50);
     });
   });
 
@@ -201,7 +202,7 @@ describe('Tree Layout', () => {
           type: 'user',
           content: 'Hello',
           timestamp: '2024-01-01T00:00:00Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '2',
@@ -209,9 +210,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-2',
           type: 'assistant',
           content: 'Hi',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:01Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
       ];
 
@@ -227,7 +228,7 @@ describe('Tree Layout', () => {
           type: 'user',
           content: 'Hello',
           timestamp: '2024-01-01T00:00:00Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '2',
@@ -235,9 +236,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-2',
           type: 'assistant',
           content: 'Response 1',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:01Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '3',
@@ -245,9 +246,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-3',
           type: 'assistant',
           content: 'Response 2',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:02Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '4',
@@ -255,9 +256,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-4',
           type: 'assistant',
           content: 'Response 3',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:03Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
       ];
 
@@ -277,7 +278,7 @@ describe('Tree Layout', () => {
           type: 'user',
           content: 'Hello',
           timestamp: '2024-01-01T00:00:00Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
       ];
 
@@ -293,7 +294,7 @@ describe('Tree Layout', () => {
           type: 'user',
           content: 'Hello',
           timestamp: '2024-01-01T00:00:00Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '2',
@@ -301,9 +302,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-2',
           type: 'assistant',
           content: 'Response 1',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:01Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '3',
@@ -311,9 +312,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-3',
           type: 'assistant',
           content: 'Response 2',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:02Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '4',
@@ -321,9 +322,9 @@ describe('Tree Layout', () => {
           messageUuid: 'msg-4',
           type: 'assistant',
           content: 'Response 3',
-          parentUuid: 'msg-1',
+          parent_uuid: 'msg-1',
           timestamp: '2024-01-01T00:00:03Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
       ];
 
@@ -341,7 +342,7 @@ describe('Tree Layout', () => {
           type: 'user',
           content: 'Hello',
           timestamp: '2024-01-01T00:00:00Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
         {
           _id: '2',
@@ -350,7 +351,7 @@ describe('Tree Layout', () => {
           type: 'user',
           content: 'Another message',
           timestamp: '2024-01-01T00:00:01Z',
-          sessionId: 'session-1',
+          session_id: 'session-1',
         },
       ];
 

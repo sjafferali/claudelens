@@ -524,15 +524,15 @@ function ProjectDetail({ projectId }: { projectId: string }) {
                   <div className="space-y-1 flex-1">
                     <p className="font-medium">{getSessionTitle(session)}</p>
                     <p className="text-sm text-muted-foreground">
-                      {session.messageCount} messages •
-                      {formatDistanceToNow(new Date(session.startedAt), {
+                      {session.message_count} messages •
+                      {formatDistanceToNow(new Date(session.started_at), {
                         addSuffix: true,
                       })}
                     </p>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {session.totalCost
-                      ? `$${session.totalCost.toFixed(2)}`
+                    {session.total_cost
+                      ? `$${session.total_cost.toFixed(2)}`
                       : 'N/A'}
                   </div>
                 </div>

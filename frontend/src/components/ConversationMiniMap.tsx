@@ -57,7 +57,7 @@ export function ConversationMiniMap({
     // First pass: create nodes and build parent-child relationships
     messages.forEach((msg) => {
       const msgId = msg.uuid || msg.messageUuid || msg._id;
-      const parentId = msg.parentUuid;
+      const parentId = msg.parent_uuid;
 
       // Initialize children array for this node
       if (!childrenMap.has(msgId)) {
@@ -80,7 +80,7 @@ export function ConversationMiniMap({
     // Find root messages (no parent)
     messages.forEach((msg) => {
       const msgId = msg.uuid || msg.messageUuid || msg._id;
-      const parentId = msg.parentUuid;
+      const parentId = msg.parent_uuid;
       if (!parentId) {
         queue.push({ id: msgId, depth: 0 });
       }
@@ -120,7 +120,7 @@ export function ConversationMiniMap({
 
     messages.forEach((msg) => {
       const msgId = msg.uuid || msg.messageUuid || msg._id;
-      const parentId = msg.parentUuid;
+      const parentId = msg.parent_uuid;
 
       // Find depth for this node
       let nodeDepth = 0;

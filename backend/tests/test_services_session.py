@@ -313,8 +313,9 @@ class TestSessionService:
         assert messages[0].content == "Hello from message field"  # From message.content
         assert messages[1].content == "Direct content field"  # From direct content
         assert messages[1].cost_usd == 0.001
-        assert messages[1].inputTokens == 10
-        assert messages[1].outputTokens == 5
+        assert messages[1].usage is not None
+        assert messages[1].usage["input_tokens"] == 10
+        assert messages[1].usage["output_tokens"] == 5
 
     @pytest.mark.asyncio
     async def test_generate_summary_with_user_message(self, session_service, mock_db):
@@ -386,7 +387,7 @@ class TestSessionService:
         summary = await session_service.generate_summary(session_id)
 
         # Assert
-        assert len(summary) == 100  # Should be truncated to 97 + "..."
+        assert len(summary) == 200  # Should be truncated to 197 + "..."
         assert summary.endswith("...")
 
     @pytest.mark.asyncio

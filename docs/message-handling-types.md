@@ -23,7 +23,7 @@ User → Assistant → User → Assistant → ...
 ```
 
 **Characteristics:**
-- Sequential `parentUuid` chains
+- Sequential `parent_uuid` chains (using snake_case field naming)
 - Single conversation thread
 - No branching or alternatives
 - Straightforward navigation
@@ -45,8 +45,8 @@ User →   ├→ Assistant v2 → Different continuation...
 ```
 
 **Characteristics:**
-- Multiple messages share same `parentUuid`
-- Same `sessionId` for all branches
+- Multiple messages share same `parent_uuid` (using snake_case field naming)
+- Same `session_id` for all branches
 - Created through regeneration or alternative approaches
 - Maximum observed branching factor: 5
 
@@ -68,7 +68,7 @@ User →   ├→ Assistant v2 → Different continuation...
 // Branch 1
 {
   "uuid": "branch-1",
-  "parentUuid": "parent-123",
+  "parent_uuid": "parent-123",
   "type": "assistant",
   "content": "Technical explanation...",
   "timestamp": "2025-08-05T10:00:00Z"
@@ -77,7 +77,7 @@ User →   ├→ Assistant v2 → Different continuation...
 // Branch 2 (regenerated)
 {
   "uuid": "branch-2",
-  "parentUuid": "parent-123",  // Same parent
+  "parent_uuid": "parent-123",  // Same parent
   "type": "assistant",
   "content": "Simplified explanation...",
   "timestamp": "2025-08-05T10:00:30Z"
@@ -87,7 +87,7 @@ User →   ├→ Assistant v2 → Different continuation...
 ### 3. Tool Operations and Sidechains
 **Tool operations extracted from assistant messages**
 
-Tool operations in Claude are embedded within assistant messages and extracted during ingest as separate tool_use and tool_result messages marked as sidechains.
+Tool operations in Claude are embedded within assistant messages and extracted during ingest as separate tool_use and tool_result messages marked as sidechains. The frontend automatically treats both messages with `isSidechain: true` AND messages with `type: "tool_use"` or `type: "tool_result"` as sidechains.
 
 ```
 User → Assistant (initial response)
@@ -99,9 +99,11 @@ User → Assistant (initial response)
 
 **Characteristics:**
 - Tool operations are embedded in assistant message content blocks
-- Extracted as separate messages during ingest
-- Marked with `isSidechain: true` for UI grouping
-- Parent-child chain: Assistant → Tool Use → Tool Result
+- Extracted as separate messages during ingest with correct `parent_uuid` relationships
+- Tool Use messages have `parent_uuid` pointing to containing Assistant message
+- Tool Result messages have `parent_uuid` pointing to corresponding Tool Use message
+- Marked with `isSidechain: true` for UI grouping (but UI also recognizes tool_use/tool_result types)
+- Proper parent-child hierarchy: Assistant → Tool Use → Tool Result
 
 **Use Cases:**
 - File operations (Read, Write, Edit)
@@ -138,9 +140,9 @@ User → Assistant → User  →→→  User (continues from fork point)
 **Theoretical Data Structure:**
 ```json
 {
-  "sessionId": "new-session-xyz",    // NEW session
+  "session_id": "new-session-xyz",    // NEW session
   "uuid": "fork-msg-1",
-  "parentUuid": "original-msg-456",  // From different session
+  "parent_uuid": "original-msg-456",  // From different session
   "forkedFrom": "original-session-abc",
   "type": "user",
   "message": {
@@ -215,15 +217,15 @@ Based on analysis of the Claude data directory:
 
 ### For Backend Development
 1. **Tool Extraction**: Extract tool_use blocks from assistant messages during ingest
-2. **Parent Assignment**: Set correct parentUuid for extracted tool messages
-3. **Field Naming**: Ensure API returns camelCase fields (parentUuid, not parent_uuid)
+2. **Parent Assignment**: Set correct parent_uuid for extracted tool messages (tool_use → assistant, tool_result → tool_use)
+3. **Field Naming**: API returns snake_case fields (parent_uuid, session_id, cost_usd, created_at)
 4. **Sidechain Marking**: Automatically mark tool_use/tool_result as isSidechain: true
 
 ### For Data Processing
 1. **Message Chain Detection**: Identify assistant message chains with tool operations
-2. **Tool Pairing**: Ensure tool_use messages have corresponding tool_result
-3. **Migration**: Update existing messages to correct hierarchy structure
-4. **Validation**: Verify parent-child relationships are consistent
+2. **Tool Pairing**: Ensure tool_use messages have corresponding tool_result with proper parent_uuid chains
+3. **Migration**: Update existing messages to correct hierarchy structure with snake_case fields
+4. **Validation**: Verify parent_uuid relationships are consistent and tool messages properly nested
 
 **Note:** See [message-hierarchy-structure.md](./message-hierarchy-structure.md) for detailed implementation specifications.
 
@@ -237,4 +239,8 @@ Claude's conversation system supports multiple patterns:
 - **Tool operations** embedded in assistant messages, extracted as sidechains
 - **Future capabilities** for forking and merging conversations
 
-The key insight is that tool operations are not separate messages in the raw data but are embedded within assistant message content blocks. During ingest, these are extracted and properly structured to maintain correct parent-child relationships, enabling features like the sidechain panel to group and hide auxiliary operations from the main conversation flow.
+The key insights are:
+1. **Tool Operations**: Embedded within assistant message content blocks in raw data, extracted during ingest with proper parent_uuid hierarchy
+2. **Field Naming**: Frontend uses snake_case fields (parent_uuid, session_id) to match API responses
+3. **Sidechain Detection**: UI automatically recognizes both `isSidechain: true` messages AND tool_use/tool_result message types
+4. **Correct Hierarchy**: Tool Use messages point to containing Assistant, Tool Result messages point to corresponding Tool Use, enabling proper grouping in sidechain panel

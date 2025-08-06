@@ -17,14 +17,17 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^1.1.5",
     "@tanstack/react-query": "^5.0.0",
     "@tanstack/react-query-devtools": "^5.0.0",
+    "@tanstack/react-virtual": "^3.13.12",
     "@types/lodash": "^4.17.20",
     "@types/react-syntax-highlighter": "^15.5.0",
     "axios": "^1.5.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^2.30.0",
+    "framer-motion": "^12.23.12",
     "lodash": "^4.17.21",
     "lucide-react": "^0.292.0",
     "react": "^18.2.0",

@@ -56,9 +56,11 @@ Combines tool use and result messages into paired displays:
 When Claude uses a tool, the original assistant message contains a `tool_use` content block. During the ingest process, ClaudeLens:
 
 1. **Identifies tool_use blocks** in assistant message content arrays
-2. **Extracts each tool operation** as a separate message
-3. **Creates tool_result messages** for the responses
-4. **Sets parent relationships** to maintain hierarchy
+2. **Extracts each tool operation** as a separate message with proper parent relationships
+3. **Creates tool_result messages** for the responses as children of tool_use messages
+4. **Sets correct hierarchy** where tool_use messages are children of assistant messages
+5. **Marks all tool messages** with `isSidechain: true` for sidechain panel grouping
+6. **Stores in database** using camelCase fields, which are transformed to snake_case in API responses
 
 ### Extraction Pattern
 
@@ -1067,7 +1069,7 @@ This section documents the exact input format for each tool as they appear in Cl
     }
   }
   ```
-- **Extraction**: Creates tool_use message with UUID pattern `{assistant_uuid}_tool_{index}`
+- **Extraction**: Creates tool_use message with UUID pattern `{assistant_uuid}_tool_{index}` and `parentUuid` pointing to the containing assistant message
 - **Display Summary**: "📄 Reading file: {file_path}"
 
 **Write Tool:**
@@ -1081,7 +1083,7 @@ This section documents the exact input format for each tool as they appear in Cl
     }
   }
   ```
-- **Extraction**: Creates tool_use message with full content preserved
+- **Extraction**: Creates tool_use message with full content preserved and `parentUuid` pointing to the containing assistant message
 - **Display Summary**: "✏️ Writing to file: {file_path}"
 
 **Edit Tool:**
@@ -1097,7 +1099,7 @@ This section documents the exact input format for each tool as they appear in Cl
     }
   }
   ```
-- **Extraction**: Preserves edit details for undo/redo capability
+- **Extraction**: Preserves edit details with `parentUuid` pointing to the containing assistant message
 - **Display Summary**: "✏️ Editing file: {file_path}"
 
 #### Search Operations
@@ -1117,7 +1119,7 @@ This section documents the exact input format for each tool as they appear in Cl
     }
   }
   ```
-- **Extraction**: Maintains all grep flags and options
+- **Extraction**: Maintains all grep flags and options with `parentUuid` pointing to the containing assistant message
 - **Display Summary**: "🔍 Searching for: {pattern}"
 
 **Bash Tool:**
@@ -1132,7 +1134,7 @@ This section documents the exact input format for each tool as they appear in Cl
     }
   }
   ```
-- **Extraction**: Preserves command and timeout settings
+- **Extraction**: Preserves command and timeout settings with `parentUuid` pointing to the containing assistant message
 - **Display Summary**: "💻 Running command: {command}"
 
 ### Parent-Child Relationships
@@ -1140,15 +1142,22 @@ This section documents the exact input format for each tool as they appear in Cl
 When extracting tool messages, the following parent-child relationships are established:
 
 1. **Assistant → Tool Use**: Tool use messages become children of the assistant message containing them
+   - `parentUuid` in database (exposed as `parent_uuid` via API) points to containing assistant message UUID
 2. **Tool Use → Tool Result**: Tool result messages become children of their corresponding tool use
+   - `parentUuid` in database (exposed as `parent_uuid` via API) points to corresponding tool_use message UUID
 3. **UUID Pattern**:
    - Assistant: `original-uuid`
    - Tool Use: `original-uuid_tool_0`, `original-uuid_tool_1`, etc.
    - Tool Result: `original-uuid_result_0`, `original-uuid_result_1`, etc.
 
-### Sidechain Marking
+### Sidechain Marking and Field Structure
 
-All extracted tool messages are marked with `"isSidechain": true` to:
-- Group them in the sidechain panel
-- Keep the main conversation flow clean
-- Allow filtering of auxiliary operations
+All extracted tool messages are marked with `"isSidechain": true`. The field naming follows this pattern:
+- **Database Storage**: Uses camelCase (`parentUuid`, `sessionId`, `costUsd`, `createdAt`)
+- **API Responses**: Transforms to snake_case (`parent_uuid`, `session_id`, `cost_usd`, `created_at`)
+- **Frontend**: Uses snake_case fields from API responses for consistency
+
+This allows:
+- Proper grouping in the sidechain panel based on parent relationships
+- Clean main conversation flow with auxiliary operations filtered
+- Consistent field naming between frontend and API

@@ -10,7 +10,7 @@ export function SessionStatCards({ session }: SessionStatCardsProps) {
       {/* Messages Count */}
       <div className="text-center">
         <div className="text-2xl font-bold text-blue-500">
-          {session.messageCount}
+          {session.message_count}
         </div>
         <div className="text-xs text-muted-c font-medium">Messages</div>
       </div>
@@ -18,7 +18,7 @@ export function SessionStatCards({ session }: SessionStatCardsProps) {
       {/* Tools Used */}
       <div className="text-center">
         <div className="text-2xl font-bold text-purple-500">
-          {session.toolsUsed || 0}
+          {session.tools_used || 0}
         </div>
         <div className="text-xs text-muted-c font-medium">Tools Used</div>
       </div>
@@ -32,7 +32,7 @@ export function SessionStatCards({ session }: SessionStatCardsProps) {
       {/* Tokens */}
       <div className="text-center">
         <div className="text-2xl font-bold text-orange-500">
-          {formatTokenCount(session.totalTokens || 0)}
+          {formatTokenCount(session.total_tokens || 0)}
         </div>
         <div className="text-xs text-muted-c font-medium">Tokens</div>
       </div>
@@ -53,7 +53,7 @@ export function SessionCostCard({ session }: { session: Session }) {
   return (
     <div className="text-center">
       <div className="text-3xl font-bold text-primary font-mono">
-        ${session.totalCost?.toFixed(2) || '0.00'}
+        ${session.total_cost?.toFixed(2) || '0.00'}
       </div>
       <div className="text-sm text-muted-c font-medium">Cost</div>
     </div>

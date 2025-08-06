@@ -14,6 +14,7 @@ import {
   Coins,
   Hash,
   Zap,
+  Share2,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useState, useRef } from 'react';
@@ -24,17 +25,24 @@ import { copyToClipboard } from '@/utils/clipboard';
 import { BranchIndicator } from './BranchIndicator';
 import { MessageNavigationButtons } from './MessageNavigationButtons';
 import { useMessageNavigation } from '@/hooks/useMessageNavigation';
+import {
+  copyMessageLink,
+  getMessageLinkDescription,
+} from '@/utils/message-linking';
+import toast from 'react-hot-toast';
 
 interface MessageListProps {
   messages: Message[];
   costMap?: Map<string, number>;
   onSelectBranch?: (messageUuid: string, parent_uuid?: string) => void;
+  sessionId?: string;
 }
 
 export default function MessageList({
   messages,
   costMap,
   onSelectBranch,
+  sessionId,
 }: MessageListProps) {
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
@@ -83,6 +91,27 @@ export default function MessageList({
     if (success) {
       setCopiedId(messageId);
       setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
+
+  const handleShareMessage = async (message: Message) => {
+    if (!sessionId) {
+      toast.error('Session ID not available');
+      return;
+    }
+
+    const success = await copyMessageLink(message, sessionId, {
+      branchIndex: message.branchIndex,
+    });
+
+    if (success) {
+      const description = getMessageLinkDescription(message);
+      toast.success(`Message link copied! ${description}`, {
+        duration: 3000,
+        icon: '🔗',
+      });
+    } else {
+      toast.error('Failed to copy message link');
     }
   };
 
@@ -498,12 +527,15 @@ export default function MessageList({
           const isDifferentSender = previousMessage?.type !== message.type;
           const colors = getMessageColors(message.type);
 
-          const messageUuid = message.uuid || message.messageUuid;
+          const messageUuid = message.uuid || message.messageUuid || '';
           const messageHasParent = hasParent(message);
-          const messageHasChildren = hasChildren(messageUuid);
-          const childrenCount = messageHasChildren
-            ? getChildrenCount(messageUuid)
-            : 0;
+          const messageHasChildren = messageUuid
+            ? hasChildren(messageUuid)
+            : false;
+          const childrenCount =
+            messageHasChildren && messageUuid
+              ? getChildrenCount(messageUuid)
+              : 0;
 
           return (
             <div
@@ -512,7 +544,9 @@ export default function MessageList({
                 if (el) {
                   // Add multiple refs for different ID formats to ensure we can find the message
                   messageRefs.current[message._id] = el;
-                  messageRefs.current[messageUuid] = el;
+                  if (messageUuid) {
+                    messageRefs.current[messageUuid] = el;
+                  }
                 }
               }}
               data-message-id={message._id}
@@ -573,7 +607,9 @@ export default function MessageList({
                       hasChildren={messageHasChildren}
                       childrenCount={childrenCount}
                       onNavigateToParent={() => navigateToParent(message)}
-                      onNavigateToChildren={() => navigateToChild(messageUuid)}
+                      onNavigateToChildren={() =>
+                        messageUuid && navigateToChild(messageUuid)
+                      }
                     />
                   </div>
                   <button
@@ -631,6 +667,15 @@ export default function MessageList({
                       <time dateTime={message.timestamp}>
                         {format(new Date(message.timestamp), 'MMM d, HH:mm:ss')}
                       </time>
+                      {sessionId && (
+                        <button
+                          onClick={() => handleShareMessage(message)}
+                          className="ml-1 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors duration-200"
+                          title="Copy link to this message"
+                        >
+                          <Share2 className="h-3 w-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
+                        </button>
+                      )}
                     </div>
                     {getMessageCost(message) ||
                     (costMap && costMap.get(getMessageUuid(message) || '')) ? (
@@ -693,9 +738,10 @@ export default function MessageList({
           };
 
           const resultPreview = getResultPreview(toolResultMessage.content);
-          const toolUseUuid = toolUseMessage.uuid || toolUseMessage.messageUuid;
+          const toolUseUuid =
+            toolUseMessage.uuid || toolUseMessage.messageUuid || '';
           const toolResultUuid =
-            toolResultMessage.uuid || toolResultMessage.messageUuid;
+            toolResultMessage.uuid || toolResultMessage.messageUuid || '';
 
           return (
             <div
@@ -704,9 +750,13 @@ export default function MessageList({
                 if (el) {
                   // Add refs for both tool messages
                   messageRefs.current[toolUseMessage._id] = el;
-                  messageRefs.current[toolUseUuid] = el;
+                  if (toolUseUuid) {
+                    messageRefs.current[toolUseUuid] = el;
+                  }
                   messageRefs.current[toolResultMessage._id] = el;
-                  messageRefs.current[toolResultUuid] = el;
+                  if (toolResultUuid) {
+                    messageRefs.current[toolResultUuid] = el;
+                  }
                 }
               }}
               data-message-id={pairId}
@@ -847,6 +897,15 @@ export default function MessageList({
                         'MMM d, HH:mm:ss'
                       )}
                     </time>
+                    {sessionId && (
+                      <button
+                        onClick={() => handleShareMessage(toolUseMessage)}
+                        className="ml-1 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors duration-200"
+                        title="Copy link to this tool operation"
+                      >
+                        <Share2 className="h-3 w-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
+                      </button>
+                    )}
                   </div>
                   {(() => {
                     // Calculate cost - only use tool_use cost if present, otherwise use parent assistant cost

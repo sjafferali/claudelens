@@ -9,17 +9,17 @@ import { Message } from '@/api/types';
 describe('branch-detection utilities', () => {
   const createMessage = (
     id: string,
-    parentUuid?: string,
+    parent_uuid?: string,
     timestamp?: string
   ): Message => ({
     _id: id,
-    sessionId: 'session1',
+    session_id: 'session1',
     messageUuid: id,
     uuid: id,
     type: 'assistant',
     content: `Message ${id}`,
     timestamp: timestamp || `2024-01-01T00:00:${id.padStart(2, '0')}Z`,
-    parentUuid,
+    parent_uuid,
   });
 
   describe('calculateBranchCounts', () => {

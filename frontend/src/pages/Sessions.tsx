@@ -8,6 +8,8 @@ import ActiveFilters from '@/components/ActiveFilters';
 import { useSessionFilters } from '@/hooks/useSessionFilters';
 import SessionDetail from './SessionDetail';
 import { getSessionTitle } from '@/utils/session';
+import { CardSkeleton } from '@/components/common/LoadingSkeleton';
+import { AnimatedListItem } from '@/components/PageTransition';
 
 export default function Sessions() {
   const { sessionId } = useParams();
@@ -157,16 +159,7 @@ function SessionsList() {
               {isLoading ? (
                 <div className="space-y-4">
                   {[...Array(5)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between p-4 bg-layer-tertiary border border-secondary-c rounded-lg animate-pulse"
-                    >
-                      <div className="space-y-2 flex-1">
-                        <div className="h-4 w-3/4 bg-border rounded"></div>
-                        <div className="h-3 w-1/2 bg-border rounded"></div>
-                      </div>
-                      <div className="h-4 w-16 bg-border rounded"></div>
-                    </div>
+                    <CardSkeleton key={i} />
                   ))}
                 </div>
               ) : (
@@ -189,34 +182,42 @@ function SessionsList() {
                         )}
                       </div>
                     ) : (
-                      data?.items.map((session) => (
-                        <div
-                          key={session._id}
-                          onClick={() =>
-                            navigate(`/sessions/${session.sessionId}`)
-                          }
-                          className="flex items-center justify-between p-4 bg-layer-tertiary border border-secondary-c rounded-lg hover:border-primary-c hover:bg-layer-tertiary/80 cursor-pointer transition-all"
-                        >
-                          <div className="space-y-1 flex-1">
-                            <p className="font-medium text-primary-c">
-                              {getSessionTitle(session)}
-                            </p>
-                            <p className="text-sm text-tertiary-c">
-                              {session.messageCount} messages •{' '}
-                              {formatDistanceToNow(
-                                new Date(session.startedAt),
-                                {
-                                  addSuffix: true,
-                                }
+                      data?.items.map((session, index) => (
+                        <AnimatedListItem key={session._id} index={index}>
+                          <div
+                            onClick={() =>
+                              navigate(`/sessions/${session.session_id}`)
+                            }
+                            className="flex items-center justify-between p-4 bg-layer-tertiary border border-secondary-c rounded-lg hover:border-primary-c hover:bg-layer-tertiary/80 cursor-pointer transition-all"
+                          >
+                            <div className="space-y-1 flex-1">
+                              <p className="font-medium text-primary-c">
+                                {getSessionTitle(session)}
+                              </p>
+                              {session.summary && (
+                                <p className="text-sm text-secondary-c line-clamp-2">
+                                  {session.summary.length > 120
+                                    ? `${session.summary.substring(0, 120)}...`
+                                    : session.summary}
+                                </p>
                               )}
-                            </p>
+                              <p className="text-sm text-tertiary-c">
+                                {session.message_count} messages •{' '}
+                                {formatDistanceToNow(
+                                  new Date(session.started_at),
+                                  {
+                                    addSuffix: true,
+                                  }
+                                )}
+                              </p>
+                            </div>
+                            <div className="text-sm text-muted-c">
+                              {session.total_cost
+                                ? `$${session.total_cost.toFixed(2)}`
+                                : 'N/A'}
+                            </div>
                           </div>
-                          <div className="text-sm text-muted-c">
-                            {session.totalCost
-                              ? `$${session.totalCost.toFixed(2)}`
-                              : 'N/A'}
-                          </div>
-                        </div>
+                        </AnimatedListItem>
                       ))
                     )}
                   </div>

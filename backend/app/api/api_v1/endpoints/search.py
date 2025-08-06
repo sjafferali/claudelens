@@ -41,6 +41,7 @@ async def search(request: SearchRequest, db: CommonDeps) -> SearchResponse:
         skip=request.skip,
         limit=request.limit,
         highlight=request.highlight,
+        is_regex=request.is_regex,
     )
 
 

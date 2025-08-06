@@ -21,17 +21,17 @@ export interface Project {
 
 export interface Session {
   _id: string;
-  sessionId: string;
-  projectId: string;
+  session_id: string; // Changed from sessionId
+  project_id: string; // Changed from projectId
   summary?: string;
-  startedAt: string;
-  endedAt?: string;
-  messageCount: number;
-  totalCost?: number;
-  toolsUsed?: number;
-  totalTokens?: number;
-  inputTokens?: number;
-  outputTokens?: number;
+  started_at: string; // Changed from startedAt
+  ended_at?: string; // Changed from endedAt
+  message_count: number; // Changed from messageCount
+  total_cost?: number; // Changed from totalCost
+  tools_used?: number; // Changed from toolsUsed
+  total_tokens?: number; // Changed from totalTokens
+  input_tokens?: number; // Changed from inputTokens
+  output_tokens?: number; // Changed from outputTokens
 }
 
 export interface Message {

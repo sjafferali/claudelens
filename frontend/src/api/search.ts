@@ -19,6 +19,7 @@ export interface SearchRequest {
   skip?: number;
   limit?: number;
   highlight?: boolean;
+  is_regex?: boolean;
 }
 
 export interface SearchHighlight {

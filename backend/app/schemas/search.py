@@ -24,11 +24,14 @@ class SearchFilters(BaseModel):
 class SearchRequest(BaseModel):
     """Search request parameters."""
 
-    query: str = Field(..., min_length=1, max_length=500, description="Search query")
+    query: str = Field(
+        ..., min_length=1, max_length=500, description="Search query or regex pattern"
+    )
     filters: SearchFilters | None = Field(None, description="Search filters")
     skip: int = Field(0, ge=0, description="Number of results to skip")
     limit: int = Field(20, ge=1, le=100, description="Number of results to return")
     highlight: bool = Field(True, description="Include highlighted snippets")
+    is_regex: bool = Field(False, description="Whether query is a regex pattern")
 
 
 class SearchHighlight(BaseModel):

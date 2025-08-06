@@ -18,9 +18,9 @@ export function groupSidechainsByParent(
   const sidechains = filterSidechains(messages);
 
   sidechains.forEach((message) => {
-    if (message.parentUuid) {
-      const existing = groups.get(message.parentUuid) || [];
-      groups.set(message.parentUuid, [...existing, message]);
+    if (message.parent_uuid) {
+      const existing = groups.get(message.parent_uuid) || [];
+      groups.set(message.parent_uuid, [...existing, message]);
     }
   });
 
@@ -40,10 +40,10 @@ export function groupSidechainsByParent(
  */
 export function countSidechainsForParent(
   messages: Message[],
-  parentUuid: string
+  parent_uuid: string
 ): number {
   return messages.filter(
-    (m) => m.parentUuid === parentUuid && m.isSidechain === true
+    (m) => m.parent_uuid === parent_uuid && m.isSidechain === true
   ).length;
 }
 
@@ -52,10 +52,10 @@ export function countSidechainsForParent(
  */
 export function getSidechainsForParent(
   messages: Message[],
-  parentUuid: string
+  parent_uuid: string
 ): Message[] {
   return messages
-    .filter((m) => m.parentUuid === parentUuid && m.isSidechain === true)
+    .filter((m) => m.parent_uuid === parent_uuid && m.isSidechain === true)
     .sort(
       (a, b) =>
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()

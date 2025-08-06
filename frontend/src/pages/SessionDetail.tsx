@@ -12,6 +12,8 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Map as MapIcon,
+  Share2,
+  Bug,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -46,6 +48,13 @@ import { useMessageNavigation } from '@/hooks/useMessageNavigation';
 import ConversationTree from '@/components/ConversationTree';
 import { SidechainPanel } from '@/components/SidechainPanel';
 import { ConversationMiniMap } from '@/components/ConversationMiniMap';
+import {
+  copyMessageLink,
+  getMessageLinkDescription,
+} from '@/utils/message-linking';
+import { MessageDebugModal } from '@/components/MessageDebugModal';
+import toast from 'react-hot-toast';
+import { PageSkeleton } from '@/components/common/LoadingSkeleton';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -101,7 +110,7 @@ export default function SessionDetail() {
   }, [messages, currentPage, messagesLoading]);
 
   // Calculate if there are more messages to load
-  const hasMoreMessages = session && allMessages.length < session.messageCount;
+  const hasMoreMessages = session && allMessages.length < session.message_count;
   const canLoadMore = hasMoreMessages && !isFetching && hasLoadedInitial;
 
   // Handle loading more messages with scroll position preservation
@@ -165,6 +174,7 @@ export default function SessionDetail() {
   );
   const [isSidechainPanelOpen, setIsSidechainPanelOpen] = useState(false);
   const [isMiniMapOpen, setIsMiniMapOpen] = useState(false);
+  const [debugMessage, setDebugMessage] = useState<Message | null>(null);
 
   // Calculate branch counts for all messages
   const messagesWithBranches = useMemo(
@@ -206,22 +216,22 @@ export default function SessionDetail() {
 
   // Handle branch selection
   const handleSelectBranch = useCallback(
-    (messageUuid: string, parentUuid?: string) => {
-      if (!parentUuid) {
+    (messageUuid: string, parent_uuid?: string) => {
+      if (!parent_uuid) {
         // Find the parent UUID from the message
         const message = messagesWithBranches.find(
           (m) => (m.uuid || m.messageUuid) === messageUuid
         );
         if (message) {
-          parentUuid = message.parentUuid;
+          parent_uuid = message.parent_uuid;
         }
       }
 
-      if (parentUuid) {
+      if (parent_uuid) {
         // Update active branches map
         setActiveBranches((prev) => {
           const newMap = new Map(prev);
-          newMap.set(parentUuid, messageUuid);
+          newMap.set(parent_uuid, messageUuid);
           return newMap;
         });
 
@@ -263,7 +273,9 @@ export default function SessionDetail() {
     // Process each message
     messagesWithBranches.forEach((message) => {
       const messageId = message.uuid || message.messageUuid;
-      const parentId = message.parentUuid;
+      const parentId = message.parent_uuid;
+
+      if (!messageId) return; // Skip messages without IDs
 
       // If this message has siblings (branches)
       if (message.branchCount && message.branchCount > 1 && parentId) {
@@ -286,9 +298,10 @@ export default function SessionDetail() {
       }
     });
 
-    return messagesWithBranches.filter((m) =>
-      messagesToShow.has(m.uuid || m.messageUuid)
-    );
+    return messagesWithBranches.filter((m) => {
+      const id = m.uuid || m.messageUuid;
+      return id && messagesToShow.has(id);
+    });
   }, [messagesWithBranches, activeBranches]);
 
   // Filter messages based on search
@@ -312,10 +325,10 @@ export default function SessionDetail() {
       const message = messagesWithBranches.find(
         (m) => (m.uuid || m.messageUuid) === selectedBranchId
       );
-      if (message && message.parentUuid) {
+      if (message && message.parent_uuid) {
         setActiveBranches((prev) => {
           const newMap = new Map(prev);
-          newMap.set(message.parentUuid!, selectedBranchId);
+          newMap.set(message.parent_uuid!, selectedBranchId);
           return newMap;
         });
       }
@@ -338,7 +351,7 @@ export default function SessionDetail() {
         // For simplicity, navigate branches of the first visible branched message
         // In a more sophisticated implementation, you'd track the focused message
         const targetMessage = visibleMessages[0];
-        if (!targetMessage.branches || !targetMessage.parentUuid) return;
+        if (!targetMessage.branches || !targetMessage.parent_uuid) return;
 
         const currentIndex = targetMessage.branchIndex || 1;
         const totalBranches = targetMessage.branchCount || 1;
@@ -346,11 +359,11 @@ export default function SessionDetail() {
         if (e.key === 'ArrowLeft' && currentIndex > 1) {
           // Navigate to previous branch
           const prevBranch = targetMessage.branches[currentIndex - 2];
-          handleSelectBranch(prevBranch, targetMessage.parentUuid);
+          handleSelectBranch(prevBranch, targetMessage.parent_uuid);
         } else if (e.key === 'ArrowRight' && currentIndex < totalBranches) {
           // Navigate to next branch
           const nextBranch = targetMessage.branches[currentIndex];
-          handleSelectBranch(nextBranch, targetMessage.parentUuid);
+          handleSelectBranch(nextBranch, targetMessage.parent_uuid);
         }
       }
     };
@@ -429,6 +442,72 @@ export default function SessionDetail() {
     }
   };
 
+  const handleShareMessage = useCallback(
+    async (message: Message) => {
+      if (!sessionId) {
+        toast.error('Session ID not available');
+        return;
+      }
+
+      const success = await copyMessageLink(message, sessionId, {
+        branchIndex: message.branchIndex,
+      });
+
+      if (success) {
+        const description = getMessageLinkDescription(message);
+        toast.success(`Message link copied! ${description}`, {
+          duration: 3000,
+          icon: '🔗',
+        });
+      } else {
+        toast.error('Failed to copy message link');
+      }
+    },
+    [sessionId]
+  );
+
+  const handleOpenDebugModal = (message: Message) => {
+    setDebugMessage(message);
+  };
+
+  const handleCloseDebugModal = () => {
+    setDebugMessage(null);
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl+Shift+L to copy link to currently selected message
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'L') {
+        e.preventDefault();
+
+        // Find the currently selected message or the first visible message
+        let targetMessage: Message | null = null;
+
+        if (selectedMessageId && filteredMessages) {
+          targetMessage =
+            filteredMessages.find(
+              (m) => (m.uuid || m.messageUuid || m._id) === selectedMessageId
+            ) || null;
+        }
+
+        // If no selected message, use the first message in view
+        if (!targetMessage && filteredMessages && filteredMessages.length > 0) {
+          targetMessage = filteredMessages[0];
+        }
+
+        if (targetMessage) {
+          handleShareMessage(targetMessage);
+        } else {
+          toast.error('No message available to share');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedMessageId, filteredMessages, sessionId, handleShareMessage]);
+
   const getMessageColors = (type: Message['type']) => {
     switch (type) {
       case 'user':
@@ -493,11 +572,7 @@ export default function SessionDetail() {
   };
 
   if (sessionLoading || messagesLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <PageSkeleton title={true} filters={false} content="messages" />;
   }
 
   if (!session || !messages) {
@@ -517,10 +592,10 @@ export default function SessionDetail() {
     );
   }
 
-  const duration = session.endedAt
+  const duration = session.ended_at
     ? Math.floor(
-        (new Date(session.endedAt).getTime() -
-          new Date(session.startedAt).getTime()) /
+        (new Date(session.ended_at).getTime() -
+          new Date(session.started_at).getTime()) /
           1000
       )
     : 0;
@@ -559,17 +634,24 @@ export default function SessionDetail() {
                 </button>
               )}
             </div>
+            {session.summary && (
+              <div className="mt-2">
+                <p className="text-sm text-secondary-c max-w-4xl">
+                  {session.summary}
+                </p>
+              </div>
+            )}
             <div className="flex items-center gap-4 mt-1 text-sm text-muted-c">
               <span>
-                {format(new Date(session.startedAt), 'MMM d, yyyy')} at{' '}
-                {format(new Date(session.startedAt), 'h:mm a')}
+                {format(new Date(session.started_at), 'MMM d, yyyy')} at{' '}
+                {format(new Date(session.started_at), 'h:mm a')}
               </span>
               <span>•</span>
-              <span>{session.messageCount} messages</span>
+              <span>{session.message_count} messages</span>
               <span>•</span>
               <span>
-                {session.totalCost
-                  ? `$${session.totalCost.toFixed(2)}`
+                {session.total_cost
+                  ? `$${session.total_cost.toFixed(2)}`
                   : 'No cost data'}
               </span>
             </div>
@@ -591,9 +673,20 @@ export default function SessionDetail() {
         {/* Conversation Panel */}
         <div className="flex-1 flex flex-col bg-layer-primary overflow-hidden">
           <div className="bg-layer-secondary px-6 py-4 border-b border-primary-c flex items-center justify-between">
-            <h3 className="text-base font-medium text-primary-c">
-              Conversation
-            </h3>
+            <div className="flex items-center gap-4">
+              <h3 className="text-base font-medium text-primary-c">
+                Conversation
+              </h3>
+              {filteredMessages.length > 0 && (
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  Showing {filteredMessages.length} message
+                  {filteredMessages.length !== 1 ? 's' : ''}
+                  {allMessages.length !== filteredMessages.length && (
+                    <span> of {allMessages.length} total</span>
+                  )}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-4">
               <div className="flex gap-2">
                 <button
@@ -717,6 +810,8 @@ export default function SessionDetail() {
                   onCopy={handleCopyToClipboard}
                   onSelectBranch={handleSelectBranch}
                   onMessageSelect={handleMessageSelect}
+                  onShareMessage={handleShareMessage}
+                  onDebugMessage={handleOpenDebugModal}
                   selectedMessageId={selectedMessageId}
                   activeBranches={activeBranches}
                   allMessages={messagesWithBranches}
@@ -738,7 +833,7 @@ export default function SessionDetail() {
                           Loading...
                         </span>
                       ) : (
-                        `Load More (${allMessages.length} of ${session.messageCount})`
+                        `Load More (${allMessages.length} of ${session.message_count})`
                       )}
                     </button>
                   </div>
@@ -768,7 +863,7 @@ export default function SessionDetail() {
                           Loading...
                         </span>
                       ) : (
-                        `Load More (${allMessages.length} of ${session.messageCount})`
+                        `Load More (${allMessages.length} of ${session.message_count})`
                       )}
                     </button>
                   </div>
@@ -795,7 +890,7 @@ export default function SessionDetail() {
                           Loading...
                         </span>
                       ) : (
-                        `Load More (${allMessages.length} of ${session.messageCount})`
+                        `Load More (${allMessages.length} of ${session.message_count})`
                       )}
                     </button>
                   </div>
@@ -821,10 +916,10 @@ export default function SessionDetail() {
             messages={messagesWithBranches}
             isOpen={isSidechainPanelOpen}
             onClose={() => setIsSidechainPanelOpen(false)}
-            onNavigateToParent={(parentUuid) => {
+            onNavigateToParent={(parent_uuid) => {
               // Navigate to the parent message
               const parentMessage = messagesWithBranches.find(
-                (m) => (m.uuid || m.messageUuid) === parentUuid
+                (m) => (m.uuid || m.messageUuid) === parent_uuid
               );
               if (parentMessage) {
                 handleMessageSelect(parentMessage._id);
@@ -854,7 +949,10 @@ export default function SessionDetail() {
                       <span className="text-sm text-muted-c">Session ID</span>
                       <button
                         onClick={() =>
-                          handleCopyToClipboard(session.sessionId, 'session-id')
+                          handleCopyToClipboard(
+                            session.session_id,
+                            'session-id'
+                          )
                         }
                         className="p-1 hover:bg-layer-tertiary rounded transition-colors"
                         title="Copy Session ID"
@@ -869,9 +967,9 @@ export default function SessionDetail() {
                     <div className="flex items-center gap-2">
                       <span
                         className="text-xs text-secondary-c font-mono truncate block w-full"
-                        title={session.sessionId}
+                        title={session.session_id}
                       >
-                        {session.sessionId}
+                        {session.session_id}
                       </span>
                     </div>
                   </div>
@@ -879,23 +977,23 @@ export default function SessionDetail() {
                     <div className="flex justify-between items-start">
                       <span className="text-sm text-muted-c">Started</span>
                       <span className="text-sm text-secondary-c text-right">
-                        {format(new Date(session.startedAt), 'M/d/yyyy')}
+                        {format(new Date(session.started_at), 'M/d/yyyy')}
                         <br />
                         <span className="text-xs">
-                          {format(new Date(session.startedAt), 'h:mm:ss a')}
+                          {format(new Date(session.started_at), 'h:mm:ss a')}
                         </span>
                       </span>
                     </div>
                   </div>
-                  {session.endedAt && (
+                  {session.ended_at && (
                     <div className="py-2 border-b border-secondary-c">
                       <div className="flex justify-between items-start">
                         <span className="text-sm text-muted-c">Ended</span>
                         <span className="text-sm text-secondary-c text-right">
-                          {format(new Date(session.endedAt), 'M/d/yyyy')}
+                          {format(new Date(session.ended_at), 'M/d/yyyy')}
                           <br />
                           <span className="text-xs">
-                            {format(new Date(session.endedAt), 'h:mm:ss a')}
+                            {format(new Date(session.ended_at), 'h:mm:ss a')}
                           </span>
                         </span>
                       </div>
@@ -968,6 +1066,15 @@ export default function SessionDetail() {
         onToggle={() => setIsMiniMapOpen(!isMiniMapOpen)}
         scrollContainerRef={scrollContainerRef}
       />
+
+      {/* Debug Modal */}
+      {debugMessage && (
+        <MessageDebugModal
+          message={debugMessage}
+          isOpen={true}
+          onClose={handleCloseDebugModal}
+        />
+      )}
     </div>
   );
 }
@@ -984,8 +1091,10 @@ interface TimelineViewProps {
   onToggleToolResult: (messageId: string) => void;
   onToggleToolPairExpanded: (pairId: string) => void;
   onCopy: (text: string, messageId: string) => void;
-  onSelectBranch?: (messageUuid: string, parentUuid?: string) => void;
+  onSelectBranch?: (messageUuid: string, parent_uuid?: string) => void;
   onMessageSelect?: (messageId: string) => void;
+  onShareMessage?: (message: Message) => void;
+  onDebugMessage?: (message: Message) => void;
   selectedMessageId?: string | null;
   activeBranches?: Map<string, string>;
   allMessages?: Message[];
@@ -1008,6 +1117,8 @@ function TimelineView({
   onCopy,
   onSelectBranch,
   onMessageSelect,
+  onShareMessage,
+  onDebugMessage,
   selectedMessageId,
   activeBranches,
   allMessages,
@@ -1504,8 +1615,8 @@ function TimelineView({
           const isToolResultCollapsed = collapsedToolResults.has(message._id);
           const colors = getMessageColors(message.type);
           const isActiveBranch =
-            message.parentUuid &&
-            activeBranches?.get(message.parentUuid) ===
+            message.parent_uuid &&
+            activeBranches?.get(message.parent_uuid) ===
               (message.uuid || message.messageUuid);
           const isAlternativeBranch =
             message.branchCount &&
@@ -1569,15 +1680,16 @@ function TimelineView({
                               <BranchSelector
                                 currentMessage={message}
                                 branchMessages={
-                                  allMessages
+                                  allMessages &&
+                                  (message.uuid || message.messageUuid)
                                     ? getBranchAlternatives(
                                         allMessages,
-                                        message.uuid || message.messageUuid
+                                        message.uuid || message.messageUuid!
                                       )
                                     : []
                                 }
                                 onSelectBranch={(uuid) =>
-                                  onSelectBranch(uuid, message.parentUuid)
+                                  onSelectBranch(uuid, message.parent_uuid)
                                 }
                               />
                             </>
@@ -1589,7 +1701,7 @@ function TimelineView({
                           const sidechainChildren =
                             allMessages?.filter(
                               (m) =>
-                                m.parentUuid === messageUuid && m.isSidechain
+                                m.parent_uuid === messageUuid && m.isSidechain
                             ) || [];
                           if (sidechainChildren.length > 0) {
                             return (
@@ -1616,12 +1728,45 @@ function TimelineView({
                             ).toFixed(4)}
                           </span>
                         ) : null}
-                        <span className="text-xs text-dim-c">
-                          {format(
-                            new Date(message.timestamp),
-                            'MMM d, HH:mm:ss'
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">
+                            #{messages.indexOf(message) + 1} of{' '}
+                            {messages.length}
+                          </span>
+                          <span className="text-slate-300 dark:text-slate-600">
+                            •
+                          </span>
+                          <span className="text-xs text-dim-c">
+                            {format(
+                              new Date(message.timestamp),
+                              'MMM d, HH:mm:ss'
+                            )}
+                          </span>
+                          {onShareMessage && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onShareMessage(message);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-200"
+                              title="Copy link to this message"
+                            >
+                              <Share2 className="h-3 w-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
+                            </button>
                           )}
-                        </span>
+                          {onDebugMessage && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDebugMessage(message);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-200"
+                              title="View message debug information"
+                            >
+                              <Bug className="h-3 w-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1827,12 +1972,45 @@ function TimelineView({
 
                 {/* Metadata footer */}
                 <div className="flex items-center gap-4 mt-3 text-xs text-dim-c">
-                  <time dateTime={toolUseMessage.timestamp}>
-                    {format(
-                      new Date(toolUseMessage.timestamp),
-                      'MMM d, HH:mm:ss'
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">
+                      #{messageGroups.indexOf(group) + 1} of{' '}
+                      {messageGroups.length}
+                    </span>
+                    <span className="text-slate-300 dark:text-slate-600">
+                      •
+                    </span>
+                    <time dateTime={toolUseMessage.timestamp}>
+                      {format(
+                        new Date(toolUseMessage.timestamp),
+                        'MMM d, HH:mm:ss'
+                      )}
+                    </time>
+                    {onShareMessage && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShareMessage(toolUseMessage);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-200"
+                        title="Copy link to this tool operation"
+                      >
+                        <Share2 className="h-3 w-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
+                      </button>
                     )}
-                  </time>
+                    {onDebugMessage && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDebugMessage(toolUseMessage);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-200"
+                        title="View tool message debug information"
+                      >
+                        <Bug className="h-3 w-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200" />
+                      </button>
+                    )}
+                  </div>
                   {(getMessageCost(toolUseMessage) ||
                     (costMap &&
                       costMap.get(getMessageUuid(toolUseMessage) || '')) ||

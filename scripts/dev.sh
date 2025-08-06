@@ -11,6 +11,8 @@ LOAD_SAMPLES=false
 BACKEND_ONLY=false
 FRONTEND_ONLY=false
 TEST_DB=false
+SAFE_MODE=false
+DAEMON_MODE=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -34,6 +36,46 @@ while [[ $# -gt 0 ]]; do
       TEST_DB=true
       shift
       ;;
+    --safe)
+      SAFE_MODE=true
+      shift
+      ;;
+    -d|--daemon)
+      DAEMON_MODE=true
+      shift
+      ;;
+    -h|--help)
+      echo "ClaudeLens Development Environment"
+      echo "=================================="
+      echo
+      echo "Usage: $0 [OPTIONS]"
+      echo
+      echo "Options:"
+      echo "  --persistent-db      Use Docker Compose MongoDB (persistent data)"
+      echo "  --load-samples       Load sample data after startup"
+      echo "  --backend-only       Start only the backend service"
+      echo "  --frontend-only      Start only the frontend service"
+      echo "  --test-db            Use testcontainers MongoDB (ephemeral)"
+      echo "  --safe               Skip restarting services that are already running"
+      echo "  -d, --daemon         Start all services in the background"
+      echo "  -h, --help           Show this help message"
+      echo
+      echo "Examples:"
+      echo "  $0                           # Start both frontend and backend with persistent DB"
+      echo "  $0 --test-db --load-samples  # Start with ephemeral DB and sample data"
+      echo "  $0 --backend-only            # Start only backend"
+      echo "  $0 --frontend-only           # Start only frontend"
+      echo "  $0 --safe                    # Start services, skip restart if already running"
+      echo "  $0 -d                        # Start all services in the background"
+      echo
+      echo "Services will be available at:"
+      echo "  Frontend:     http://localhost:5173"
+      echo "  Backend API:  http://localhost:8000"
+      echo "  API Docs:     http://localhost:8000/docs"
+      echo "  MongoDB:      localhost:27017"
+      echo "  Mongo Express: http://localhost:8081 (admin/admin123)"
+      exit 0
+      ;;
     *)
       echo "Unknown option: $1"
       exit 1
@@ -52,11 +94,66 @@ if [ "$TEST_DB" = true ] && [ "$FRONTEND_ONLY" = true ]; then
     exit 1
 fi
 
+# Check if services are running
+is_mongodb_running() {
+    if [ "$PERSISTENT_DB" = true ]; then
+        docker ps --format "table {{.Names}}" | grep -q "claudelens_mongodb"
+    else
+        # For testcontainers, we'll check if backend is using it
+        return 1
+    fi
+}
+
+is_backend_running() {
+    curl -s http://localhost:8000/health > /dev/null 2>&1
+}
+
+is_frontend_running() {
+    curl -s http://localhost:5173 > /dev/null 2>&1
+}
+
+is_mongo_express_running() {
+    docker ps --format "table {{.Names}}" | grep -q "claudelens_mongo-express"
+}
+
+# Stop existing services
+stop_existing_mongodb() {
+    if [ "$PERSISTENT_DB" = true ]; then
+        echo "Stopping existing MongoDB containers..."
+        docker compose -f docker/docker-compose.dev.yml down mongodb mongo-express 2>/dev/null || true
+    fi
+}
+
+stop_existing_backend() {
+    echo "Stopping existing backend services..."
+    # Kill any uvicorn processes running on port 8000
+    pkill -f "uvicorn.*app.main:app" 2>/dev/null || true
+    # Also try to kill by port
+    lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+}
+
+stop_existing_frontend() {
+    echo "Stopping existing frontend services..."
+    # Kill any vite dev servers running on port 5173
+    pkill -f "vite.*dev" 2>/dev/null || true
+    # Also try to kill by port
+    lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+}
+
 # Start MongoDB
 start_mongodb() {
-    echo "Starting MongoDB..."
-
     if [ "$PERSISTENT_DB" = true ]; then
+        if is_mongodb_running && [ "$SAFE_MODE" = true ]; then
+            echo "MongoDB is already running (safe mode - skipping restart)"
+            return 0
+        fi
+
+        if is_mongodb_running; then
+            echo "MongoDB is already running - restarting to ensure it's up to date..."
+            stop_existing_mongodb
+        fi
+
+        echo "Starting MongoDB..."
         docker compose -f docker/docker-compose.dev.yml up -d mongodb mongo-express
 
         # Wait for MongoDB to be ready
@@ -79,20 +176,20 @@ load_sample_data() {
     cd ..
 }
 
-# Main execution
-if [ "$BACKEND_ONLY" = false ] && [ "$FRONTEND_ONLY" = false ]; then
-    # Only start MongoDB if not using testcontainers
-    if [ "$TEST_DB" = false ]; then
-        start_mongodb
-
-        if [ "$LOAD_SAMPLES" = true ]; then
-            load_sample_data
-        fi
-    fi
-fi
+# Removed duplicate MongoDB startup - handled in main execution section below
 
 # Start backend with testcontainers
 start_backend_with_testcontainers() {
+    if is_backend_running && [ "$SAFE_MODE" = true ]; then
+        echo "Backend is already running (safe mode - skipping restart)"
+        return 0
+    fi
+
+    if is_backend_running; then
+        echo "Backend is already running - restarting to ensure it's up to date..."
+        stop_existing_backend
+    fi
+
     echo "Starting backend with testcontainers MongoDB..."
     cd backend
 
@@ -116,7 +213,11 @@ start_backend_with_testcontainers() {
     # Note: Sample data loading happens after backend starts
 
     # Start the backend server
-    poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+    if [ "$DAEMON_MODE" = true ]; then
+        poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 > /dev/null 2>&1 &
+    else
+        poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+    fi
     BACKEND_PID=$!
     echo "Backend started with PID: $BACKEND_PID (using testcontainers)"
 
@@ -144,6 +245,16 @@ start_backend_with_testcontainers() {
 
 # Start backend
 start_backend() {
+    if is_backend_running && [ "$SAFE_MODE" = true ]; then
+        echo "Backend is already running (safe mode - skipping restart)"
+        return 0
+    fi
+
+    if is_backend_running; then
+        echo "Backend is already running - restarting to ensure it's up to date..."
+        stop_existing_backend
+    fi
+
     echo "Starting backend..."
     cd backend
 
@@ -165,7 +276,11 @@ start_backend() {
     export LOG_LEVEL=info
 
     # Start the backend server
-    poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+    if [ "$DAEMON_MODE" = true ]; then
+        poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 > /dev/null 2>&1 &
+    else
+        poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+    fi
     BACKEND_PID=$!
     echo "Backend started with PID: $BACKEND_PID"
 
@@ -181,6 +296,16 @@ start_backend() {
 
 # Start frontend
 start_frontend() {
+    if is_frontend_running && [ "$SAFE_MODE" = true ]; then
+        echo "Frontend is already running (safe mode - skipping restart)"
+        return 0
+    fi
+
+    if is_frontend_running; then
+        echo "Frontend is already running - restarting to ensure it's up to date..."
+        stop_existing_frontend
+    fi
+
     echo "Starting frontend..."
     cd frontend
 
@@ -197,7 +322,11 @@ start_frontend() {
     fi
 
     # Start the frontend dev server
-    npm run dev &
+    if [ "$DAEMON_MODE" = true ]; then
+        npm run dev > /dev/null 2>&1 &
+    else
+        npm run dev &
+    fi
     FRONTEND_PID=$!
     echo "Frontend started with PID: $FRONTEND_PID"
 
@@ -262,4 +391,9 @@ echo "Press Ctrl+C to stop all services"
 echo -e "==================================\n"
 
 # Keep script running
-wait
+if [ "$DAEMON_MODE" = true ]; then
+    echo "Services started in daemon mode. Use 'ps aux | grep -E \"uvicorn|vite\"' to check status."
+    echo "To stop services manually, kill the processes or run this script again to restart."
+else
+    wait
+fi

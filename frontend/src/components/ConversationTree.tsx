@@ -16,6 +16,7 @@ import 'reactflow/dist/style.css';
 import { Message } from '../api/types';
 import MessageNode from './MessageNode';
 import { calculateTreeLayout } from '../utils/tree-layout';
+import { Skeleton } from '@/components/common/LoadingSkeleton';
 
 interface ConversationTreeProps {
   messages: Message[];
@@ -48,59 +49,106 @@ function ConversationTreeContent({
 
     setLoading(true);
 
-    // Create a map for quick lookup
-    const messageMap = new Map<string, Message>();
-    messages.forEach((msg) => {
-      if (msg.uuid) {
-        messageMap.set(msg.uuid, msg);
-      }
-    });
+    try {
+      // Create a map for quick lookup
+      const messageMap = new Map<string, Message>();
+      messages.forEach((msg) => {
+        if (msg.uuid) {
+          messageMap.set(msg.uuid, msg);
+        }
+      });
 
-    // Calculate tree layout
-    const layout = calculateTreeLayout(messages);
+      // Calculate tree layout
+      const layout = calculateTreeLayout(messages);
 
-    // Create nodes
-    const newNodes: Node[] = messages.map((msg) => ({
-      id: msg.uuid || msg._id,
-      type: 'message',
-      position: layout.positions.get(msg.uuid || msg._id) || { x: 0, y: 0 },
-      data: {
-        message: msg,
-        isActive: msg.uuid === activeMessageId || msg._id === activeMessageId,
-        onSelect: onMessageSelect,
-      },
-      sourcePosition: Position.Bottom,
-      targetPosition: Position.Top,
-    }));
+      // Create nodes with guaranteed positions
+      const newNodes: Node[] = messages.map((msg, index) => {
+        const id = msg.uuid || msg._id;
+        const position = layout.positions.get(id) || {
+          x: (index % 4) * 350, // Fallback: 4-column grid
+          y: Math.floor(index / 4) * 200,
+        };
 
-    // Create edges
-    const newEdges: Edge[] = [];
-    messages.forEach((msg) => {
-      if (msg.parent_uuid) {
-        const edgeId = `${msg.parent_uuid}-${msg.uuid || msg._id}`;
-        newEdges.push({
-          id: edgeId,
-          source: msg.parent_uuid,
-          target: msg.uuid || msg._id,
-          type: msg.isSidechain ? 'smoothstep' : 'default',
-          animated: msg.uuid === activeMessageId || msg._id === activeMessageId,
-          style: {
-            stroke: msg.isSidechain ? '#9333ea' : '#94a3b8',
-            strokeWidth: 2,
-            strokeDasharray: msg.isSidechain ? '5,5' : undefined,
+        return {
+          id,
+          type: 'message',
+          position,
+          data: {
+            message: msg,
+            isActive:
+              msg.uuid === activeMessageId || msg._id === activeMessageId,
+            onSelect: onMessageSelect,
           },
-        });
-      }
-    });
+          sourcePosition: Position.Bottom,
+          targetPosition: Position.Top,
+        };
+      });
 
-    setNodes(newNodes);
-    setEdges(newEdges);
-    setLoading(false);
+      // Create edges
+      const newEdges: Edge[] = [];
+      messages.forEach((msg) => {
+        if (msg.parent_uuid) {
+          const edgeId = `${msg.parent_uuid}-${msg.uuid || msg._id}`;
+          const sourceExists = newNodes.some((n) => n.id === msg.parent_uuid);
+          const targetExists = newNodes.some(
+            (n) => n.id === (msg.uuid || msg._id)
+          );
 
-    // Fit view after a short delay to ensure rendering is complete
-    setTimeout(() => {
-      reactFlowInstance.fitView({ padding: 0.2, duration: 800 });
-    }, 100);
+          if (sourceExists && targetExists) {
+            newEdges.push({
+              id: edgeId,
+              source: msg.parent_uuid,
+              target: msg.uuid || msg._id,
+              type: msg.isSidechain ? 'smoothstep' : 'default',
+              animated:
+                msg.uuid === activeMessageId || msg._id === activeMessageId,
+              style: {
+                stroke: msg.isSidechain ? '#9333ea' : '#94a3b8',
+                strokeWidth: 2,
+                strokeDasharray: msg.isSidechain ? '5,5' : undefined,
+              },
+            });
+          }
+        }
+      });
+
+      setNodes(newNodes);
+      setEdges(newEdges);
+      setLoading(false);
+
+      // Auto-layout after a short delay to ensure rendering is complete
+      setTimeout(() => {
+        if (reactFlowInstance) {
+          reactFlowInstance.fitView({
+            padding: 0.2,
+            duration: 800,
+            includeHiddenNodes: false,
+          });
+        }
+      }, 200);
+    } catch (error) {
+      console.error('Error calculating tree layout:', error);
+      // Fallback to simple grid layout
+      const fallbackNodes: Node[] = messages.map((msg, index) => ({
+        id: msg.uuid || msg._id,
+        type: 'message',
+        position: {
+          x: (index % 4) * 350,
+          y: Math.floor(index / 4) * 200,
+        },
+        data: {
+          message: msg,
+          isActive: msg.uuid === activeMessageId || msg._id === activeMessageId,
+          onSelect: onMessageSelect,
+        },
+        sourcePosition: Position.Bottom,
+        targetPosition: Position.Top,
+      }));
+
+      setNodes(fallbackNodes);
+      setEdges([]);
+      setLoading(false);
+    }
   }, [
     messages,
     activeMessageId,
@@ -140,7 +188,7 @@ function ConversationTreeContent({
     return (
       <div className={`flex items-center justify-center h-full ${className}`}>
         <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <Skeleton className="w-12 h-12 rounded-full" animate={true} />
           <p className="text-slate-600 dark:text-slate-400">
             Generating conversation tree...
           </p>

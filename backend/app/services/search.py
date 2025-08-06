@@ -32,26 +32,50 @@ class SearchService:
         skip: int,
         limit: int,
         highlight: bool = True,
+        is_regex: bool = False,
     ) -> SearchResponse:
-        """Search messages with full-text search."""
+        """Search messages with full-text search or regex."""
         start_time = datetime.now(UTC)
 
+        # Validate regex pattern if regex mode
+        if is_regex:
+            try:
+                re.compile(query)
+            except re.error as e:
+                logger.warning(f"Invalid regex pattern: {query}, error: {e}")
+                # Return empty results for invalid regex
+                return SearchResponse(
+                    query=query,
+                    total=0,
+                    skip=skip,
+                    limit=limit,
+                    results=[],
+                    took_ms=0,
+                    filters_applied=filters.model_dump(exclude_none=True)
+                    if filters
+                    else {},
+                )
+
         # Build search pipeline
-        pipeline = self._build_search_pipeline(query, filters, skip, limit)
+        if is_regex:
+            pipeline = self._build_regex_pipeline(query, filters, skip, limit)
+            count_pipeline = self._build_regex_count_pipeline(query, filters)
+        else:
+            pipeline = self._build_search_pipeline(query, filters, skip, limit)
+            count_pipeline = self._build_count_pipeline(query, filters)
 
         # Execute search
         cursor = self.db.messages.aggregate(pipeline)
         results = await cursor.to_list(limit)
 
         # Get total count
-        count_pipeline = self._build_count_pipeline(query, filters)
         count_result = await self.db.messages.aggregate(count_pipeline).to_list(1)
         total = count_result[0]["total"] if count_result else 0
 
         # Process results
         search_results = []
         for doc in results:
-            result = await self._process_search_result(doc, query, highlight)
+            result = await self._process_search_result(doc, query, highlight, is_regex)
             search_results.append(result)
 
         # Calculate duration
@@ -174,6 +198,170 @@ class SearchService:
 
         return pipeline
 
+    def _build_regex_pipeline(
+        self, query: str, filters: SearchFilters | None, skip: int, limit: int
+    ) -> list[dict[str, Any]]:
+        """Build MongoDB aggregation pipeline for regex search."""
+        pipeline: list[dict[str, Any]] = []
+
+        # Regex search stage - search in content and message fields
+        pipeline.append(
+            {
+                "$match": {
+                    "$or": [
+                        {"content": {"$regex": query, "$options": "i"}},
+                        {"message.content": {"$regex": query, "$options": "i"}},
+                        {"toolUseResult": {"$regex": query, "$options": "i"}},
+                    ]
+                }
+            }
+        )
+
+        # Add a simple score based on match count (not as sophisticated as text search)
+        pipeline.append(
+            {
+                "$addFields": {
+                    "score": {
+                        "$add": [
+                            {
+                                "$cond": [
+                                    {
+                                        "$regexMatch": {
+                                            "input": {"$ifNull": ["$content", ""]},
+                                            "regex": query,
+                                            "options": "i",
+                                        }
+                                    },
+                                    1,
+                                    0,
+                                ]
+                            },
+                            {
+                                "$cond": [
+                                    {
+                                        "$regexMatch": {
+                                            "input": {
+                                                "$ifNull": ["$message.content", ""]
+                                            },
+                                            "regex": query,
+                                            "options": "i",
+                                        }
+                                    },
+                                    1,
+                                    0,
+                                ]
+                            },
+                            {
+                                "$cond": [
+                                    {
+                                        "$regexMatch": {
+                                            "input": {
+                                                "$ifNull": ["$toolUseResult", ""]
+                                            },
+                                            "regex": query,
+                                            "options": "i",
+                                        }
+                                    },
+                                    1,
+                                    0,
+                                ]
+                            },
+                        ]
+                    }
+                }
+            }
+        )
+
+        # Join with sessions and projects BEFORE filtering
+        pipeline.extend(
+            [
+                {
+                    "$lookup": {
+                        "from": "sessions",
+                        "localField": "sessionId",
+                        "foreignField": "sessionId",
+                        "as": "session",
+                    }
+                },
+                {"$unwind": {"path": "$session", "preserveNullAndEmptyArrays": True}},
+                {
+                    "$lookup": {
+                        "from": "projects",
+                        "localField": "session.projectId",
+                        "foreignField": "_id",
+                        "as": "project",
+                    }
+                },
+                {"$unwind": {"path": "$project", "preserveNullAndEmptyArrays": True}},
+            ]
+        )
+
+        # Add filters AFTER joins
+        if filters:
+            filter_stage = self._build_filter_stage(filters)
+            if filter_stage:
+                pipeline.append({"$match": filter_stage})
+
+        # Sort by score and timestamp
+        pipeline.append({"$sort": {"score": -1, "timestamp": -1}})
+
+        # Pagination
+        pipeline.append({"$skip": skip})
+        pipeline.append({"$limit": limit})
+
+        return pipeline
+
+    def _build_regex_count_pipeline(
+        self, query: str, filters: SearchFilters | None
+    ) -> list[dict[str, Any]]:
+        """Build pipeline for counting regex search results."""
+        pipeline: list[dict[str, Any]] = []
+
+        # Regex search
+        pipeline.append(
+            {
+                "$match": {
+                    "$or": [
+                        {"content": {"$regex": query, "$options": "i"}},
+                        {"message.content": {"$regex": query, "$options": "i"}},
+                        {"toolUseResult": {"$regex": query, "$options": "i"}},
+                    ]
+                }
+            }
+        )
+
+        # Need to join if we have project filters
+        if filters and filters.project_ids:
+            pipeline.extend(
+                [
+                    {
+                        "$lookup": {
+                            "from": "sessions",
+                            "localField": "sessionId",
+                            "foreignField": "sessionId",
+                            "as": "session",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$session",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                ]
+            )
+
+        # Add filters
+        if filters:
+            filter_stage = self._build_filter_stage(filters)
+            if filter_stage:
+                pipeline.append({"$match": filter_stage})
+
+        # Count
+        pipeline.append({"$count": "total"})
+
+        return pipeline
+
     def _build_filter_stage(self, filters: SearchFilters) -> dict[str, Any]:
         """Build filter stage from search filters."""
         conditions: dict[str, Any] = {}
@@ -234,7 +422,7 @@ class SearchService:
         return float(value)
 
     async def _process_search_result(
-        self, doc: dict[str, Any], query: str, highlight: bool
+        self, doc: dict[str, Any], query: str, highlight: bool, is_regex: bool = False
     ) -> SearchResult:
         """Process a search result document."""
         # Extract content - handle both message structures
@@ -249,12 +437,14 @@ class SearchService:
             content = str(doc["message"])
 
         # Create preview with highlighting
-        preview = self._create_highlighted_snippet(content, query, max_length=200)
+        preview = self._create_highlighted_snippet(
+            content, query, max_length=200, is_regex=is_regex
+        )
 
         # Create highlights
         highlights = []
         if highlight:
-            highlights = self._create_highlights(doc, query)
+            highlights = self._create_highlights(doc, query, is_regex=is_regex)
 
         return SearchResult(
             message_id=str(doc["_id"]),
@@ -315,7 +505,7 @@ class SearchService:
         return preview
 
     def _create_highlights(
-        self, doc: dict[str, Any], query: str
+        self, doc: dict[str, Any], query: str, is_regex: bool = False
     ) -> list[SearchHighlight]:
         """Create search highlights."""
         highlights = []
@@ -323,9 +513,9 @@ class SearchService:
         # Check direct content field (remote structure)
         if "content" in doc and isinstance(doc["content"], str):
             content = doc["content"]
-            if content and query.lower() in content.lower():
+            if self._matches_query(content, query, is_regex):
                 snippet = self._create_highlighted_snippet(
-                    content, query, max_length=150
+                    content, query, max_length=150, is_regex=is_regex
                 )
                 highlights.append(
                     SearchHighlight(field="content", snippet=snippet, score=1.0)
@@ -333,9 +523,9 @@ class SearchService:
         # Check nested message content (local structure)
         elif doc.get("message") and isinstance(doc["message"], dict):
             content = doc["message"].get("content", "")
-            if content and query.lower() in content.lower():
+            if self._matches_query(content, query, is_regex):
                 snippet = self._create_highlighted_snippet(
-                    content, query, max_length=150
+                    content, query, max_length=150, is_regex=is_regex
                 )
                 highlights.append(
                     SearchHighlight(field="message.content", snippet=snippet, score=1.0)
@@ -344,9 +534,9 @@ class SearchService:
         # Check tool results
         if doc.get("toolUseResult"):
             tool_result = str(doc["toolUseResult"])
-            if query.lower() in tool_result.lower():
+            if self._matches_query(tool_result, query, is_regex):
                 snippet = self._create_highlighted_snippet(
-                    tool_result, query, max_length=150
+                    tool_result, query, max_length=150, is_regex=is_regex
                 )
                 highlights.append(
                     SearchHighlight(field="toolUseResult", snippet=snippet, score=0.8)
@@ -354,30 +544,54 @@ class SearchService:
 
         return highlights
 
+    def _matches_query(self, content: str, query: str, is_regex: bool) -> bool:
+        """Check if content matches the query (regex or text)."""
+        if not content:
+            return False
+
+        if is_regex:
+            try:
+                return bool(re.search(query, content, re.IGNORECASE))
+            except re.error:
+                return False
+        else:
+            return query.lower() in content.lower()
+
     def _create_highlighted_snippet(
-        self, content: str, query: str, max_length: int = 150
+        self, content: str, query: str, max_length: int = 150, is_regex: bool = False
     ) -> str:
         """Create a snippet with highlighted search terms."""
         if not content:
             return ""
 
-        # Split query into individual words for highlighting
-        query_words = query.split()
+        pos = -1
 
-        # Find the best match position
-        content_lower = content.lower()
-        query_lower = query.lower()
+        if is_regex:
+            # For regex, find the first match position
+            try:
+                match = re.search(query, content, re.IGNORECASE)
+                if match:
+                    pos = match.start()
+            except re.error:
+                pass
+        else:
+            # For text search, split query into individual words
+            query_words = query.split()
 
-        # Try to find exact phrase first
-        pos = content_lower.find(query_lower)
+            # Find the best match position
+            content_lower = content.lower()
+            query_lower = query.lower()
 
-        # If no exact match, find first word occurrence
-        if pos == -1:
-            for word in query_words:
-                word_lower = word.lower()
-                pos = content_lower.find(word_lower)
-                if pos != -1:
-                    break
+            # Try to find exact phrase first
+            pos = content_lower.find(query_lower)
+
+            # If no exact match, find first word occurrence
+            if pos == -1:
+                for word in query_words:
+                    word_lower = word.lower()
+                    pos = content_lower.find(word_lower)
+                    if pos != -1:
+                        break
 
         # If still no match, return beginning
         if pos == -1:
@@ -396,14 +610,24 @@ class SearchService:
             if end < len(content):
                 snippet = snippet + "..."
 
-        # Highlight all matching words (case-insensitive)
-        for word in query_words:
-            if len(word) > 2:  # Skip very short words
-                # Use regex for whole word matching
-                import re
-
-                pattern = re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
+        # Highlight matching text
+        if is_regex:
+            # For regex, highlight all matches
+            try:
+                pattern = re.compile(query, re.IGNORECASE)
                 snippet = pattern.sub(lambda m: f"<mark>{m.group()}</mark>", snippet)
+            except re.error:
+                pass
+        else:
+            # For text search, highlight all matching words (case-insensitive)
+            query_words = query.split()
+            for word in query_words:
+                if len(word) > 2:  # Skip very short words
+                    # Use regex for whole word matching
+                    pattern = re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
+                    snippet = pattern.sub(
+                        lambda m: f"<mark>{m.group()}</mark>", snippet
+                    )
 
         return snippet
 
