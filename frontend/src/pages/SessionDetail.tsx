@@ -39,6 +39,7 @@ import {
 import { BranchSelector } from '@/components/BranchSelector';
 import { ConversationBreadcrumbs } from '@/components/ConversationBreadcrumbs';
 import { useMessageNavigation } from '@/hooks/useMessageNavigation';
+import ConversationTree from '@/components/ConversationTree';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -134,9 +135,9 @@ export default function SessionDetail() {
   // Calculate costs for messages
   const { costMap } = useMessageCosts(sessionId, allMessages);
 
-  const [viewMode, setViewMode] = useState<'timeline' | 'compact' | 'raw'>(
-    'timeline'
-  );
+  const [viewMode, setViewMode] = useState<
+    'timeline' | 'compact' | 'raw' | 'tree'
+  >('timeline');
 
   // Clear scroll container ref when view mode changes
   useEffect(() => {
@@ -613,6 +614,17 @@ export default function SessionDetail() {
               >
                 Raw
               </button>
+              <button
+                onClick={() => setViewMode('tree')}
+                className={cn(
+                  'px-3 py-1.5 text-sm rounded-md transition-all',
+                  viewMode === 'tree'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                )}
+              >
+                Tree
+              </button>
             </div>
           </div>
 
@@ -730,6 +742,16 @@ export default function SessionDetail() {
                     </button>
                   </div>
                 )}
+              </div>
+            )}
+            {viewMode === 'tree' && (
+              <div className="flex-1 overflow-hidden">
+                <ConversationTree
+                  messages={allMessages}
+                  activeMessageId={selectedMessageId}
+                  onMessageSelect={handleMessageSelect}
+                  className="w-full h-full"
+                />
               </div>
             )}
           </div>

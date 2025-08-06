@@ -103,19 +103,19 @@ This checklist breaks down the conversation flow visualization improvements into
 *As a user, I want to see my conversation as a visual tree so I can understand the overall structure and relationships.*
 
 **Tasks:**
-- [ ] Install React Flow dependency
-- [ ] Create `ConversationTree` component
-- [ ] Implement tree layout algorithm for message positioning
-- [ ] Create custom `MessageNode` component
-- [ ] Add node color coding by message type
-- [ ] Implement edge rendering with proper styling
-- [ ] Add zoom and pan controls
-- [ ] Create node click handler for message selection
-- [ ] Add animation for active message highlighting
-- [ ] Implement tree view toggle button in UI
-- [ ] Add loading state for tree rendering
-- [ ] Optimize performance for large conversations
-- [ ] Write tests for tree generation logic
+- [x] Install React Flow dependency
+- [x] Create `ConversationTree` component
+- [x] Implement tree layout algorithm for message positioning
+- [x] Create custom `MessageNode` component
+- [x] Add node color coding by message type
+- [x] Implement edge rendering with proper styling
+- [x] Add zoom and pan controls
+- [x] Create node click handler for message selection
+- [x] Add animation for active message highlighting
+- [x] Implement tree view toggle button in UI
+- [x] Add loading state for tree rendering
+- [x] Optimize performance for large conversations
+- [x] Write tests for tree generation logic
 
 ### User Story 5: See Sidechains Separately
 *As a user, I want to see tool operations and sidechains in a dedicated panel so the main conversation stays clear.*
