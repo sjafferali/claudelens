@@ -8,6 +8,9 @@ import {
   ChevronUp,
   Check,
   Wrench,
+  GitBranch,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -40,6 +43,7 @@ import { BranchSelector } from '@/components/BranchSelector';
 import { ConversationBreadcrumbs } from '@/components/ConversationBreadcrumbs';
 import { useMessageNavigation } from '@/hooks/useMessageNavigation';
 import ConversationTree from '@/components/ConversationTree';
+import { SidechainPanel } from '@/components/SidechainPanel';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -157,11 +161,18 @@ export default function SessionDetail() {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
     null
   );
+  const [isSidechainPanelOpen, setIsSidechainPanelOpen] = useState(false);
 
   // Calculate branch counts for all messages
   const messagesWithBranches = useMemo(
     () => calculateBranchCounts(allMessages),
     [allMessages]
+  );
+
+  // Calculate sidechain count for display
+  const sidechainCount = useMemo(
+    () => messagesWithBranches.filter((m) => m.isSidechain).length,
+    [messagesWithBranches]
   );
 
   // Use message navigation hook
@@ -580,51 +591,78 @@ export default function SessionDetail() {
             <h3 className="text-base font-medium text-primary-c">
               Conversation
             </h3>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('timeline')}
-                className={cn(
-                  'px-3 py-1.5 text-sm rounded-md transition-all',
-                  viewMode === 'timeline'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                )}
-              >
-                Timeline
-              </button>
-              <button
-                onClick={() => setViewMode('compact')}
-                className={cn(
-                  'px-3 py-1.5 text-sm rounded-md transition-all',
-                  viewMode === 'compact'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                )}
-              >
-                Compact
-              </button>
-              <button
-                onClick={() => setViewMode('raw')}
-                className={cn(
-                  'px-3 py-1.5 text-sm rounded-md transition-all',
-                  viewMode === 'raw'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                )}
-              >
-                Raw
-              </button>
-              <button
-                onClick={() => setViewMode('tree')}
-                className={cn(
-                  'px-3 py-1.5 text-sm rounded-md transition-all',
-                  viewMode === 'tree'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
-                )}
-              >
-                Tree
-              </button>
+            <div className="flex items-center gap-4">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setViewMode('timeline')}
+                  className={cn(
+                    'px-3 py-1.5 text-sm rounded-md transition-all',
+                    viewMode === 'timeline'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                  )}
+                >
+                  Timeline
+                </button>
+                <button
+                  onClick={() => setViewMode('compact')}
+                  className={cn(
+                    'px-3 py-1.5 text-sm rounded-md transition-all',
+                    viewMode === 'compact'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                  )}
+                >
+                  Compact
+                </button>
+                <button
+                  onClick={() => setViewMode('raw')}
+                  className={cn(
+                    'px-3 py-1.5 text-sm rounded-md transition-all',
+                    viewMode === 'raw'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                  )}
+                >
+                  Raw
+                </button>
+                <button
+                  onClick={() => setViewMode('tree')}
+                  className={cn(
+                    'px-3 py-1.5 text-sm rounded-md transition-all',
+                    viewMode === 'tree'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                  )}
+                >
+                  Tree
+                </button>
+              </div>
+
+              {/* Sidechain panel toggle */}
+              <div className="border-l border-secondary-c pl-4">
+                <button
+                  onClick={() => setIsSidechainPanelOpen(!isSidechainPanelOpen)}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-all',
+                    isSidechainPanelOpen
+                      ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30'
+                      : 'bg-layer-tertiary text-tertiary-c hover:text-primary-c'
+                  )}
+                >
+                  {isSidechainPanelOpen ? (
+                    <PanelRightClose className="h-4 w-4" />
+                  ) : (
+                    <PanelRightOpen className="h-4 w-4" />
+                  )}
+                  <span>Sidechains</span>
+                  {sidechainCount > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded-full">
+                      {sidechainCount}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -659,7 +697,7 @@ export default function SessionDetail() {
                   onCopy={handleCopyToClipboard}
                   onSelectBranch={handleSelectBranch}
                   onMessageSelect={handleMessageSelect}
-                  selectedMessageId={selectedMessageId}
+                  activeMessageId={selectedMessageId || undefined}
                   activeBranches={activeBranches}
                   allMessages={messagesWithBranches}
                   messageRefs={messageRefs}
@@ -757,8 +795,31 @@ export default function SessionDetail() {
           </div>
         </div>
 
+        {/* Sidechain Panel */}
+        {isSidechainPanelOpen && (
+          <SidechainPanel
+            messages={messagesWithBranches}
+            isOpen={isSidechainPanelOpen}
+            onClose={() => setIsSidechainPanelOpen(false)}
+            onNavigateToParent={(parentUuid) => {
+              // Navigate to the parent message
+              const parentMessage = messagesWithBranches.find(
+                (m) => (m.uuid || m.messageUuid) === parentUuid
+              );
+              if (parentMessage) {
+                handleMessageSelect(parentMessage._id);
+              }
+            }}
+          />
+        )}
+
         {/* Details Panel */}
-        <div className="w-80 bg-layer-secondary border-l border-primary-c flex flex-col min-h-0">
+        <div
+          className={cn(
+            'bg-layer-secondary border-l border-primary-c flex flex-col min-h-0',
+            isSidechainPanelOpen ? 'w-64' : 'w-80'
+          )}
+        >
           <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0">
             <div className="space-y-6">
               {/* Session Details */}
@@ -1489,6 +1550,26 @@ function TimelineView({
                               }
                             />
                           )}
+                        {/* Sidechain count badge */}
+                        {(() => {
+                          const messageUuid =
+                            message.uuid || message.messageUuid;
+                          const sidechainChildren =
+                            allMessages?.filter(
+                              (m) =>
+                                m.parentUuid === messageUuid && m.isSidechain
+                            ) || [];
+                          if (sidechainChildren.length > 0) {
+                            return (
+                              <span className="flex items-center gap-1 px-2 py-0.5 text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-full border border-purple-500/30">
+                                <GitBranch className="h-3 w-3" />
+                                {sidechainChildren.length} sidechain
+                                {sidechainChildren.length !== 1 ? 's' : ''}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                       <div className="flex items-center gap-3">
                         {getMessageCost(message) ||

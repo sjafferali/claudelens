@@ -121,17 +121,17 @@ This checklist breaks down the conversation flow visualization improvements into
 *As a user, I want to see tool operations and sidechains in a dedicated panel so the main conversation stays clear.*
 
 **Tasks:**
-- [ ] Create `SidechainPanel` component
-- [ ] Add collapsible sidebar layout to `SessionDetail`
-- [ ] Filter messages by `isSidechain` property
-- [ ] Group sidechains by parent message
-- [ ] Add toggle button to show/hide sidechain panel
-- [ ] Create sidechain message cards with compact view
-- [ ] Add linking lines to parent messages
-- [ ] Implement sidechain type categorization
-- [ ] Add sidechain count badge to main messages
-- [ ] Style with purple/violet color scheme
-- [ ] Write tests for sidechain filtering
+- [x] Create `SidechainPanel` component
+- [x] Add collapsible sidebar layout to `SessionDetail`
+- [x] Filter messages by `isSidechain` property
+- [x] Group sidechains by parent message
+- [x] Add toggle button to show/hide sidechain panel
+- [x] Create sidechain message cards with compact view
+- [x] Add linking lines to parent messages
+- [x] Implement sidechain type categorization
+- [x] Add sidechain count badge to main messages
+- [x] Style with purple/violet color scheme
+- [x] Write tests for sidechain filtering
 
 ### User Story 6: Navigate with Conversation Mini-Map
 *As a user, I want a mini-map overview so I can quickly understand conversation complexity and jump to different sections.*
