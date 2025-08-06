@@ -254,6 +254,92 @@ User: "Update all test files to use the new API"
                         └── Assistant: "All test files have been updated"
 ```
 
+### Example 4: Real-World Tool Operation from Test Data
+
+This example shows actual message structure from our test dataset with real UUIDs and field values:
+
+**Raw Claude Export (assistant message with tool_use):**
+```json
+{
+  "type": "assistant",
+  "uuid": "msg-3",
+  "parentUuid": "msg-2",
+  "sessionId": "test-session-001",
+  "timestamp": "2025-08-06T10:00:08Z",
+  "message": {
+    "role": "assistant",
+    "content": [
+      {
+        "type": "tool_use",
+        "id": "tool-001",
+        "name": "LS",
+        "input": {
+          "path": "/home/user/project"
+        }
+      }
+    ]
+  },
+  "model": "claude-opus-4-1-20250805",
+  "isSidechain": false
+}
+```
+
+**After Ingest Processing (extracted messages):**
+
+1. **Original Assistant Message (modified):**
+```json
+{
+  "type": "assistant",
+  "uuid": "msg-3",
+  "parentUuid": "msg-2",
+  "sessionId": "test-session-001",
+  "content": "📁 Listing directory: /home/user/project",
+  "model": "claude-opus-4-1-20250805"
+}
+```
+
+2. **Extracted Tool Use Message:**
+```json
+{
+  "type": "tool_use",
+  "uuid": "msg-3_tool_0",
+  "parentUuid": "msg-3",  // Should point to containing assistant message
+  "sessionId": "test-session-001",
+  "timestamp": "2025-08-06T10:00:09Z",
+  "content": "{\"type\":\"tool_use\",\"name\":\"LS\",\"input\":{\"path\":\"/home/user/project\"}}",
+  "isSidechain": true
+}
+```
+
+3. **Extracted Tool Result Message:**
+```json
+{
+  "type": "tool_result",
+  "uuid": "msg-3_result_0",
+  "parentUuid": "msg-3_tool_0",  // Points to tool_use message
+  "sessionId": "test-session-001",
+  "timestamp": "2025-08-06T10:00:10Z",
+  "content": "src/\nconfig.json\npackage.json\nREADME.md\ntests/",
+  "isSidechain": true
+}
+```
+
+**Resulting Hierarchy:**
+```
+msg-2 (user: "analyze project")
+└── msg-3 (assistant: "listing directory")
+    ├── msg-3_tool_0 (tool_use: LS)
+    │   └── msg-3_result_0 (tool_result: directory contents)
+    └── msg-4 (assistant continuation or next user message)
+```
+
+**Key Points:**
+- Tool operations are extracted from assistant message content blocks
+- Each tool message gets a UUID based on the pattern: `{assistant_uuid}_tool_{index}`
+- Tool results are children of tool_use messages
+- All tool messages should have `isSidechain: true`
+- The parent assistant message content is replaced with a summary
+
 ---
 
 ## Sidechain Panel Grouping
