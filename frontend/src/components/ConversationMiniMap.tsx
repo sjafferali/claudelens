@@ -222,7 +222,7 @@ export function ConversationMiniMap({
     let minY = Infinity,
       maxY = -Infinity;
 
-    nodes.forEach((node) => {
+    Array.from(nodes.values()).forEach((node) => {
       minX = Math.min(minX, node.x);
       maxX = Math.max(maxX, node.x);
       minY = Math.min(minY, node.y);
@@ -238,7 +238,7 @@ export function ConversationMiniMap({
     ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)'; // Muted lines
     ctx.lineWidth = 1;
 
-    nodes.forEach((node) => {
+    Array.from(nodes.values()).forEach((node) => {
       if (node.parentId) {
         const parent = nodes.get(node.parentId);
         if (parent) {
@@ -269,7 +269,7 @@ export function ConversationMiniMap({
     ctx.setLineDash([]);
 
     // Draw nodes
-    nodes.forEach((node) => {
+    Array.from(nodes.values()).forEach((node) => {
       const x = (node.x - minX) * scale + padding;
       const y = (node.y - minY) * scale + padding;
       const radius = isExpanded ? 4 : 3;
@@ -355,7 +355,7 @@ export function ConversationMiniMap({
       let minY = Infinity,
         maxY = -Infinity;
 
-      nodes.forEach((node) => {
+      Array.from(nodes.values()).forEach((node) => {
         minX = Math.min(minX, node.x);
         maxX = Math.max(maxX, node.x);
         minY = Math.min(minY, node.y);
@@ -368,10 +368,10 @@ export function ConversationMiniMap({
       const scale = Math.min(scaleX, scaleY);
 
       // Find clicked node
-      let clickedNode: MessageNode | null = null;
+      let clickedNodeId: string | null = null;
       let minDistance = Infinity;
 
-      nodes.forEach((node) => {
+      Array.from(nodes.values()).forEach((node) => {
         const nodeX = (node.x - minX) * scale + padding;
         const nodeY = (node.y - minY) * scale + padding;
         const distance = Math.sqrt(
@@ -381,12 +381,12 @@ export function ConversationMiniMap({
         if (distance < 10 && distance < minDistance) {
           // 10px click radius
           minDistance = distance;
-          clickedNode = node;
+          clickedNodeId = node.id;
         }
       });
 
-      if (clickedNode) {
-        onNavigate(clickedNode.id);
+      if (clickedNodeId) {
+        onNavigate(clickedNodeId);
       }
     },
     [nodes, onNavigate]
@@ -411,7 +411,7 @@ export function ConversationMiniMap({
       let minY = Infinity,
         maxY = -Infinity;
 
-      nodes.forEach((node) => {
+      Array.from(nodes.values()).forEach((node) => {
         minX = Math.min(minX, node.x);
         maxX = Math.max(maxX, node.x);
         minY = Math.min(minY, node.y);
@@ -427,7 +427,7 @@ export function ConversationMiniMap({
       let hoveredNodeId: string | null = null;
       let minDistance = Infinity;
 
-      nodes.forEach((node) => {
+      Array.from(nodes.values()).forEach((node) => {
         const nodeX = (node.x - minX) * scale + padding;
         const nodeY = (node.y - minY) * scale + padding;
         const distance = Math.sqrt(

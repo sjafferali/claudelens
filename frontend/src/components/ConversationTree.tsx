@@ -61,12 +61,12 @@ function ConversationTreeContent({
 
     // Create nodes
     const newNodes: Node[] = messages.map((msg) => ({
-      id: msg.uuid || msg.id,
+      id: msg.uuid || msg._id,
       type: 'message',
-      position: layout.positions.get(msg.uuid || msg.id) || { x: 0, y: 0 },
+      position: layout.positions.get(msg.uuid || msg._id) || { x: 0, y: 0 },
       data: {
         message: msg,
-        isActive: msg.uuid === activeMessageId || msg.id === activeMessageId,
+        isActive: msg.uuid === activeMessageId || msg._id === activeMessageId,
         onSelect: onMessageSelect,
       },
       sourcePosition: Position.Bottom,
@@ -76,14 +76,14 @@ function ConversationTreeContent({
     // Create edges
     const newEdges: Edge[] = [];
     messages.forEach((msg) => {
-      if (msg.parentMessageUuid) {
-        const edgeId = `${msg.parentMessageUuid}-${msg.uuid || msg.id}`;
+      if (msg.parentUuid) {
+        const edgeId = `${msg.parentUuid}-${msg.uuid || msg._id}`;
         newEdges.push({
           id: edgeId,
-          source: msg.parentMessageUuid,
-          target: msg.uuid || msg.id,
+          source: msg.parentUuid,
+          target: msg.uuid || msg._id,
           type: msg.isSidechain ? 'smoothstep' : 'default',
-          animated: msg.uuid === activeMessageId || msg.id === activeMessageId,
+          animated: msg.uuid === activeMessageId || msg._id === activeMessageId,
           style: {
             stroke: msg.isSidechain ? '#9333ea' : '#94a3b8',
             strokeWidth: 2,
@@ -112,7 +112,7 @@ function ConversationTreeContent({
 
   // Handle node click
   const onNodeClick = useCallback(
-    (event: React.MouseEvent, node: Node) => {
+    (_event: React.MouseEvent, node: Node) => {
       if (onMessageSelect && node.data.message.uuid) {
         onMessageSelect(node.data.message.uuid);
       }
@@ -174,7 +174,7 @@ function ConversationTreeContent({
         maxZoom={2}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
       >
-        <Background variant="dots" gap={12} size={1} />
+        <Background gap={12} size={1} />
         <Controls showZoom showFitView showInteractive />
         <MiniMap
           nodeColor={nodeColor}

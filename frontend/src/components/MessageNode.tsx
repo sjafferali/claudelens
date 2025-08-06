@@ -1,8 +1,8 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Message } from '../api/types';
 import { formatDistanceToNow } from 'date-fns';
-import { User, Bot, Wrench, FileText, AlertCircle } from 'lucide-react';
+import { User, Bot, Wrench, FileText } from 'lucide-react';
 
 interface MessageNodeData {
   message: Message;
@@ -29,8 +29,6 @@ const MessageNode = memo(({ data, selected }: NodeProps<MessageNodeData>) => {
         return `${baseClasses} ${activeClasses} ${selectedClasses} bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/30 ${isActive ? 'ring-purple-400' : ''}`;
       case 'tool_result':
         return `${baseClasses} ${activeClasses} ${selectedClasses} bg-violet-50 dark:bg-violet-900/20 border-violet-300 dark:border-violet-700 hover:bg-violet-100 dark:hover:bg-violet-900/30 ${isActive ? 'ring-violet-400' : ''}`;
-      case 'error':
-        return `${baseClasses} ${activeClasses} ${selectedClasses} bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/30 ${isActive ? 'ring-red-400' : ''}`;
       default:
         return `${baseClasses} ${activeClasses} ${selectedClasses} bg-slate-50 dark:bg-slate-900/20 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-900/30 ${isActive ? 'ring-slate-400' : ''}`;
     }
@@ -47,8 +45,6 @@ const MessageNode = memo(({ data, selected }: NodeProps<MessageNodeData>) => {
         return <Wrench className="w-4 h-4" />;
       case 'tool_result':
         return <FileText className="w-4 h-4" />;
-      case 'error':
-        return <AlertCircle className="w-4 h-4" />;
       default:
         return <FileText className="w-4 h-4" />;
     }
@@ -56,16 +52,18 @@ const MessageNode = memo(({ data, selected }: NodeProps<MessageNodeData>) => {
 
   // Get display text for message
   const getDisplayText = () => {
-    if (message.text) {
-      const text = message.text.trim();
+    if (message.content) {
+      const text = message.content.trim();
       if (text.length > 100) {
         return text.substring(0, 100) + '...';
       }
       return text;
     }
 
-    if (message.type === 'tool_use' && message.toolName) {
-      return `Tool: ${message.toolName}`;
+    if (message.type === 'tool_use') {
+      // Try to extract tool name from metadata or content
+      const toolName = message.metadata?.toolName || 'Tool';
+      return `Tool: ${toolName}`;
     }
 
     if (message.type === 'tool_result') {
@@ -76,8 +74,8 @@ const MessageNode = memo(({ data, selected }: NodeProps<MessageNodeData>) => {
   };
 
   // Format timestamp
-  const timeAgo = message.createdAt
-    ? formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })
+  const timeAgo = message.timestamp
+    ? formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })
     : '';
 
   const handleClick = () => {
@@ -104,8 +102,7 @@ const MessageNode = memo(({ data, selected }: NodeProps<MessageNodeData>) => {
               ${message.type === 'assistant' ? 'text-emerald-600 dark:text-emerald-400' : ''}
               ${message.type === 'tool_use' ? 'text-purple-600 dark:text-purple-400' : ''}
               ${message.type === 'tool_result' ? 'text-violet-600 dark:text-violet-400' : ''}
-              ${message.type === 'error' ? 'text-red-600 dark:text-red-400' : ''}
-              ${!['user', 'assistant', 'tool_use', 'tool_result', 'error'].includes(message.type || '') ? 'text-slate-600 dark:text-slate-400' : ''}
+              ${!['user', 'assistant', 'tool_use', 'tool_result'].includes(message.type || '') ? 'text-slate-600 dark:text-slate-400' : ''}
             `}
             >
               {getIcon()}

@@ -11,7 +11,7 @@ import {
   GitBranch,
   PanelRightClose,
   PanelRightOpen,
-  Map,
+  Map as MapIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -654,7 +654,7 @@ export default function SessionDetail() {
                   )}
                   title={isMiniMapOpen ? 'Hide minimap' : 'Show minimap'}
                 >
-                  <Map className="h-4 w-4" />
+                  <MapIcon className="h-4 w-4" />
                   <span>Map</span>
                 </button>
               </div>
@@ -717,7 +717,7 @@ export default function SessionDetail() {
                   onCopy={handleCopyToClipboard}
                   onSelectBranch={handleSelectBranch}
                   onMessageSelect={handleMessageSelect}
-                  activeMessageId={selectedMessageId || undefined}
+                  selectedMessageId={selectedMessageId}
                   activeBranches={activeBranches}
                   allMessages={messagesWithBranches}
                   messageRefs={messageRefs}
@@ -806,7 +806,7 @@ export default function SessionDetail() {
               <div className="flex-1 overflow-hidden">
                 <ConversationTree
                   messages={allMessages}
-                  activeMessageId={selectedMessageId}
+                  activeMessageId={selectedMessageId || undefined}
                   onMessageSelect={handleMessageSelect}
                   className="w-full h-full"
                 />

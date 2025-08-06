@@ -70,7 +70,7 @@ function buildTree(messages: Message[]): TreeNode[] {
 
   // Create nodes
   messages.forEach((msg) => {
-    const id = msg.uuid || msg.id;
+    const id = msg.uuid || msg._id;
     nodeMap.set(id, {
       id,
       message: msg,
@@ -81,12 +81,12 @@ function buildTree(messages: Message[]): TreeNode[] {
 
   // Build parent-child relationships
   messages.forEach((msg) => {
-    const id = msg.uuid || msg.id;
+    const id = msg.uuid || msg._id;
     const node = nodeMap.get(id);
     if (!node) return;
 
-    if (msg.parentMessageUuid) {
-      const parent = nodeMap.get(msg.parentMessageUuid);
+    if (msg.parentUuid) {
+      const parent = nodeMap.get(msg.parentUuid);
       if (parent) {
         parent.children.push(node);
         node.depth = parent.depth + 1;
@@ -101,8 +101,8 @@ function buildTree(messages: Message[]): TreeNode[] {
   // Sort children by creation time to maintain consistent ordering
   const sortChildren = (node: TreeNode) => {
     node.children.sort((a, b) => {
-      const timeA = new Date(a.message.createdAt || 0).getTime();
-      const timeB = new Date(b.message.createdAt || 0).getTime();
+      const timeA = new Date(a.message.timestamp || 0).getTime();
+      const timeB = new Date(b.message.timestamp || 0).getTime();
       return timeA - timeB;
     });
     node.children.forEach(sortChildren);
@@ -202,9 +202,9 @@ function shiftSubtree(node: TreeNode, shift: number): void {
  */
 export function getBranchCount(messages: Message[], messageId: string): number {
   const siblings = messages.filter((msg) => {
-    const currentMsg = messages.find((m) => (m.uuid || m.id) === messageId);
+    const currentMsg = messages.find((m) => (m.uuid || m._id) === messageId);
     if (!currentMsg) return false;
-    return msg.parentMessageUuid === currentMsg.parentMessageUuid;
+    return msg.parentUuid === currentMsg.parentUuid;
   });
   return siblings.length;
 }
@@ -213,17 +213,19 @@ export function getBranchCount(messages: Message[], messageId: string): number {
  * Get branch index for a message (1-based)
  */
 export function getBranchIndex(messages: Message[], messageId: string): number {
-  const currentMsg = messages.find((m) => (m.uuid || m.id) === messageId);
-  if (!currentMsg || !currentMsg.parentMessageUuid) return 1;
+  const currentMsg = messages.find((m) => (m.uuid || m._id) === messageId);
+  if (!currentMsg || !currentMsg.parentUuid) return 1;
 
   const siblings = messages
-    .filter((msg) => msg.parentMessageUuid === currentMsg.parentMessageUuid)
+    .filter((msg) => msg.parentUuid === currentMsg.parentUuid)
     .sort((a, b) => {
-      const timeA = new Date(a.createdAt || 0).getTime();
-      const timeB = new Date(b.createdAt || 0).getTime();
+      const timeA = new Date(a.timestamp || 0).getTime();
+      const timeB = new Date(b.timestamp || 0).getTime();
       return timeA - timeB;
     });
 
-  const index = siblings.findIndex((msg) => (msg.uuid || msg.id) === messageId);
+  const index = siblings.findIndex(
+    (msg) => (msg.uuid || msg._id) === messageId
+  );
   return index + 1;
 }
