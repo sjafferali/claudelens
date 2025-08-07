@@ -237,7 +237,7 @@ export function useWebSocket(
 export function useDeletionProgress(
   onProgress?: (event: DeletionProgressEvent) => void
 ) {
-  const { isConnected, lastMessage } = useWebSocket('/api/v1/ws/stats');
+  const { isConnected, lastMessage } = useWebSocket('/ws/stats');
 
   useEffect(() => {
     if (lastMessage && lastMessage.type === 'deletion_progress' && onProgress) {
