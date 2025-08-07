@@ -319,8 +319,8 @@ class AnalyticsService:
             # Process model costs
             cost_by_model = {}
             for model_cost in result["costByModel"]:
-                model = model_cost["model"] or "unknown"
-                cost = self._safe_float(model_cost["cost"])
+                model = model_cost.get("model") or "unknown"
+                cost = self._safe_float(model_cost.get("cost", 0))
                 cost_by_model[model] = cost
                 cost_by_model_global[model] = cost_by_model_global.get(model, 0) + cost
 
