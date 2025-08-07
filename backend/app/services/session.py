@@ -109,6 +109,11 @@ class SessionService:
             {"sessionId": actual_session_id}, sort=[("timestamp", -1)]
         )
 
+        # Get working directory from first message
+        working_directory = None
+        if first_msg:
+            working_directory = first_msg.get("cwd")
+
         # Convert Decimal128 to float
         total_cost = doc.get("totalCost")
         if isinstance(total_cost, Decimal128):
@@ -130,6 +135,7 @@ class SessionService:
             "models_used": models_used,
             "first_message": first_msg.get("content", "")[:100] if first_msg else None,
             "last_message": last_msg.get("content", "")[:100] if last_msg else None,
+            "working_directory": working_directory,
         }
 
         # Include messages if requested

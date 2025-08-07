@@ -32,6 +32,7 @@ export interface Session {
   total_tokens?: number; // Changed from totalTokens
   input_tokens?: number; // Changed from inputTokens
   output_tokens?: number; // Changed from outputTokens
+  working_directory?: string; // Directory where Claude was run from
 }
 
 export interface Message {

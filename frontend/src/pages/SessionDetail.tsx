@@ -58,7 +58,6 @@ import { PageSkeleton } from '@/components/common/LoadingSkeleton';
 import Tooltip from '@/components/common/Tooltip';
 import HelpPanel from '@/components/HelpPanel';
 import { HelpCircle } from 'lucide-react';
-import ColorBlindSettings from '@/components/ColorBlindSettings';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -807,11 +806,6 @@ export default function SessionDetail() {
                 </Tooltip>
               </div>
 
-              {/* Color blind settings */}
-              <div className="border-l border-secondary-c pl-4">
-                <ColorBlindSettings compact={true} />
-              </div>
-
               {/* Help button */}
               <div className="border-l border-secondary-c pl-4">
                 <Tooltip content="Open help and documentation">
@@ -1026,6 +1020,37 @@ export default function SessionDetail() {
                       </span>
                     </div>
                   </div>
+                  {session.working_directory && (
+                    <div className="py-2 border-b border-secondary-c">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-sm text-muted-c">Directory</span>
+                        <button
+                          onClick={() =>
+                            handleCopyToClipboard(
+                              session.working_directory!,
+                              'working-directory'
+                            )
+                          }
+                          className="p-1 hover:bg-layer-tertiary rounded transition-colors"
+                          title="Copy Directory Path"
+                        >
+                          {copiedId === 'working-directory' ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <Copy className="h-3 w-3 text-muted-c" />
+                          )}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-xs text-secondary-c font-mono truncate block w-full"
+                          title={session.working_directory}
+                        >
+                          {session.working_directory}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div className="py-2 border-b border-secondary-c">
                     <div className="flex justify-between items-start">
                       <span className="text-sm text-muted-c">Started</span>

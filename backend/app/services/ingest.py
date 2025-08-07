@@ -111,7 +111,16 @@ class IngestService:
 
             # Process each message
             new_messages = []
+            session_summary = None  # Track if we find a summary message
+
             for message in messages:
+                # Check if this is a summary message
+                if message.type == "summary" and message.summary:
+                    session_summary = message.summary
+                    # Skip storing summary messages as regular messages
+                    stats.messages_processed += 1  # Count it as processed
+                    continue
+
                 # Skip deduplication check in overwrite mode
                 if not overwrite_mode:
                     # Generate hash for deduplication
@@ -205,8 +214,8 @@ class IngestService:
                             stats.error_details.append(error_msg)
                         return
 
-                # Update session statistics
-                await self._update_session_stats(session_id)
+                # Update session statistics and summary if found
+                await self._update_session_stats(session_id, session_summary)
 
         except Exception as e:
             logger.error(f"Error processing session {session_id}: {e}")
@@ -323,12 +332,17 @@ class IngestService:
     def _hash_message(self, message: MessageIngest) -> str:
         """Generate hash for message deduplication."""
         # Create deterministic string representation
-        hash_data = {
+        hash_data: dict[str, Any] = {
             "uuid": message.uuid,
             "type": message.type,
             "timestamp": message.timestamp.isoformat(),
-            "content": message.message,
         }
+
+        # Add content based on message type
+        if message.type == "summary" and message.summary:
+            hash_data["content"] = message.summary
+        else:
+            hash_data["content"] = message.message
 
         content = json.dumps(hash_data, sort_keys=True, default=str)
         return hashlib.sha256(content.encode()).hexdigest()
@@ -761,8 +775,10 @@ class IngestService:
         if message.extra_fields:
             doc["metadata"] = message.extra_fields
 
-    async def _update_session_stats(self, session_id: str) -> None:
-        """Update session statistics."""
+    async def _update_session_stats(
+        self, session_id: str, summary: str | None = None
+    ) -> None:
+        """Update session statistics and optionally the summary."""
         # Aggregate statistics
         pipeline: list[dict[str, Any]] = [
             {"$match": {"sessionId": session_id}},
@@ -830,25 +846,30 @@ class IngestService:
 
         if result:
             stats = result[0]
+            # Build update data
+            update_data = {
+                "messageCount": stats["messageCount"],
+                "totalCost": Decimal128(
+                    str(stats["totalCost"])
+                ),  # Convert to Decimal128
+                "totalTokens": stats.get("inputTokens", 0)
+                + stats.get("outputTokens", 0),
+                "inputTokens": stats.get("inputTokens", 0),
+                "outputTokens": stats.get("outputTokens", 0),
+                "toolsUsed": stats.get("toolUseCount", 0),
+                "startedAt": stats["startTime"],
+                "endedAt": stats["endTime"],
+                "updatedAt": datetime.now(UTC),
+            }
+
+            # Add summary if provided
+            if summary:
+                update_data["summary"] = summary
+
             # Update session
             update_result = await self.db.sessions.update_one(
                 {"sessionId": session_id},
-                {
-                    "$set": {
-                        "messageCount": stats["messageCount"],
-                        "totalCost": Decimal128(
-                            str(stats["totalCost"])
-                        ),  # Convert to Decimal128
-                        "totalTokens": stats.get("inputTokens", 0)
-                        + stats.get("outputTokens", 0),
-                        "inputTokens": stats.get("inputTokens", 0),
-                        "outputTokens": stats.get("outputTokens", 0),
-                        "toolsUsed": stats.get("toolUseCount", 0),
-                        "startedAt": stats["startTime"],
-                        "endedAt": stats["endTime"],
-                        "updatedAt": datetime.now(UTC),
-                    }
-                },
+                {"$set": update_data},
             )
 
             # Extract summary from messages if available, or generate if needed

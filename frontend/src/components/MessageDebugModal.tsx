@@ -331,9 +331,9 @@ export function MessageDebugModal({
       />
 
       {/* Modal */}
-      <div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] m-4 flex flex-col">
+      <div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-4xl h-[90vh] m-4 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex-shrink-0 flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-lg">
               <Code className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -407,9 +407,9 @@ export function MessageDebugModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden">
           {activeTab === 'formatted' ? (
-            <div className="h-full overflow-y-auto p-6 space-y-6">
+            <div className="h-full overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
               {sections.map((section) => (
                 <div key={section.id} className="space-y-3">
                   <div className="flex items-center gap-2 pb-2 border-b border-slate-200 dark:border-slate-700">
@@ -434,7 +434,7 @@ export function MessageDebugModal({
               ))}
             </div>
           ) : (
-            <div className="h-full overflow-y-auto p-6">
+            <div className="h-full overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent">
               <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                 <pre className="text-sm text-slate-700 dark:text-slate-300 font-mono whitespace-pre-wrap break-all">
                   {JSON.stringify(message, null, 2)}

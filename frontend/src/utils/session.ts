@@ -8,6 +8,10 @@ export function getSessionTitle(session: {
   session_id: string;
 }): string {
   if (session.summary) {
+    // Limit summary to 90 characters
+    if (session.summary.length > 90) {
+      return session.summary.slice(0, 87) + '...';
+    }
     return session.summary;
   }
 

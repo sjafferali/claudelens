@@ -194,13 +194,6 @@ function SessionsList() {
                               <p className="font-medium text-primary-c">
                                 {getSessionTitle(session)}
                               </p>
-                              {session.summary && (
-                                <p className="text-sm text-secondary-c line-clamp-2">
-                                  {session.summary.length > 120
-                                    ? `${session.summary.substring(0, 120)}...`
-                                    : session.summary}
-                                </p>
-                              )}
                               <p className="text-sm text-tertiary-c">
                                 {session.message_count} messages •{' '}
                                 {formatDistanceToNow(

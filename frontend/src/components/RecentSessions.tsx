@@ -2,6 +2,7 @@ import { useSessions } from '@/hooks/useSessions';
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2, MessageSquare, Clock, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getSessionTitle } from '@/utils/session';
 
 export default function RecentSessions() {
   const { data, isLoading, error } = useSessions({
@@ -55,7 +56,7 @@ export default function RecentSessions() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-primary-c truncate">
-                {session.summary || 'Untitled conversation'}
+                {getSessionTitle(session)}
               </p>
               <div className="flex items-center gap-4 mt-2 text-xs text-muted-c">
                 <span className="flex items-center gap-1">

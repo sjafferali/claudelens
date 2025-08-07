@@ -45,6 +45,7 @@ class SessionDetail(Session):
     models_used: list[str] = []
     first_message: str | None = None
     last_message: str | None = None
+    working_directory: str | None = None  # Working directory where Claude was run
     messages: list[Message] | None = None  # Only included if requested
 
 
