@@ -319,11 +319,10 @@ export default function SessionDetail() {
   // Track all messages that match the search
   useEffect(() => {
     if (searchQuery) {
-      const matches = filteredMessagesWithBranches
-        .filter((msg) =>
-          msg.content.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        .map((msg) => msg.uuid || msg.messageUuid || msg._id);
+      // Use filteredMessages which are the actual visible messages after search filtering
+      const matches = filteredMessages.map(
+        (msg) => msg.uuid || msg.messageUuid || msg._id
+      );
       setSearchMatches(matches);
       setCurrentMatchIndex(0);
       // Navigate to first match
@@ -334,7 +333,7 @@ export default function SessionDetail() {
       setSearchMatches([]);
       setCurrentMatchIndex(0);
     }
-  }, [searchQuery, filteredMessagesWithBranches, navigateToMessage]);
+  }, [searchQuery, filteredMessages, navigateToMessage]);
 
   // Navigate to next/previous search match
   const navigateToNextMatch = useCallback(() => {
