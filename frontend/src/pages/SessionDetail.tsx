@@ -58,6 +58,7 @@ import { PageSkeleton } from '@/components/common/LoadingSkeleton';
 import Tooltip from '@/components/common/Tooltip';
 import HelpPanel from '@/components/HelpPanel';
 import { HelpCircle } from 'lucide-react';
+import { highlightSearchMatches } from '@/utils/search-highlighting';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -162,6 +163,8 @@ export default function SessionDetail() {
     scrollContainerRef.current = null;
   }, [viewMode]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [searchMatches, setSearchMatches] = useState<string[]>([]);
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
   );
@@ -308,10 +311,50 @@ export default function SessionDetail() {
     });
   }, [messagesWithBranches, activeBranches]);
 
-  // Filter messages based on search
+  // Filter messages based on search and track matches
   const filteredMessages = filteredMessagesWithBranches.filter((msg) =>
     msg.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Track all messages that match the search
+  useEffect(() => {
+    if (searchQuery) {
+      const matches = filteredMessagesWithBranches
+        .filter((msg) =>
+          msg.content.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .map((msg) => msg.uuid || msg.messageUuid || msg._id);
+      setSearchMatches(matches);
+      setCurrentMatchIndex(0);
+      // Navigate to first match
+      if (matches.length > 0) {
+        navigateToMessage(matches[0]);
+      }
+    } else {
+      setSearchMatches([]);
+      setCurrentMatchIndex(0);
+    }
+  }, [searchQuery, filteredMessagesWithBranches, navigateToMessage]);
+
+  // Navigate to next/previous search match
+  const navigateToNextMatch = useCallback(() => {
+    if (searchMatches.length > 0) {
+      const nextIndex = (currentMatchIndex + 1) % searchMatches.length;
+      setCurrentMatchIndex(nextIndex);
+      navigateToMessage(searchMatches[nextIndex]);
+    }
+  }, [currentMatchIndex, searchMatches, navigateToMessage]);
+
+  const navigateToPreviousMatch = useCallback(() => {
+    if (searchMatches.length > 0) {
+      const prevIndex =
+        currentMatchIndex === 0
+          ? searchMatches.length - 1
+          : currentMatchIndex - 1;
+      setCurrentMatchIndex(prevIndex);
+      navigateToMessage(searchMatches[prevIndex]);
+    }
+  }, [currentMatchIndex, searchMatches, navigateToMessage]);
 
   // Auto-collapse tool results on load
   useEffect(() => {
@@ -481,8 +524,16 @@ export default function SessionDetail() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Alt+Up/Down for search navigation
+      if (e.altKey && e.key === 'ArrowUp') {
+        e.preventDefault();
+        navigateToPreviousMatch();
+      } else if (e.altKey && e.key === 'ArrowDown') {
+        e.preventDefault();
+        navigateToNextMatch();
+      }
       // Cmd/Ctrl+Shift+L to copy link to currently selected message
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'L') {
+      else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'L') {
         e.preventDefault();
 
         // Find the currently selected message or the first visible message
@@ -510,7 +561,14 @@ export default function SessionDetail() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedMessageId, filteredMessages, sessionId, handleShareMessage]);
+  }, [
+    selectedMessageId,
+    filteredMessages,
+    sessionId,
+    handleShareMessage,
+    navigateToNextMatch,
+    navigateToPreviousMatch,
+  ]);
 
   const getMessageColors = (type: Message['type']) => {
     switch (type) {
@@ -660,15 +718,36 @@ export default function SessionDetail() {
               </span>
             </div>
           </div>
-          <div className="flex items-center bg-layer-tertiary border border-primary-c rounded-lg px-4 py-2">
+          <div className="flex items-center bg-layer-tertiary border border-primary-c rounded-lg px-3 py-2">
             <Search className="h-4 w-4 text-muted-c mr-2" />
             <input
               type="text"
               placeholder="Search messages..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none text-primary-c placeholder-muted-c w-64"
+              className="bg-transparent border-none outline-none text-primary-c placeholder-muted-c flex-1"
             />
+            {searchQuery && searchMatches.length > 0 && (
+              <div className="flex items-center gap-1 ml-2">
+                <span className="text-xs text-muted-c">
+                  {currentMatchIndex + 1}/{searchMatches.length}
+                </span>
+                <button
+                  onClick={navigateToPreviousMatch}
+                  className="p-1 hover:bg-layer-secondary rounded transition-colors"
+                  title="Previous match (Alt+Up)"
+                >
+                  <ChevronUp className="h-4 w-4 text-muted-c" />
+                </button>
+                <button
+                  onClick={navigateToNextMatch}
+                  className="p-1 hover:bg-layer-secondary rounded transition-colors"
+                  title="Next match (Alt+Down)"
+                >
+                  <ChevronDown className="h-4 w-4 text-muted-c" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -866,6 +945,7 @@ export default function SessionDetail() {
                   getMessageColors={getMessageColors}
                   getMessageLabel={getMessageLabel}
                   getAvatarText={getAvatarText}
+                  searchQuery={searchQuery}
                 />
                 {canLoadMore && (
                   <div className="flex justify-center py-6">
@@ -1186,6 +1266,7 @@ interface TimelineViewProps {
   getMessageLabel: (type: Message['type'], content?: string) => string;
   getAvatarText: (type: Message['type']) => string;
   messageRefs: React.MutableRefObject<{ [key: string]: HTMLDivElement | null }>;
+  searchQuery?: string;
 }
 
 function TimelineView({
@@ -1210,6 +1291,7 @@ function TimelineView({
   getMessageLabel,
   getAvatarText,
   messageRefs,
+  searchQuery = '',
 }: TimelineViewProps) {
   // Format message content based on type and content
   const formatMessageContent = (message: Message) => {
@@ -1713,7 +1795,9 @@ function TimelineView({
               key={message._id}
               className="group"
               ref={(el) => {
-                messageRefs.current[message._id] = el;
+                const messageId =
+                  message.uuid || message.messageUuid || message._id;
+                messageRefs.current[messageId] = el;
               }}
             >
               <div
@@ -1878,7 +1962,11 @@ function TimelineView({
                           if (contentLength > 500 && !isExpanded) {
                             return (
                               <>
-                                {formattedContent.slice(0, 500)}...
+                                {highlightSearchMatches(
+                                  formattedContent.slice(0, 500),
+                                  searchQuery
+                                )}
+                                ...
                                 <button
                                   onClick={() => onToggleExpanded(message._id)}
                                   className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:text-primary-hover"
@@ -1891,7 +1979,10 @@ function TimelineView({
                           } else {
                             return (
                               <>
-                                {formattedContent}
+                                {highlightSearchMatches(
+                                  formattedContent,
+                                  searchQuery
+                                )}
                                 {contentLength > 500 && (
                                   <button
                                     onClick={() =>
