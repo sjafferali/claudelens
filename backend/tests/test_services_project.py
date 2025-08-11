@@ -291,21 +291,30 @@ class TestProjectService:
 
     @pytest.mark.asyncio
     async def test_delete_project_without_cascade(self, project_service, mock_db):
-        """Test deleting a project without cascade."""
+        """Test deleting a project (cascade is now always enabled)."""
         # Setup
         project_id = ObjectId("507f1f77bcf86cd799439011")
         mock_result = MagicMock(deleted_count=1)
         mock_db.projects.delete_one = AsyncMock(return_value=mock_result)
+        mock_db.sessions.distinct = AsyncMock(return_value=[])  # No sessions
+        mock_db.sessions.delete_many = AsyncMock(
+            return_value=MagicMock(deleted_count=0)
+        )
+        mock_db.messages.delete_many = AsyncMock(
+            return_value=MagicMock(deleted_count=0)
+        )
 
-        # Execute
+        # Execute (cascade parameter is ignored, always cascades)
         success = await project_service.delete_project(project_id, cascade=False)
 
         # Assert
         assert success is True
         mock_db.projects.delete_one.assert_called_once_with({"_id": project_id})
-        # Should not delete related data
-        mock_db.sessions.delete_many.assert_not_called()
-        mock_db.messages.delete_many.assert_not_called()
+        # Should always check for sessions even when cascade=False
+        mock_db.sessions.distinct.assert_called_once_with(
+            "sessionId", {"projectId": project_id}
+        )
+        mock_db.sessions.delete_many.assert_called_once_with({"projectId": project_id})
 
     @pytest.mark.asyncio
     async def test_delete_project_with_cascade(self, project_service, mock_db):
@@ -342,6 +351,13 @@ class TestProjectService:
         project_id = ObjectId("507f1f77bcf86cd799439011")
         mock_result = MagicMock(deleted_count=0)
         mock_db.projects.delete_one = AsyncMock(return_value=mock_result)
+        mock_db.sessions.distinct = AsyncMock(return_value=[])  # No sessions
+        mock_db.sessions.delete_many = AsyncMock(
+            return_value=MagicMock(deleted_count=0)
+        )
+        mock_db.messages.delete_many = AsyncMock(
+            return_value=MagicMock(deleted_count=0)
+        )
 
         # Execute
         success = await project_service.delete_project(project_id)
@@ -473,8 +489,12 @@ class TestProjectService:
         project_id = ObjectId("507f1f77bcf86cd799439011")
 
         mock_db.sessions.distinct = AsyncMock(return_value=[])  # No sessions
-        mock_db.messages.delete_many = AsyncMock()  # Need to mock this
-        mock_db.sessions.delete_many = AsyncMock()  # Need to mock this
+        mock_db.messages.delete_many = AsyncMock(
+            return_value=MagicMock(deleted_count=0)
+        )
+        mock_db.sessions.delete_many = AsyncMock(
+            return_value=MagicMock(deleted_count=0)
+        )
         mock_result = MagicMock(deleted_count=1)
         mock_db.projects.delete_one = AsyncMock(return_value=mock_result)
 
@@ -485,8 +505,10 @@ class TestProjectService:
         assert success is True
         # Should still check for sessions
         mock_db.sessions.distinct.assert_called_once()
-        # But should not try to delete messages if no sessions
-        mock_db.messages.delete_many.assert_called_once_with({"sessionId": {"$in": []}})
+        # Should not try to delete messages if no sessions (implementation optimization)
+        mock_db.messages.delete_many.assert_not_called()
+        # Should still try to delete sessions
+        mock_db.sessions.delete_many.assert_called_once_with({"projectId": project_id})
 
     @pytest.mark.asyncio
     async def test_get_project_statistics_with_data(self, project_service, mock_db):

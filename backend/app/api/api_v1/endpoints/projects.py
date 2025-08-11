@@ -132,12 +132,15 @@ async def update_project(
 async def delete_project(
     project_id: str,
     db: CommonDeps,
-    cascade: bool = Query(False, description="Delete all associated data"),
+    cascade: bool = Query(
+        True,
+        description="Delete all associated data (always enabled to prevent orphaned data)",
+    ),
 ) -> dict:
     """Delete a project.
 
-    If cascade=true, also deletes all sessions and messages.
-    Otherwise, only deletes the project metadata.
+    Always deletes all associated sessions and messages to prevent orphaned data.
+    The cascade parameter is kept for backward compatibility but is now always treated as True.
 
     For large projects, deletion happens asynchronously with progress updates via WebSocket.
     """
@@ -154,10 +157,10 @@ async def delete_project(
         raise NotFoundError("Project", project_id)
 
     # For projects with many messages, use async deletion
-    if cascade and project.stats and project.stats.message_count > 1000:
-        # Start async deletion in background
+    if project.stats and project.stats.message_count > 1000:
+        # Start async deletion in background (always cascade)
         asyncio.create_task(
-            service.delete_project_async(ObjectId(project_id), cascade=cascade)
+            service.delete_project_async(ObjectId(project_id), cascade=True)
         )
 
         return {
@@ -168,14 +171,14 @@ async def delete_project(
             "note": "Progress updates will be sent via WebSocket",
         }
     else:
-        # Use synchronous deletion for smaller projects
-        deleted = await service.delete_project(ObjectId(project_id), cascade=cascade)
+        # Use synchronous deletion for smaller projects (always cascade)
+        deleted = await service.delete_project(ObjectId(project_id), cascade=True)
 
         if not deleted:
             raise NotFoundError("Project", project_id)
 
         return {
-            "message": "Project deleted successfully",
+            "message": "Project and all associated data deleted successfully",
             "async": False,
             "project_id": project_id,
         }

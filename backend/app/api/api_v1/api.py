@@ -2,6 +2,7 @@
 
 from app.api.api_v1.endpoints import (
     analytics,
+    export,
     ingest,
     messages,
     projects,
@@ -24,6 +25,8 @@ api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 
 api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
+
+api_router.include_router(export.router, prefix="/export", tags=["export"])
 
 
 @api_router.get("/health")

@@ -584,9 +584,9 @@ class TestProjectsEndpoints:
         assert "project_id" in response_data
         assert response_data["project_id"] == project_id
         assert response_data["async"] is False  # Small project, sync deletion
-        # Verify cascade was False by default
+        # Verify cascade is now always True
         mock_service_instance.delete_project.assert_called_once_with(
-            ObjectId(project_id), cascade=False
+            ObjectId(project_id), cascade=True
         )
 
     @pytest.mark.asyncio
