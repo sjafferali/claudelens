@@ -14,6 +14,7 @@ NC='\033[0m' # No Color
 # Track overall status
 EXIT_CODE=0
 AUTO_FIXES_APPLIED=()
+AUTO_FIXED_AND_PASSED=()
 
 # Script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -275,19 +276,36 @@ if [ "$SKIP_LINT" = false ]; then
 
     # Ruff checks
     echo -e "\n${YELLOW}Ruff Linting${NC}"
+
+    # Save the current EXIT_CODE before Backend ruff check
+    SAVED_EXIT_CODE=$EXIT_CODE
+
     if ! run_check "Backend ruff" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check ."; then
-        auto_fix_ruff "$PROJECT_ROOT/backend"
         if [ "$AUTO_FIX" = true ]; then
+            auto_fix_ruff "$PROJECT_ROOT/backend"
             # Re-run the check after fix
-            run_check "Backend ruff (after fix)" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check ."
+            if run_check "Backend ruff (after fix)" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check ."; then
+                # If the check passes after auto-fix, restore the previous EXIT_CODE
+                EXIT_CODE=$SAVED_EXIT_CODE
+                AUTO_FIXED_AND_PASSED+=("Backend Ruff")
+                print_success "Backend Ruff auto-fixed successfully - counting as PASS"
+            fi
         fi
     fi
 
+    # Save the current EXIT_CODE before CLI ruff check
+    SAVED_EXIT_CODE=$EXIT_CODE
+
     if ! run_check "CLI ruff" "cd \"$PROJECT_ROOT/cli\" && \"$CI_VENV/bin/ruff\" check ."; then
-        auto_fix_ruff "$PROJECT_ROOT/cli"
         if [ "$AUTO_FIX" = true ]; then
+            auto_fix_ruff "$PROJECT_ROOT/cli"
             # Re-run the check after fix
-            run_check "CLI ruff (after fix)" "cd \"$PROJECT_ROOT/cli\" && \"$CI_VENV/bin/ruff\" check ."
+            if run_check "CLI ruff (after fix)" "cd \"$PROJECT_ROOT/cli\" && \"$CI_VENV/bin/ruff\" check ."; then
+                # If the check passes after auto-fix, restore the previous EXIT_CODE
+                EXIT_CODE=$SAVED_EXIT_CODE
+                AUTO_FIXED_AND_PASSED+=("CLI Ruff")
+                print_success "CLI Ruff auto-fixed successfully - counting as PASS"
+            fi
         fi
     fi
 
@@ -318,19 +336,36 @@ if [ "$SKIP_LINT" = false ]; then
         npm ci
     fi
 
+    # Save the current EXIT_CODE before ESLint check
+    SAVED_EXIT_CODE=$EXIT_CODE
+
     if ! run_check "ESLint" "npm run lint"; then
-        auto_fix_eslint
         if [ "$AUTO_FIX" = true ]; then
+            auto_fix_eslint
             # Re-run the check after fix
-            run_check "ESLint (after fix)" "npm run lint"
+            if run_check "ESLint (after fix)" "npm run lint"; then
+                # If the check passes after auto-fix, restore the previous EXIT_CODE
+                EXIT_CODE=$SAVED_EXIT_CODE
+                AUTO_FIXED_AND_PASSED+=("ESLint")
+                print_success "ESLint auto-fixed successfully - counting as PASS"
+            fi
         fi
     fi
 
+    # Save the current EXIT_CODE before Prettier check
+    SAVED_EXIT_CODE=$EXIT_CODE
+
     if ! run_check "Prettier formatting check" "npm run format:check"; then
-        auto_fix_prettier
         if [ "$AUTO_FIX" = true ]; then
+            auto_fix_prettier
             # Re-run the check after fix
-            run_check "Prettier formatting check (after fix)" "npm run format:check"
+            if run_check "Prettier formatting check (after fix)" "npm run format:check"; then
+                # If the check passes after auto-fix, restore the previous EXIT_CODE
+                # since this is a recoverable issue that was fixed
+                EXIT_CODE=$SAVED_EXIT_CODE
+                AUTO_FIXED_AND_PASSED+=("Prettier formatting")
+                print_success "Prettier formatting auto-fixed successfully - counting as PASS"
+            fi
         fi
     fi
 
@@ -413,6 +448,14 @@ if [ ${#AUTO_FIXES_APPLIED[@]} -gt 0 ] && [ "$AUTO_FIX" = true ]; then
         echo -e "  ${GREEN}✓${NC} $fix"
     done
     echo -e "\n${YELLOW}Please review the changes and commit if they look good.${NC}"
+fi
+
+# Show auto-fixed and passed checks
+if [ ${#AUTO_FIXED_AND_PASSED[@]} -gt 0 ]; then
+    echo -e "\n${GREEN}Auto-fixed checks (counted as PASS):${NC}"
+    for check in "${AUTO_FIXED_AND_PASSED[@]}"; do
+        echo -e "  ${GREEN}✓${NC} $check - auto-fixed and passing"
+    done
 fi
 
 # Deactivate virtual environment

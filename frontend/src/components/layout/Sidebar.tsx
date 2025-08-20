@@ -6,6 +6,7 @@ import {
   Search,
   Settings,
   Activity,
+  FileText,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -15,6 +16,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
   { path: '/projects', label: 'Projects', icon: FolderOpen },
   { path: '/sessions', label: 'Sessions', icon: MessageSquare },
+  { path: '/prompts', label: 'Prompts', icon: FileText },
   { path: '/search', label: 'Search', icon: Search },
   { path: '/analytics', label: 'Analytics', icon: Activity },
 ];

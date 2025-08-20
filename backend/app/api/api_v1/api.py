@@ -6,6 +6,7 @@ from app.api.api_v1.endpoints import (
     ingest,
     messages,
     projects,
+    prompts,
     search,
     sessions,
 )
@@ -27,6 +28,8 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=["analytic
 api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
 
 api_router.include_router(export.router, prefix="/export", tags=["export"])
+
+api_router.include_router(prompts.router, prefix="/prompts", tags=["prompts"])
 
 
 @api_router.get("/health")

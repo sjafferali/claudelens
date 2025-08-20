@@ -95,3 +95,76 @@ export interface TokenAnalytics {
   group_by: string;
   generated_at: string;
 }
+
+// Prompt Management Types
+export interface PromptVersion {
+  version: string;
+  content: string;
+  variables: string[];
+  change_log: string;
+  created_at: string;
+  created_by: string;
+}
+
+export interface Folder {
+  _id: string;
+  name: string;
+  parent_id?: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  prompt_count: number;
+}
+
+export interface Prompt {
+  _id: string;
+  name: string;
+  description?: string;
+  content: string;
+  variables: string[];
+  tags: string[];
+  folder_id?: string;
+  version: string;
+  visibility: string;
+  use_count: number;
+  is_starred: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+}
+
+export interface PromptDetail extends Prompt {
+  versions: PromptVersion[];
+  shared_with: string[];
+  public_url?: string;
+  last_used_at?: string;
+  avg_response_time?: number;
+  success_rate?: number;
+}
+
+export interface PromptTestRequest {
+  variables: Record<string, string>;
+}
+
+export interface PromptTestResponse {
+  result: string;
+  variables_used: Record<string, string>;
+  execution_time_ms: number;
+}
+
+export interface PromptShareRequest {
+  user_ids: string[];
+  visibility: string;
+}
+
+export interface PromptExportRequest {
+  format: string;
+  prompt_ids?: string[];
+  include_versions: boolean;
+}
+
+export interface PromptImportRequest {
+  format: string;
+  content: string;
+  folder_id?: string;
+}
