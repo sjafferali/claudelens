@@ -244,8 +244,10 @@ export function FolderTree({
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, undefined)}
         className={cn(
-          'flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent transition-colors',
-          !selectedFolderId && 'bg-accent text-accent-foreground',
+          'flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors',
+          !selectedFolderId
+            ? 'bg-accent text-accent-foreground'
+            : 'hover:bg-accent',
           dragOverFolderId === 'root' && 'ring-2 ring-primary bg-primary/10'
         )}
       >
@@ -378,11 +380,10 @@ function FolderNode({
       <div
         className={cn(
           'flex items-center gap-1 px-2 py-1.5 text-sm rounded-md cursor-pointer relative group transition-all',
-          selectedFolderId === folder._id &&
-            'bg-accent text-accent-foreground font-medium',
-          dragOverFolderId === folder._id &&
-            'ring-2 ring-primary bg-primary/10',
-          !selectedFolderId && !dragOverFolderId && 'hover:bg-accent/50'
+          selectedFolderId === folder._id
+            ? 'bg-accent text-accent-foreground font-medium'
+            : 'hover:bg-accent/50',
+          dragOverFolderId === folder._id && 'ring-2 ring-primary bg-primary/10'
         )}
         style={{
           paddingLeft: `${(level + 1) * 12 + 8}px`,
