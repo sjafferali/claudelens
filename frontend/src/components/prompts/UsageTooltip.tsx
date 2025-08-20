@@ -26,7 +26,7 @@ export function UsageTooltip({
     return { label: 'Highly Used', color: 'text-yellow-500' };
   };
 
-  const usageLevel = getUsageLevel(useCount);
+  const usageLevel = getUsageLevel(useCount ?? 0);
 
   return (
     <div className={cn('group relative inline-block', className)}>
@@ -51,7 +51,9 @@ export function UsageTooltip({
                   <TrendingUp className="h-3 w-3" />
                   <span>Total Uses</span>
                 </div>
-                <p className="font-medium">{useCount.toLocaleString()}</p>
+                <p className="font-medium">
+                  {(useCount ?? 0).toLocaleString()}
+                </p>
               </div>
 
               {lastUsedAt && (
@@ -72,7 +74,9 @@ export function UsageTooltip({
                     <Clock className="h-3 w-3" />
                     <span>Avg Time</span>
                   </div>
-                  <p className="font-medium">{avgResponseTime.toFixed(1)}s</p>
+                  <p className="font-medium">
+                    {(avgResponseTime ?? 0).toFixed(1)}s
+                  </p>
                 </div>
               )}
 
@@ -88,7 +92,9 @@ export function UsageTooltip({
                     )}
                     <span>Success</span>
                   </div>
-                  <p className="font-medium">{successRate.toFixed(1)}%</p>
+                  <p className="font-medium">
+                    {(successRate ?? 0).toFixed(1)}%
+                  </p>
                 </div>
               )}
             </div>
@@ -96,16 +102,18 @@ export function UsageTooltip({
             {/* Description */}
             <div className="pt-2 border-t text-xs text-muted-foreground">
               <p>
-                This prompt has been used {useCount} time
-                {useCount !== 1 ? 's' : ''}.
-                {useCount === 0 && ' Try testing it to see how it works!'}
-                {useCount > 0 &&
-                  useCount < 10 &&
+                This prompt has been used {useCount ?? 0} time
+                {(useCount ?? 0) !== 1 ? 's' : ''}.
+                {(useCount ?? 0) === 0 &&
+                  ' Try testing it to see how it works!'}
+                {(useCount ?? 0) > 0 &&
+                  (useCount ?? 0) < 10 &&
                   " It's still new - consider testing more."}
-                {useCount >= 10 &&
-                  useCount < 50 &&
+                {(useCount ?? 0) >= 10 &&
+                  (useCount ?? 0) < 50 &&
                   " It's being actively used."}
-                {useCount >= 50 && " It's a popular prompt in your library."}
+                {(useCount ?? 0) >= 50 &&
+                  " It's a popular prompt in your library."}
               </p>
             </div>
           </div>

@@ -229,13 +229,13 @@ export function PromptList({
                     )}
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <UsageTooltip
-                        useCount={prompt.use_count}
+                        useCount={prompt.use_count ?? 0}
                         lastUsedAt={undefined}
                         avgResponseTime={undefined}
                         successRate={undefined}
                       >
                         <span className="cursor-help">
-                          {prompt.use_count} uses
+                          {prompt.use_count ?? 0} uses
                         </span>
                       </UsageTooltip>
                       <span>
@@ -363,14 +363,14 @@ export function PromptList({
 
               <div className="col-span-1 text-sm">
                 <UsageTooltip
-                  useCount={prompt.use_count}
+                  useCount={prompt.use_count ?? 0}
                   lastUsedAt={undefined}
                   avgResponseTime={undefined}
                   successRate={undefined}
                 >
                   <div className="cursor-help flex items-center gap-1">
                     <Activity className="h-3 w-3 text-muted-foreground" />
-                    <span>{prompt.use_count}</span>
+                    <span>{prompt.use_count ?? 0}</span>
                   </div>
                 </UsageTooltip>
               </div>

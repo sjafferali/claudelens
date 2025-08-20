@@ -177,15 +177,15 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
                   </div>
                 </div>
                 <UsageTooltip
-                  useCount={prompt.use_count}
+                  useCount={prompt.use_count ?? 0}
                   lastUsedAt={undefined}
                   avgResponseTime={undefined}
                   successRate={undefined}
                 >
                   <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-help">
                     <Activity className="h-3 w-3" />
-                    <span className="font-medium">{prompt.use_count}</span>
-                    <span>use{prompt.use_count !== 1 ? 's' : ''}</span>
+                    <span className="font-medium">{prompt.use_count ?? 0}</span>
+                    <span>use{(prompt.use_count ?? 0) !== 1 ? 's' : ''}</span>
                   </div>
                 </UsageTooltip>
               </div>
