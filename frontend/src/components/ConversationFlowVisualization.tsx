@@ -283,7 +283,6 @@ const ConversationFlowVisualizationInner: React.FC<
 
   // Export functionality
   const exportAsPNG = useCallback(() => {
-    // const nodesBounds = getRectOfNodes(getNodes());
     // For a full implementation, you'd need to render the React Flow nodes to canvas
 
     // Create a temporary canvas
