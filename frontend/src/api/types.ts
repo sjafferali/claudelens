@@ -106,6 +106,11 @@ export interface PromptVersion {
   created_by: string;
 }
 
+export interface PromptTag {
+  name: string;
+  count: number;
+}
+
 export interface Folder {
   _id: string;
   name: string;

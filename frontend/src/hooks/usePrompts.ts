@@ -8,6 +8,7 @@ import {
   CreateFolderRequest,
   UpdateFolderRequest,
 } from '@/api/prompts';
+import { Prompt } from '@/api/types';
 
 // Prompt hooks
 export function usePrompts(params: PromptsParams = {}) {
@@ -55,12 +56,45 @@ export function useUpdatePrompt() {
       promptId: string;
       promptData: UpdatePromptRequest;
     }) => promptsApi.updatePrompt(promptId, promptData),
-    onSuccess: (_, variables) => {
+    onSuccess: (updatedPrompt, variables) => {
+      // Update the cache with the new data immediately
+      queryClient.setQueryData(['prompt', variables.promptId], updatedPrompt);
+
+      // Also update the prompt in the list cache if it exists
+      queryClient.setQueriesData(
+        { queryKey: ['prompts'] },
+        (oldData: unknown) => {
+          const typedData = oldData as { items?: Prompt[] } | undefined;
+          if (!typedData?.items) return oldData;
+
+          const updatedItems = typedData.items.map((item: Prompt) =>
+            item._id === variables.promptId
+              ? { ...item, ...updatedPrompt }
+              : item
+          );
+
+          return {
+            ...typedData,
+            items: updatedItems,
+          };
+        }
+      );
+
+      // Then invalidate to ensure fresh data on next fetch
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
       queryClient.invalidateQueries({
         queryKey: ['prompt', variables.promptId],
       });
-      toast.success('Prompt updated successfully');
+
+      // Only show success toast for non-star updates
+      if (
+        !(
+          'is_starred' in variables.promptData &&
+          Object.keys(variables.promptData).length === 1
+        )
+      ) {
+        toast.success('Prompt updated successfully');
+      }
     },
     onError: (error: unknown) => {
       console.error('Prompt update failed:', error);
@@ -84,6 +118,15 @@ export function useDeletePrompt() {
       console.error('Prompt deletion failed:', error);
       toast.error('Failed to delete prompt');
     },
+  });
+}
+
+// Tag hooks
+export function usePromptTags() {
+  return useQuery({
+    queryKey: ['promptTags'],
+    queryFn: () => promptsApi.getPromptTags(),
+    staleTime: 60000, // Cache for 1 minute
   });
 }
 

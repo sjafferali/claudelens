@@ -243,6 +243,19 @@ class PromptService:
             },
         )
 
+    async def get_unique_tags(self) -> list[dict[str, Any]]:
+        """Get all unique tags with their usage counts."""
+        pipeline: list[dict[str, Any]] = [
+            {"$unwind": "$tags"},
+            {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1, "_id": 1}},
+            {"$project": {"name": "$_id", "count": 1, "_id": 0}},
+        ]
+
+        cursor = self.db.prompts.aggregate(pipeline)
+        tags = await cursor.to_list(None)
+        return tags
+
     # Folder CRUD operations
     async def list_folders(self) -> list[FolderInDB]:
         """List all folders."""

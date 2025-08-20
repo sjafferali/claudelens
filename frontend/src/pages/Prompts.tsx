@@ -13,6 +13,7 @@ import {
   usePrompt,
   useDeletePrompt,
   useUpdatePrompt,
+  usePromptTags,
 } from '@/hooks/usePrompts';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -36,6 +37,8 @@ import { PromptCard } from '@/components/prompts/PromptCard';
 import { PromptList } from '@/components/prompts/PromptList';
 import { PromptEditor } from '@/components/prompts/PromptEditor';
 import { PromptPlayground } from '@/components/prompts/PromptPlayground';
+import { TagFilter } from '@/components/prompts/TagFilter';
+import { ActivePromptFilters } from '@/components/prompts/ActivePromptFilters';
 import { cn } from '@/utils/cn';
 import { useFolders } from '@/hooks/usePrompts';
 
@@ -69,12 +72,16 @@ function PromptsList() {
     string | undefined
   >();
   const [starredOnly, setStarredOnly] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<SortField>('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Fetch folders for breadcrumb
   const { data: folders = [] } = useFolders();
+
+  // Fetch available tags
+  const { data: availableTags = [], isLoading: tagsLoading } = usePromptTags();
 
   // Editor state
   const [showEditor, setShowEditor] = useState(false);
@@ -96,6 +103,7 @@ function PromptsList() {
     search: searchQuery || undefined,
     folder_id: selectedFolderId,
     starred_only: starredOnly || undefined,
+    tags: selectedTags.length > 0 ? selectedTags.join(',') : undefined,
     sort_by: sortBy,
     sort_order: sortOrder,
   });
@@ -122,7 +130,14 @@ function PromptsList() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchQuery, selectedFolderId, starredOnly, sortBy, sortOrder]);
+  }, [
+    searchQuery,
+    selectedFolderId,
+    starredOnly,
+    selectedTags,
+    sortBy,
+    sortOrder,
+  ]);
 
   const handleSort = (field: SortField) => {
     if (sortBy === field) {
@@ -153,6 +168,12 @@ function PromptsList() {
         promptId: prompt._id,
         promptData: { is_starred: starred },
       });
+      // Visual feedback for star toggle
+      if (starred) {
+        toast.success('Added to starred prompts', { duration: 2000 });
+      } else {
+        toast.success('Removed from starred prompts', { duration: 2000 });
+      }
     } catch (error) {
       console.error('Failed to update star status:', error);
       toast.error('Failed to update star status');
@@ -222,6 +243,35 @@ function PromptsList() {
     setShowPlayground(false);
     setPlaygroundPrompt(null);
   };
+
+  // Tag filter handlers
+  const handleTagsChange = (tags: string[]) => {
+    setSelectedTags(tags);
+  };
+
+  const handleRemoveFilter = (filterKey: string, value?: string) => {
+    if (filterKey === 'search') {
+      setSearchQuery('');
+    } else if (filterKey === 'starredOnly') {
+      setStarredOnly(false);
+    } else if (filterKey === 'folder') {
+      setSelectedFolderId(undefined);
+    } else if (filterKey === 'tag' && value) {
+      setSelectedTags((prev) => prev.filter((t) => t !== value));
+    }
+  };
+
+  const handleClearAllFilters = () => {
+    setSearchQuery('');
+    setSelectedTags([]);
+    setStarredOnly(false);
+    setSelectedFolderId(undefined);
+  };
+
+  // Get current folder name for active filters
+  const currentFolderName = selectedFolderId
+    ? folders.find((f) => f._id === selectedFolderId)?.name
+    : undefined;
 
   if (error) {
     return (
@@ -301,6 +351,14 @@ function PromptsList() {
                   Starred only
                 </label>
               </div>
+
+              {/* Tag Filter */}
+              <TagFilter
+                availableTags={availableTags}
+                selectedTags={selectedTags}
+                onChange={handleTagsChange}
+                isLoading={tagsLoading}
+              />
             </CardContent>
           </Card>
         </div>
@@ -313,6 +371,24 @@ function PromptsList() {
             selectedFolderId={selectedFolderId}
             onFolderSelect={setSelectedFolderId}
           />
+
+          {/* Active Filters */}
+          {(searchQuery ||
+            selectedTags.length > 0 ||
+            starredOnly ||
+            selectedFolderId) && (
+            <ActivePromptFilters
+              filters={{
+                search: searchQuery,
+                selectedTags,
+                starredOnly,
+                folderId: selectedFolderId,
+                folderName: currentFolderName,
+              }}
+              onRemoveFilter={handleRemoveFilter}
+              onClearAll={handleClearAllFilters}
+            />
+          )}
 
           {/* Search and Controls */}
           <div className="flex items-center gap-4">
@@ -566,6 +642,12 @@ function PromptDetail({ promptId }: { promptId: string }) {
         promptId: prompt._id,
         promptData: { is_starred: !prompt.is_starred },
       });
+      // Visual feedback for star toggle
+      if (!prompt.is_starred) {
+        toast.success('Added to starred prompts', { duration: 2000 });
+      } else {
+        toast.success('Removed from starred prompts', { duration: 2000 });
+      }
     } catch (error) {
       console.error('Failed to update star status:', error);
       toast.error('Failed to update star status');

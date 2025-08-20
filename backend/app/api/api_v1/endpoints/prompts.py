@@ -40,6 +40,9 @@ async def list_prompts(
     search: Optional[str] = Query(None, description="Search in prompt names, content"),
     folder_id: Optional[str] = Query(None, description="Filter by folder ID"),
     starred_only: bool = Query(False, description="Show only starred prompts"),
+    tags: Optional[str] = Query(
+        None, description="Comma-separated list of tags to filter by"
+    ),
     sort_by: str = Query(
         "updated_at", pattern="^(name|created_at|updated_at|use_count)$"
     ),
@@ -48,24 +51,35 @@ async def list_prompts(
     """List all prompts with pagination and filtering."""
     service = PromptService(db)
 
-    # Handle different filter scenarios
+    # Build filter dictionary
+    filter_dict: dict[str, Any] = {}
+
+    # Add tag filtering if tags are provided
+    if tags:
+        tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
+        if tag_list:
+            filter_dict["tags"] = {"$all": tag_list}
+
+    # Add folder filtering
+    if folder_id is not None:
+        filter_dict["folderId"] = ObjectId(folder_id) if folder_id else None
+
+    # Add starred filtering
+    if starred_only:
+        filter_dict["isStarred"] = True
+
+    # Handle search separately as it uses text search
     if search:
-        prompts, total = await service.search_prompts(search, skip, limit)
-    elif starred_only:
-        prompts, total = await service.get_starred_prompts(skip, limit)
-    elif folder_id is not None:
-        folder_obj_id = ObjectId(folder_id) if folder_id else None
-        prompts, total = await service.get_prompts_by_folder(folder_obj_id, skip, limit)
-    else:
-        # Default: list all prompts
-        filter_dict: dict[str, Any] = {}
-        prompts, total = await service.list_prompts(
-            filter_dict=filter_dict,
-            skip=skip,
-            limit=limit,
-            sort_by=sort_by,
-            sort_order=sort_order,
-        )
+        filter_dict["$text"] = {"$search": search}
+
+    # Get prompts with combined filters
+    prompts, total = await service.list_prompts(
+        filter_dict=filter_dict,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
 
     return PaginatedResponse(
         items=prompts,
@@ -104,6 +118,15 @@ async def create_prompt(prompt: PromptCreate, db: CommonDeps) -> Prompt:
         )
 
     return Prompt(**prompt_dict)
+
+
+# Tags endpoint - MUST come before /{prompt_id}
+@router.get("/tags/", response_model=list[dict])
+async def get_unique_tags(db: CommonDeps) -> list[dict]:
+    """Get all unique tags with their usage counts."""
+    service = PromptService(db)
+    tags = await service.get_unique_tags()
+    return tags
 
 
 # Folder endpoints - MUST come before /{prompt_id}

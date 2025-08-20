@@ -17,6 +17,7 @@ export interface PromptsParams {
   search?: string;
   folder_id?: string;
   starred_only?: boolean;
+  tags?: string;
   sort_by?: 'name' | 'created_at' | 'updated_at' | 'use_count';
   sort_order?: 'asc' | 'desc';
 }
@@ -66,6 +67,7 @@ export const promptsApi = {
       queryParams.append('folder_id', params.folder_id);
     if (params.starred_only)
       queryParams.append('starred_only', params.starred_only.toString());
+    if (params.tags) queryParams.append('tags', params.tags);
     if (params.sort_by) queryParams.append('sort_by', params.sort_by);
     if (params.sort_order) queryParams.append('sort_order', params.sort_order);
 
@@ -91,6 +93,13 @@ export const promptsApi = {
 
   async deletePrompt(promptId: string): Promise<{ message: string }> {
     return apiClient.delete(`/prompts/${promptId}`);
+  },
+
+  // Tag operations
+  async getPromptTags(): Promise<Array<{ name: string; count: number }>> {
+    return apiClient.get<Array<{ name: string; count: number }>>(
+      '/prompts/tags/'
+    );
   },
 
   // Folder operations
