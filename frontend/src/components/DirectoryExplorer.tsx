@@ -39,8 +39,10 @@ const DirectoryItem: React.FC<DirectoryItemProps> = ({
   return (
     <div>
       <div
-        className={`flex items-center py-2 px-2 hover:bg-gray-50 cursor-pointer transition-colors ${
-          isSelected ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+        className={`flex items-center py-2 px-2 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors ${
+          isSelected
+            ? 'bg-blue-50 dark:bg-blue-900/20 border-r-2 border-blue-500'
+            : ''
         }`}
         style={{ paddingLeft: `${paddingLeft}px` }}
         onClick={onSelect}
@@ -51,7 +53,7 @@ const DirectoryItem: React.FC<DirectoryItemProps> = ({
             e.stopPropagation();
             onToggle();
           }}
-          className="p-1 hover:bg-gray-200 rounded transition-colors mr-1"
+          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors mr-1"
           disabled={!hasChildren}
         >
           {hasChildren ? (
@@ -81,7 +83,7 @@ const DirectoryItem: React.FC<DirectoryItemProps> = ({
         {/* Directory Name and Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <span className="font-medium text-gray-900 truncate">
+            <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
               {node.name === 'root' ? 'All Directories' : node.name}
             </span>
             <div className="flex items-center space-x-4 text-xs text-gray-500 ml-4">
@@ -197,14 +199,16 @@ export const DirectoryExplorer: React.FC<DirectoryExplorerProps> = ({
   }
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg ${className}`}>
+    <div
+      className={`bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg ${className}`}
+    >
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Directory Structure
           </h3>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
             {data.metrics.sessions} sessions,{' '}
             {formatCurrency(data.metrics.cost)} total
           </div>
@@ -218,14 +222,14 @@ export const DirectoryExplorer: React.FC<DirectoryExplorerProps> = ({
             placeholder="Search directories..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
       </div>
 
       {/* Column Headers */}
-      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
-        <div className="flex items-center text-xs font-medium text-gray-700 uppercase tracking-wide">
+      <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">
           <div className="flex-1">Directory</div>
           <div className="flex items-center space-x-4 text-right">
             <span className="w-16">Cost</span>
@@ -240,7 +244,7 @@ export const DirectoryExplorer: React.FC<DirectoryExplorerProps> = ({
       <div className="max-h-96 overflow-y-auto">{renderNode(filteredData)}</div>
 
       {/* Footer Summary */}
-      <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
+      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400">
         <div className="flex items-center justify-between">
           <span>{data.children?.length || 0} top-level directories</span>
           <span>Last active: {formatDate(data.metrics.last_active)}</span>

@@ -12,10 +12,13 @@ import {
   Hash,
   ChevronUp,
   ChevronDown,
+  Activity,
+  HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Prompt } from '@/api/types';
 import { VariableCountBadge } from './VariableChips';
+import { UsageTooltip } from './UsageTooltip';
 
 interface PromptListProps {
   prompts: Prompt[];
@@ -156,7 +159,22 @@ export function PromptList({
         <div className="col-span-4">
           <SortButton field="name" label="Name" />
         </div>
-        <div className="col-span-2">Variables</div>
+        <div className="col-span-2">
+          <div className="flex items-center gap-1">
+            <span>Variables</span>
+            <div className="group relative">
+              <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                <div className="bg-popover border rounded-lg shadow-lg p-2 w-48">
+                  <p className="text-xs">
+                    Variables make prompts reusable by replacing placeholders
+                    with actual values
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="col-span-1">
           <SortButton field="use_count" label="Uses" />
         </div>
@@ -210,7 +228,16 @@ export function PromptList({
                       </p>
                     )}
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>{prompt.use_count} uses</span>
+                      <UsageTooltip
+                        useCount={prompt.use_count}
+                        lastUsedAt={undefined}
+                        avgResponseTime={undefined}
+                        successRate={undefined}
+                      >
+                        <span className="cursor-help">
+                          {prompt.use_count} uses
+                        </span>
+                      </UsageTooltip>
                       <span>
                         {prompt.updated_at
                           ? formatDistanceToNow(new Date(prompt.updated_at), {
@@ -334,7 +361,19 @@ export function PromptList({
                 <VariableCountBadge count={prompt.variables.length} />
               </div>
 
-              <div className="col-span-1 text-sm">{prompt.use_count}</div>
+              <div className="col-span-1 text-sm">
+                <UsageTooltip
+                  useCount={prompt.use_count}
+                  lastUsedAt={undefined}
+                  avgResponseTime={undefined}
+                  successRate={undefined}
+                >
+                  <div className="cursor-help flex items-center gap-1">
+                    <Activity className="h-3 w-3 text-muted-foreground" />
+                    <span>{prompt.use_count}</span>
+                  </div>
+                </UsageTooltip>
+              </div>
 
               <div className="col-span-2 text-sm text-muted-foreground">
                 <div>

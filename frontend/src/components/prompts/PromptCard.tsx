@@ -10,6 +10,8 @@ import {
   Play,
   Hash,
   GripVertical,
+  HelpCircle,
+  Activity,
 } from 'lucide-react';
 import {
   Card,
@@ -21,6 +23,7 @@ import {
 import { cn } from '@/utils/cn';
 import { Prompt } from '@/api/types';
 import { VariableCountBadge } from './VariableChips';
+import { UsageTooltip } from './UsageTooltip';
 
 interface PromptCardProps extends HTMLAttributes<HTMLDivElement> {
   prompt: Prompt;
@@ -156,16 +159,35 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
 
         <CardContent className={cn(compact ? 'p-4 pt-0' : 'p-6 pt-0')}>
           <div className="space-y-3">
-            {/* Variables */}
+            {/* Variables and Usage */}
             {showVariables && (
               <div className="flex items-center justify-between">
-                <VariableCountBadge count={prompt.variables.length} />
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Play className="h-3 w-3" />
-                    <span>{prompt.use_count} uses</span>
+                <div className="flex items-center gap-2">
+                  <VariableCountBadge count={prompt.variables.length} />
+                  <div className="group relative">
+                    <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                      <div className="bg-popover border rounded-lg shadow-lg p-2 w-48">
+                        <p className="text-xs">
+                          Variables make prompts reusable. Use {`{{name}}`}{' '}
+                          syntax to add them.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
+                <UsageTooltip
+                  useCount={prompt.use_count}
+                  lastUsedAt={undefined}
+                  avgResponseTime={undefined}
+                  successRate={undefined}
+                >
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-help">
+                    <Activity className="h-3 w-3" />
+                    <span className="font-medium">{prompt.use_count}</span>
+                    <span>use{prompt.use_count !== 1 ? 's' : ''}</span>
+                  </div>
+                </UsageTooltip>
               </div>
             )}
 

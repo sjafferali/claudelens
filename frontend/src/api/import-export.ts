@@ -1,5 +1,4 @@
 import { apiClient } from './client';
-import { useStore } from '@/store';
 
 // Export Types
 export interface CreateExportRequest {
@@ -215,32 +214,16 @@ export const exportApi = {
     apiClient.get(`/export/${jobId}/status`),
 
   downloadExport: async (jobId: string): Promise<void> => {
-    const apiKey =
-      import.meta.env.VITE_API_KEY ||
-      useStore.getState().auth.apiKey ||
-      'default-api-key';
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL || '/api/v1'}/export/${jobId}/download`,
-      {
-        headers: {
-          'X-API-Key': apiKey,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Download failed');
-    }
-
-    const blob = await response.blob();
+    // Use apiClient.get with responseType: 'blob' to handle binary data
+    const blob = await apiClient.get<Blob>(`/export/${jobId}/download`, {
+      responseType: 'blob',
+    });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
 
-    // Extract filename from Content-Disposition header if available
-    const contentDisposition = response.headers.get('Content-Disposition');
-    const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
-    const filename = filenameMatch ? filenameMatch[1] : `export_${jobId}.json`;
+    // Default filename if not provided
+    const filename = `export_${jobId}.json`;
 
     a.download = filename;
     document.body.appendChild(a);
@@ -268,30 +251,15 @@ export const importApi = {
     file: File,
     dryRun = true
   ): Promise<ValidateImportResponse> => {
-    const apiKey =
-      import.meta.env.VITE_API_KEY ||
-      useStore.getState().auth.apiKey ||
-      'default-api-key';
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL || '/api/v1'}/import/validate?dry_run=${dryRun}`,
-      {
-        method: 'POST',
-        headers: {
-          'X-API-Key': apiKey,
-        },
-        body: formData,
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Validation failed');
-    }
-
-    return response.json();
+    // Use apiClient.post with FormData - axios will automatically set the correct Content-Type
+    return apiClient.post(`/import/validate?dry_run=${dryRun}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   },
 
   checkConflicts: (data: CheckConflictsRequest): Promise<ConflictsResponse> =>

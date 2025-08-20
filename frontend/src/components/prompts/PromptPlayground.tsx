@@ -8,12 +8,14 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Info,
+  Lightbulb,
 } from 'lucide-react';
 import { Button } from '@/components/common';
 import { Prompt, PromptTestResponse } from '@/api/types';
 import { useTestPrompt } from '@/hooks/usePrompts';
 import { substituteVariables, extractVariables } from '@/api/prompts';
-import { VariableChips } from './VariableChips';
+import { VariableHelper } from './VariableHelper';
 import { toast } from 'react-hot-toast';
 
 interface PromptPlaygroundProps {
@@ -87,6 +89,43 @@ export function PromptPlayground({
     }
   };
 
+  const getVariablePlaceholder = (variable: string): string => {
+    const lowerVar = variable.toLowerCase();
+
+    if (lowerVar.includes('code')) {
+      return 'Enter code snippet or file content...';
+    }
+    if (lowerVar.includes('text') || lowerVar.includes('content')) {
+      return 'Enter text content...';
+    }
+    if (lowerVar.includes('language') || lowerVar.includes('lang')) {
+      return 'e.g., javascript, python, java...';
+    }
+    if (lowerVar.includes('url') || lowerVar.includes('link')) {
+      return 'e.g., https://example.com...';
+    }
+    if (lowerVar.includes('name')) {
+      return 'Enter name...';
+    }
+    if (lowerVar.includes('description')) {
+      return 'Enter description...';
+    }
+    if (lowerVar.includes('requirement')) {
+      return 'Enter requirements or constraints...';
+    }
+    if (lowerVar.includes('format')) {
+      return 'e.g., json, markdown, plain text...';
+    }
+    if (lowerVar.includes('count') || lowerVar.includes('number')) {
+      return 'Enter a number...';
+    }
+    if (lowerVar.includes('date') || lowerVar.includes('time')) {
+      return 'e.g., 2024-01-15 or January 15, 2024...';
+    }
+
+    return `Enter value for ${variable}...`;
+  };
+
   const handleReset = () => {
     const resetInputs: VariableInputs = {};
     variables.forEach((variable) => {
@@ -156,35 +195,75 @@ export function PromptPlayground({
           {/* Left Panel: Input */}
           <div className="space-y-6 overflow-y-auto">
             <div>
-              <h3 className="text-lg font-semibold mb-4">Variables</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Variables</h3>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Lightbulb className="h-3 w-3" />
+                  <span>Fill in all variables to test</span>
+                </div>
+              </div>
               {variables.length > 0 ? (
                 <div className="space-y-4">
-                  <VariableChips variables={variables} />
-                  {variables.map((variable) => (
-                    <div key={variable} className="space-y-2">
-                      <label
-                        htmlFor={`var-${variable}`}
-                        className="text-sm font-medium flex items-center gap-2"
-                      >
-                        <span className="font-mono text-blue-600">{`{{${variable}}}`}</span>
-                      </label>
-                      <textarea
-                        id={`var-${variable}`}
-                        value={variableInputs[variable] || ''}
-                        onChange={(e) =>
-                          handleVariableChange(variable, e.target.value)
-                        }
-                        placeholder={`Enter value for ${variable}`}
-                        rows={3}
-                        className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
-                      />
-                    </div>
-                  ))}
+                  {/* Variable Helper */}
+                  <VariableHelper
+                    variables={variables}
+                    showExamples={true}
+                    className="mb-4"
+                  />
+
+                  {/* Variable Inputs */}
+                  <div className="space-y-4">
+                    {variables.map((variable) => {
+                      const hasValue = variableInputs[variable]?.trim();
+                      return (
+                        <div key={variable} className="space-y-2">
+                          <label
+                            htmlFor={`var-${variable}`}
+                            className="text-sm font-medium flex items-center justify-between"
+                          >
+                            <span className="font-mono text-primary">{`{{${variable}}}`}</span>
+                            {hasValue ? (
+                              <span className="flex items-center gap-1 text-xs text-green-600">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Filled
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <AlertCircle className="h-3 w-3" />
+                                Required
+                              </span>
+                            )}
+                          </label>
+                          <textarea
+                            id={`var-${variable}`}
+                            value={variableInputs[variable] || ''}
+                            onChange={(e) =>
+                              handleVariableChange(variable, e.target.value)
+                            }
+                            placeholder={getVariablePlaceholder(variable)}
+                            rows={3}
+                            className={`w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm ${
+                              !hasValue ? 'border-orange-300' : ''
+                            }`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
-                <p className="text-muted-foreground text-sm">
-                  This prompt doesn't have any variables.
-                </p>
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <div className="text-sm text-muted-foreground">
+                      <p>This prompt doesn't have any variables.</p>
+                      <p className="mt-1 text-xs">
+                        Variables make prompts reusable. Add them using{' '}
+                        {`{{name}}`} syntax.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 

@@ -14,6 +14,7 @@ import {
   Map as MapIcon,
   Share2,
   Bug,
+  BookmarkPlus,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -58,6 +59,7 @@ import { PageSkeleton } from '@/components/common/LoadingSkeleton';
 import Tooltip from '@/components/common/Tooltip';
 import HelpPanel from '@/components/HelpPanel';
 import { HelpCircle } from 'lucide-react';
+import { promptsApi } from '@/api/prompts';
 import { highlightSearchMatches } from '@/utils/search-highlighting';
 
 export default function SessionDetail() {
@@ -169,6 +171,8 @@ export default function SessionDetail() {
     new Set()
   );
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [collapsedToolResults, setCollapsedToolResults] = useState<Set<string>>(
     new Set()
   );
@@ -511,6 +515,52 @@ export default function SessionDetail() {
     },
     [sessionId]
   );
+
+  const handleSaveToPromptLibrary = useCallback(async (message: Message) => {
+    const messageId = message._id;
+
+    // Start saving
+    setSavingIds((prev) => new Set(prev).add(messageId));
+
+    try {
+      // Generate a name from the first line or first 50 chars
+      const firstLine = message.content.split('\n')[0];
+      const promptName =
+        firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine;
+
+      await promptsApi.createPrompt({
+        name: promptName || 'Saved Prompt',
+        content: message.content,
+        description: `Saved from session on ${format(new Date(message.timestamp), 'MMM d, yyyy')}`,
+        tags: ['saved-from-session'],
+      });
+
+      // Mark as saved
+      setSavedIds((prev) => new Set(prev).add(messageId));
+      toast.success('Prompt saved to library!', {
+        duration: 3000,
+        icon: '📚',
+      });
+
+      // Clear saved indicator after 3 seconds
+      setTimeout(() => {
+        setSavedIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
+      }, 3000);
+    } catch (error) {
+      toast.error('Failed to save prompt to library');
+      console.error('Error saving prompt:', error);
+    } finally {
+      setSavingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+    }
+  }, []);
 
   const handleOpenDebugModal = (message: Message) => {
     setDebugMessage(message);
@@ -928,6 +978,8 @@ export default function SessionDetail() {
                   collapsedToolResults={collapsedToolResults}
                   expandedToolPairs={expandedToolPairs}
                   copiedId={copiedId}
+                  savingIds={savingIds}
+                  savedIds={savedIds}
                   costMap={costMap}
                   onToggleExpanded={toggleExpanded}
                   onToggleToolResult={toggleToolResult}
@@ -937,6 +989,7 @@ export default function SessionDetail() {
                   onMessageSelect={handleMessageSelect}
                   onShareMessage={handleShareMessage}
                   onDebugMessage={handleOpenDebugModal}
+                  onSaveToPromptLibrary={handleSaveToPromptLibrary}
                   selectedMessageId={selectedMessageId}
                   activeBranches={activeBranches}
                   allMessages={messagesWithBranches}
@@ -1249,6 +1302,8 @@ interface TimelineViewProps {
   collapsedToolResults: Set<string>;
   expandedToolPairs: Set<string>;
   copiedId: string | null;
+  savingIds: Set<string>;
+  savedIds: Set<string>;
   costMap?: Map<string, number>;
   onToggleExpanded: (messageId: string) => void;
   onToggleToolResult: (messageId: string) => void;
@@ -1258,6 +1313,7 @@ interface TimelineViewProps {
   onMessageSelect?: (messageId: string) => void;
   onShareMessage?: (message: Message) => void;
   onDebugMessage?: (message: Message) => void;
+  onSaveToPromptLibrary?: (message: Message) => void;
   selectedMessageId?: string | null;
   activeBranches?: Map<string, string>;
   allMessages?: Message[];
@@ -1274,6 +1330,8 @@ function TimelineView({
   collapsedToolResults,
   expandedToolPairs,
   copiedId,
+  savingIds,
+  savedIds,
   costMap,
   onToggleExpanded,
   onToggleToolResult,
@@ -1283,6 +1341,7 @@ function TimelineView({
   onMessageSelect,
   onShareMessage,
   onDebugMessage,
+  onSaveToPromptLibrary,
   selectedMessageId,
   activeBranches,
   allMessages,
@@ -2032,6 +2091,31 @@ function TimelineView({
                           </>
                         )}
                       </button>
+                      {message.type === 'user' && onSaveToPromptLibrary && (
+                        <button
+                          onClick={() => onSaveToPromptLibrary(message)}
+                          disabled={savingIds.has(message._id)}
+                          className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Save to prompt library"
+                        >
+                          {savedIds.has(message._id) ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              Saved!
+                            </>
+                          ) : savingIds.has(message._id) ? (
+                            <>
+                              <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <BookmarkPlus className="h-3 w-3" />
+                              Save to Library
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

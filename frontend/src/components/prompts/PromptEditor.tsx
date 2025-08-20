@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, Save, Loader2, Hash, Variable, Eye, EyeOff } from 'lucide-react';
+import {
+  X,
+  Save,
+  Loader2,
+  Hash,
+  Variable,
+  Eye,
+  EyeOff,
+  Info,
+} from 'lucide-react';
 import { Button } from '@/components/common';
 import { cn } from '@/utils/cn';
 import { Prompt } from '@/api/types';
@@ -10,6 +19,7 @@ import {
 } from '@/hooks/usePrompts';
 import { extractVariables } from '@/api/prompts';
 import { VariableChips } from './VariableChips';
+import { VariableHelper } from './VariableHelper';
 
 interface PromptEditorProps {
   isOpen: boolean;
@@ -287,15 +297,23 @@ export function PromptEditor({
 
                 {/* Content */}
                 <div className="space-y-2">
-                  <label htmlFor="content" className="text-sm font-medium">
-                    Content *
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="content" className="text-sm font-medium">
+                      Content *
+                    </label>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Info className="h-3 w-3" />
+                      <span>
+                        Use {`{{variable}}`} syntax for dynamic values
+                      </span>
+                    </div>
+                  </div>
                   <textarea
                     id="content"
                     value={formData.content}
                     onChange={handleContentChange}
                     placeholder="Enter your prompt content here. Use {{variable}} for dynamic values."
-                    rows={12}
+                    rows={10}
                     className={cn(
                       'w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none font-mono text-sm',
                       errors.content && 'border-destructive'
@@ -307,15 +325,32 @@ export function PromptEditor({
                 </div>
 
                 {/* Variables */}
-                {extractedVariables.length > 0 && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                      <Variable className="h-4 w-4" />
-                      Variables Found
-                    </label>
-                    <VariableChips variables={extractedVariables} />
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Variable className="h-4 w-4" />
+                    Variables
+                  </label>
+                  {extractedVariables.length > 0 ? (
+                    <>
+                      <VariableChips variables={extractedVariables} />
+                      <VariableHelper
+                        variables={extractedVariables}
+                        showExamples={true}
+                        className="mt-3"
+                      />
+                    </>
+                  ) : (
+                    <div className="p-3 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                      <p>
+                        No variables found. Add variables using {`{{name}}`}{' '}
+                        syntax in your content.
+                      </p>
+                      <p className="mt-1 text-xs">
+                        Example: {`{{code}}, {{language}}, {{requirements}}`}
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Tags */}
                 <div className="space-y-2">

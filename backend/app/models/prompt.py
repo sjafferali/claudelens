@@ -48,7 +48,9 @@ class PromptVersionInDB(BaseModel):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), alias="createdAt"
     )
-    created_by: str
+    created_by: str = Field(alias="createdBy")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class FolderInDB(BaseModel):

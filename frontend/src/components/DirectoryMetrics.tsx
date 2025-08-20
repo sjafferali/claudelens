@@ -250,7 +250,7 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={childrenData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  margin={{ top: 20, right: 30, left: 40, bottom: 60 }}
                 >
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -263,9 +263,17 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
                     height={80}
                     fontSize={12}
                     stroke={chartColors.text}
+                    interval={0}
                   />
                   <YAxis
-                    tickFormatter={(value) => `$${value.toFixed(2)}`}
+                    domain={[0, 'dataMax + 100']}
+                    tickFormatter={(value) =>
+                      value >= 1000000
+                        ? `$${(value / 1000000).toFixed(1)}M`
+                        : value >= 1000
+                          ? `$${(value / 1000).toFixed(1)}K`
+                          : `$${value.toFixed(0)}`
+                    }
                     fontSize={12}
                     stroke={chartColors.text}
                   />
@@ -289,29 +297,54 @@ export const DirectoryMetrics: React.FC<DirectoryMetricsProps> = ({
               Top 5 Directories by Cost
             </h3>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={topDirectoriesData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percentage }) =>
-                      `${name} (${percentage.toFixed(1)}%)`
-                    }
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {topDirectoriesData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => formatCurrency(value as number)}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {topDirectoriesData.length > 1 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={topDirectoriesData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percentage }) =>
+                        percentage > 5
+                          ? `${name} (${percentage.toFixed(1)}%)`
+                          : ''
+                      }
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {topDirectoriesData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value) => formatCurrency(value as number)}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : topDirectoriesData.length === 1 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="w-32 h-32 rounded-full bg-[#8884d8] flex items-center justify-center mb-4">
+                    <span className="text-white font-bold text-2xl">100%</span>
+                  </div>
+                  <p className="text-gray-900 dark:text-gray-100 font-semibold">
+                    {topDirectoriesData[0].name}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                    {formatCurrency(topDirectoriesData[0].value)}
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-500 text-xs mt-4">
+                    Only one subdirectory with costs
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No subdirectories with cost data
+                  </p>
+                </div>
+              )}
             </div>
           </Card>
         </div>
