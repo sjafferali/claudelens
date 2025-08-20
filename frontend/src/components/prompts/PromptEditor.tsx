@@ -20,6 +20,8 @@ import {
 import { extractVariables } from '@/api/prompts';
 import { VariableChips } from './VariableChips';
 import { VariableHelper } from './VariableHelper';
+import { AIAssistButton } from './AIAssistButton';
+import { AIGenerationModal } from './AIGenerationModal';
 
 interface PromptEditorProps {
   isOpen: boolean;
@@ -56,6 +58,7 @@ export function PromptEditor({
   const [tagInput, setTagInput] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [errors, setErrors] = useState<Partial<PromptFormData>>({});
+  const [showAIModal, setShowAIModal] = useState(false);
 
   const { data: folders } = useFolders();
   const createPrompt = useCreatePrompt();
@@ -101,8 +104,51 @@ export function PromptEditor({
       setTagInput('');
       setErrors({});
       setShowPreview(false);
+      setShowAIModal(false);
     }
   }, [isOpen, prompt, folderId, initialData]);
+
+  const handleAIGeneration = (result: {
+    type: 'metadata' | 'content';
+    data: {
+      name?: string;
+      description?: string;
+      tags?: string[];
+      content?: string;
+    };
+  }) => {
+    if (result.type === 'metadata') {
+      // Apply metadata generation results to form
+      if (result.data.name) {
+        setFormData((prev) => ({ ...prev, name: result.data.name ?? '' }));
+      }
+      if (result.data.description) {
+        setFormData((prev) => ({
+          ...prev,
+          description: result.data.description ?? '',
+        }));
+      }
+      if (result.data.tags && Array.isArray(result.data.tags)) {
+        setFormData((prev) => ({
+          ...prev,
+          tags: [
+            ...prev.tags,
+            ...(result.data.tags ?? []).filter(
+              (tag: string) => !prev.tags.includes(tag)
+            ),
+          ],
+        }));
+      }
+    } else if (result.type === 'content') {
+      // Apply content generation results to form
+      if (result.data.content) {
+        setFormData((prev) => ({
+          ...prev,
+          content: result.data.content ?? '',
+        }));
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,6 +244,10 @@ export function PromptEditor({
             {isEditing ? 'Edit Prompt' : 'Create Prompt'}
           </h2>
           <div className="flex items-center gap-2">
+            <AIAssistButton
+              onGenerate={() => setShowAIModal(true)}
+              variant="compact"
+            />
             <Button
               type="button"
               variant="outline"
@@ -450,6 +500,15 @@ export function PromptEditor({
           )}
         </div>
       </div>
+
+      {/* AI Generation Modal */}
+      <AIGenerationModal
+        isOpen={showAIModal}
+        onClose={() => setShowAIModal(false)}
+        onAccept={handleAIGeneration}
+        initialContent={formData.content}
+        mode="metadata"
+      />
     </div>
   );
 }

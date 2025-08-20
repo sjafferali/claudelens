@@ -173,3 +173,85 @@ export interface PromptImportRequest {
   content: string;
   folder_id?: string;
 }
+
+// AI Assistant Types
+export interface AISettings {
+  enabled: boolean;
+  api_key: string;
+  model: string;
+  base_url?: string;
+  max_tokens?: number;
+  temperature?: number;
+}
+
+export interface AISettingsUpdate {
+  enabled?: boolean;
+  api_key?: string;
+  model?: string;
+  base_url?: string;
+  max_tokens?: number;
+  temperature?: number;
+}
+
+export interface GenerateMetadataRequest {
+  content: string;
+  context?: string;
+  requirements?: string;
+}
+
+export interface GenerateContentRequest {
+  type: 'prompt' | 'description' | 'tags';
+  requirements: string;
+  context?: string;
+  existing_content?: string;
+}
+
+export interface GenerateMetadataResponse {
+  name: string;
+  description: string;
+  tags: string[];
+  variables: string[];
+}
+
+export interface GenerateContentResponse {
+  content: string;
+  reasoning?: string;
+}
+
+export interface TestConnectionRequest {
+  api_key?: string;
+  model?: string;
+  base_url?: string;
+}
+
+export interface TestConnectionResponse {
+  success: boolean;
+  message: string;
+  model_info?: {
+    name: string;
+    provider: string;
+    max_tokens: number;
+  };
+}
+
+export interface CountTokensRequest {
+  text: string;
+  model?: string;
+}
+
+export interface CountTokensResponse {
+  token_count: number;
+  character_count: number;
+  estimated_cost?: number;
+}
+
+export interface AIUsageStats {
+  total_requests: number;
+  successful_requests: number;
+  failed_requests: number;
+  total_tokens_used: number;
+  estimated_total_cost: number;
+  most_used_model: string;
+  average_response_time: number;
+  last_request_at?: string;
+}

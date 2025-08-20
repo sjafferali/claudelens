@@ -11,6 +11,14 @@ from fastapi import HTTPException, Query, Response
 from app.api.dependencies import CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
+from app.schemas.ai_generation import (
+    GenerateContentRequest,
+    GenerateContentResponse,
+    GenerateMetadataRequest,
+    GenerateMetadataResponse,
+    TokenCountRequest,
+    TokenCountResponse,
+)
 from app.schemas.common import PaginatedResponse
 from app.schemas.prompt import (
     Folder,
@@ -390,6 +398,59 @@ async def import_prompts(request: PromptImportRequest, db: CommonDeps) -> dict:
         created_count += 1
 
     return {"message": f"Successfully imported {created_count} prompts"}
+
+
+# AI generation endpoints - MUST come before /{prompt_id} routes
+@router.post("/ai/generate-metadata", response_model=GenerateMetadataResponse)
+async def generate_prompt_metadata(
+    request: GenerateMetadataRequest, db: CommonDeps
+) -> GenerateMetadataResponse:
+    """Generate prompt metadata using AI."""
+    from app.services.ai_service import AIService
+
+    ai_service = AIService(db)
+
+    try:
+        result = await ai_service.generate_metadata(request)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate metadata: {str(e)}"
+        )
+
+
+@router.post("/ai/generate-content", response_model=GenerateContentResponse)
+async def generate_prompt_content(
+    request: GenerateContentRequest, db: CommonDeps
+) -> GenerateContentResponse:
+    """Generate prompt content using AI."""
+    from app.services.ai_service import AIService
+
+    ai_service = AIService(db)
+
+    try:
+        result = await ai_service.generate_content(request)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate content: {str(e)}"
+        )
+
+
+@router.post("/ai/count-tokens", response_model=TokenCountResponse)
+async def count_tokens(
+    request: TokenCountRequest, db: CommonDeps
+) -> TokenCountResponse:
+    """Count tokens in text."""
+    from app.services.ai_service import AIService
+
+    ai_service = AIService(db)
+
+    try:
+        result = await ai_service.count_tokens(request.text, request.model)
+        return TokenCountResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to count tokens: {str(e)}")
 
 
 # Individual prompt endpoints - these MUST come LAST

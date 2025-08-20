@@ -11,6 +11,7 @@ import Prompts from '@/pages/Prompts';
 import Search from '@/pages/Search';
 import Analytics from '@/pages/Analytics';
 import ImportExport from '@/pages/ImportExport';
+import Settings from '@/pages/Settings';
 import NotFound from '@/pages/NotFound';
 import { PageTransition } from '@/components/PageTransition';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -43,6 +44,7 @@ function App() {
               <Route path="/search" element={<Search />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/import-export" element={<ImportExport />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </PageTransition>

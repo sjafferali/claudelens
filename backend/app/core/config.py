@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     # CORS
     BACKEND_CORS_ORIGINS: ClassVar[list[str]] = ["*"]
 
+    # AI Configuration
+    CLAUDELENS_OPENAI_API_KEY: str = ""
+    CLAUDELENS_ENCRYPTION_KEY: str = ""
+    AI_RATE_LIMIT_PER_MINUTE: int = 10
+    AI_DEFAULT_MODEL: str = "gpt-4"
+    AI_MAX_TOKENS: int = 2000
+    AI_DEFAULT_TEMPERATURE: float = 0.7
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
 

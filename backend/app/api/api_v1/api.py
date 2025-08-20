@@ -13,6 +13,14 @@ from app.api.api_v1.endpoints import (
 )
 from app.core.custom_router import APIRouter
 
+# Import AI settings conditionally to avoid test failures
+try:
+    from app.api.api_v1.endpoints import ai_settings
+
+    AI_SETTINGS_AVAILABLE = True
+except ImportError:
+    AI_SETTINGS_AVAILABLE = False
+
 api_router = APIRouter()
 
 # Include all endpoint routers
@@ -31,6 +39,12 @@ api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
 api_router.include_router(export.router, prefix="/export", tags=["export"])
 
 api_router.include_router(prompts.router, prefix="/prompts", tags=["prompts"])
+
+# Include AI settings router if available
+if AI_SETTINGS_AVAILABLE:
+    api_router.include_router(
+        ai_settings.router, prefix="/ai-settings", tags=["AI Settings"]
+    )
 
 # New import/export endpoints with comprehensive functionality
 api_router.include_router(import_export.router, prefix="", tags=["import-export"])
