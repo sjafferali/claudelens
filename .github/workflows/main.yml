@@ -334,11 +334,9 @@ jobs:
         file: ./docker/Dockerfile
         platforms: ${{ matrix.platform }}
         outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-        # Platform-specific cache for better performance
-        cache-from: |
-          type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.platform }}
-          type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-        cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.platform }},mode=max
+        # Use registry cache for better performance
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+        cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
         build-args: |
           BUILDTIME=${{ fromJSON('{"timestamp":""}').timestamp || github.event.head_commit.timestamp }}
           VERSION=${{ github.ref_name }}
@@ -354,7 +352,7 @@ jobs:
     - name: Upload digest
       uses: actions/upload-artifact@v4
       with:
-        name: digests-${{ matrix.platform }}
+        name: digests-linux-amd64
         path: /tmp/digests/*
         if-no-files-found: error
         retention-days: 1
