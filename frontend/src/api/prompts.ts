@@ -95,11 +95,11 @@ export const promptsApi = {
 
   // Folder operations
   async listFolders(): Promise<Folder[]> {
-    return apiClient.get<Folder[]>('/prompts/folders');
+    return apiClient.get<Folder[]>('/prompts/folders/');
   },
 
   async createFolder(folderData: CreateFolderRequest): Promise<Folder> {
-    return apiClient.post<Folder>('/prompts/folders', folderData);
+    return apiClient.post<Folder>('/prompts/folders/', folderData);
   },
 
   async updateFolder(

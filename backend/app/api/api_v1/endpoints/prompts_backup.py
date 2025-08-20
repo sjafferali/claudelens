@@ -1,4 +1,4 @@
-"""API endpoints for prompt management with correct route ordering."""
+"""API endpoints for prompt management."""
 
 import csv
 import io
@@ -31,7 +31,7 @@ from app.services.prompt import PromptService, substitute_variables
 router = APIRouter()
 
 
-# List prompts endpoint (most general, goes first)
+# Prompt endpoints
 @router.get("/", response_model=PaginatedResponse[Prompt])
 async def list_prompts(
     db: CommonDeps,
@@ -76,6 +76,21 @@ async def list_prompts(
     )
 
 
+@router.get("/{prompt_id}", response_model=PromptDetail)
+async def get_prompt(prompt_id: str, db: CommonDeps) -> PromptDetail:
+    """Get a specific prompt by ID."""
+    if not ObjectId.is_valid(prompt_id):
+        raise HTTPException(status_code=400, detail="Invalid prompt ID")
+
+    service = PromptService(db)
+    prompt = await service.get_prompt(ObjectId(prompt_id))
+
+    if not prompt:
+        raise NotFoundError("Prompt", prompt_id)
+
+    return prompt
+
+
 @router.post("/", response_model=Prompt, status_code=201)
 async def create_prompt(prompt: PromptCreate, db: CommonDeps) -> Prompt:
     """Create a new prompt."""
@@ -96,7 +111,47 @@ async def create_prompt(prompt: PromptCreate, db: CommonDeps) -> Prompt:
     return Prompt(**prompt_dict)
 
 
-# Folder endpoints - MUST come before /{prompt_id}
+@router.patch("/{prompt_id}", response_model=Prompt)
+async def update_prompt(prompt_id: str, update: PromptUpdate, db: CommonDeps) -> Prompt:
+    """Update a prompt."""
+    if not ObjectId.is_valid(prompt_id):
+        raise HTTPException(status_code=400, detail="Invalid prompt ID")
+
+    # Validate folder_id if provided
+    if update.folder_id and not ObjectId.is_valid(update.folder_id):
+        raise HTTPException(status_code=400, detail="Invalid folder ID")
+
+    service = PromptService(db)
+    updated_prompt = await service.update_prompt(ObjectId(prompt_id), update)
+
+    if not updated_prompt:
+        raise NotFoundError("Prompt", prompt_id)
+
+    # Convert to response schema
+    prompt_dict = updated_prompt.model_dump(by_alias=True)
+    prompt_dict["_id"] = str(prompt_dict["_id"])
+    if prompt_dict.get("folderId"):
+        prompt_dict["folderId"] = str(prompt_dict["folderId"])
+
+    return Prompt(**prompt_dict)
+
+
+@router.delete("/{prompt_id}", status_code=200)
+async def delete_prompt(prompt_id: str, db: CommonDeps) -> dict:
+    """Delete a prompt."""
+    if not ObjectId.is_valid(prompt_id):
+        raise HTTPException(status_code=400, detail="Invalid prompt ID")
+
+    service = PromptService(db)
+    deleted = await service.delete_prompt(ObjectId(prompt_id))
+
+    if not deleted:
+        raise NotFoundError("Prompt", prompt_id)
+
+    return {"message": "Prompt deleted successfully"}
+
+
+# Folder endpoints
 @router.get("/folders/", response_model=list[Folder])
 async def list_folders(db: CommonDeps) -> list[Folder]:
     """List all folders."""
@@ -185,7 +240,64 @@ async def delete_folder(folder_id: str, db: CommonDeps) -> dict:
     return {"message": "Folder deleted successfully"}
 
 
-# Export/Import endpoints - MUST come before /{prompt_id}
+# Special operations
+@router.post("/{prompt_id}/test", response_model=PromptTestResponse)
+async def test_prompt(
+    prompt_id: str, request: PromptTestRequest, db: CommonDeps
+) -> PromptTestResponse:
+    """Test a prompt with variable substitution."""
+    if not ObjectId.is_valid(prompt_id):
+        raise HTTPException(status_code=400, detail="Invalid prompt ID")
+
+    service = PromptService(db)
+    prompt = await service.get_prompt(ObjectId(prompt_id))
+
+    if not prompt:
+        raise NotFoundError("Prompt", prompt_id)
+
+    # Substitute variables
+    import time
+
+    start_time = time.time()
+    result = substitute_variables(prompt.content, request.variables)
+    execution_time_ms = (time.time() - start_time) * 1000
+
+    # Track usage
+    await service.increment_use_count(ObjectId(prompt_id))
+
+    return PromptTestResponse(
+        result=result,
+        variables_used=request.variables,
+        execution_time_ms=execution_time_ms,
+    )
+
+
+@router.post("/{prompt_id}/share", response_model=dict)
+async def share_prompt(
+    prompt_id: str, request: PromptShareRequest, db: CommonDeps
+) -> dict:
+    """Share a prompt with other users."""
+    if not ObjectId.is_valid(prompt_id):
+        raise HTTPException(status_code=400, detail="Invalid prompt ID")
+
+    service = PromptService(db)
+
+    # Update prompt sharing settings
+    update = PromptUpdate(visibility=request.visibility)
+    updated_prompt = await service.update_prompt(ObjectId(prompt_id), update)
+
+    if not updated_prompt:
+        raise NotFoundError("Prompt", prompt_id)
+
+    # Update shared_with list
+    await db.prompts.update_one(
+        {"_id": ObjectId(prompt_id)},
+        {"$addToSet": {"sharedWith": {"$each": request.user_ids}}},
+    )
+
+    return {"message": "Prompt shared successfully"}
+
+
 @router.post("/export", response_model=dict)
 async def export_prompts(request: PromptExportRequest, db: CommonDeps) -> Response:
     """Export prompts in various formats."""
@@ -354,117 +466,3 @@ async def import_prompts(request: PromptImportRequest, db: CommonDeps) -> dict:
         created_count += 1
 
     return {"message": f"Successfully imported {created_count} prompts"}
-
-
-# Individual prompt endpoints - these MUST come LAST
-@router.get("/{prompt_id}", response_model=PromptDetail)
-async def get_prompt(prompt_id: str, db: CommonDeps) -> PromptDetail:
-    """Get a specific prompt by ID."""
-    if not ObjectId.is_valid(prompt_id):
-        raise HTTPException(status_code=400, detail="Invalid prompt ID")
-
-    service = PromptService(db)
-    prompt = await service.get_prompt(ObjectId(prompt_id))
-
-    if not prompt:
-        raise NotFoundError("Prompt", prompt_id)
-
-    return prompt
-
-
-@router.patch("/{prompt_id}", response_model=Prompt)
-async def update_prompt(prompt_id: str, update: PromptUpdate, db: CommonDeps) -> Prompt:
-    """Update a prompt."""
-    if not ObjectId.is_valid(prompt_id):
-        raise HTTPException(status_code=400, detail="Invalid prompt ID")
-
-    # Validate folder_id if provided
-    if update.folder_id and not ObjectId.is_valid(update.folder_id):
-        raise HTTPException(status_code=400, detail="Invalid folder ID")
-
-    service = PromptService(db)
-    updated_prompt = await service.update_prompt(ObjectId(prompt_id), update)
-
-    if not updated_prompt:
-        raise NotFoundError("Prompt", prompt_id)
-
-    # Convert to response schema
-    prompt_dict = updated_prompt.model_dump(by_alias=True)
-    prompt_dict["_id"] = str(prompt_dict["_id"])
-    if prompt_dict.get("folderId"):
-        prompt_dict["folderId"] = str(prompt_dict["folderId"])
-
-    return Prompt(**prompt_dict)
-
-
-@router.delete("/{prompt_id}", status_code=200)
-async def delete_prompt(prompt_id: str, db: CommonDeps) -> dict:
-    """Delete a prompt."""
-    if not ObjectId.is_valid(prompt_id):
-        raise HTTPException(status_code=400, detail="Invalid prompt ID")
-
-    service = PromptService(db)
-    deleted = await service.delete_prompt(ObjectId(prompt_id))
-
-    if not deleted:
-        raise NotFoundError("Prompt", prompt_id)
-
-    return {"message": "Prompt deleted successfully"}
-
-
-# Special operation endpoints for specific prompts
-@router.post("/{prompt_id}/test", response_model=PromptTestResponse)
-async def test_prompt(
-    prompt_id: str, request: PromptTestRequest, db: CommonDeps
-) -> PromptTestResponse:
-    """Test a prompt with variable substitution."""
-    if not ObjectId.is_valid(prompt_id):
-        raise HTTPException(status_code=400, detail="Invalid prompt ID")
-
-    service = PromptService(db)
-    prompt = await service.get_prompt(ObjectId(prompt_id))
-
-    if not prompt:
-        raise NotFoundError("Prompt", prompt_id)
-
-    # Substitute variables
-    import time
-
-    start_time = time.time()
-    result = substitute_variables(prompt.content, request.variables)
-    execution_time_ms = (time.time() - start_time) * 1000
-
-    # Track usage
-    await service.increment_use_count(ObjectId(prompt_id))
-
-    return PromptTestResponse(
-        result=result,
-        variables_used=request.variables,
-        execution_time_ms=execution_time_ms,
-    )
-
-
-@router.post("/{prompt_id}/share", response_model=dict)
-async def share_prompt(
-    prompt_id: str, request: PromptShareRequest, db: CommonDeps
-) -> dict:
-    """Share a prompt with other users."""
-    if not ObjectId.is_valid(prompt_id):
-        raise HTTPException(status_code=400, detail="Invalid prompt ID")
-
-    service = PromptService(db)
-
-    # Update prompt sharing settings
-    update = PromptUpdate(visibility=request.visibility)
-    updated_prompt = await service.update_prompt(ObjectId(prompt_id), update)
-
-    if not updated_prompt:
-        raise NotFoundError("Prompt", prompt_id)
-
-    # Update shared_with list
-    await db.prompts.update_one(
-        {"_id": ObjectId(prompt_id)},
-        {"$addToSet": {"sharedWith": {"$each": request.user_ids}}},
-    )
-
-    return {"message": "Prompt shared successfully"}
