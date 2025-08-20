@@ -184,6 +184,12 @@ export function FolderTree({
   // Build folder tree structure
   const buildFolderTree = (parentId?: string): FolderType[] => {
     if (!folders || folders.length === 0) return [];
+    // For root folders, check for both null and undefined parent_id
+    if (parentId === undefined) {
+      return folders.filter(
+        (folder) => !folder.parent_id || folder.parent_id === null
+      );
+    }
     return folders.filter((folder) => folder.parent_id === parentId);
   };
 
