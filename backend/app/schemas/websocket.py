@@ -110,6 +110,35 @@ class DeletionProgressEvent(BaseModel):
     )
 
 
+class ExportProgressEvent(BaseModel):
+    """WebSocket event for export progress updates."""
+
+    type: Literal["export_progress"] = "export_progress"
+    job_id: str = Field(..., description="Export job ID")
+    progress: dict = Field(..., description="Progress information")
+    message: str = Field("", description="Progress message")
+    completed: bool = Field(False, description="Whether export is complete")
+    error: str | None = Field(None, description="Error message if export failed")
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow, description="Event timestamp"
+    )
+
+
+class ImportProgressEvent(BaseModel):
+    """WebSocket event for import progress updates."""
+
+    type: Literal["import_progress"] = "import_progress"
+    job_id: str = Field(..., description="Import job ID")
+    progress: dict = Field(..., description="Progress information")
+    statistics: dict | None = Field(None, description="Import statistics")
+    message: str = Field("", description="Progress message")
+    completed: bool = Field(False, description="Whether import is complete")
+    error: str | None = Field(None, description="Error message if import failed")
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow, description="Event timestamp"
+    )
+
+
 # Union type for all WebSocket events
 WebSocketEvent = Union[
     StatUpdateEvent,
@@ -118,6 +147,8 @@ WebSocketEvent = Union[
     PingEvent,
     PongEvent,
     DeletionProgressEvent,
+    ExportProgressEvent,
+    ImportProgressEvent,
 ]
 
 

@@ -3,6 +3,7 @@
 from app.api.api_v1.endpoints import (
     analytics,
     export,
+    import_export,
     ingest,
     messages,
     projects,
@@ -30,6 +31,9 @@ api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
 api_router.include_router(export.router, prefix="/export", tags=["export"])
 
 api_router.include_router(prompts.router, prefix="/prompts", tags=["prompts"])
+
+# New import/export endpoints with comprehensive functionality
+api_router.include_router(import_export.router, prefix="", tags=["import-export"])
 
 
 @api_router.get("/health")

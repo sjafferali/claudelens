@@ -299,7 +299,7 @@ async def get_structured_conversations(
 
 
 async def _generate_markdown_export(
-    export_data: Dict[str, Any]
+    export_data: Dict[str, Any],
 ) -> AsyncGenerator[str, None]:
     """Generate markdown format export."""
 

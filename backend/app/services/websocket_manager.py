@@ -14,6 +14,8 @@ from app.schemas.websocket import (
     AnimationType,
     ConnectionEvent,
     DeletionProgressEvent,
+    ExportProgressEvent,
+    ImportProgressEvent,
     MessagePreview,
     NewMessageEvent,
     PongEvent,
@@ -145,6 +147,58 @@ class ConnectionManager:
         )
 
         # Send to all active connections (global broadcast for project deletion)
+        await self._broadcast_to_connections(self.stats_connections, event)
+
+    async def broadcast_export_progress(
+        self,
+        job_id: str,
+        current: int,
+        total: int,
+        message: str = "",
+        completed: bool = False,
+        error: str | None = None,
+    ) -> None:
+        """Broadcast export progress to all connections."""
+        event = ExportProgressEvent(
+            job_id=job_id,
+            progress={
+                "current": current,
+                "total": total,
+                "percentage": round((current / total * 100) if total > 0 else 0, 2),
+            },
+            message=message,
+            completed=completed,
+            error=error,
+        )
+
+        # Send to all active connections
+        await self._broadcast_to_connections(self.stats_connections, event)
+
+    async def broadcast_import_progress(
+        self,
+        job_id: str,
+        current: int,
+        total: int,
+        message: str = "",
+        statistics: dict | None = None,
+        completed: bool = False,
+        error: str | None = None,
+    ) -> None:
+        """Broadcast import progress to all connections."""
+        event = ImportProgressEvent(
+            job_id=job_id,
+            progress={
+                "current": current,
+                "total": total,
+                "percentage": round((current / total * 100) if total > 0 else 0, 2),
+            },
+            statistics=statistics,
+            message=message,
+            completed=completed,
+            error=error,
+        )
+
+        # Send to all active connections
         await self._broadcast_to_connections(self.stats_connections, event)
 
     async def handle_websocket_messages(
