@@ -88,12 +88,15 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
         onDragStart={draggable ? handleDragStart : undefined}
         onDragEnd={draggable ? handleDragEnd : undefined}
         className={cn(
-          'cursor-pointer hover:shadow-lg transition-all relative group',
+          'cursor-pointer transition-all relative group overflow-hidden',
+          'hover:shadow-md hover:border-primary/20 hover:-translate-y-1',
           isDragging && 'opacity-50 scale-95',
           className
         )}
         {...props}
       >
+        {/* Hover background effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
         {/* Drag handle */}
         {draggable && (
           <div className="absolute top-1/2 left-2 -translate-y-1/2 opacity-0 group-hover:opacity-30 transition-opacity cursor-move">
@@ -118,7 +121,9 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
           )}
         </button>
 
-        <CardHeader className={cn(compact ? 'p-4 pb-2' : 'p-6 pb-3')}>
+        <CardHeader
+          className={cn('relative z-10', compact ? 'p-4 pb-2' : 'p-6 pb-3')}
+        >
           <div className="space-y-2">
             <CardTitle
               className={cn(
@@ -157,7 +162,9 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
           </div>
         </CardHeader>
 
-        <CardContent className={cn(compact ? 'p-4 pt-0' : 'p-6 pt-0')}>
+        <CardContent
+          className={cn('relative z-10', compact ? 'p-4 pt-0' : 'p-6 pt-0')}
+        >
           <div className="space-y-3">
             {/* Variables and Usage */}
             {showVariables && (
@@ -209,7 +216,7 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
             </div>
 
             {/* Action buttons - visible on hover */}
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+            <div className="opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 flex items-center gap-1">
               {onTest && (
                 <button
                   onClick={(e) => handleActionClick(e, () => onTest(prompt))}

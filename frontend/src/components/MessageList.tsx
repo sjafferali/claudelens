@@ -31,7 +31,10 @@ import {
   getMessageLinkDescription,
 } from '@/utils/message-linking';
 import toast from 'react-hot-toast';
-import { promptsApi } from '@/api/prompts';
+import {
+  PromptEditor,
+  type PromptFormData,
+} from '@/components/prompts/PromptEditor';
 
 interface MessageListProps {
   messages: Message[];
@@ -53,8 +56,10 @@ export default function MessageList({
     new Set()
   );
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [showPromptEditor, setShowPromptEditor] = useState(false);
+  const [promptInitialData, setPromptInitialData] = useState<
+    Partial<PromptFormData> | undefined
+  >();
   const messageRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Use message navigation hook
@@ -119,50 +124,32 @@ export default function MessageList({
     }
   };
 
-  const handleSaveToPromptLibrary = async (message: Message) => {
-    const messageId = message._id;
+  const handleSaveToPromptLibrary = (message: Message) => {
+    // Generate a suggested name from the first line or first 50 chars
+    const firstLine = message.content.split('\n')[0].trim();
+    const suggestedName =
+      firstLine.length > 50
+        ? firstLine.substring(0, 50) + '...'
+        : firstLine || 'New Prompt';
 
-    // Start saving
-    setSavingIds((prev) => new Set(prev).add(messageId));
+    // Extract any existing variables from the content
+    const content = message.content;
 
-    try {
-      // Generate a name from the first line or first 50 chars
-      const firstLine = message.content.split('\n')[0];
-      const promptName =
-        firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine;
+    // Prepare initial data for the prompt editor
+    setPromptInitialData({
+      name: suggestedName,
+      content: content,
+      description: `Saved from ${message.type === 'user' ? 'user message' : 'assistant response'} on ${format(new Date(message.timestamp), 'MMM d, yyyy')}`,
+      tags: ['saved-from-session', message.type],
+    });
 
-      await promptsApi.createPrompt({
-        name: promptName || 'Saved Prompt',
-        content: message.content,
-        description: `Saved from session on ${format(new Date(message.timestamp), 'MMM d, yyyy')}`,
-        tags: ['saved-from-session'],
-      });
+    // Open the prompt editor
+    setShowPromptEditor(true);
+  };
 
-      // Mark as saved
-      setSavedIds((prev) => new Set(prev).add(messageId));
-      toast.success('Prompt saved to library!', {
-        duration: 3000,
-        icon: '📚',
-      });
-
-      // Clear saved indicator after 3 seconds
-      setTimeout(() => {
-        setSavedIds((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(messageId);
-          return newSet;
-        });
-      }, 3000);
-    } catch (error) {
-      toast.error('Failed to save prompt to library');
-      console.error('Error saving prompt:', error);
-    } finally {
-      setSavingIds((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(messageId);
-        return newSet;
-      });
-    }
+  const handlePromptEditorClose = () => {
+    setShowPromptEditor(false);
+    setPromptInitialData(undefined);
   };
 
   const getMessageIcon = (type: Message['type']) => {
@@ -681,17 +668,10 @@ export default function MessageList({
                   {message.type === 'user' && (
                     <button
                       onClick={() => handleSaveToPromptLibrary(message)}
-                      disabled={savingIds.has(message._id)}
-                      className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
                       title="Save to prompt library"
                     >
-                      {savedIds.has(message._id) ? (
-                        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      ) : savingIds.has(message._id) ? (
-                        <div className="h-4 w-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <BookmarkPlus className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                      )}
+                      <BookmarkPlus className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                     </button>
                   )}
                 </div>
@@ -730,17 +710,10 @@ export default function MessageList({
                   message.type === 'user' && (
                     <button
                       onClick={() => handleSaveToPromptLibrary(message)}
-                      disabled={savingIds.has(message._id)}
-                      className="absolute top-4 right-16 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 backdrop-blur-sm shadow-md border border-slate-200/50 dark:border-slate-600/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="absolute top-4 right-16 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 backdrop-blur-sm shadow-md border border-slate-200/50 dark:border-slate-600/50"
                       title="Save to prompt library"
                     >
-                      {savedIds.has(message._id) ? (
-                        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      ) : savingIds.has(message._id) ? (
-                        <div className="h-4 w-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <BookmarkPlus className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-                      )}
+                      <BookmarkPlus className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                     </button>
                   )}
                 <div className="max-w-none">
@@ -1035,6 +1008,13 @@ export default function MessageList({
           );
         }
       })}
+
+      {/* Prompt Editor Modal */}
+      <PromptEditor
+        isOpen={showPromptEditor}
+        onClose={handlePromptEditorClose}
+        initialData={promptInitialData}
+      />
     </div>
   );
 }

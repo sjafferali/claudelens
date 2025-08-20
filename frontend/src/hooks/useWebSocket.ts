@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useStore } from '@/store';
 
 export interface WebSocketMessage {
   type: string;
@@ -98,11 +99,21 @@ export function useWebSocket(
     setError(null);
 
     try {
+      // Get API key
+      const apiKey =
+        import.meta.env.VITE_API_KEY ||
+        useStore.getState().auth.apiKey ||
+        'default-api-key';
+
       // Determine WebSocket URL
-      const wsUrl =
+      let wsUrl =
         url.startsWith('ws://') || url.startsWith('wss://')
           ? url
           : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${url}`;
+
+      // Add API key as query parameter
+      const separator = wsUrl.includes('?') ? '&' : '?';
+      wsUrl = `${wsUrl}${separator}api_key=${encodeURIComponent(apiKey)}`;
 
       wsRef.current = new WebSocket(wsUrl);
 

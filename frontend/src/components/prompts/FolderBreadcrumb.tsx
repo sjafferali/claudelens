@@ -1,4 +1,4 @@
-import { ChevronRight, Home } from 'lucide-react';
+import { ChevronRight, Home, Folder as FolderIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Folder } from '@/api/types';
 
@@ -38,62 +38,74 @@ export function FolderBreadcrumb({
   };
 
   const breadcrumbPath = getBreadcrumbPath();
+  const currentFolder = selectedFolderId
+    ? folders.find((f) => f._id === selectedFolderId)
+    : null;
 
   return (
-    <nav
-      className={cn(
-        'flex items-center gap-1 text-sm text-muted-foreground',
-        className
-      )}
-      aria-label="Folder breadcrumb"
-    >
-      {/* Home/All Prompts */}
-      <button
-        onClick={() => onFolderSelect(undefined)}
-        className={cn(
-          'flex items-center gap-1 px-2 py-1 rounded-md hover:bg-accent hover:text-foreground transition-colors',
-          !selectedFolderId && 'bg-accent text-foreground font-medium'
-        )}
+    <div className={cn('space-y-2', className)}>
+      {/* Breadcrumb Navigation */}
+      <nav
+        className="flex items-center gap-1 text-sm text-muted-foreground flex-wrap"
+        aria-label="Folder breadcrumb"
       >
-        <Home className="h-3 w-3" />
-        <span>All Prompts</span>
-      </button>
+        {/* Home/All Prompts */}
+        <button
+          onClick={() => onFolderSelect(undefined)}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-accent hover:text-foreground transition-all',
+            !selectedFolderId &&
+              'bg-primary/10 text-primary font-medium shadow-sm'
+          )}
+        >
+          <Home className="h-3.5 w-3.5" />
+          <span>All Prompts</span>
+        </button>
 
-      {/* Folder path */}
-      {breadcrumbPath.map((folder) => {
-        if (!folder) return null;
-        return (
-          <div key={folder._id} className="flex items-center gap-1">
-            <ChevronRight className="h-3 w-3" />
-            <button
-              onClick={() => onFolderSelect(folder._id)}
-              className={cn(
-                'px-2 py-1 rounded-md hover:bg-accent hover:text-foreground transition-colors',
-                folder._id === selectedFolderId &&
-                  'bg-accent text-foreground font-medium'
-              )}
-            >
-              {folder.name}
-            </button>
-          </div>
-        );
-      })}
+        {/* Folder path */}
+        {breadcrumbPath.map((folder, index) => {
+          if (!folder) return null;
+          const isLast = index === breadcrumbPath.length - 1;
+          return (
+            <div key={folder._id} className="flex items-center gap-1">
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+              <button
+                onClick={() => onFolderSelect(folder._id)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-accent hover:text-foreground transition-all',
+                  isLast && 'bg-primary/10 text-primary font-medium shadow-sm'
+                )}
+              >
+                <FolderIcon className="h-3.5 w-3.5" />
+                <span>{folder.name}</span>
+                {isLast && folder.prompt_count > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-primary/20 text-primary text-xs rounded-full">
+                    {folder.prompt_count}
+                  </span>
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </nav>
 
-      {/* Show prompt count for current folder */}
-      {selectedFolderId && (
-        <span className="ml-2 text-xs text-muted-foreground">
-          {(() => {
-            const currentFolder = folders.find(
-              (f) => f._id === selectedFolderId
-            );
-            return currentFolder
-              ? `(${currentFolder.prompt_count} ${
-                  currentFolder.prompt_count === 1 ? 'prompt' : 'prompts'
-                })`
-              : '';
-          })()}
-        </span>
+      {/* Current Folder Info */}
+      {currentFolder && (
+        <div className="flex items-center gap-4 text-sm text-muted-foreground px-1">
+          <span className="flex items-center gap-1">
+            <span className="font-medium">{currentFolder.prompt_count}</span>
+            <span>
+              {currentFolder.prompt_count === 1 ? 'prompt' : 'prompts'} in this
+              folder
+            </span>
+          </span>
+          {currentFolder.created_at && (
+            <span className="text-xs">
+              Created {new Date(currentFolder.created_at).toLocaleDateString()}
+            </span>
+          )}
+        </div>
       )}
-    </nav>
+    </div>
   );
 }

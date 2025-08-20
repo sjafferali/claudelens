@@ -190,10 +190,12 @@ export function PromptList({
           <div
             key={prompt._id}
             onClick={() => onPromptClick?.(prompt)}
-            className="group p-4 border rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"
+            className="group relative p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md hover:border-primary/20 overflow-hidden"
           >
+            {/* Hover background effect */}
+            <div className="absolute inset-0 bg-accent/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             {/* Mobile Layout */}
-            <div className="md:hidden space-y-3">
+            <div className="relative md:hidden space-y-3 z-10">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <input
@@ -302,7 +304,7 @@ export function PromptList({
             </div>
 
             {/* Desktop Layout */}
-            <div className="hidden md:grid grid-cols-12 gap-4 items-center">
+            <div className="relative hidden md:grid grid-cols-12 gap-4 items-center z-10">
               <div className="col-span-1">
                 <input
                   type="checkbox"

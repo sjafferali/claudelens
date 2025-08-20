@@ -200,7 +200,18 @@ function PromptsList() {
         promptData: { folder_id: folderId },
       });
       refetch();
-      toast.success(`Prompt moved to ${folderId ? 'folder' : 'All Prompts'}`);
+
+      // Get folder name for better feedback
+      const folderName = folderId
+        ? folders.find((f) => f._id === folderId)?.name || 'folder'
+        : 'All Prompts';
+
+      toast.success(
+        <div className="flex items-center gap-2">
+          <span>Prompt moved to</span>
+          <span className="font-medium">{folderName}</span>
+        </div>
+      );
     } catch (error) {
       console.error('Failed to move prompt:', error);
       toast.error('Failed to move prompt');
@@ -249,9 +260,16 @@ function PromptsList() {
         {/* Sidebar */}
         <div className="col-span-3 space-y-6">
           {/* Folder Tree */}
-          <Card>
+          <Card className="sticky top-6">
             <CardHeader>
-              <CardTitle className="text-lg">Folders</CardTitle>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span>Folders</span>
+                {folders.length > 0 && (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {folders.length} folder{folders.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <FolderTree
@@ -373,13 +391,16 @@ function PromptsList() {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center p-12">
+            <div className="flex flex-col items-center justify-center p-12 space-y-4">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Loading prompts...
+              </p>
             </div>
           ) : (
             <>
               {viewMode === 'grid' ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
                   {processedPrompts.length === 0 ? (
                     <Card className="col-span-full">
                       <CardContent className="p-12 text-center">

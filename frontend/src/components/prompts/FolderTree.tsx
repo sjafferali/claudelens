@@ -55,7 +55,7 @@ export function FolderTree({
   className,
   onPromptDrop,
 }: FolderTreeProps) {
-  const { data: folders, isLoading } = useFolders();
+  const { data: folders = [], isLoading, refetch } = useFolders();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set()
   );
@@ -81,32 +81,8 @@ export function FolderTree({
     );
   }
 
-  if (!folders || folders.length === 0) {
-    return (
-      <div className={cn('space-y-1', className)}>
-        {/* All Prompts */}
-        <div
-          onClick={() => onFolderSelect(undefined)}
-          className={cn(
-            'flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent transition-colors',
-            !selectedFolderId && 'bg-accent text-accent-foreground'
-          )}
-        >
-          <Folder className="h-4 w-4" />
-          <span>All Prompts</span>
-        </div>
-
-        {/* Create First Folder */}
-        <button
-          onClick={() => handleCreateFolder()}
-          className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent text-muted-foreground hover:text-foreground w-full text-left"
-        >
-          <FolderPlus className="h-4 w-4" />
-          <span>Create your first folder</span>
-        </button>
-      </div>
-    );
-  }
+  // Always show the folder tree structure, even if empty
+  const hasFolders = folders && folders.length > 0;
 
   const toggleExpand = (folderId: string) => {
     const newExpanded = new Set(expandedFolders);
@@ -145,10 +121,16 @@ export function FolderTree({
       setNewFolderParentId(undefined);
       setNewFolderName('');
 
-      // Auto-select the new folder
+      // Auto-select the new folder and expand parent
       if (result && result._id) {
         onFolderSelect(result._id);
+        // Expand parent folder if it exists
+        if (result.parent_id) {
+          setExpandedFolders((prev) => new Set([...prev, result.parent_id!]));
+        }
       }
+      // Refetch folders to ensure we have the latest data
+      refetch();
     } catch (error) {
       console.error('Failed to create folder:', error);
       toast.error('Failed to create folder');
@@ -201,6 +183,7 @@ export function FolderTree({
 
   // Build folder tree structure
   const buildFolderTree = (parentId?: string): FolderType[] => {
+    if (!folders || folders.length === 0) return [];
     return folders.filter((folder) => folder.parent_id === parentId);
   };
 
@@ -286,41 +269,42 @@ export function FolderTree({
         </div>
       )}
 
-      {/* Folder Tree */}
-      {rootFolders.map((folder) => (
-        <FolderNode
-          key={folder._id}
-          folder={folder}
-          allFolders={folders}
-          selectedFolderId={selectedFolderId}
-          onFolderSelect={onFolderSelect}
-          level={0}
-          isExpanded={expandedFolders.has(folder._id)}
-          onToggleExpand={toggleExpand}
-          onCreateFolder={handleCreateFolder}
-          onRenameFolder={handleRenameFolder}
-          onDeleteFolder={handleDeleteFolder}
-          expandedFolders={expandedFolders}
-          newFolderParentId={newFolderParentId}
-          newFolderName={newFolderName}
-          onNewFolderNameChange={setNewFolderName}
-          onNewFolderSubmit={handleCreateFolderSubmit}
-          onNewFolderCancel={handleCancelNewFolder}
-          dragOverFolderId={dragOverFolderId}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        />
-      ))}
+      {/* Show existing folders if any */}
+      {hasFolders &&
+        rootFolders.map((folder) => (
+          <FolderNode
+            key={folder._id}
+            folder={folder}
+            allFolders={folders}
+            selectedFolderId={selectedFolderId}
+            onFolderSelect={onFolderSelect}
+            level={0}
+            isExpanded={expandedFolders.has(folder._id)}
+            onToggleExpand={toggleExpand}
+            onCreateFolder={handleCreateFolder}
+            onRenameFolder={handleRenameFolder}
+            onDeleteFolder={handleDeleteFolder}
+            expandedFolders={expandedFolders}
+            newFolderParentId={newFolderParentId}
+            newFolderName={newFolderName}
+            onNewFolderNameChange={setNewFolderName}
+            onNewFolderSubmit={handleCreateFolderSubmit}
+            onNewFolderCancel={handleCancelNewFolder}
+            dragOverFolderId={dragOverFolderId}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          />
+        ))}
 
-      {/* Create Root Folder */}
-      <div
+      {/* Create Root Folder - Always visible */}
+      <button
         onClick={() => handleCreateFolder()}
-        className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent text-muted-foreground hover:text-foreground"
+        className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent text-muted-foreground hover:text-foreground w-full text-left transition-colors"
       >
         <FolderPlus className="h-4 w-4" />
-        <span>New Folder</span>
-      </div>
+        <span>{hasFolders ? 'New Folder' : 'Create your first folder'}</span>
+      </button>
     </div>
   );
 }
@@ -350,6 +334,7 @@ function FolderNode({
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [editingName, setEditingName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   const childFolders = allFolders.filter((f) => f.parent_id === folder._id);
   const hasChildren = childFolders.length > 0;
@@ -386,11 +371,20 @@ function FolderNode({
     <div>
       <div
         className={cn(
-          'flex items-center gap-1 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent relative group transition-colors',
-          selectedFolderId === folder._id && 'bg-accent text-accent-foreground',
-          dragOverFolderId === folder._id && 'ring-2 ring-primary bg-primary/10'
+          'flex items-center gap-1 px-2 py-1.5 text-sm rounded-md cursor-pointer relative group transition-all',
+          selectedFolderId === folder._id &&
+            'bg-accent text-accent-foreground font-medium',
+          dragOverFolderId === folder._id &&
+            'ring-2 ring-primary bg-primary/10',
+          !selectedFolderId && !dragOverFolderId && 'hover:bg-accent/50'
         )}
-        style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
+        style={{
+          paddingLeft: `${(level + 1) * 12 + 8}px`,
+          borderLeft: level > 0 ? '2px solid transparent' : undefined,
+          marginLeft: level > 0 ? '12px' : undefined,
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         onDragOver={(e) => onDragOver?.(e, folder._id)}
         onDragLeave={(e) => onDragLeave?.(e)}
         onDrop={(e) => onDrop?.(e, folder._id)}
@@ -441,34 +435,41 @@ function FolderNode({
         {/* Context Menu Button */}
         <button
           onClick={handleContextMenu}
-          className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-accent-foreground/10 rounded"
+          className={cn(
+            'p-0.5 hover:bg-accent-foreground/10 rounded transition-opacity',
+            isHovered ? 'opacity-100' : 'opacity-0'
+          )}
         >
           <MoreHorizontal className="h-3 w-3" />
         </button>
 
         {/* Context Menu */}
         {showContextMenu && (
-          <div className="absolute right-0 top-8 z-50 min-w-32 bg-popover border rounded-md shadow-md py-1">
+          <div className="absolute right-0 top-8 z-50 min-w-[140px] bg-popover border rounded-md shadow-lg py-1">
             <button
-              onClick={() => onCreateFolder(folder._id)}
-              className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent flex items-center gap-2"
+              onClick={() => {
+                onCreateFolder(folder._id);
+                setShowContextMenu(false);
+              }}
+              className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent flex items-center gap-2 transition-colors"
             >
               <FolderPlus className="h-3 w-3" />
               New Subfolder
             </button>
             <button
               onClick={startEditing}
-              className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent flex items-center gap-2"
+              className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent flex items-center gap-2 transition-colors"
             >
               <Edit3 className="h-3 w-3" />
               Rename
             </button>
+            <div className="border-t my-1" />
             <button
               onClick={() => {
                 onDeleteFolder(folder._id);
                 setShowContextMenu(false);
               }}
-              className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent flex items-center gap-2 text-destructive"
+              className="w-full px-3 py-1.5 text-left text-sm hover:bg-destructive/10 flex items-center gap-2 text-destructive transition-colors"
             >
               <Trash2 className="h-3 w-3" />
               Delete

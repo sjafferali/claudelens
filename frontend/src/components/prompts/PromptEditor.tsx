@@ -26,9 +26,10 @@ interface PromptEditorProps {
   onClose: () => void;
   prompt?: Prompt; // If provided, we're editing; otherwise creating
   folderId?: string; // Default folder for new prompts
+  initialData?: Partial<PromptFormData>; // Initial data for new prompts
 }
 
-interface FormData {
+export interface PromptFormData {
   name: string;
   description: string;
   content: string;
@@ -42,8 +43,9 @@ export function PromptEditor({
   onClose,
   prompt,
   folderId,
+  initialData,
 }: PromptEditorProps) {
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<PromptFormData>({
     name: '',
     description: '',
     content: '',
@@ -53,7 +55,7 @@ export function PromptEditor({
   });
   const [tagInput, setTagInput] = useState('');
   const [showPreview, setShowPreview] = useState(false);
-  const [errors, setErrors] = useState<Partial<FormData>>({});
+  const [errors, setErrors] = useState<Partial<PromptFormData>>({});
 
   const { data: folders } = useFolders();
   const createPrompt = useCreatePrompt();
@@ -77,6 +79,15 @@ export function PromptEditor({
           folder_id: prompt.folder_id,
           visibility: prompt.visibility,
         });
+      } else if (initialData) {
+        setFormData({
+          name: initialData.name || '',
+          description: initialData.description || '',
+          content: initialData.content || '',
+          tags: initialData.tags || [],
+          folder_id: initialData.folder_id || folderId,
+          visibility: initialData.visibility || 'private',
+        });
       } else {
         setFormData({
           name: '',
@@ -91,13 +102,13 @@ export function PromptEditor({
       setErrors({});
       setShowPreview(false);
     }
-  }, [isOpen, prompt, folderId]);
+  }, [isOpen, prompt, folderId, initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate form
-    const newErrors: Partial<FormData> = {};
+    const newErrors: Partial<PromptFormData> = {};
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
     }
@@ -444,7 +455,7 @@ export function PromptEditor({
 }
 
 interface PreviewModeProps {
-  formData: FormData;
+  formData: PromptFormData;
   variables: string[];
 }
 
