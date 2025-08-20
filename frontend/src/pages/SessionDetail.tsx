@@ -59,8 +59,11 @@ import { PageSkeleton } from '@/components/common/LoadingSkeleton';
 import Tooltip from '@/components/common/Tooltip';
 import HelpPanel from '@/components/HelpPanel';
 import { HelpCircle } from 'lucide-react';
-import { promptsApi } from '@/api/prompts';
 import { highlightSearchMatches } from '@/utils/search-highlighting';
+import {
+  PromptEditor,
+  PromptFormData,
+} from '@/components/prompts/PromptEditor';
 
 export default function SessionDetail() {
   const { sessionId } = useParams();
@@ -72,6 +75,12 @@ export default function SessionDetail() {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const MESSAGES_PER_PAGE = 100;
+
+  // Prompt editor state
+  const [showPromptEditor, setShowPromptEditor] = useState(false);
+  const [promptInitialData, setPromptInitialData] = useState<
+    Partial<PromptFormData> | undefined
+  >(undefined);
 
   // Branch navigation state
   const [activeBranches, setActiveBranches] = useState<Map<string, string>>(
@@ -171,8 +180,6 @@ export default function SessionDetail() {
     new Set()
   );
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [collapsedToolResults, setCollapsedToolResults] = useState<Set<string>>(
     new Set()
   );
@@ -516,50 +523,29 @@ export default function SessionDetail() {
     [sessionId]
   );
 
-  const handleSaveToPromptLibrary = useCallback(async (message: Message) => {
-    const messageId = message._id;
+  const handleSaveToPromptLibrary = useCallback((message: Message) => {
+    // Generate a suggested name from the first line or first 50 chars
+    const firstLine = message.content.split('\n')[0].trim();
+    const suggestedName =
+      firstLine.length > 50
+        ? firstLine.substring(0, 50) + '...'
+        : firstLine || 'New Prompt';
 
-    // Start saving
-    setSavingIds((prev) => new Set(prev).add(messageId));
+    // Prepare initial data for the prompt editor
+    setPromptInitialData({
+      name: suggestedName,
+      content: message.content,
+      description: `Saved from ${message.type === 'user' ? 'user message' : 'assistant response'} on ${format(new Date(message.timestamp), 'MMM d, yyyy')}`,
+      tags: ['saved-from-session', message.type],
+    });
 
-    try {
-      // Generate a name from the first line or first 50 chars
-      const firstLine = message.content.split('\n')[0];
-      const promptName =
-        firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine;
+    // Open the prompt editor
+    setShowPromptEditor(true);
+  }, []);
 
-      await promptsApi.createPrompt({
-        name: promptName || 'Saved Prompt',
-        content: message.content,
-        description: `Saved from session on ${format(new Date(message.timestamp), 'MMM d, yyyy')}`,
-        tags: ['saved-from-session'],
-      });
-
-      // Mark as saved
-      setSavedIds((prev) => new Set(prev).add(messageId));
-      toast.success('Prompt saved to library!', {
-        duration: 3000,
-        icon: '📚',
-      });
-
-      // Clear saved indicator after 3 seconds
-      setTimeout(() => {
-        setSavedIds((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(messageId);
-          return newSet;
-        });
-      }, 3000);
-    } catch (error) {
-      toast.error('Failed to save prompt to library');
-      console.error('Error saving prompt:', error);
-    } finally {
-      setSavingIds((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(messageId);
-        return newSet;
-      });
-    }
+  const handlePromptEditorClose = useCallback(() => {
+    setShowPromptEditor(false);
+    setPromptInitialData(undefined);
   }, []);
 
   const handleOpenDebugModal = (message: Message) => {
@@ -978,8 +964,6 @@ export default function SessionDetail() {
                   collapsedToolResults={collapsedToolResults}
                   expandedToolPairs={expandedToolPairs}
                   copiedId={copiedId}
-                  savingIds={savingIds}
-                  savedIds={savedIds}
                   costMap={costMap}
                   onToggleExpanded={toggleExpanded}
                   onToggleToolResult={toggleToolResult}
@@ -1291,6 +1275,13 @@ export default function SessionDetail() {
         isOpen={isHelpPanelOpen}
         onClose={() => setIsHelpPanelOpen(false)}
       />
+
+      {/* Prompt Editor Modal */}
+      <PromptEditor
+        isOpen={showPromptEditor}
+        onClose={handlePromptEditorClose}
+        initialData={promptInitialData}
+      />
     </div>
   );
 }
@@ -1302,8 +1293,6 @@ interface TimelineViewProps {
   collapsedToolResults: Set<string>;
   expandedToolPairs: Set<string>;
   copiedId: string | null;
-  savingIds: Set<string>;
-  savedIds: Set<string>;
   costMap?: Map<string, number>;
   onToggleExpanded: (messageId: string) => void;
   onToggleToolResult: (messageId: string) => void;
@@ -1330,8 +1319,6 @@ function TimelineView({
   collapsedToolResults,
   expandedToolPairs,
   copiedId,
-  savingIds,
-  savedIds,
   costMap,
   onToggleExpanded,
   onToggleToolResult,
@@ -2094,26 +2081,11 @@ function TimelineView({
                       {message.type === 'user' && onSaveToPromptLibrary && (
                         <button
                           onClick={() => onSaveToPromptLibrary(message)}
-                          disabled={savingIds.has(message._id)}
-                          className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-3 py-1 bg-layer-tertiary border border-primary-c rounded-md text-xs text-muted-c hover:bg-border hover:text-primary-c transition-all flex items-center gap-1"
                           title="Save to prompt library"
                         >
-                          {savedIds.has(message._id) ? (
-                            <>
-                              <Check className="h-3 w-3" />
-                              Saved!
-                            </>
-                          ) : savingIds.has(message._id) ? (
-                            <>
-                              <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            <>
-                              <BookmarkPlus className="h-3 w-3" />
-                              Save to Library
-                            </>
-                          )}
+                          <BookmarkPlus className="h-3 w-3" />
+                          Save to Library
                         </button>
                       )}
                     </div>

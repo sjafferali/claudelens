@@ -116,10 +116,10 @@ async def list_folders(db: CommonDeps) -> list[Folder]:
     # Convert to response schema and add prompt counts
     folder_list = []
     for folder in folders:
-        folder_dict = folder.model_dump(by_alias=True)
+        folder_dict = folder.model_dump()
         folder_dict["_id"] = str(folder_dict["_id"])
-        if folder_dict.get("parentId"):
-            folder_dict["parentId"] = str(folder_dict["parentId"])
+        if folder_dict.get("parent_id"):
+            folder_dict["parent_id"] = str(folder_dict["parent_id"])
 
         # Get prompt count for this folder
         prompts, count = await service.get_prompts_by_folder(folder.id, 0, 1)
@@ -142,10 +142,10 @@ async def create_folder(folder: FolderCreate, db: CommonDeps) -> Folder:
     created_folder = await service.create_folder(folder)
 
     # Convert to response schema
-    folder_dict = created_folder.model_dump(by_alias=True)
+    folder_dict = created_folder.model_dump()
     folder_dict["_id"] = str(folder_dict["_id"])
-    if folder_dict.get("parentId"):
-        folder_dict["parentId"] = str(folder_dict["parentId"])
+    if folder_dict.get("parent_id"):
+        folder_dict["parent_id"] = str(folder_dict["parent_id"])
     folder_dict["prompt_count"] = 0
 
     return Folder(**folder_dict)
@@ -168,10 +168,10 @@ async def update_folder(folder_id: str, update: FolderUpdate, db: CommonDeps) ->
         raise NotFoundError("Folder", folder_id)
 
     # Convert to response schema
-    folder_dict = updated_folder.model_dump(by_alias=True)
+    folder_dict = updated_folder.model_dump()
     folder_dict["_id"] = str(folder_dict["_id"])
-    if folder_dict.get("parentId"):
-        folder_dict["parentId"] = str(folder_dict["parentId"])
+    if folder_dict.get("parent_id"):
+        folder_dict["parent_id"] = str(folder_dict["parent_id"])
 
     # Get prompt count for this folder
     prompts, count = await service.get_prompts_by_folder(updated_folder.id, 0, 1)
