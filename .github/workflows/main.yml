@@ -308,7 +308,6 @@ jobs:
       matrix:
         platform:
           - linux/amd64
-          - linux/arm64
     permissions:
       contents: read
       packages: write
@@ -413,19 +412,6 @@ jobs:
       env:
         webhook_url: ${{ secrets.WEBHOOK_URL }}
         webhook_secret: ${{ secrets.WEBHOOK_SECRET }}
-
-    - name: Generate SBOM
-      uses: anchore/sbom-action@v0
-      with:
-        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-        format: cyclonedx-json
-        output-file: sbom.json
-
-    - name: Upload SBOM
-      uses: actions/upload-artifact@v4
-      with:
-        name: sbom
-        path: sbom.json
 
   # Build CLI binaries
   build-cli:
