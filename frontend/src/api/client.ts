@@ -19,7 +19,11 @@ class ApiClient {
     // Request interceptor
     this.client.interceptors.request.use(
       (config) => {
-        const apiKey = useStore.getState().auth.apiKey;
+        // Use environment variable for API key, fall back to store if needed
+        const apiKey =
+          import.meta.env.VITE_API_KEY ||
+          useStore.getState().auth.apiKey ||
+          'default-api-key';
         if (apiKey) {
           config.headers['X-API-Key'] = apiKey;
         }

@@ -1,4 +1,4 @@
-import { forwardRef, HTMLAttributes } from 'react';
+import { forwardRef, HTMLAttributes, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Star,
@@ -9,6 +9,7 @@ import {
   Share2,
   Play,
   Hash,
+  GripVertical,
 } from 'lucide-react';
 import {
   Card,
@@ -30,6 +31,7 @@ interface PromptCardProps extends HTMLAttributes<HTMLDivElement> {
   onToggleStar?: (prompt: Prompt, starred: boolean) => void;
   showVariables?: boolean;
   compact?: boolean;
+  draggable?: boolean;
 }
 
 export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
@@ -43,12 +45,15 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
       onToggleStar,
       showVariables = true,
       compact = false,
+      draggable = true,
       className,
       onClick,
       ...props
     },
     ref
   ) => {
+    const [isDragging, setIsDragging] = useState(false);
+
     const handleStarClick = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -61,16 +66,37 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
       action();
     };
 
+    const handleDragStart = (e: React.DragEvent) => {
+      setIsDragging(true);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('promptId', prompt._id);
+      e.dataTransfer.setData('promptName', prompt.name);
+    };
+
+    const handleDragEnd = () => {
+      setIsDragging(false);
+    };
+
     return (
       <Card
         ref={ref}
         onClick={onClick}
+        draggable={draggable}
+        onDragStart={draggable ? handleDragStart : undefined}
+        onDragEnd={draggable ? handleDragEnd : undefined}
         className={cn(
-          'cursor-pointer hover:shadow-lg transition-shadow relative group',
+          'cursor-pointer hover:shadow-lg transition-all relative group',
+          isDragging && 'opacity-50 scale-95',
           className
         )}
         {...props}
       >
+        {/* Drag handle */}
+        {draggable && (
+          <div className="absolute top-1/2 left-2 -translate-y-1/2 opacity-0 group-hover:opacity-30 transition-opacity cursor-move">
+            <GripVertical className="h-4 w-4" />
+          </div>
+        )}
         {/* Star button - always visible when starred, visible on hover otherwise */}
         <button
           onClick={handleStarClick}
@@ -146,10 +172,16 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
             {/* Updated timestamp */}
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
-                Updated{' '}
-                {formatDistanceToNow(new Date(prompt.updated_at), {
-                  addSuffix: true,
-                })}
+                {prompt.updated_at ? (
+                  <>
+                    Updated{' '}
+                    {formatDistanceToNow(new Date(prompt.updated_at), {
+                      addSuffix: true,
+                    })}
+                  </>
+                ) : (
+                  'Never updated'
+                )}
               </span>
               <span className="text-xs font-mono">v{prompt.version}</span>
             </div>

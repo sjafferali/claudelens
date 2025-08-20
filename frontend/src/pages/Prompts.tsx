@@ -31,11 +31,13 @@ import {
 import { toast } from 'react-hot-toast';
 import { Prompt } from '@/api/types';
 import { FolderTree } from '@/components/prompts/FolderTree';
+import { FolderBreadcrumb } from '@/components/prompts/FolderBreadcrumb';
 import { PromptCard } from '@/components/prompts/PromptCard';
 import { PromptList } from '@/components/prompts/PromptList';
 import { PromptEditor } from '@/components/prompts/PromptEditor';
 import { PromptPlayground } from '@/components/prompts/PromptPlayground';
 import { cn } from '@/utils/cn';
+import { useFolders } from '@/hooks/usePrompts';
 
 interface ApiError {
   response?: {
@@ -70,6 +72,9 @@ function PromptsList() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortBy, setSortBy] = useState<SortField>('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Fetch folders for breadcrumb
+  const { data: folders = [] } = useFolders();
 
   // Editor state
   const [showEditor, setShowEditor] = useState(false);
@@ -188,6 +193,20 @@ function PromptsList() {
     refetch(); // Refresh the list
   };
 
+  const handlePromptDrop = async (promptId: string, folderId?: string) => {
+    try {
+      await updatePrompt.mutateAsync({
+        promptId,
+        promptData: { folder_id: folderId },
+      });
+      refetch();
+      toast.success(`Prompt moved to ${folderId ? 'folder' : 'All Prompts'}`);
+    } catch (error) {
+      console.error('Failed to move prompt:', error);
+      toast.error('Failed to move prompt');
+    }
+  };
+
   const handlePlaygroundClose = () => {
     setShowPlayground(false);
     setPlaygroundPrompt(null);
@@ -238,6 +257,7 @@ function PromptsList() {
               <FolderTree
                 selectedFolderId={selectedFolderId}
                 onFolderSelect={setSelectedFolderId}
+                onPromptDrop={handlePromptDrop}
               />
             </CardContent>
           </Card>
@@ -269,6 +289,13 @@ function PromptsList() {
 
         {/* Main Content */}
         <div className="col-span-9 space-y-6">
+          {/* Breadcrumb Navigation */}
+          <FolderBreadcrumb
+            folders={folders}
+            selectedFolderId={selectedFolderId}
+            onFolderSelect={setSelectedFolderId}
+          />
+
           {/* Search and Controls */}
           <div className="flex items-center gap-4">
             {/* Search Bar */}
@@ -650,9 +677,11 @@ function PromptDetail({ promptId }: { promptId: string }) {
           </CardHeader>
           <CardContent>
             <div className="text-lg font-bold">
-              {formatDistanceToNow(new Date(prompt.updated_at), {
-                addSuffix: true,
-              })}
+              {prompt.updated_at
+                ? formatDistanceToNow(new Date(prompt.updated_at), {
+                    addSuffix: true,
+                  })
+                : 'Never updated'}
             </div>
           </CardContent>
         </Card>

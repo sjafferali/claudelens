@@ -14,13 +14,16 @@ import {
   useCreateFolder,
   useDeleteFolder,
   useUpdateFolder,
+  useUpdatePrompt,
 } from '@/hooks/usePrompts';
 import { Folder as FolderType } from '@/api/types';
+import { toast } from 'react-hot-toast';
 
 interface FolderTreeProps {
   selectedFolderId?: string;
   onFolderSelect: (folderId?: string) => void;
   className?: string;
+  onPromptDrop?: (promptId: string, folderId?: string) => void;
 }
 
 interface FolderNodeProps {
@@ -34,34 +37,75 @@ interface FolderNodeProps {
   onCreateFolder: (parentId: string) => void;
   onRenameFolder: (folderId: string, name: string) => void;
   onDeleteFolder: (folderId: string) => void;
+  expandedFolders: Set<string>;
+  newFolderParentId?: string;
+  newFolderName?: string;
+  onNewFolderNameChange?: (name: string) => void;
+  onNewFolderSubmit?: () => void;
+  onNewFolderCancel?: () => void;
+  dragOverFolderId?: string | null;
+  onDragOver?: (e: React.DragEvent, folderId: string) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent, folderId: string) => void;
 }
 
 export function FolderTree({
   selectedFolderId,
   onFolderSelect,
   className,
+  onPromptDrop,
 }: FolderTreeProps) {
   const { data: folders, isLoading } = useFolders();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set()
   );
+  const [newFolderParentId, setNewFolderParentId] = useState<
+    string | undefined
+  >(undefined);
+  const [newFolderName, setNewFolderName] = useState('');
 
   const createFolder = useCreateFolder();
   const deleteFolder = useDeleteFolder();
   const updateFolder = useUpdateFolder();
+  const updatePrompt = useUpdatePrompt();
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
   if (isLoading) {
     return (
       <div className={cn('space-y-1', className)}>
-        <div className="h-6 bg-muted rounded animate-pulse" />
-        <div className="h-6 bg-muted rounded animate-pulse ml-4" />
-        <div className="h-6 bg-muted rounded animate-pulse ml-8" />
+        <div className="h-8 bg-muted rounded animate-pulse" />
+        <div className="h-8 bg-muted rounded animate-pulse ml-4" />
+        <div className="h-8 bg-muted rounded animate-pulse ml-4" />
+        <div className="h-8 bg-muted rounded animate-pulse ml-8" />
       </div>
     );
   }
 
-  if (!folders) {
-    return null;
+  if (!folders || folders.length === 0) {
+    return (
+      <div className={cn('space-y-1', className)}>
+        {/* All Prompts */}
+        <div
+          onClick={() => onFolderSelect(undefined)}
+          className={cn(
+            'flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent transition-colors',
+            !selectedFolderId && 'bg-accent text-accent-foreground'
+          )}
+        >
+          <Folder className="h-4 w-4" />
+          <span>All Prompts</span>
+        </div>
+
+        {/* Create First Folder */}
+        <button
+          onClick={() => handleCreateFolder()}
+          className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent text-muted-foreground hover:text-foreground w-full text-left"
+        >
+          <FolderPlus className="h-4 w-4" />
+          <span>Create your first folder</span>
+        </button>
+      </div>
+    );
   }
 
   const toggleExpand = (folderId: string) => {
@@ -74,18 +118,46 @@ export function FolderTree({
     setExpandedFolders(newExpanded);
   };
 
-  const handleCreateFolder = async (parentId?: string) => {
+  const handleCreateFolder = (parentId?: string) => {
+    setNewFolderParentId(parentId || 'root');
+    setNewFolderName('New Folder');
+    if (parentId) {
+      setExpandedFolders((prev) => new Set([...prev, parentId]));
+    }
+  };
+
+  const handleCreateFolderSubmit = async () => {
+    const name = newFolderName.trim();
+    if (!name) {
+      setNewFolderParentId(undefined);
+      setNewFolderName('');
+      return;
+    }
+
     try {
-      await createFolder.mutateAsync({
-        name: 'New Folder',
-        parent_id: parentId,
+      const result = await createFolder.mutateAsync({
+        name,
+        parent_id:
+          newFolderParentId === 'root'
+            ? undefined
+            : newFolderParentId || undefined,
       });
-      if (parentId) {
-        setExpandedFolders((prev) => new Set([...prev, parentId]));
+      setNewFolderParentId(undefined);
+      setNewFolderName('');
+
+      // Auto-select the new folder
+      if (result && result._id) {
+        onFolderSelect(result._id);
       }
     } catch (error) {
       console.error('Failed to create folder:', error);
+      toast.error('Failed to create folder');
     }
+  };
+
+  const handleCancelNewFolder = () => {
+    setNewFolderParentId(undefined);
+    setNewFolderName('');
   };
 
   const handleRenameFolder = async (folderId: string, name: string) => {
@@ -96,24 +168,33 @@ export function FolderTree({
         folderId,
         folderData: { name: name.trim() },
       });
+      toast.success('Folder renamed successfully');
     } catch (error) {
       console.error('Failed to rename folder:', error);
+      toast.error('Failed to rename folder');
     }
   };
 
   const handleDeleteFolder = async (folderId: string) => {
-    if (
-      window.confirm(
-        'Are you sure you want to delete this folder? All prompts in this folder will be moved to the root.'
-      )
-    ) {
+    const folder = folders?.find((f) => f._id === folderId);
+    const folderName = folder?.name || 'this folder';
+    const promptCount = folder?.prompt_count || 0;
+
+    const message =
+      promptCount > 0
+        ? `Are you sure you want to delete "${folderName}"? ${promptCount} prompt${promptCount === 1 ? '' : 's'} will be moved to the root folder.`
+        : `Are you sure you want to delete "${folderName}"?`;
+
+    if (window.confirm(message)) {
       try {
         await deleteFolder.mutateAsync({ folderId });
         if (selectedFolderId === folderId) {
           onFolderSelect(undefined);
         }
+        toast.success(`Folder "${folderName}" deleted`);
       } catch (error) {
         console.error('Failed to delete folder:', error);
+        toast.error('Failed to delete folder');
       }
     }
   };
@@ -125,19 +206,85 @@ export function FolderTree({
 
   const rootFolders = buildFolderTree();
 
+  const handleDragOver = (e: React.DragEvent, folderId?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolderId(folderId || 'root');
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only clear if we're leaving the element entirely
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOverFolderId(null);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent, folderId?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolderId(null);
+
+    const promptId = e.dataTransfer.getData('promptId');
+    if (!promptId) return;
+
+    if (onPromptDrop) {
+      onPromptDrop(promptId, folderId);
+    } else {
+      // Default implementation: update prompt's folder
+      try {
+        await updatePrompt.mutateAsync({
+          promptId,
+          promptData: { folder_id: folderId },
+        });
+        toast.success(`Prompt moved to ${folderId ? 'folder' : 'root'}`);
+      } catch (error) {
+        console.error('Failed to move prompt:', error);
+        toast.error('Failed to move prompt');
+      }
+    }
+  };
+
   return (
     <div className={cn('space-y-1', className)}>
       {/* All Prompts */}
       <div
         onClick={() => onFolderSelect(undefined)}
+        onDragOver={(e) => handleDragOver(e, undefined)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, undefined)}
         className={cn(
-          'flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent',
-          !selectedFolderId && 'bg-accent text-accent-foreground'
+          'flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent transition-colors',
+          !selectedFolderId && 'bg-accent text-accent-foreground',
+          dragOverFolderId === 'root' && 'ring-2 ring-primary bg-primary/10'
         )}
       >
         <Folder className="h-4 w-4" />
         <span>All Prompts</span>
       </div>
+
+      {/* Root level new folder (above existing folders) */}
+      {newFolderParentId === 'root' && (
+        <div className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md bg-accent">
+          <Folder className="h-4 w-4" />
+          <input
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onBlur={handleCreateFolderSubmit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleCreateFolderSubmit();
+              } else if (e.key === 'Escape') {
+                handleCancelNewFolder();
+              }
+            }}
+            className="flex-1 bg-background border rounded px-1 py-0.5 text-xs"
+            autoFocus
+            placeholder="Enter folder name"
+          />
+        </div>
+      )}
 
       {/* Folder Tree */}
       {rootFolders.map((folder) => (
@@ -153,6 +300,16 @@ export function FolderTree({
           onCreateFolder={handleCreateFolder}
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
+          expandedFolders={expandedFolders}
+          newFolderParentId={newFolderParentId}
+          newFolderName={newFolderName}
+          onNewFolderNameChange={setNewFolderName}
+          onNewFolderSubmit={handleCreateFolderSubmit}
+          onNewFolderCancel={handleCancelNewFolder}
+          dragOverFolderId={dragOverFolderId}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         />
       ))}
 
@@ -179,6 +336,16 @@ function FolderNode({
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
+  expandedFolders,
+  newFolderParentId,
+  newFolderName,
+  onNewFolderNameChange,
+  onNewFolderSubmit,
+  onNewFolderCancel,
+  dragOverFolderId,
+  onDragOver,
+  onDragLeave,
+  onDrop,
 }: FolderNodeProps) {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [editingName, setEditingName] = useState('');
@@ -219,10 +386,14 @@ function FolderNode({
     <div>
       <div
         className={cn(
-          'flex items-center gap-1 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent relative group',
-          selectedFolderId === folder._id && 'bg-accent text-accent-foreground'
+          'flex items-center gap-1 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent relative group transition-colors',
+          selectedFolderId === folder._id && 'bg-accent text-accent-foreground',
+          dragOverFolderId === folder._id && 'ring-2 ring-primary bg-primary/10'
         )}
         style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
+        onDragOver={(e) => onDragOver?.(e, folder._id)}
+        onDragLeave={(e) => onDragLeave?.(e)}
+        onDrop={(e) => onDrop?.(e, folder._id)}
       >
         {/* Expand/Collapse Button */}
         {hasChildren && (
@@ -260,9 +431,11 @@ function FolderNode({
           ) : (
             <span className="truncate flex-1">{folder.name}</span>
           )}
-          <span className="text-xs text-muted-foreground">
-            {folder.prompt_count}
-          </span>
+          {folder.prompt_count > 0 && (
+            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+              {folder.prompt_count}
+            </span>
+          )}
         </div>
 
         {/* Context Menu Button */}
@@ -305,23 +478,61 @@ function FolderNode({
       </div>
 
       {/* Child Folders */}
-      {isExpanded && hasChildren && (
+      {isExpanded && (
         <div>
-          {childFolders.map((childFolder) => (
-            <FolderNode
-              key={childFolder._id}
-              folder={childFolder}
-              allFolders={allFolders}
-              selectedFolderId={selectedFolderId}
-              onFolderSelect={onFolderSelect}
-              level={level + 1}
-              isExpanded={false}
-              onToggleExpand={onToggleExpand}
-              onCreateFolder={onCreateFolder}
-              onRenameFolder={onRenameFolder}
-              onDeleteFolder={onDeleteFolder}
-            />
-          ))}
+          {/* New folder input for this folder */}
+          {newFolderParentId === folder._id && (
+            <div
+              className="flex items-center gap-1 px-2 py-1.5 text-sm rounded-md bg-accent"
+              style={{ paddingLeft: `${(level + 2) * 12 + 8}px` }}
+            >
+              <Folder className="h-4 w-4 flex-shrink-0" />
+              <input
+                value={newFolderName}
+                onChange={(e) => onNewFolderNameChange?.(e.target.value)}
+                onBlur={() => onNewFolderSubmit?.()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onNewFolderSubmit?.();
+                  } else if (e.key === 'Escape') {
+                    onNewFolderCancel?.();
+                  }
+                }}
+                className="flex-1 bg-background border rounded px-1 py-0.5 text-xs"
+                autoFocus
+                placeholder="Enter folder name"
+              />
+            </div>
+          )}
+
+          {childFolders.map((childFolder) => {
+            const isChildExpanded = expandedFolders.has(childFolder._id);
+            return (
+              <FolderNode
+                key={childFolder._id}
+                folder={childFolder}
+                allFolders={allFolders}
+                selectedFolderId={selectedFolderId}
+                onFolderSelect={onFolderSelect}
+                level={level + 1}
+                isExpanded={isChildExpanded}
+                onToggleExpand={onToggleExpand}
+                onCreateFolder={onCreateFolder}
+                onRenameFolder={onRenameFolder}
+                onDeleteFolder={onDeleteFolder}
+                expandedFolders={expandedFolders}
+                newFolderParentId={newFolderParentId}
+                newFolderName={newFolderName}
+                onNewFolderNameChange={onNewFolderNameChange}
+                onNewFolderSubmit={onNewFolderSubmit}
+                onNewFolderCancel={onNewFolderCancel}
+                dragOverFolderId={dragOverFolderId}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop}
+              />
+            );
+          })}
         </div>
       )}
 

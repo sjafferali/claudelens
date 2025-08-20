@@ -15,6 +15,7 @@ import {
   Hash,
   Zap,
   Share2,
+  BookmarkPlus,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useState, useRef } from 'react';
@@ -30,6 +31,7 @@ import {
   getMessageLinkDescription,
 } from '@/utils/message-linking';
 import toast from 'react-hot-toast';
+import { promptsApi } from '@/api/prompts';
 
 interface MessageListProps {
   messages: Message[];
@@ -51,6 +53,8 @@ export default function MessageList({
     new Set()
   );
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const messageRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Use message navigation hook
@@ -112,6 +116,52 @@ export default function MessageList({
       });
     } else {
       toast.error('Failed to copy message link');
+    }
+  };
+
+  const handleSaveToPromptLibrary = async (message: Message) => {
+    const messageId = message._id;
+
+    // Start saving
+    setSavingIds((prev) => new Set(prev).add(messageId));
+
+    try {
+      // Generate a name from the first line or first 50 chars
+      const firstLine = message.content.split('\n')[0];
+      const promptName =
+        firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine;
+
+      await promptsApi.createPrompt({
+        name: promptName || 'Saved Prompt',
+        content: message.content,
+        description: `Saved from session on ${format(new Date(message.timestamp), 'MMM d, yyyy')}`,
+        tags: ['saved-from-session'],
+      });
+
+      // Mark as saved
+      setSavedIds((prev) => new Set(prev).add(messageId));
+      toast.success('Prompt saved to library!', {
+        duration: 3000,
+        icon: '📚',
+      });
+
+      // Clear saved indicator after 3 seconds
+      setTimeout(() => {
+        setSavedIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
+      }, 3000);
+    } catch (error) {
+      toast.error('Failed to save prompt to library');
+      console.error('Error saving prompt:', error);
+    } finally {
+      setSavingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
     }
   };
 
@@ -628,6 +678,22 @@ export default function MessageList({
                       <Copy className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                     )}
                   </button>
+                  {message.type === 'user' && (
+                    <button
+                      onClick={() => handleSaveToPromptLibrary(message)}
+                      disabled={savingIds.has(message._id)}
+                      className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Save to prompt library"
+                    >
+                      {savedIds.has(message._id) ? (
+                        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      ) : savingIds.has(message._id) ? (
+                        <div className="h-4 w-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <BookmarkPlus className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -659,6 +725,24 @@ export default function MessageList({
                     )}
                   </button>
                 )}
+                {!isFirstMessage &&
+                  !isDifferentSender &&
+                  message.type === 'user' && (
+                    <button
+                      onClick={() => handleSaveToPromptLibrary(message)}
+                      disabled={savingIds.has(message._id)}
+                      className="absolute top-4 right-16 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 backdrop-blur-sm shadow-md border border-slate-200/50 dark:border-slate-600/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Save to prompt library"
+                    >
+                      {savedIds.has(message._id) ? (
+                        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      ) : savingIds.has(message._id) ? (
+                        <div className="h-4 w-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <BookmarkPlus className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                      )}
+                    </button>
+                  )}
                 <div className="max-w-none">
                   {/* Metadata - Show on hover with better styling */}
                   <div className="flex items-center gap-4 mb-3 opacity-60 group-hover:opacity-100 transition-all duration-200">

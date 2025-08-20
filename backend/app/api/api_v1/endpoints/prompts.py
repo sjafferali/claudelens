@@ -93,6 +93,16 @@ async def create_prompt(prompt: PromptCreate, db: CommonDeps) -> Prompt:
     if prompt_dict.get("folderId"):
         prompt_dict["folderId"] = str(prompt_dict["folderId"])
 
+    # Ensure datetime fields are serialized to ISO format strings
+    if prompt_dict.get("createdAt"):
+        prompt_dict["createdAt"] = prompt_dict["createdAt"].isoformat()
+    if prompt_dict.get("updatedAt"):
+        prompt_dict["updatedAt"] = prompt_dict["updatedAt"].isoformat()
+    if prompt_dict.get("lastUsedAt"):
+        prompt_dict["lastUsedAt"] = (
+            prompt_dict["lastUsedAt"].isoformat() if prompt_dict["lastUsedAt"] else None
+        )
+
     return Prompt(**prompt_dict)
 
 
@@ -393,6 +403,16 @@ async def update_prompt(prompt_id: str, update: PromptUpdate, db: CommonDeps) ->
     prompt_dict["_id"] = str(prompt_dict["_id"])
     if prompt_dict.get("folderId"):
         prompt_dict["folderId"] = str(prompt_dict["folderId"])
+
+    # Ensure datetime fields are serialized to ISO format strings
+    if prompt_dict.get("createdAt"):
+        prompt_dict["createdAt"] = prompt_dict["createdAt"].isoformat()
+    if prompt_dict.get("updatedAt"):
+        prompt_dict["updatedAt"] = prompt_dict["updatedAt"].isoformat()
+    if prompt_dict.get("lastUsedAt"):
+        prompt_dict["lastUsedAt"] = (
+            prompt_dict["lastUsedAt"].isoformat() if prompt_dict["lastUsedAt"] else None
+        )
 
     return Prompt(**prompt_dict)
 

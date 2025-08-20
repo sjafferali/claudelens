@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { useStore } from '@/store';
 
 // Export Types
 export interface CreateExportRequest {
@@ -214,11 +215,15 @@ export const exportApi = {
     apiClient.get(`/export/${jobId}/status`),
 
   downloadExport: async (jobId: string): Promise<void> => {
+    const apiKey =
+      import.meta.env.VITE_API_KEY ||
+      useStore.getState().auth.apiKey ||
+      'default-api-key';
     const response = await fetch(
       `${import.meta.env.VITE_API_URL || '/api/v1'}/export/${jobId}/download`,
       {
         headers: {
-          'X-API-Key': localStorage.getItem('apiKey') || '',
+          'X-API-Key': apiKey,
         },
       }
     );
@@ -263,6 +268,10 @@ export const importApi = {
     file: File,
     dryRun = true
   ): Promise<ValidateImportResponse> => {
+    const apiKey =
+      import.meta.env.VITE_API_KEY ||
+      useStore.getState().auth.apiKey ||
+      'default-api-key';
     const formData = new FormData();
     formData.append('file', file);
 
@@ -271,7 +280,7 @@ export const importApi = {
       {
         method: 'POST',
         headers: {
-          'X-API-Key': localStorage.getItem('apiKey') || '',
+          'X-API-Key': apiKey,
         },
         body: formData,
       }

@@ -212,9 +212,11 @@ export function PromptList({
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span>{prompt.use_count} uses</span>
                       <span>
-                        {formatDistanceToNow(new Date(prompt.updated_at), {
-                          addSuffix: true,
-                        })}
+                        {prompt.updated_at
+                          ? formatDistanceToNow(new Date(prompt.updated_at), {
+                              addSuffix: true,
+                            })
+                          : 'Never updated'}
                       </span>
                       <span>v{prompt.version}</span>
                     </div>
@@ -336,9 +338,11 @@ export function PromptList({
 
               <div className="col-span-2 text-sm text-muted-foreground">
                 <div>
-                  {formatDistanceToNow(new Date(prompt.updated_at), {
-                    addSuffix: true,
-                  })}
+                  {prompt.updated_at
+                    ? formatDistanceToNow(new Date(prompt.updated_at), {
+                        addSuffix: true,
+                      })
+                    : 'Never updated'}
                 </div>
                 <div className="text-xs">v{prompt.version}</div>
               </div>

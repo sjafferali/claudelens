@@ -9,6 +9,7 @@ import {
   FileText,
   Sun,
   Moon,
+  Download,
 } from 'lucide-react';
 import { useStore } from '@/store';
 
@@ -19,6 +20,7 @@ const navItems = [
   { path: '/prompts', label: 'Prompts', icon: FileText },
   { path: '/search', label: 'Search', icon: Search },
   { path: '/analytics', label: 'Analytics', icon: Activity },
+  { path: '/import-export', label: 'Import/Export', icon: Download },
 ];
 
 export default function Sidebar() {
