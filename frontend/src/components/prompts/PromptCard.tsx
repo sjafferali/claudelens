@@ -88,7 +88,7 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
         onDragStart={draggable ? handleDragStart : undefined}
         onDragEnd={draggable ? handleDragEnd : undefined}
         className={cn(
-          'cursor-pointer transition-all relative group overflow-hidden',
+          'cursor-pointer transition-all relative group',
           'hover:shadow-md hover:border-primary/20 hover:-translate-y-1',
           isDragging && 'opacity-50 scale-95',
           className
@@ -96,7 +96,7 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
         {...props}
       >
         {/* Hover background effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-lg" />
         {/* Drag handle */}
         {draggable && (
           <div className="absolute top-1/2 left-2 -translate-y-1/2 opacity-0 group-hover:opacity-30 transition-opacity cursor-move">
@@ -171,10 +171,10 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <VariableCountBadge count={prompt.variables.length} />
-                  <div className="group relative">
+                  <div className="group/help relative">
                     <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
-                      <div className="bg-popover border rounded-lg shadow-lg p-2 w-48">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/help:block z-[100] pointer-events-none animate-in fade-in-0 zoom-in-95">
+                      <div className="bg-popover border rounded-lg shadow-xl p-2 w-48">
                         <p className="text-xs">
                           Variables make prompts reusable. Use {`{{name}}`}{' '}
                           syntax to add them.

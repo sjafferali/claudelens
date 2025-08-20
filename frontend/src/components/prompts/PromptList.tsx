@@ -162,10 +162,10 @@ export function PromptList({
         <div className="col-span-2">
           <div className="flex items-center gap-1">
             <span>Variables</span>
-            <div className="group relative">
+            <div className="group/help relative">
               <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
-                <div className="bg-popover border rounded-lg shadow-lg p-2 w-48">
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/help:block z-[100] pointer-events-none animate-in fade-in-0 zoom-in-95">
+                <div className="bg-popover border rounded-lg shadow-xl p-2 w-48">
                   <p className="text-xs">
                     Variables make prompts reusable by replacing placeholders
                     with actual values
@@ -190,10 +190,10 @@ export function PromptList({
           <div
             key={prompt._id}
             onClick={() => onPromptClick?.(prompt)}
-            className="group relative p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md hover:border-primary/20 overflow-hidden"
+            className="group relative p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md hover:border-primary/20"
           >
             {/* Hover background effect */}
-            <div className="absolute inset-0 bg-accent/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="absolute inset-0 bg-accent/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-lg" />
             {/* Mobile Layout */}
             <div className="relative md:hidden space-y-3 z-10">
               <div className="flex items-start justify-between">

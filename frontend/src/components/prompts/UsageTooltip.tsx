@@ -29,12 +29,12 @@ export function UsageTooltip({
   const usageLevel = getUsageLevel(useCount ?? 0);
 
   return (
-    <div className={cn('group relative inline-block', className)}>
+    <div className={cn('group/usage relative inline-block', className)}>
       {children}
 
       {/* Tooltip */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
-        <div className="bg-popover border rounded-lg shadow-lg p-3 w-64">
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/usage:block z-[100] pointer-events-none animate-in fade-in-0 zoom-in-95">
+        <div className="bg-popover border rounded-lg shadow-xl p-3 w-64 max-w-[90vw]">
           <div className="space-y-3">
             {/* Usage header */}
             <div className="flex items-center justify-between">

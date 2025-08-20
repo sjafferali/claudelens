@@ -178,10 +178,10 @@ export function VariableHelper({
           <span className="font-medium">
             {variables.length} Variable{variables.length !== 1 ? 's' : ''}
           </span>
-          <div className="group relative">
+          <div className="group/help relative">
             <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-              <div className="bg-popover border rounded-lg shadow-lg p-3 w-64">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/help:block z-[100] pointer-events-none animate-in fade-in-0 zoom-in-95">
+              <div className="bg-popover border rounded-lg shadow-xl p-3 w-64">
                 <p className="text-xs">
                   Variables are placeholders that get replaced with actual
                   values when you test or use the prompt. They make your prompts
