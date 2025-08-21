@@ -60,7 +60,7 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
     const handleStarClick = (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      onToggleStar?.(prompt, !prompt.is_starred);
+      onToggleStar?.(prompt, !prompt.isStarred);
     };
 
     const handleActionClick = (e: React.MouseEvent, action: () => void) => {
@@ -108,13 +108,13 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
           onClick={handleStarClick}
           className={cn(
             'absolute top-2 right-2 p-1.5 rounded-full transition-opacity z-10',
-            prompt.is_starred
+            prompt.isStarred
               ? 'opacity-100 text-yellow-500 hover:text-yellow-600'
               : 'opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-accent'
           )}
-          title={prompt.is_starred ? 'Remove from starred' : 'Add to starred'}
+          title={prompt.isStarred ? 'Remove from starred' : 'Add to starred'}
         >
-          {prompt.is_starred ? (
+          {prompt.isStarred ? (
             <Star className="h-4 w-4 fill-current" />
           ) : (
             <StarIcon className="h-4 w-4" />
@@ -184,15 +184,15 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
                   </div>
                 </div>
                 <UsageTooltip
-                  useCount={prompt.use_count ?? 0}
+                  useCount={prompt.useCount ?? 0}
                   lastUsedAt={undefined}
                   avgResponseTime={undefined}
                   successRate={undefined}
                 >
                   <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-help">
                     <Activity className="h-3 w-3" />
-                    <span className="font-medium">{prompt.use_count ?? 0}</span>
-                    <span>use{(prompt.use_count ?? 0) !== 1 ? 's' : ''}</span>
+                    <span className="font-medium">{prompt.useCount ?? 0}</span>
+                    <span>use{(prompt.useCount ?? 0) !== 1 ? 's' : ''}</span>
                   </div>
                 </UsageTooltip>
               </div>
@@ -201,10 +201,10 @@ export const PromptCard = forwardRef<HTMLDivElement, PromptCardProps>(
             {/* Updated timestamp */}
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
-                {prompt.updated_at ? (
+                {prompt.updatedAt ? (
                   <>
                     Updated{' '}
-                    {formatDistanceToNow(new Date(prompt.updated_at), {
+                    {formatDistanceToNow(new Date(prompt.updatedAt), {
                       addSuffix: true,
                     })}
                   </>

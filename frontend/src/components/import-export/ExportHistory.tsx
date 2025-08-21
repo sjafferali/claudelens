@@ -6,6 +6,7 @@ import {
   useExportsList,
   useDownloadExport,
   useCancelExport,
+  useDeleteExport,
 } from '@/hooks/useExport';
 import {
   Download,
@@ -17,6 +18,7 @@ import {
   FileText,
   Calendar,
   HardDrive,
+  Trash2,
 } from 'lucide-react';
 
 interface ExportHistoryProps {
@@ -26,6 +28,10 @@ interface ExportHistoryProps {
 export const ExportHistory: React.FC<ExportHistoryProps> = ({ className }) => {
   const [currentPage, setCurrentPage] = React.useState(0);
   const [statusFilter, setStatusFilter] = React.useState<string>('');
+  const [deleteConfirmation, setDeleteConfirmation] = React.useState<{
+    isOpen: boolean;
+    jobId: string | null;
+  }>({ isOpen: false, jobId: null });
 
   const { data: exportsData, isLoading } = useExportsList({
     page: currentPage,
@@ -36,6 +42,7 @@ export const ExportHistory: React.FC<ExportHistoryProps> = ({ className }) => {
 
   const downloadExport = useDownloadExport();
   const cancelExport = useCancelExport();
+  const deleteExport = useDeleteExport();
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -98,6 +105,15 @@ export const ExportHistory: React.FC<ExportHistoryProps> = ({ className }) => {
       await cancelExport.mutateAsync(jobId);
     } catch (error) {
       console.error('Cancel failed:', error);
+    }
+  };
+
+  const handleDelete = async (jobId: string) => {
+    try {
+      await deleteExport.mutateAsync(jobId);
+      setDeleteConfirmation({ isOpen: false, jobId: null });
+    } catch (error) {
+      console.error('Delete failed:', error);
     }
   };
 
@@ -256,6 +272,26 @@ export const ExportHistory: React.FC<ExportHistoryProps> = ({ className }) => {
                             )}
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setDeleteConfirmation({
+                              isOpen: true,
+                              jobId: job.jobId,
+                            })
+                          }
+                          disabled={deleteExport.isPending}
+                          className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-600 dark:hover:bg-red-900/20"
+                          title="Delete export"
+                        >
+                          {deleteExport.isPending &&
+                          deleteConfirmation.jobId === job.jobId ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3 h-3" />
+                          )}
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -313,6 +349,56 @@ export const ExportHistory: React.FC<ExportHistoryProps> = ({ className }) => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmation.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() =>
+              setDeleteConfirmation({ isOpen: false, jobId: null })
+            }
+          />
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Delete Export
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to permanently delete this export? This
+              action cannot be undone.
+            </p>
+            <div className="flex items-center justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setDeleteConfirmation({ isOpen: false, jobId: null })
+                }
+                disabled={deleteExport.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                onClick={() =>
+                  deleteConfirmation.jobId &&
+                  handleDelete(deleteConfirmation.jobId)
+                }
+                disabled={deleteExport.isPending}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deleteExport.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 };

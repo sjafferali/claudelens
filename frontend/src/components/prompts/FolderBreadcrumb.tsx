@@ -99,9 +99,9 @@ export function FolderBreadcrumb({
               folder
             </span>
           </span>
-          {currentFolder.created_at && (
+          {currentFolder.createdAt && (
             <span className="text-xs">
-              Created {new Date(currentFolder.created_at).toLocaleDateString()}
+              Created {new Date(currentFolder.createdAt).toLocaleDateString()}
             </span>
           )}
         </div>

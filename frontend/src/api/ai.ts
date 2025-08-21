@@ -3,12 +3,12 @@ import { apiClient } from './client';
 // AI Settings Types
 export interface AISettings {
   enabled: boolean;
-  api_key: string;
+  api_key?: string; // Optional - never returned from server for security
   model: string;
   base_url?: string;
   max_tokens?: number;
   temperature?: number;
-  api_key_configured?: boolean;
+  api_key_configured?: boolean; // Indicates if API key is saved on server
   endpoint?: string;
 }
 

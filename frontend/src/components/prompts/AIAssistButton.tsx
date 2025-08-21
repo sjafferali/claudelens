@@ -15,10 +15,39 @@ export function AIAssistButton({
   className,
   disabled = false,
 }: AIAssistButtonProps) {
-  const { isAvailable } = useAIAvailable();
+  const { isAvailable, settings } = useAIAvailable();
+
+  // Log for debugging
+  console.log('AI Assistant Button - Settings:', {
+    enabled: settings?.enabled,
+    api_key_configured: settings?.api_key_configured,
+    isAvailable,
+  });
 
   // Don't render if AI is not available
   if (!isAvailable) {
+    // Optionally show a disabled state with tooltip explaining why
+    if (variant === 'compact' && settings) {
+      const reason = !settings.enabled
+        ? 'AI Assistant is disabled'
+        : !settings.api_key_configured
+          ? 'API key not configured'
+          : 'AI Assistant unavailable';
+
+      return (
+        <button
+          disabled
+          className={cn(
+            'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed',
+            className
+          )}
+          title={reason}
+        >
+          <Sparkles className="h-3 w-3" />
+          <span className="text-[10px]">AI Off</span>
+        </button>
+      );
+    }
     return null;
   }
 

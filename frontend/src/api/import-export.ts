@@ -237,6 +237,11 @@ export const exportApi = {
   ): Promise<{ jobId: string; status: string; message: string }> =>
     apiClient.delete(`/export/${jobId}`),
 
+  deleteExport: (
+    jobId: string
+  ): Promise<{ jobId: string; status: string; message: string }> =>
+    apiClient.delete(`/export/${jobId}/permanent`),
+
   listExports: (params?: {
     page?: number;
     size?: number;

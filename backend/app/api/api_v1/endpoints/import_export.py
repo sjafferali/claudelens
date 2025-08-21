@@ -9,7 +9,7 @@ from bson import ObjectId
 from fastapi import File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
-from app.api.dependencies import AuthDeps, CommonDeps
+from app.api.dependencies import CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.logging import get_logger
 from app.models.import_job import ImportJob
@@ -305,6 +305,40 @@ async def cancel_export(
     )
 
 
+@router.delete("/export/{job_id}/permanent")
+async def delete_export_permanently(
+    job_id: str,
+    db: CommonDeps,
+) -> Dict[str, str]:
+    """Permanently delete an export job and its associated files."""
+    if not ObjectId.is_valid(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job ID")
+
+    export_job = await db.export_jobs.find_one({"_id": ObjectId(job_id)})
+    if not export_job:
+        raise HTTPException(status_code=404, detail="Export job not found")
+
+    # Delete associated file if it exists
+    if export_job.get("file_path"):
+        try:
+            file_service = FileService()
+            await file_service.delete_file(export_job["file_path"])
+        except Exception as e:
+            logger.warning(f"Failed to delete export file: {e}")
+
+    # Delete the export job from database
+    result = await db.export_jobs.delete_one({"_id": ObjectId(job_id)})
+
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to delete export job")
+
+    return {
+        "jobId": job_id,
+        "status": "deleted",
+        "message": "Export job deleted permanently",
+    }
+
+
 @router.get("/export", response_model=PagedExportJobsResponse)
 async def list_export_jobs(
     db: CommonDeps,
@@ -372,7 +406,6 @@ async def list_export_jobs(
 @router.post("/import/validate", response_model=ValidateImportResponse)
 async def validate_import(
     db: CommonDeps,
-    api_key: AuthDeps,
     file: UploadFile = File(...),
     dry_run: bool = Query(True),
 ) -> ValidateImportResponse:
@@ -402,7 +435,6 @@ async def validate_import(
 async def check_conflicts(
     request: CheckConflictsRequest,
     db: CommonDeps,
-    api_key: AuthDeps,
 ) -> ConflictsResponse:
     """Check for conflicts before import execution."""
     # Get file path from file ID
@@ -435,10 +467,11 @@ async def check_conflicts(
 async def execute_import(
     request: ExecuteImportRequest,
     db: CommonDeps,
-    api_key: AuthDeps,
 ) -> ExecuteImportResponse:
     """Execute the import with specified conflict resolution."""
-    user_id = str(api_key) if api_key else "anonymous"
+    # For now, allow anonymous imports similar to exports
+    # In production, this should be controlled by configuration
+    user_id = "anonymous"
 
     # Check rate limit
     if not await check_import_rate_limit(user_id):
@@ -524,7 +557,6 @@ async def execute_import(
 async def get_import_progress(
     job_id: str,
     db: CommonDeps,
-    api_key: AuthDeps,
 ) -> ImportProgressResponse:
     """Get the progress of an import job."""
     if not ObjectId.is_valid(job_id):
@@ -550,7 +582,6 @@ async def get_import_progress(
 async def rollback_import(
     job_id: str,
     db: CommonDeps,
-    api_key: AuthDeps,
 ) -> RollbackResponse:
     """Rollback a completed or partially completed import."""
     if not ObjectId.is_valid(job_id):

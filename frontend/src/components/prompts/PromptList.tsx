@@ -57,7 +57,7 @@ export function PromptList({
   const handleStarClick = (e: React.MouseEvent, prompt: Prompt) => {
     e.preventDefault();
     e.stopPropagation();
-    onToggleStar?.(prompt, !prompt.is_starred);
+    onToggleStar?.(prompt, !prompt.isStarred);
   };
 
   const handleActionClick = (e: React.MouseEvent, action: () => void) => {
@@ -212,12 +212,12 @@ export function PromptList({
                         onClick={(e) => handleStarClick(e, prompt)}
                         className={cn(
                           'p-1',
-                          prompt.is_starred
+                          prompt.isStarred
                             ? 'text-yellow-500'
                             : 'text-muted-foreground hover:text-foreground'
                         )}
                       >
-                        {prompt.is_starred ? (
+                        {prompt.isStarred ? (
                           <Star className="h-4 w-4 fill-current" />
                         ) : (
                           <StarIcon className="h-4 w-4" />
@@ -231,18 +231,18 @@ export function PromptList({
                     )}
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <UsageTooltip
-                        useCount={prompt.use_count ?? 0}
+                        useCount={prompt.useCount ?? 0}
                         lastUsedAt={undefined}
                         avgResponseTime={undefined}
                         successRate={undefined}
                       >
                         <span className="cursor-help">
-                          {prompt.use_count ?? 0} uses
+                          {prompt.useCount ?? 0} uses
                         </span>
                       </UsageTooltip>
                       <span>
-                        {prompt.updated_at
-                          ? formatDistanceToNow(new Date(prompt.updated_at), {
+                        {prompt.updatedAt
+                          ? formatDistanceToNow(new Date(prompt.updatedAt), {
                               addSuffix: true,
                             })
                           : 'Never updated'}
@@ -322,12 +322,12 @@ export function PromptList({
                     onClick={(e) => handleStarClick(e, prompt)}
                     className={cn(
                       'p-1',
-                      prompt.is_starred
+                      prompt.isStarred
                         ? 'text-yellow-500'
                         : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
-                    {prompt.is_starred ? (
+                    {prompt.isStarred ? (
                       <Star className="h-4 w-4 fill-current" />
                     ) : (
                       <StarIcon className="h-4 w-4" />
@@ -365,22 +365,22 @@ export function PromptList({
 
               <div className="col-span-1 text-sm">
                 <UsageTooltip
-                  useCount={prompt.use_count ?? 0}
+                  useCount={prompt.useCount ?? 0}
                   lastUsedAt={undefined}
                   avgResponseTime={undefined}
                   successRate={undefined}
                 >
                   <div className="cursor-help flex items-center gap-1">
                     <Activity className="h-3 w-3 text-muted-foreground" />
-                    <span>{prompt.use_count ?? 0}</span>
+                    <span>{prompt.useCount ?? 0}</span>
                   </div>
                 </UsageTooltip>
               </div>
 
               <div className="col-span-2 text-sm text-muted-foreground">
                 <div>
-                  {prompt.updated_at
-                    ? formatDistanceToNow(new Date(prompt.updated_at), {
+                  {prompt.updatedAt
+                    ? formatDistanceToNow(new Date(prompt.updatedAt), {
                         addSuffix: true,
                       })
                     : 'Never updated'}

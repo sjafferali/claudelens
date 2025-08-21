@@ -59,6 +59,9 @@ export function PromptEditor({
   const [showPreview, setShowPreview] = useState(false);
   const [errors, setErrors] = useState<Partial<PromptFormData>>({});
   const [showAIModal, setShowAIModal] = useState(false);
+  const [aiModalMode, setAIModalMode] = useState<'metadata' | 'content'>(
+    'metadata'
+  );
 
   const { data: folders } = useFolders();
   const createPrompt = useCreatePrompt();
@@ -245,7 +248,10 @@ export function PromptEditor({
           </h2>
           <div className="flex items-center gap-2">
             <AIAssistButton
-              onGenerate={() => setShowAIModal(true)}
+              onGenerate={() => {
+                setAIModalMode('metadata');
+                setShowAIModal(true);
+              }}
               variant="compact"
             />
             <Button
@@ -362,11 +368,21 @@ export function PromptEditor({
                     <label htmlFor="content" className="text-sm font-medium">
                       Content *
                     </label>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Info className="h-3 w-3" />
-                      <span>
-                        Use {`{{variable}}`} syntax for dynamic values
-                      </span>
+                    <div className="flex items-center gap-2">
+                      <AIAssistButton
+                        onGenerate={() => {
+                          setAIModalMode('content');
+                          setShowAIModal(true);
+                        }}
+                        variant="compact"
+                        className="mr-2"
+                      />
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Info className="h-3 w-3" />
+                        <span>
+                          Use {`{{variable}}`} syntax for dynamic values
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <textarea
@@ -507,7 +523,7 @@ export function PromptEditor({
         onClose={() => setShowAIModal(false)}
         onAccept={handleAIGeneration}
         initialContent={formData.content}
-        mode="metadata"
+        mode={aiModalMode}
       />
     </div>
   );

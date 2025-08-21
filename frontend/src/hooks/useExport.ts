@@ -80,6 +80,22 @@ export function useCancelExport() {
   });
 }
 
+export function useDeleteExport() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (jobId: string) => exportApi.deleteExport(jobId),
+    onSuccess: () => {
+      toast.success('Export deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['exports'] });
+    },
+    onError: (error: ApiError) => {
+      const message = error.response?.data?.detail || 'Failed to delete export';
+      toast.error(message);
+    },
+  });
+}
+
 export function useExportsList(params?: {
   page?: number;
   size?: number;

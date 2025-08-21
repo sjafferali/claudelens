@@ -102,8 +102,8 @@ export interface PromptVersion {
   content: string;
   variables: string[];
   change_log: string;
-  created_at: string;
-  created_by: string;
+  createdAt: string;
+  createdBy: string;
 }
 
 export interface PromptTag {
@@ -115,9 +115,9 @@ export interface Folder {
   _id: string;
   name: string;
   parent_id?: string;
-  created_at: string;
-  updated_at: string;
-  created_by: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
   prompt_count: number;
 }
 
@@ -131,11 +131,11 @@ export interface Prompt {
   folder_id?: string;
   version: string;
   visibility: string;
-  use_count: number;
-  is_starred: boolean;
-  created_at: string;
-  updated_at: string;
-  created_by: string;
+  useCount: number;
+  isStarred: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
 }
 
 export interface PromptDetail extends Prompt {

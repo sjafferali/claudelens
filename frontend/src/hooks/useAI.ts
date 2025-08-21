@@ -129,7 +129,7 @@ export function useAIAvailable() {
   const { data: settings } = useAISettings();
 
   return {
-    isAvailable: !!settings?.enabled && !!settings?.api_key,
+    isAvailable: !!settings?.enabled && !!settings?.api_key_configured,
     settings,
   };
 }

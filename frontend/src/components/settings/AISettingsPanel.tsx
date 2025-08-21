@@ -44,7 +44,7 @@ export function AISettingsPanel() {
     if (settings) {
       setFormData({
         enabled: settings.enabled ?? false,
-        api_key: settings.api_key ?? '',
+        api_key: '', // Never populate API key from server for security
         model: settings.model ?? 'gpt-4',
         base_url: settings.base_url ?? '',
         max_tokens: settings.max_tokens ?? 4096,
@@ -59,7 +59,7 @@ export function AISettingsPanel() {
     if (settings) {
       const hasChanged =
         formData.enabled !== (settings.enabled ?? false) ||
-        formData.api_key !== (settings.api_key ?? '') ||
+        formData.api_key !== '' || // API key field has content (user entered something)
         formData.model !== (settings.model ?? 'gpt-4') ||
         formData.base_url !== (settings.base_url ?? '') ||
         formData.max_tokens !== (settings.max_tokens ?? 4096) ||
@@ -95,17 +95,39 @@ export function AISettingsPanel() {
     }
   };
 
+  // Format model display name to show both friendly name and ID
+  const formatModelLabel = (modelId: string): string => {
+    // Create a more user-friendly display while keeping the ID visible
+    if (modelId.startsWith('gpt-4')) {
+      if (modelId.includes('turbo')) {
+        return `GPT-4 Turbo (${modelId})`;
+      } else if (modelId.includes('vision')) {
+        return `GPT-4 Vision (${modelId})`;
+      } else {
+        return `GPT-4 (${modelId})`;
+      }
+    } else if (modelId.startsWith('gpt-3.5')) {
+      if (modelId.includes('16k')) {
+        return `GPT-3.5 Turbo 16K (${modelId})`;
+      } else {
+        return `GPT-3.5 Turbo (${modelId})`;
+      }
+    }
+    // For other models, just return the ID
+    return modelId;
+  };
+
   // Use fetched models or fallback to defaults
   const availableModels = modelsData?.models
     ? modelsData.models.map((model) => ({
         value: model.id,
-        label: model.name,
+        label: formatModelLabel(model.id),
       }))
     : [
-        { value: 'gpt-4', label: 'GPT-4' },
-        { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-        { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-        { value: 'gpt-3.5-turbo-16k', label: 'GPT-3.5 Turbo 16K' },
+        { value: 'gpt-4', label: 'gpt-4' },
+        { value: 'gpt-4-turbo', label: 'gpt-4-turbo' },
+        { value: 'gpt-3.5-turbo', label: 'gpt-3.5-turbo' },
+        { value: 'gpt-3.5-turbo-16k', label: 'gpt-3.5-turbo-16k' },
       ];
 
   if (isLoading) {

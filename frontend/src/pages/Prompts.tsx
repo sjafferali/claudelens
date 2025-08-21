@@ -640,10 +640,10 @@ function PromptDetail({ promptId }: { promptId: string }) {
     try {
       await updatePrompt.mutateAsync({
         promptId: prompt._id,
-        promptData: { is_starred: !prompt.is_starred },
+        promptData: { is_starred: !prompt.isStarred },
       });
       // Visual feedback for star toggle
-      if (!prompt.is_starred) {
+      if (!prompt.isStarred) {
         toast.success('Added to starred prompts', { duration: 2000 });
       } else {
         toast.success('Removed from starred prompts', { duration: 2000 });
@@ -702,13 +702,13 @@ function PromptDetail({ promptId }: { promptId: string }) {
                 onClick={handleToggleStar}
                 className={cn(
                   'p-2 rounded-full transition-colors',
-                  prompt.is_starred
+                  prompt.isStarred
                     ? 'text-yellow-500 hover:text-yellow-600'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                 )}
               >
                 <Star
-                  className={cn('h-5 w-5', prompt.is_starred && 'fill-current')}
+                  className={cn('h-5 w-5', prompt.isStarred && 'fill-current')}
                 />
               </button>
             </div>
@@ -763,7 +763,7 @@ function PromptDetail({ promptId }: { promptId: string }) {
             <Play className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{prompt.use_count}</div>
+            <div className="text-2xl font-bold">{prompt.useCount}</div>
           </CardContent>
         </Card>
         <Card>
@@ -780,8 +780,8 @@ function PromptDetail({ promptId }: { promptId: string }) {
           </CardHeader>
           <CardContent>
             <div className="text-lg font-bold">
-              {prompt.updated_at
-                ? formatDistanceToNow(new Date(prompt.updated_at), {
+              {prompt.updatedAt
+                ? formatDistanceToNow(new Date(prompt.updatedAt), {
                     addSuffix: true,
                   })
                 : 'Never updated'}

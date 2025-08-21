@@ -639,30 +639,6 @@ class AIService:
 
     def _format_model_name(self, model_id: str) -> str:
         """Format model ID into a readable name."""
-        # Remove common prefixes and format
-        name = model_id
-
-        # GPT models
-        if "gpt-4" in model_id:
-            if "turbo" in model_id:
-                name = "GPT-4 Turbo"
-                if "preview" in model_id:
-                    name += " Preview"
-            elif "vision" in model_id:
-                name = "GPT-4 Vision"
-            else:
-                name = "GPT-4"
-
-        elif "gpt-3.5" in model_id:
-            name = "GPT-3.5 Turbo"
-            if "16k" in model_id:
-                name += " 16K"
-
-        # Add date suffix if present
-        import re
-
-        date_match = re.search(r"-\d{4}-\d{2}-\d{2}", model_id)
-        if date_match:
-            name += f" ({date_match.group()[1:]})"
-
-        return name
+        # Keep the original model ID for clarity
+        # This ensures each model can be uniquely identified in the dropdown
+        return model_id

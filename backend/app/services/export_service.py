@@ -22,6 +22,7 @@ class ExportProgressTracker:
         job_id: str,
         total_items: int,
         update_callback: Callable,
+        db: Optional[AsyncIOMotorDatabase] = None,
     ):
         self.job_id = job_id
         self.total_items = total_items
@@ -29,6 +30,7 @@ class ExportProgressTracker:
         self.update_callback = update_callback
         self.last_update_time = 0.0
         self.update_interval = 0.5  # seconds
+        self.db = db
 
     async def increment(self, count: int = 1) -> None:
         """Increment progress and send update if needed."""
@@ -43,7 +45,7 @@ class ExportProgressTracker:
             self.last_update_time = current_time
 
     async def send_update(self) -> None:
-        """Send progress update via WebSocket."""
+        """Send progress update via WebSocket and database."""
         progress = {
             "current": self.processed_items,
             "total": self.total_items,
@@ -51,6 +53,14 @@ class ExportProgressTracker:
             if self.total_items > 0
             else 0,
         }
+
+        # Update progress in database
+        if self.db:
+            await self.db.export_jobs.update_one(
+                {"_id": ObjectId(self.job_id)}, {"$set": {"progress": progress}}
+            )
+
+        # Send progress via WebSocket
         await self.update_callback(self.job_id, progress)
 
     async def complete(self) -> None:
@@ -153,6 +163,16 @@ class ExportService:
             # Get session IDs based on filters
             session_ids = await self._get_filtered_session_ids(export_job["filters"])
 
+            # Initialize progress tracking in database
+            initial_progress = {
+                "current": 0,
+                "total": len(session_ids),
+                "percentage": 0,
+            }
+            await self.db.export_jobs.update_one(
+                {"_id": ObjectId(job_id)}, {"$set": {"progress": initial_progress}}
+            )
+
             # Generate export based on format
             if export_job["format"] == "json":
                 content_generator = self.generate_json_export(
@@ -250,7 +270,7 @@ class ExportService:
 
         first = True
         tracker = (
-            ExportProgressTracker(job_id, len(session_ids), progress_callback)
+            ExportProgressTracker(job_id, len(session_ids), progress_callback, self.db)
             if progress_callback
             else None
         )
@@ -345,7 +365,7 @@ class ExportService:
         buffer.truncate(0)
 
         tracker = (
-            ExportProgressTracker(job_id, len(session_ids), progress_callback)
+            ExportProgressTracker(job_id, len(session_ids), progress_callback, self.db)
             if progress_callback
             else None
         )
@@ -416,7 +436,7 @@ class ExportService:
         yield f"**Total Conversations**: {len(session_ids)}\n\n---\n\n".encode("utf-8")
 
         tracker = (
-            ExportProgressTracker(job_id, len(session_ids), progress_callback)
+            ExportProgressTracker(job_id, len(session_ids), progress_callback, self.db)
             if progress_callback
             else None
         )
@@ -503,7 +523,7 @@ class ExportService:
         yield b"PDF export not yet implemented. Please use JSON, CSV, or Markdown format.\n"
 
         if progress_callback:
-            tracker = ExportProgressTracker(job_id, 1, progress_callback)
+            tracker = ExportProgressTracker(job_id, 1, progress_callback, self.db)
             await tracker.complete()
 
     def _format_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
