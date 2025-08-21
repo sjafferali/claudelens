@@ -36,7 +36,7 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=["analytic
 
 api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
 
-api_router.include_router(export.router, prefix="/export", tags=["export"])
+api_router.include_router(export.router, prefix="/mcp-export", tags=["mcp-export"])
 
 api_router.include_router(prompts.router, prefix="/prompts", tags=["prompts"])
 
