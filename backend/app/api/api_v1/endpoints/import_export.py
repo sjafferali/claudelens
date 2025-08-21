@@ -152,7 +152,6 @@ async def create_export(
 async def get_export_status(
     job_id: str,
     db: CommonDeps,
-    api_key: AuthDeps,
 ) -> ExportStatusResponse:
     """Get the status of an export job."""
     if not ObjectId.is_valid(job_id):
@@ -188,7 +187,6 @@ async def get_export_status(
 async def download_export(
     job_id: str,
     db: CommonDeps,
-    api_key: AuthDeps,
 ) -> StreamingResponse:
     """Download the exported file."""
     if not ObjectId.is_valid(job_id):
@@ -277,14 +275,15 @@ async def cancel_export(
 @router.get("/export", response_model=PagedExportJobsResponse)
 async def list_export_jobs(
     db: CommonDeps,
-    api_key: AuthDeps,
     page: int = Query(0, ge=0),
     size: int = Query(20, ge=1, le=100),
     sort: str = Query("createdAt,desc"),
     status: Optional[str] = None,
 ) -> PagedExportJobsResponse:
     """List export jobs for the current user."""
-    user_id = str(api_key) if api_key else "anonymous"
+    # For read-only operations, we don't require authentication
+    # This matches the pattern used in sessions and projects endpoints
+    user_id = "anonymous"
 
     # Build filter
     filter_dict = {"user_id": user_id}

@@ -85,9 +85,7 @@ export function AISettingsPanel() {
   const handleTestConnection = async () => {
     try {
       await testConnection.mutateAsync({
-        api_key: formData.api_key,
-        model: formData.model,
-        base_url: formData.base_url || undefined,
+        test_prompt: 'Hello, this is a connection test.',
       });
     } catch (error) {
       console.error('Connection test failed:', error);

@@ -48,9 +48,7 @@ export interface GenerateContentResponse {
 
 // Connection Test Types
 export interface TestConnectionRequest {
-  api_key?: string;
-  model?: string;
-  base_url?: string;
+  test_prompt?: string;
 }
 
 export interface TestConnectionResponse {
@@ -90,11 +88,11 @@ export interface AIUsageStats {
 export const aiApi = {
   // AI Settings operations
   async getAISettings(): Promise<AISettings> {
-    return apiClient.get<AISettings>('/ai/settings');
+    return apiClient.get<AISettings>('/ai-settings/');
   },
 
   async updateAISettings(settings: AISettingsUpdate): Promise<AISettings> {
-    return apiClient.patch<AISettings>('/ai/settings', settings);
+    return apiClient.put<AISettings>('/ai-settings/', settings);
   },
 
   // Generation operations
@@ -121,7 +119,7 @@ export const aiApi = {
     request?: TestConnectionRequest
   ): Promise<TestConnectionResponse> {
     return apiClient.post<TestConnectionResponse>(
-      '/ai/test-connection',
+      '/ai-settings/test',
       request || {}
     );
   },
@@ -133,6 +131,6 @@ export const aiApi = {
 
   // Statistics
   async getStats(): Promise<AIUsageStats> {
-    return apiClient.get<AIUsageStats>('/ai/stats');
+    return apiClient.get<AIUsageStats>('/ai-settings/stats');
   },
 };

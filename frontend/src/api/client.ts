@@ -45,7 +45,7 @@ class ApiClient {
           // Don't show toast for expected 404s on AI settings endpoints
           const isExpected404 =
             error.response.status === 404 &&
-            (url.includes('/ai/settings') || url.includes('/ai/stats'));
+            (url.includes('/ai-settings') || url.includes('/ai/stats'));
 
           if (error.response.status === 401) {
             toast.error('Authentication required');
