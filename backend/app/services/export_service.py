@@ -179,13 +179,21 @@ class ExportService:
             )
 
             # Update job with completion info
+            # Transform file_info to match frontend expectations
+            frontend_file_info = {
+                "sizeBytes": file_info["size"],
+                "conversationsCount": len(session_ids),
+                "format": file_info["format"],
+                "checksum": file_info.get("checksum"),
+            }
+
             await self.db.export_jobs.update_one(
                 {"_id": ObjectId(job_id)},
                 {
                     "$set": {
                         "status": "completed",
                         "completed_at": datetime.now(UTC),
-                        "file_info": file_info,
+                        "file_info": frontend_file_info,
                         "file_path": file_info["path"],
                         "statistics": {
                             "conversations_count": len(session_ids),

@@ -228,8 +228,14 @@ async def download_export(
         raise HTTPException(status_code=404, detail="Export file not ready")
 
     # Check if expired
-    if export_job.get("expires_at") and export_job["expires_at"] < datetime.now(UTC):
-        raise HTTPException(status_code=410, detail="Export file has expired")
+    if export_job.get("expires_at"):
+        # Ensure expires_at is timezone-aware
+        expires_at = export_job["expires_at"]
+        if expires_at.tzinfo is None:
+            # If naive, assume UTC
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at < datetime.now(UTC):
+            raise HTTPException(status_code=410, detail="Export file has expired")
 
     file_path = export_job.get("file_path")
     if not file_path:

@@ -325,7 +325,7 @@ export function AISettingsPanel() {
                 Total Requests
               </div>
               <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                {stats.total_requests.toLocaleString()}
+                {(stats.total_requests ?? 0).toLocaleString()}
               </div>
             </div>
 
@@ -334,8 +334,8 @@ export function AISettingsPanel() {
                 Success Rate
               </div>
               <div className="text-2xl font-semibold text-green-600">
-                {stats.total_requests > 0
-                  ? `${Math.round((stats.successful_requests / stats.total_requests) * 100)}%`
+                {(stats.total_requests ?? 0) > 0
+                  ? `${Math.round(((stats.successful_requests ?? 0) / (stats.total_requests ?? 1)) * 100)}%`
                   : '0%'}
               </div>
             </div>
@@ -345,7 +345,7 @@ export function AISettingsPanel() {
                 Tokens Used
               </div>
               <div className="text-2xl font-semibold text-blue-600">
-                {stats.total_tokens_used.toLocaleString()}
+                {(stats.total_tokens_used ?? 0).toLocaleString()}
               </div>
             </div>
 
@@ -354,7 +354,7 @@ export function AISettingsPanel() {
                 Est. Cost
               </div>
               <div className="text-2xl font-semibold text-purple-600">
-                ${stats.estimated_total_cost.toFixed(2)}
+                ${(stats.estimated_total_cost ?? 0).toFixed(2)}
               </div>
             </div>
           </div>

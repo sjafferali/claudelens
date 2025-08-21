@@ -213,7 +213,7 @@ export const ExportHistory: React.FC<ExportHistoryProps> = ({ className }) => {
                           <div className="flex items-center space-x-1">
                             <HardDrive className="w-3 h-3" />
                             <span className="text-xs">
-                              {formatFileSize(job.fileInfo.sizeBytes)}
+                              {formatFileSize(job.fileInfo.sizeBytes || 0)}
                             </span>
                           </div>
                           {job.fileInfo.conversationsCount && (
