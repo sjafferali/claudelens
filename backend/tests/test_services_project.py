@@ -24,6 +24,12 @@ def mock_db():
     db.projects = MagicMock()
     db.sessions = MagicMock()
     db.messages = MagicMock()
+
+    # Add mock client for transactions (but not functional)
+    # This tells ProjectDeletionService that client isn't available
+    # so it will use non-transactional deletion
+    # db.client = None  # Explicitly no client
+
     return db
 
 
@@ -290,11 +296,19 @@ class TestProjectService:
         mock_db.projects.find_one_and_update.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_delete_project_without_cascade(self, project_service, mock_db):
+    async def test_delete_project_without_cascade(
+        self, project_service, mock_db, monkeypatch
+    ):
         """Test deleting a project (cascade is now always enabled)."""
+        # Set TESTING environment variable to speed up retries
+        monkeypatch.setenv("TESTING", "true")
+
         # Setup
         project_id = ObjectId("507f1f77bcf86cd799439011")
         mock_result = MagicMock(deleted_count=1)
+
+        # Mock all required database operations for _delete_without_transaction
+        mock_db.projects.update_one = AsyncMock(return_value=MagicMock(matched_count=1))
         mock_db.projects.delete_one = AsyncMock(return_value=mock_result)
         mock_db.sessions.distinct = AsyncMock(return_value=[])  # No sessions
         mock_db.sessions.delete_many = AsyncMock(
@@ -317,15 +331,26 @@ class TestProjectService:
         mock_db.sessions.delete_many.assert_called_once_with({"projectId": project_id})
 
     @pytest.mark.asyncio
-    async def test_delete_project_with_cascade(self, project_service, mock_db):
+    async def test_delete_project_with_cascade(
+        self, project_service, mock_db, monkeypatch
+    ):
         """Test deleting a project with cascade."""
+        # Set TESTING environment variable to speed up retries
+        monkeypatch.setenv("TESTING", "true")
+
         # Setup
         project_id = ObjectId("507f1f77bcf86cd799439011")
         session_ids = ["session-1", "session-2", "session-3"]
 
+        # Mock all required database operations
+        mock_db.projects.update_one = AsyncMock(return_value=MagicMock(matched_count=1))
         mock_db.sessions.distinct = AsyncMock(return_value=session_ids)
-        mock_db.messages.delete_many = AsyncMock()
-        mock_db.sessions.delete_many = AsyncMock()
+        mock_db.messages.delete_many = AsyncMock(
+            return_value=MagicMock(deleted_count=15)
+        )
+        mock_db.sessions.delete_many = AsyncMock(
+            return_value=MagicMock(deleted_count=3)
+        )
         mock_result = MagicMock(deleted_count=1)
         mock_db.projects.delete_one = AsyncMock(return_value=mock_result)
 
@@ -483,11 +508,18 @@ class TestProjectService:
         # Note: The service doesn't check for duplicate paths, that would be handled by unique index
 
     @pytest.mark.asyncio
-    async def test_delete_project_cascade_no_sessions(self, project_service, mock_db):
+    async def test_delete_project_cascade_no_sessions(
+        self, project_service, mock_db, monkeypatch
+    ):
         """Test cascade delete when project has no sessions."""
+        # Set TESTING environment variable to speed up retries
+        monkeypatch.setenv("TESTING", "true")
+
         # Setup
         project_id = ObjectId("507f1f77bcf86cd799439011")
 
+        # Mock all required database operations
+        mock_db.projects.update_one = AsyncMock(return_value=MagicMock(matched_count=1))
         mock_db.sessions.distinct = AsyncMock(return_value=[])  # No sessions
         mock_db.messages.delete_many = AsyncMock(
             return_value=MagicMock(deleted_count=0)

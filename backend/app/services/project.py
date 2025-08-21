@@ -121,47 +121,48 @@ class ProjectService:
         return None
 
     async def delete_project(self, project_id: ObjectId, cascade: bool = False) -> bool:
-        """Delete a project.
+        """Delete a project with robust error handling and recovery.
 
         Always performs cascade deletion to prevent orphaned data.
         The cascade parameter is kept for backward compatibility but is now ignored.
         """
-        # Always cascade to prevent orphaned data
-        # Get all session IDs (string) from sessions with this projectId
-        session_ids = await self.db.sessions.distinct(
-            "sessionId", {"projectId": project_id}
+        import os
+
+        from app.services.project_deletion import ProjectDeletionService
+
+        deletion_service = ProjectDeletionService(self.db)
+
+        # Use faster retry for tests
+        retry_delay = 0 if os.environ.get("TESTING") else 2.0
+
+        # Use the robust deletion with recovery
+        result = await deletion_service.delete_project_with_recovery(
+            project_id, retry_delay=retry_delay
         )
 
-        if session_ids:
-            # Delete all messages belonging to these sessions
-            messages_result = await self.db.messages.delete_many(
-                {"sessionId": {"$in": session_ids}}
-            )
-            print(
-                f"Deleted {messages_result.deleted_count} messages for project {project_id}"
-            )
+        if not result["success"]:
+            # Log the error but still try to clean up
+            error_msg = result.get("error", "Unknown error")
+            print(f"Project deletion failed: {error_msg}")
 
-        # Delete all sessions belonging to this project
-        sessions_result = await self.db.sessions.delete_many({"projectId": project_id})
-        print(
-            f"Deleted {sessions_result.deleted_count} sessions for project {project_id}"
-        )
+            # Try cleanup to remove any orphaned data
+            await deletion_service._cleanup_orphaned_data(project_id)
 
-        # Delete project
-        result = await self.db.projects.delete_one({"_id": project_id})
-        return result.deleted_count > 0
+        return bool(result["success"])
 
     async def delete_project_async(
         self, project_id: ObjectId, cascade: bool = False
     ) -> None:
         """Delete a project asynchronously with progress updates via WebSocket.
 
+        Uses robust deletion with proper error handling and recovery.
         Always performs cascade deletion to prevent orphaned data.
-        The cascade parameter is kept for backward compatibility but is now ignored.
         """
+        from app.services.project_deletion import ProjectDeletionService
         from app.services.websocket_manager import connection_manager
 
         project_id_str = str(project_id)
+        deletion_service = ProjectDeletionService(self.db)
 
         try:
             # Start deletion process
@@ -169,11 +170,10 @@ class ProjectService:
                 project_id=project_id_str,
                 stage="initializing",
                 progress=0,
-                message="Starting project deletion...",
+                message="Starting robust project deletion...",
             )
 
-            # Always cascade to prevent orphaned data
-            # Get all session IDs and count for progress tracking
+            # Get counts for progress tracking
             await connection_manager.broadcast_deletion_progress(
                 project_id=project_id_str,
                 stage="analyzing",
@@ -181,16 +181,14 @@ class ProjectService:
                 message="Analyzing project data...",
             )
 
-            # Get all session IDs (string) from sessions with this projectId
             session_ids = await self.db.sessions.distinct(
                 "sessionId", {"projectId": project_id}
             )
-
             total_sessions = len(session_ids)
+
             if total_sessions == 0:
                 message_count = 0
             else:
-                # Count total messages for progress tracking
                 message_count = await self.db.messages.count_documents(
                     {"sessionId": {"$in": session_ids}}
                 )
@@ -202,91 +200,58 @@ class ProjectService:
                 message=f"Found {message_count} messages in {total_sessions} sessions",
             )
 
-            # Delete messages in batches for large projects
-            if message_count > 0:
-                await connection_manager.broadcast_deletion_progress(
-                    project_id=project_id_str,
-                    stage="deleting_messages",
-                    progress=30,
-                    message=f"Deleting {message_count} messages...",
-                )
-
-                # Delete messages in batches of 1000 to avoid timeouts
-                batch_size = 1000
-                total_batches = (message_count + batch_size - 1) // batch_size
-
-                for batch_idx in range(total_batches):
-                    skip = batch_idx * batch_size
-
-                    # Get batch of message IDs
-                    message_batch = (
-                        await self.db.messages.find(
-                            {"sessionId": {"$in": session_ids}}, {"_id": 1}
-                        )
-                        .skip(skip)
-                        .limit(batch_size)
-                        .to_list(batch_size)
-                    )
-
-                    if message_batch:
-                        message_ids = [msg["_id"] for msg in message_batch]
-                        await self.db.messages.delete_many(
-                            {"_id": {"$in": message_ids}}
-                        )
-
-                    progress = 30 + (batch_idx + 1) / total_batches * 50
-                    await connection_manager.broadcast_deletion_progress(
-                        project_id=project_id_str,
-                        stage="deleting_messages",
-                        progress=int(progress),
-                        message=f"Deleted batch {batch_idx + 1}/{total_batches} of messages",
-                    )
-
-            # Delete sessions
-            if total_sessions > 0:
-                await connection_manager.broadcast_deletion_progress(
-                    project_id=project_id_str,
-                    stage="deleting_sessions",
-                    progress=80,
-                    message=f"Deleting {total_sessions} sessions...",
-                )
-
-                await self.db.sessions.delete_many({"projectId": project_id})
-
+            # Use robust deletion with recovery
             await connection_manager.broadcast_deletion_progress(
                 project_id=project_id_str,
-                stage="deleting_sessions",
-                progress=90,
-                message="All associated data deleted",
+                stage="deleting",
+                progress=30,
+                message="Performing transactional deletion...",
             )
 
-            # Delete project
-            await connection_manager.broadcast_deletion_progress(
-                project_id=project_id_str,
-                stage="deleting_project",
-                progress=95,
-                message="Deleting project metadata...",
-            )
+            result = await deletion_service.delete_project_with_recovery(project_id)
 
-            result = await self.db.projects.delete_one({"_id": project_id})
-
-            if result.deleted_count > 0:
+            if result["success"]:
                 await connection_manager.broadcast_deletion_progress(
                     project_id=project_id_str,
                     stage="completed",
                     progress=100,
-                    message="Project successfully deleted",
+                    message=f"Successfully deleted: {result['messages_deleted']} messages, {result['sessions_deleted']} sessions",
                     completed=True,
                 )
             else:
-                raise ValueError("Project not found or already deleted")
+                error_msg = result.get("error", "Unknown error")
+
+                # Attempt cleanup
+                await connection_manager.broadcast_deletion_progress(
+                    project_id=project_id_str,
+                    stage="cleanup",
+                    progress=80,
+                    message="Deletion failed, attempting cleanup...",
+                )
+
+                cleanup_stats = await deletion_service.cleanup_all_orphaned_data()
+
+                await connection_manager.broadcast_deletion_progress(
+                    project_id=project_id_str,
+                    stage="error",
+                    progress=100,
+                    message=f"Deletion failed: {error_msg}. Cleaned up {cleanup_stats['orphaned_messages']} orphaned messages and {cleanup_stats['orphaned_sessions']} orphaned sessions.",
+                    completed=True,
+                    error=error_msg,
+                )
 
         except Exception as e:
+            # Even on exception, try to clean up
+            try:
+                await deletion_service._cleanup_orphaned_data(project_id)
+            except Exception:
+                pass
+
             await connection_manager.broadcast_deletion_progress(
                 project_id=project_id_str,
                 stage="error",
                 progress=0,
-                message="Deletion failed",
+                message=f"Critical error: {str(e)}",
                 completed=True,
                 error=str(e),
             )

@@ -3,6 +3,7 @@ import { cn } from '@/utils/cn';
 import { Button } from '@/components/common/Button';
 import { Card } from '@/components/common/Card';
 import { useCreateExport } from '@/hooks/useExport';
+import { useProjects } from '@/hooks/useProjects';
 import { CreateExportRequest } from '@/api/import-export';
 import { Calendar, Filter, Download } from 'lucide-react';
 
@@ -16,6 +17,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
   onExportStarted,
 }) => {
   const createExport = useCreateExport();
+  const { data: projectsData } = useProjects({ limit: 100 });
 
   // Form state
   const [format, setFormat] = React.useState<
@@ -37,12 +39,14 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
     removeApiKeys: true,
   });
 
-  // Mock data for demo - in real app, these would come from API
-  const projects = [
-    { id: '1', name: 'Project Alpha' },
-    { id: '2', name: 'Project Beta' },
-    { id: '3', name: 'Project Gamma' },
-  ];
+  // Get projects from API
+  const projects = React.useMemo(() => {
+    if (!projectsData?.items) return [];
+    return projectsData.items.map((project) => ({
+      id: project._id,
+      name: project.name,
+    }));
+  }, [projectsData]);
 
   const handleExport = async () => {
     const exportRequest: CreateExportRequest = {
@@ -165,13 +169,23 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                 setSelectedProjects(values);
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+              size={Math.min(5, Math.max(3, projects.length))}
             >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
+              {projects.length === 0 ? (
+                <option disabled>No projects available</option>
+              ) : (
+                projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))
+              )}
             </select>
+            {projects.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Hold Ctrl/Cmd to select multiple projects
+              </p>
+            )}
           </div>
         </div>
 

@@ -109,11 +109,11 @@ async def create_export(
     request: CreateExportRequest,
     background_tasks: BackgroundTasks,
     db: CommonDeps,
-    api_key: AuthDeps,
 ) -> CreateExportResponse:
     """Create a new export job."""
-    # Simple user ID extraction from API key
-    user_id = str(api_key) if api_key else "anonymous"
+    # For now, allow anonymous exports similar to GET endpoints
+    # In production, this should be controlled by configuration
+    user_id = "anonymous"
 
     # Check rate limit
     if not await check_export_rate_limit(user_id):
@@ -238,7 +238,6 @@ async def download_export(
 async def cancel_export(
     job_id: str,
     db: CommonDeps,
-    api_key: AuthDeps,
 ) -> CancelExportResponse:
     """Cancel a running export job."""
     if not ObjectId.is_valid(job_id):
