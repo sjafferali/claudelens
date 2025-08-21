@@ -10,13 +10,21 @@ import {
   Clock,
   Info,
   Lightbulb,
+  Zap,
+  DollarSign,
+  Bot,
+  Settings2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/common';
 import { Prompt, PromptTestResponse } from '@/api/types';
 import { useTestPrompt } from '@/hooks/usePrompts';
+import { useAIAvailable } from '@/hooks/useAI';
 import { substituteVariables, extractVariables } from '@/api/prompts';
 import { VariableHelper } from './VariableHelper';
 import { toast } from 'react-hot-toast';
+import { Link } from 'react-router-dom';
 
 interface PromptPlaygroundProps {
   isOpen: boolean;
@@ -36,8 +44,13 @@ export function PromptPlayground({
   const [variableInputs, setVariableInputs] = useState<VariableInputs>({});
   const [testResult, setTestResult] = useState<PromptTestResponse | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [temperature, setTemperature] = useState(0.7);
+  const [maxTokens, setMaxTokens] = useState(2048);
+  const [systemPrompt, setSystemPrompt] = useState('');
 
   const testPrompt = useTestPrompt();
+  const { isAvailable: isAIAvailable, settings: aiSettings } = useAIAvailable();
   const variables = extractVariables(prompt.content);
   const previewContent = substituteVariables(prompt.content, variableInputs);
   const isLoading = testPrompt.isPending;
@@ -63,6 +76,24 @@ export function PromptPlayground({
   };
 
   const handleTest = async () => {
+    // Check if AI is available
+    if (!isAIAvailable) {
+      toast.error(
+        <div>
+          <p>AI features are not enabled.</p>
+          <Link
+            to="/settings"
+            className="underline text-blue-500 hover:text-blue-600"
+            onClick={() => onClose()}
+          >
+            Configure AI settings →
+          </Link>
+        </div>,
+        { duration: 5000 }
+      );
+      return;
+    }
+
     // Check if all variables have values
     const missingVariables = variables.filter(
       (v) => !variableInputs[v]?.trim()
@@ -77,8 +108,16 @@ export function PromptPlayground({
       const result = await testPrompt.mutateAsync({
         promptId: prompt._id,
         variables: variableInputs,
+        temperature: temperature,
+        max_tokens: maxTokens,
+        system_prompt: systemPrompt || undefined,
       });
       setTestResult(result);
+
+      // Show error from API if present
+      if (result.error) {
+        setTestError(result.error);
+      }
     } catch (error) {
       console.error('Test failed:', error);
       const errorMessage =
@@ -134,6 +173,9 @@ export function PromptPlayground({
     setVariableInputs(resetInputs);
     setTestResult(null);
     setTestError(null);
+    setTemperature(0.7);
+    setMaxTokens(2048);
+    setSystemPrompt('');
   };
 
   const handleCopyResult = () => {
@@ -289,10 +331,107 @@ export function PromptPlayground({
               </div>
             </div>
 
+            {/* Advanced Settings */}
+            <div className="border rounded-lg">
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-accent/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  <span className="font-medium">Advanced Settings</span>
+                </div>
+                {showAdvanced ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+
+              {showAdvanced && (
+                <div className="p-4 space-y-4 border-t">
+                  {/* Temperature */}
+                  <div>
+                    <label className="flex items-center justify-between text-sm font-medium mb-2">
+                      <span>Temperature</span>
+                      <span className="text-muted-foreground">
+                        {temperature}
+                      </span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="2"
+                      step="0.1"
+                      value={temperature}
+                      onChange={(e) =>
+                        setTemperature(parseFloat(e.target.value))
+                      }
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>Precise</span>
+                      <span>Creative</span>
+                    </div>
+                  </div>
+
+                  {/* Max Tokens */}
+                  <div>
+                    <label className="flex items-center justify-between text-sm font-medium mb-2">
+                      <span>Max Tokens</span>
+                      <span className="text-muted-foreground">{maxTokens}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="100"
+                      max="4096"
+                      step="100"
+                      value={maxTokens}
+                      onChange={(e) => setMaxTokens(parseInt(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>100</span>
+                      <span>4096</span>
+                    </div>
+                  </div>
+
+                  {/* System Prompt */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">
+                      System Prompt (Optional)
+                    </label>
+                    <textarea
+                      value={systemPrompt}
+                      onChange={(e) => setSystemPrompt(e.target.value)}
+                      placeholder="Provide context or instructions for the AI model..."
+                      rows={3}
+                      className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-sm"
+                    />
+                  </div>
+
+                  {/* AI Model Info */}
+                  {aiSettings && (
+                    <div className="p-3 bg-accent/30 rounded-md text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Bot className="h-4 w-4" />
+                        <span>
+                          Using model:{' '}
+                          <span className="font-medium text-foreground">
+                            {aiSettings.model}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Test Button */}
             <Button
               onClick={handleTest}
-              disabled={!canTest || isLoading}
+              disabled={!canTest || isLoading || !isAIAvailable}
               className="w-full"
             >
               {isLoading ? (
@@ -300,13 +439,37 @@ export function PromptPlayground({
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Testing...
                 </>
+              ) : !isAIAvailable ? (
+                <>
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  AI Not Configured
+                </>
               ) : (
                 <>
                   <Play className="h-4 w-4 mr-2" />
-                  Test Prompt
+                  Test Prompt with AI
                 </>
               )}
             </Button>
+
+            {/* AI Settings Link */}
+            {!isAIAvailable && (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-300 text-sm">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p>AI features are not configured.</p>
+                    <Link
+                      to="/settings"
+                      className="underline hover:no-underline mt-1 inline-block"
+                      onClick={() => onClose()}
+                    >
+                      Configure AI settings →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Panel: Results */}
@@ -329,33 +492,49 @@ export function PromptPlayground({
             </div>
 
             {/* Test Status */}
-            {testResult && (
+            {testResult && !testResult.error && (
               <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
                 <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">
                     Test completed successfully
                   </p>
-                  <div className="flex items-center gap-4 mt-1 text-xs">
+                  <div className="flex flex-wrap items-center gap-4 mt-1 text-xs">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {testResult.execution_time_ms}ms
+                      {testResult.execution_time_ms.toFixed(0)}ms
                     </span>
-                    <span>
-                      {Object.keys(testResult.variables_used).length} variables
-                      used
-                    </span>
+                    {testResult.model_used && (
+                      <span className="flex items-center gap-1">
+                        <Bot className="h-3 w-3" />
+                        {testResult.model_used}
+                      </span>
+                    )}
+                    {testResult.tokens_used && (
+                      <span className="flex items-center gap-1">
+                        <Zap className="h-3 w-3" />
+                        {testResult.tokens_used.total} tokens
+                      </span>
+                    )}
+                    {testResult.estimated_cost !== undefined && (
+                      <span className="flex items-center gap-1">
+                        <DollarSign className="h-3 w-3" />$
+                        {testResult.estimated_cost.toFixed(4)}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
             )}
 
-            {testError && (
+            {(testError || testResult?.error) && (
               <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-medium">Test failed</p>
-                  <p className="text-xs mt-1">{testError}</p>
+                  <p className="text-xs mt-1">
+                    {testError || testResult?.error}
+                  </p>
                 </div>
               </div>
             )}
@@ -371,6 +550,39 @@ export function PromptPlayground({
                     </pre>
                   </div>
                 </div>
+
+                {/* Token Usage Details */}
+                {testResult.tokens_used && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Token Usage</h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="p-2 bg-accent/50 rounded text-center">
+                        <div className="text-xs text-muted-foreground">
+                          Prompt
+                        </div>
+                        <div className="font-medium">
+                          {testResult.tokens_used.prompt}
+                        </div>
+                      </div>
+                      <div className="p-2 bg-accent/50 rounded text-center">
+                        <div className="text-xs text-muted-foreground">
+                          Completion
+                        </div>
+                        <div className="font-medium">
+                          {testResult.tokens_used.completion}
+                        </div>
+                      </div>
+                      <div className="p-2 bg-accent/50 rounded text-center">
+                        <div className="text-xs text-muted-foreground">
+                          Total
+                        </div>
+                        <div className="font-medium">
+                          {testResult.tokens_used.total}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Variables Used */}
                 {Object.keys(testResult.variables_used).length > 0 && (

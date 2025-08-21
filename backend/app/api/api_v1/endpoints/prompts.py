@@ -524,7 +524,7 @@ async def delete_prompt(prompt_id: str, db: CommonDeps) -> dict:
 async def test_prompt(
     prompt_id: str, request: PromptTestRequest, db: CommonDeps
 ) -> PromptTestResponse:
-    """Test a prompt with variable substitution."""
+    """Test a prompt with variable substitution and AI generation."""
     if not ObjectId.is_valid(prompt_id):
         raise HTTPException(status_code=400, detail="Invalid prompt ID")
 
@@ -538,17 +538,94 @@ async def test_prompt(
     import time
 
     start_time = time.time()
-    result = substitute_variables(prompt.content, request.variables)
-    execution_time_ms = (time.time() - start_time) * 1000
+    prompt_content = substitute_variables(prompt.content, request.variables)
 
-    # Track usage
-    await service.increment_use_count(ObjectId(prompt_id))
+    # Check if AI features are enabled
+    from app.services.ai_service import AIService
 
-    return PromptTestResponse(
-        result=result,
-        variables_used=request.variables,
-        execution_time_ms=execution_time_ms,
-    )
+    ai_service = AIService(db)
+
+    try:
+        # Get AI settings to check if enabled
+        ai_settings = await ai_service.get_settings()
+
+        if ai_settings and ai_settings.enabled:
+            # Use AI to generate response
+            client = await ai_service._get_client()
+
+            # Prepare messages with proper typing
+            from typing import Any, List
+
+            messages: List[Any] = []
+            if request.system_prompt:
+                messages.append({"role": "system", "content": request.system_prompt})
+            messages.append({"role": "user", "content": prompt_content})
+
+            # Get temperature and max_tokens from request or use defaults
+            temperature = (
+                request.temperature if request.temperature is not None else 0.7
+            )
+            max_tokens = request.max_tokens if request.max_tokens is not None else 2048
+
+            # Make AI call
+            response = await client.chat.completions.create(
+                model=ai_settings.model,
+                messages=messages,  # type: ignore
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+
+            result = response.choices[0].message.content or ""
+            execution_time_ms = (time.time() - start_time) * 1000
+
+            # Track usage
+            await service.increment_use_count(ObjectId(prompt_id))
+
+            # Prepare token usage data
+            tokens_used = None
+            estimated_cost = None
+            if response.usage:
+                tokens_used = {
+                    "prompt": response.usage.prompt_tokens,
+                    "completion": response.usage.completion_tokens,
+                    "total": response.usage.total_tokens,
+                }
+                # Calculate cost
+                estimated_cost = ai_service._calculate_cost(
+                    response.usage.prompt_tokens,
+                    response.usage.completion_tokens,
+                    ai_settings.model,
+                )
+
+            return PromptTestResponse(
+                result=result,
+                variables_used=request.variables,
+                execution_time_ms=execution_time_ms,
+                model_used=ai_settings.model,
+                tokens_used=tokens_used,
+                estimated_cost=estimated_cost,
+            )
+        else:
+            # AI not enabled, just return the substituted prompt
+            execution_time_ms = (time.time() - start_time) * 1000
+            await service.increment_use_count(ObjectId(prompt_id))
+
+            return PromptTestResponse(
+                result=prompt_content,
+                variables_used=request.variables,
+                execution_time_ms=execution_time_ms,
+                error="AI features are not enabled. Please configure AI settings to test prompts with AI generation.",
+            )
+    except Exception as e:
+        # Return error in response
+        execution_time_ms = (time.time() - start_time) * 1000
+
+        return PromptTestResponse(
+            result=prompt_content,
+            variables_used=request.variables,
+            execution_time_ms=execution_time_ms,
+            error=f"Failed to generate AI response: {str(e)}",
+        )
 
 
 @router.post("/{prompt_id}/share", response_model=dict)

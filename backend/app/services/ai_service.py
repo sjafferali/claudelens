@@ -74,12 +74,17 @@ class AIService:
         # Decrypt API key
         try:
             api_key = ai_settings.decrypt_api_key(settings.api_key_encrypted)
-        except Exception as e:
-            raise ValidationError(f"Failed to decrypt API key: {str(e)}")
+        except Exception:
+            # If decryption fails, it's likely due to a changed encryption key
+            raise ValidationError(
+                "Failed to decrypt API key. This usually happens when the encryption key has changed. "
+                "Please reconfigure your API key in the AI settings."
+            )
 
         # Create client with optional custom endpoint
-        if settings.endpoint:
-            return AsyncOpenAI(api_key=api_key, base_url=settings.endpoint)
+        if settings.endpoint or settings.base_url:
+            base_url = settings.base_url or settings.endpoint
+            return AsyncOpenAI(api_key=api_key, base_url=base_url)
         else:
             return AsyncOpenAI(api_key=api_key)
 
@@ -407,7 +412,27 @@ class AIService:
         """Test the AI connection and configuration."""
         try:
             settings = await self._get_ai_settings()
-            client = await self._get_client()
+
+            # Check if API key is encrypted
+            if not settings.api_key_encrypted:
+                return {
+                    "success": False,
+                    "message": "API key not configured",
+                    "error": "Please configure your API key in the AI settings",
+                }
+
+            # Try to get the client (which will decrypt the API key)
+            try:
+                client = await self._get_client()
+            except ValidationError as ve:
+                # Handle decryption failures specifically
+                if "decrypt" in str(ve).lower():
+                    return {
+                        "success": False,
+                        "message": "API key decryption failed",
+                        "error": "The saved API key cannot be decrypted. Please reconfigure your API key in the AI settings.",
+                    }
+                raise
 
             # Make a simple test request
             response = await client.chat.completions.create(
@@ -423,11 +448,31 @@ class AIService:
                 "response": response.choices[0].message.content,
             }
 
+        except NotFoundError:
+            return {
+                "success": False,
+                "message": "AI settings not configured",
+                "error": "Please configure AI settings first",
+            }
+        except ValidationError as e:
+            return {
+                "success": False,
+                "message": "Configuration error",
+                "error": str(e),
+            }
         except Exception as e:
+            # Check if it's an API key error
+            error_msg = str(e)
+            if "api_key" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                return {
+                    "success": False,
+                    "message": "Invalid API key",
+                    "error": "The API key appears to be invalid. Please check your API key.",
+                }
             return {
                 "success": False,
                 "message": "Connection failed",
-                "error": str(e),
+                "error": error_msg,
             }
 
     async def count_tokens(self, text: str, model: str = "gpt-4") -> Dict[str, Any]:

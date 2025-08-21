@@ -125,9 +125,8 @@ export const promptsApi = {
   // Special operations
   async testPrompt(
     promptId: string,
-    variables: Record<string, string>
+    request: PromptTestRequest
   ): Promise<PromptTestResponse> {
-    const request: PromptTestRequest = { variables };
     return apiClient.post<PromptTestResponse>(
       `/prompts/${promptId}/test`,
       request

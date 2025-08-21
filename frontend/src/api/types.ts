@@ -149,12 +149,23 @@ export interface PromptDetail extends Prompt {
 
 export interface PromptTestRequest {
   variables: Record<string, string>;
+  temperature?: number;
+  max_tokens?: number;
+  system_prompt?: string;
 }
 
 export interface PromptTestResponse {
   result: string;
   variables_used: Record<string, string>;
   execution_time_ms: number;
+  model_used?: string;
+  tokens_used?: {
+    prompt: number;
+    completion: number;
+    total: number;
+  };
+  estimated_cost?: number;
+  error?: string;
 }
 
 export interface PromptShareRequest {

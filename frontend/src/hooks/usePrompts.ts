@@ -8,7 +8,7 @@ import {
   CreateFolderRequest,
   UpdateFolderRequest,
 } from '@/api/prompts';
-import { Prompt } from '@/api/types';
+import { Prompt, PromptTestRequest } from '@/api/types';
 
 // Prompt hooks
 export function usePrompts(params: PromptsParams = {}) {
@@ -201,14 +201,13 @@ export function useTestPrompt() {
   return useMutation({
     mutationFn: ({
       promptId,
-      variables,
+      ...request
     }: {
       promptId: string;
-      variables: Record<string, string>;
-    }) => promptsApi.testPrompt(promptId, variables),
+    } & PromptTestRequest) => promptsApi.testPrompt(promptId, request),
     onError: (error: unknown) => {
       console.error('Prompt test failed:', error);
-      toast.error('Failed to test prompt');
+      // Don't show toast error here, let the component handle it
     },
   });
 }

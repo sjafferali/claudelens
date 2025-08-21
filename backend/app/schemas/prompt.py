@@ -139,6 +139,9 @@ class PromptTestRequest(BaseModel):
     """Request schema for testing a prompt."""
 
     variables: dict[str, str]
+    temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
+    max_tokens: Optional[int] = Field(None, ge=1, le=8192)
+    system_prompt: Optional[str] = None
 
 
 class PromptTestResponse(BaseModel):
@@ -147,6 +150,10 @@ class PromptTestResponse(BaseModel):
     result: str
     variables_used: dict[str, str]
     execution_time_ms: float
+    model_used: Optional[str] = None
+    tokens_used: Optional[dict[str, int]] = None  # {prompt, completion, total}
+    estimated_cost: Optional[float] = None
+    error: Optional[str] = None
 
 
 class PromptExportRequest(BaseModel):
