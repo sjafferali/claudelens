@@ -131,3 +131,13 @@ export function useAIAvailable() {
     settings,
   };
 }
+
+// Available models hook
+export function useAvailableModels() {
+  return useQuery({
+    queryKey: ['ai-models'],
+    queryFn: () => aiApi.getAvailableModels(),
+    staleTime: 300000, // 5 minutes
+    retry: 1, // Only retry once for model fetching
+  });
+}

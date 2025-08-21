@@ -1,11 +1,12 @@
 """Import/Export API endpoints."""
 
+import asyncio
 import math
 from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
-from fastapi import BackgroundTasks, File, HTTPException, Query, UploadFile
+from fastapi import File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.api.dependencies import AuthDeps, CommonDeps
@@ -107,7 +108,6 @@ async def broadcast_import_progress(job_id: str, progress: Dict[str, Any]) -> No
 @router.post("/export", response_model=CreateExportResponse, status_code=201)
 async def create_export(
     request: CreateExportRequest,
-    background_tasks: BackgroundTasks,
     db: CommonDeps,
 ) -> CreateExportResponse:
     """Create a new export job."""
@@ -131,12 +131,40 @@ async def create_export(
         options=request.options,
     )
 
-    # Schedule background processing
-    background_tasks.add_task(
-        export_service.process_export,
-        str(export_job.id),
-        broadcast_export_progress,
-    )
+    # Create async task for background processing
+    # Using asyncio.create_task instead of BackgroundTasks for better reliability
+    # Add a small delay to ensure the database write is committed
+    async def process_export_task() -> None:
+        try:
+            # Small delay to ensure database write is visible
+            await asyncio.sleep(0.1)
+            # Create a new service instance with the same db connection
+            export_service_task = ExportService(db)
+            await export_service_task.process_export(
+                str(export_job.id),
+                broadcast_export_progress,
+            )
+        except Exception as e:
+            logger.error(f"Error processing export job {export_job.id}: {e}")
+            # Update job status to failed
+            await db.export_jobs.update_one(
+                {"_id": export_job.id},
+                {
+                    "$set": {
+                        "status": "failed",
+                        "completed_at": datetime.now(UTC),
+                        "errors": [
+                            {
+                                "message": str(e),
+                                "timestamp": datetime.now(UTC).isoformat(),
+                            }
+                        ],
+                    }
+                },
+            )
+
+    # Start the background task
+    asyncio.create_task(process_export_task())
 
     return CreateExportResponse(
         jobId=str(export_job.id),
@@ -400,7 +428,6 @@ async def check_conflicts(
 @router.post("/import/execute", response_model=ExecuteImportResponse, status_code=202)
 async def execute_import(
     request: ExecuteImportRequest,
-    background_tasks: BackgroundTasks,
     db: CommonDeps,
     api_key: AuthDeps,
 ) -> ExecuteImportResponse:
@@ -444,17 +471,41 @@ async def execute_import(
     result = await db.import_jobs.insert_one(import_job.model_dump(by_alias=True))
     job_id = str(result.inserted_id)
 
-    # Schedule background processing
+    # Create async task for background processing
+    # Using asyncio.create_task instead of BackgroundTasks for better reliability
     import_service = ImportService(db)
-    background_tasks.add_task(
-        import_service.execute_import,
-        job_id,
-        file_path,
-        request.field_mapping,
-        request.conflict_resolution,
-        request.options,
-        broadcast_import_progress,
-    )
+
+    async def process_import_task() -> None:
+        try:
+            await import_service.execute_import(
+                job_id,
+                file_path,
+                request.field_mapping,
+                request.conflict_resolution,
+                request.options,
+                broadcast_import_progress,
+            )
+        except Exception as e:
+            logger.error(f"Error processing import job {job_id}: {e}")
+            # Update job status to failed
+            await db.import_jobs.update_one(
+                {"_id": ObjectId(job_id)},
+                {
+                    "$set": {
+                        "status": "failed",
+                        "completed_at": datetime.now(UTC),
+                        "errors": [
+                            {
+                                "message": str(e),
+                                "timestamp": datetime.now(UTC).isoformat(),
+                            }
+                        ],
+                    }
+                },
+            )
+
+    # Start the background task
+    asyncio.create_task(process_import_task())
 
     return ExecuteImportResponse(
         jobId=job_id,

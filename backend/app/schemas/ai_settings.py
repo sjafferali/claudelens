@@ -1,7 +1,7 @@
 """Pydantic schemas for AI settings requests and responses."""
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, SecretStr, field_validator
 
@@ -53,6 +53,27 @@ class AISettingsResponse(BaseModel):
     usage_stats: Dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True}
+
+
+class ModelInfo(BaseModel):
+    """Information about an available AI model."""
+
+    id: str
+    name: str
+    provider: str = "openai"
+    description: Optional[str] = None
+    context_window: Optional[int] = None
+    max_output_tokens: Optional[int] = None
+    supports_functions: bool = True
+    supports_vision: bool = False
+    created: Optional[int] = None
+
+
+class ModelsListResponse(BaseModel):
+    """Response schema for available models list."""
+
+    models: List[ModelInfo]
+    is_fallback: bool = False
 
 
 class GenerationTemplateCreate(BaseModel):

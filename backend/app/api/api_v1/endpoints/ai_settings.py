@@ -10,7 +10,12 @@ from app.schemas.ai_generation import (
     TestConnectionRequest,
     TestConnectionResponse,
 )
-from app.schemas.ai_settings import AISettingsResponse, AISettingsUpdate
+from app.schemas.ai_settings import (
+    AISettingsResponse,
+    AISettingsUpdate,
+    ModelInfo,
+    ModelsListResponse,
+)
 
 router = APIRouter()
 
@@ -18,13 +23,26 @@ router = APIRouter()
 @router.get("/", response_model=AISettingsResponse)
 async def get_ai_settings(db: CommonDeps) -> AISettingsResponse:
     """Get current AI settings."""
+    from datetime import datetime
+
     from app.services.ai_service import AIService
 
     service = AIService(db)
     settings = await service.get_settings()
 
     if not settings:
-        raise NotFoundError("AI Settings", "default")
+        # Return default settings when none exist
+        now = datetime.utcnow()
+        return AISettingsResponse(
+            _id="default",
+            model="gpt-4",
+            endpoint=None,
+            enabled=False,
+            api_key_configured=False,
+            created_at=now,
+            updated_at=now,
+            usage_stats={},
+        )
 
     # Convert to response schema (never expose raw API key)
     settings_dict = settings.model_dump(by_alias=True)
@@ -105,6 +123,34 @@ async def get_generation_stats(db: CommonDeps) -> GenerationStatsResponse:
     service = AIService(db)
     stats = await service.get_generation_stats()
     return GenerationStatsResponse(**stats)
+
+
+@router.get("/models", response_model=ModelsListResponse)
+async def get_available_models(db: CommonDeps) -> ModelsListResponse:
+    """Get list of available AI models from OpenAI."""
+    from app.services.ai_service import AIService
+
+    service = AIService(db)
+
+    try:
+        models_data = await service.get_available_models()
+        # Convert dict models to ModelInfo objects
+        model_objects = [
+            ModelInfo(**model) if isinstance(model, dict) else model
+            for model in models_data
+        ]
+        return ModelsListResponse(models=model_objects)
+    except Exception:
+        # Return a fallback list if API call fails
+        fallback_models = [
+            ModelInfo(id="gpt-4", name="GPT-4", provider="openai"),
+            ModelInfo(id="gpt-4-turbo", name="GPT-4 Turbo", provider="openai"),
+            ModelInfo(id="gpt-3.5-turbo", name="GPT-3.5 Turbo", provider="openai"),
+            ModelInfo(
+                id="gpt-3.5-turbo-16k", name="GPT-3.5 Turbo 16K", provider="openai"
+            ),
+        ]
+        return ModelsListResponse(models=fallback_models, is_fallback=True)
 
 
 @router.delete("/", status_code=200)

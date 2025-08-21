@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 import tiktoken
+from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from openai import AsyncOpenAI
 from tenacity import (
@@ -180,7 +181,7 @@ class AIService:
         template = None
         if request.template_id:
             template = await self.templates_collection.find_one(
-                {"_id": request.template_id}
+                {"_id": ObjectId(request.template_id)}
             )
 
         # Prepare system prompt
@@ -293,7 +294,7 @@ class AIService:
         template = None
         if request.template_id:
             template = await self.templates_collection.find_one(
-                {"_id": request.template_id}
+                {"_id": ObjectId(request.template_id)}
             )
 
         # Prepare system prompt based on operation
@@ -519,6 +520,8 @@ class AIService:
                 "total_tokens_used": 0,
                 "total_cost": 0.0,
                 "average_tokens_per_generation": 0.0,
+                "generations_by_operation": {},
+                "most_used_model": "gpt-4",
             }
 
         # Get operations breakdown
@@ -546,3 +549,75 @@ class AIService:
             "average_tokens_per_generation": round(stats[0]["avg_tokens"], 2),
             "most_used_model": most_used_model,
         }
+
+    async def get_available_models(self) -> List[Dict[str, Any]]:
+        """Get list of available models from OpenAI API."""
+        try:
+            client = await self._get_client()
+            models_response = await client.models.list()
+
+            # Filter and format models for chat/completion use
+            chat_models = []
+            for model in models_response.data:
+                # Only include chat/completion models
+                if any(
+                    keyword in model.id
+                    for keyword in ["gpt", "claude", "llama", "mistral"]
+                ):
+                    model_info = {
+                        "id": model.id,
+                        "name": self._format_model_name(model.id),
+                        "provider": "openai",
+                        "created": model.created,
+                    }
+
+                    # Add model-specific metadata
+                    if "gpt-4" in model.id:
+                        model_info["context_window"] = (
+                            128000 if "turbo" in model.id else 8192
+                        )
+                        model_info["supports_vision"] = "vision" in model.id
+                    elif "gpt-3.5" in model.id:
+                        model_info["context_window"] = (
+                            16385 if "16k" in model.id else 4096
+                        )
+
+                    chat_models.append(model_info)
+
+            # Sort by name for consistent ordering
+            chat_models.sort(key=lambda x: str(x.get("name", "")))
+            return chat_models
+
+        except Exception:
+            # Return empty list on error - endpoint will provide fallback
+            return []
+
+    def _format_model_name(self, model_id: str) -> str:
+        """Format model ID into a readable name."""
+        # Remove common prefixes and format
+        name = model_id
+
+        # GPT models
+        if "gpt-4" in model_id:
+            if "turbo" in model_id:
+                name = "GPT-4 Turbo"
+                if "preview" in model_id:
+                    name += " Preview"
+            elif "vision" in model_id:
+                name = "GPT-4 Vision"
+            else:
+                name = "GPT-4"
+
+        elif "gpt-3.5" in model_id:
+            name = "GPT-3.5 Turbo"
+            if "16k" in model_id:
+                name += " 16K"
+
+        # Add date suffix if present
+        import re
+
+        date_match = re.search(r"-\d{4}-\d{2}-\d{2}", model_id)
+        if date_match:
+            name += f" ({date_match.group()[1:]})"
+
+        return name

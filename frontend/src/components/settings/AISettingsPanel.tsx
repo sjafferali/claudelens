@@ -14,6 +14,7 @@ import {
   useUpdateAISettings,
   useTestConnection,
   useAIStats,
+  useAvailableModels,
 } from '@/hooks/useAI';
 import { cn } from '@/utils/cn';
 import { formatDistanceToNow } from 'date-fns';
@@ -21,13 +22,14 @@ import { formatDistanceToNow } from 'date-fns';
 export function AISettingsPanel() {
   const { data: settings, isLoading } = useAISettings();
   const { data: stats } = useAIStats();
+  const { data: modelsData } = useAvailableModels();
   const updateSettings = useUpdateAISettings();
   const testConnection = useTestConnection();
 
   const [formData, setFormData] = useState({
     enabled: false,
     api_key: '',
-    model: 'claude-3-sonnet-20240229',
+    model: 'gpt-4',
     base_url: '',
     max_tokens: 4096,
     temperature: 0.7,
@@ -42,7 +44,7 @@ export function AISettingsPanel() {
       setFormData({
         enabled: settings.enabled ?? false,
         api_key: settings.api_key ?? '',
-        model: settings.model ?? 'claude-3-sonnet-20240229',
+        model: settings.model ?? 'gpt-4',
         base_url: settings.base_url ?? '',
         max_tokens: settings.max_tokens ?? 4096,
         temperature: settings.temperature ?? 0.7,
@@ -57,7 +59,7 @@ export function AISettingsPanel() {
       const hasChanged =
         formData.enabled !== (settings.enabled ?? false) ||
         formData.api_key !== (settings.api_key ?? '') ||
-        formData.model !== (settings.model ?? 'claude-3-sonnet-20240229') ||
+        formData.model !== (settings.model ?? 'gpt-4') ||
         formData.base_url !== (settings.base_url ?? '') ||
         formData.max_tokens !== (settings.max_tokens ?? 4096) ||
         formData.temperature !== (settings.temperature ?? 0.7);
@@ -92,14 +94,18 @@ export function AISettingsPanel() {
     }
   };
 
-  const availableModels = [
-    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
-    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-    { value: 'gpt-4', label: 'GPT-4' },
-    { value: 'gpt-4-turbo-preview', label: 'GPT-4 Turbo' },
-    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-  ];
+  // Use fetched models or fallback to defaults
+  const availableModels = modelsData?.models
+    ? modelsData.models.map((model) => ({
+        value: model.id,
+        label: model.name,
+      }))
+    : [
+        { value: 'gpt-4', label: 'GPT-4' },
+        { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+        { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+        { value: 'gpt-3.5-turbo-16k', label: 'GPT-3.5 Turbo 16K' },
+      ];
 
   if (isLoading) {
     return (
@@ -181,18 +187,25 @@ export function AISettingsPanel() {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Model
           </label>
-          <select
-            value={formData.model}
-            onChange={(e) => handleInputChange('model', e.target.value)}
-            disabled={!formData.enabled}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
-          >
-            {availableModels.map((model) => (
-              <option key={model.value} value={model.value}>
-                {model.label}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={formData.model}
+              onChange={(e) => handleInputChange('model', e.target.value)}
+              disabled={!formData.enabled}
+              className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
+            >
+              {availableModels.map((model) => (
+                <option key={model.value} value={model.value}>
+                  {model.label}
+                </option>
+              ))}
+            </select>
+            {modelsData?.is_fallback && (
+              <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Using default model list (API unavailable)
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Base URL (Optional) */}

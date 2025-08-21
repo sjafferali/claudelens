@@ -85,6 +85,24 @@ export interface AIUsageStats {
   last_request_at?: string;
 }
 
+// Model Types
+export interface ModelInfo {
+  id: string;
+  name: string;
+  provider: string;
+  description?: string;
+  context_window?: number;
+  max_output_tokens?: number;
+  supports_functions?: boolean;
+  supports_vision?: boolean;
+  created?: number;
+}
+
+export interface ModelsListResponse {
+  models: ModelInfo[];
+  is_fallback?: boolean;
+}
+
 export const aiApi = {
   // AI Settings operations
   async getAISettings(): Promise<AISettings> {
@@ -132,5 +150,10 @@ export const aiApi = {
   // Statistics
   async getStats(): Promise<AIUsageStats> {
     return apiClient.get<AIUsageStats>('/ai-settings/stats');
+  },
+
+  // Models
+  async getAvailableModels(): Promise<ModelsListResponse> {
+    return apiClient.get<ModelsListResponse>('/ai-settings/models');
   },
 };

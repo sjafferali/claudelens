@@ -91,8 +91,13 @@ class ExportService:
         estimated_size = self._estimate_file_size(format, estimated_count)
         estimated_duration = self._estimate_duration(estimated_count)
 
-        # Create export job
+        # Create export job with explicit ObjectId
+        from app.models.export_job import PyObjectId
+
+        job_id = PyObjectId()
+
         export_job = ExportJob(
+            _id=job_id,  # Use the correct field name
             user_id=user_id,
             format=format,
             filters=filters or {},
@@ -103,11 +108,11 @@ class ExportService:
             expires_at=datetime.now(UTC) + timedelta(days=30),
         )
 
-        # Save to database
-        result = await self.db.export_jobs.insert_one(
-            export_job.model_dump(by_alias=True)
-        )
-        export_job.id = result.inserted_id
+        # Save to database with proper ObjectId
+        job_data = export_job.model_dump(by_alias=True)
+        # Ensure _id is ObjectId not string
+        job_data["_id"] = job_id
+        await self.db.export_jobs.insert_one(job_data)
 
         logger.info(f"Created export job {export_job.id} for user {user_id}")
 
@@ -128,7 +133,7 @@ class ExportService:
         Returns:
             Export result with file info
         """
-        # Get export job
+        # Get export job using ObjectId
         export_job = await self.db.export_jobs.find_one({"_id": ObjectId(job_id)})
         if not export_job:
             raise ValueError(f"Export job {job_id} not found")
