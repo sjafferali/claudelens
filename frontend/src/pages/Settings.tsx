@@ -38,11 +38,13 @@ export default function Settings() {
   return (
     <div className="flex h-full bg-background">
       {/* Sidebar */}
-      <div className="w-64 border-r border-gray-200 bg-gray-50">
+      <div className="w-64 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
         <div className="p-6">
           <div className="flex items-center gap-2 mb-6">
-            <SettingsIcon className="h-6 w-6 text-gray-600" />
-            <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
+            <SettingsIcon className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              Settings
+            </h1>
           </div>
 
           <nav className="space-y-1">
@@ -54,8 +56,8 @@ export default function Settings() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-md transition-colors ${
                     activeTab === tab.id
-                      ? 'bg-purple-50 text-purple-700 border-l-2 border-purple-500'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 border-l-2 border-purple-500'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                 >
                   <Icon className="h-5 w-5" />
@@ -81,12 +83,16 @@ export default function Settings() {
 function AccountSettings() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 pb-4 border-b">
-        <User className="h-5 w-5 text-gray-500" />
-        <h2 className="text-xl font-semibold">Account Settings</h2>
+      <div className="flex items-center gap-2 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <User className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          Account Settings
+        </h2>
       </div>
-      <div className="bg-gray-50 rounded-lg p-6 text-center">
-        <p className="text-gray-500">Account settings coming soon...</p>
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 text-center">
+        <p className="text-gray-500 dark:text-gray-400">
+          Account settings coming soon...
+        </p>
       </div>
     </div>
   );
@@ -95,12 +101,16 @@ function AccountSettings() {
 function PrivacySettings() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 pb-4 border-b">
-        <Lock className="h-5 w-5 text-gray-500" />
-        <h2 className="text-xl font-semibold">Privacy Settings</h2>
+      <div className="flex items-center gap-2 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <Lock className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          Privacy Settings
+        </h2>
       </div>
-      <div className="bg-gray-50 rounded-lg p-6 text-center">
-        <p className="text-gray-500">Privacy settings coming soon...</p>
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 text-center">
+        <p className="text-gray-500 dark:text-gray-400">
+          Privacy settings coming soon...
+        </p>
       </div>
     </div>
   );
@@ -109,12 +119,16 @@ function PrivacySettings() {
 function DataSettings() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 pb-4 border-b">
-        <Database className="h-5 w-5 text-gray-500" />
-        <h2 className="text-xl font-semibold">Data Settings</h2>
+      <div className="flex items-center gap-2 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <Database className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          Data Settings
+        </h2>
       </div>
-      <div className="bg-gray-50 rounded-lg p-6 text-center">
-        <p className="text-gray-500">Data settings coming soon...</p>
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 text-center">
+        <p className="text-gray-500 dark:text-gray-400">
+          Data settings coming soon...
+        </p>
       </div>
     </div>
   );

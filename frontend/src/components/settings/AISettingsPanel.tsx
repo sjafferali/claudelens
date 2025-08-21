@@ -114,18 +114,20 @@ export function AISettingsPanel() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-2 pb-4 border-b">
+      <div className="flex items-center gap-2 pb-4 border-b border-gray-200 dark:border-gray-700">
         <Settings className="h-5 w-5 text-purple-500" />
-        <h2 className="text-xl font-semibold">AI Assistant Settings</h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          AI Assistant Settings
+        </h2>
       </div>
 
       {/* Enable/Disable Toggle */}
-      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div>
-          <h3 className="text-sm font-medium text-gray-900">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
             Enable AI Assistant
           </h3>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Allow AI to assist with prompt generation and metadata creation
           </p>
         </div>
@@ -149,7 +151,7 @@ export function AISettingsPanel() {
       <div className={cn('space-y-4', !formData.enabled && 'opacity-50')}>
         {/* API Key */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             API Key *
           </label>
           <div className="relative">
@@ -159,13 +161,13 @@ export function AISettingsPanel() {
               onChange={(e) => handleInputChange('api_key', e.target.value)}
               placeholder="Enter your API key..."
               disabled={!formData.enabled}
-              className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
             />
             <button
               type="button"
               onClick={() => setShowApiKey(!showApiKey)}
               disabled={!formData.enabled}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 disabled:cursor-not-allowed"
             >
               {showApiKey ? (
                 <EyeOff className="h-4 w-4" />
@@ -178,14 +180,14 @@ export function AISettingsPanel() {
 
         {/* Model Selection */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Model
           </label>
           <select
             value={formData.model}
             onChange={(e) => handleInputChange('model', e.target.value)}
             disabled={!formData.enabled}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
           >
             {availableModels.map((model) => (
               <option key={model.value} value={model.value}>
@@ -197,7 +199,7 @@ export function AISettingsPanel() {
 
         {/* Base URL (Optional) */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Base URL (Optional)
           </label>
           <input
@@ -206,14 +208,14 @@ export function AISettingsPanel() {
             onChange={(e) => handleInputChange('base_url', e.target.value)}
             placeholder="https://api.anthropic.com (leave empty for default)"
             disabled={!formData.enabled}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
           />
         </div>
 
         {/* Advanced Settings */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Max Tokens
             </label>
             <input
@@ -228,12 +230,12 @@ export function AISettingsPanel() {
                 )
               }
               disabled={!formData.enabled}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Temperature
             </label>
             <input
@@ -249,7 +251,7 @@ export function AISettingsPanel() {
                 )
               }
               disabled={!formData.enabled}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
             />
           </div>
         </div>
@@ -283,10 +285,10 @@ export function AISettingsPanel() {
             !formData.api_key || !formData.enabled || testConnection.isPending
           }
           className={cn(
-            'flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-300 rounded-md transition-colors',
+            'flex items-center gap-2 px-4 py-2 text-sm font-medium border rounded-md transition-colors',
             formData.api_key && formData.enabled
-              ? 'text-gray-700 bg-white hover:bg-gray-50'
-              : 'text-gray-400 bg-gray-50 cursor-not-allowed'
+              ? 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-600'
+              : 'text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-900 cursor-not-allowed border-gray-200 dark:border-gray-700'
           )}
         >
           {testConnection.isPending ? (
@@ -307,15 +309,19 @@ export function AISettingsPanel() {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-lg border">
-              <div className="text-sm text-gray-500">Total Requests</div>
-              <div className="text-2xl font-semibold text-gray-900">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Total Requests
+              </div>
+              <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                 {stats.total_requests.toLocaleString()}
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-lg border">
-              <div className="text-sm text-gray-500">Success Rate</div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Success Rate
+              </div>
               <div className="text-2xl font-semibold text-green-600">
                 {stats.total_requests > 0
                   ? `${Math.round((stats.successful_requests / stats.total_requests) * 100)}%`
@@ -323,15 +329,19 @@ export function AISettingsPanel() {
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-lg border">
-              <div className="text-sm text-gray-500">Tokens Used</div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Tokens Used
+              </div>
               <div className="text-2xl font-semibold text-blue-600">
                 {stats.total_tokens_used.toLocaleString()}
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-lg border">
-              <div className="text-sm text-gray-500">Est. Cost</div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Est. Cost
+              </div>
               <div className="text-2xl font-semibold text-purple-600">
                 ${stats.estimated_total_cost.toFixed(2)}
               </div>
@@ -350,10 +360,10 @@ export function AISettingsPanel() {
       )}
 
       {/* Information Panel */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <div className="flex items-start gap-3">
           <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-800">
+          <div className="text-sm text-blue-800 dark:text-blue-300">
             <p className="font-medium mb-1">About AI Assistant</p>
             <p>
               The AI assistant helps generate prompt metadata (names,

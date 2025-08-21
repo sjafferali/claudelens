@@ -40,13 +40,20 @@ class ApiClient {
       (error) => {
         if (error.response) {
           const message = error.response.data?.detail || 'An error occurred';
+          const url = error.config?.url || '';
+
+          // Don't show toast for expected 404s on AI settings endpoints
+          const isExpected404 =
+            error.response.status === 404 &&
+            (url.includes('/ai/settings') || url.includes('/ai/stats'));
 
           if (error.response.status === 401) {
             toast.error('Authentication required');
             // Handle auth error
           } else if (error.response.status === 429) {
             toast.error('Rate limit exceeded. Please try again later.');
-          } else {
+          } else if (!isExpected404) {
+            // Only show toast if it's not an expected 404
             toast.error(message);
           }
         } else if (error.request) {
