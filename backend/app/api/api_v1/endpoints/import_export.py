@@ -12,7 +12,6 @@ from fastapi.responses import StreamingResponse
 from app.api.dependencies import CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.logging import get_logger
-from app.models.import_job import ImportJob
 from app.schemas.export import (
     CancelExportResponse,
     CreateExportRequest,
@@ -496,18 +495,32 @@ async def execute_import(
     if not file_path:
         raise HTTPException(status_code=404, detail="File not found or expired")
 
-    # Create import job
-    import_job = ImportJob(
-        user_id=user_id,
-        file_id=request.file_id,
-        field_mapping=request.field_mapping,
-        conflict_resolution=request.conflict_resolution,
-        options=request.options or {},
-        status="processing",
-    )
+    # Create import job without ID (let MongoDB generate it)
+    import_job_data = {
+        "user_id": user_id,
+        "file_id": request.file_id,
+        "field_mapping": request.field_mapping,
+        "conflict_resolution": request.conflict_resolution,
+        "options": request.options or {},
+        "status": "processing",
+        "created_at": datetime.now(UTC),
+        "progress": {
+            "processed": 0,
+            "total": 0,
+            "percentage": 0,
+            "current_item": None,
+        },
+        "statistics": {
+            "imported": 0,
+            "skipped": 0,
+            "failed": 0,
+            "merged": 0,
+            "replaced": 0,
+        },
+    }
 
     # Save to database
-    result = await db.import_jobs.insert_one(import_job.model_dump(by_alias=True))
+    result = await db.import_jobs.insert_one(import_job_data)
     job_id = str(result.inserted_id)
 
     # Create async task for background processing
