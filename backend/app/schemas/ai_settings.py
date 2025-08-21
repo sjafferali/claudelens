@@ -3,37 +3,33 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class AISettingsUpdate(BaseModel):
     """Request schema for updating AI settings."""
 
-    api_key: Optional[SecretStr] = None
-    model: Optional[str] = Field(None, pattern="^gpt-[34].*")
-    endpoint: Optional[str] = None
+    api_key: Optional[
+        str
+    ] = None  # Changed from SecretStr to str for frontend compatibility
+    model: Optional[str] = None  # Removed restrictive pattern
+    base_url: Optional[str] = None  # Added for frontend compatibility
+    endpoint: Optional[str] = None  # Keep for backward compatibility
     enabled: Optional[bool] = None
+    max_tokens: Optional[int] = Field(None, ge=1, le=100000)
+    temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
 
     @field_validator("model")
     @classmethod
     def validate_model(cls, v: Optional[str]) -> Optional[str]:
-        """Validate model name."""
-        if v is not None:
-            allowed_models = [
-                "gpt-4",
-                "gpt-4-turbo",
-                "gpt-4-turbo-preview",
-                "gpt-3.5-turbo",
-                "gpt-3.5-turbo-16k",
-            ]
-            if v not in allowed_models:
-                raise ValueError(f"Model must be one of: {', '.join(allowed_models)}")
+        """Validate model name - now more permissive for various providers."""
+        # Accept any model name to support OpenAI, Anthropic, and other providers
         return v
 
-    @field_validator("endpoint")
+    @field_validator("endpoint", "base_url")
     @classmethod
     def validate_endpoint(cls, v: Optional[str]) -> Optional[str]:
-        """Validate endpoint URL."""
+        """Validate endpoint/base_url."""
         if v is not None and v.strip():
             if not v.startswith(("http://", "https://")):
                 raise ValueError("Endpoint must be a valid HTTP(S) URL")
@@ -46,8 +42,11 @@ class AISettingsResponse(BaseModel):
     id: str = Field(alias="_id")
     model: str
     endpoint: Optional[str] = None
+    base_url: Optional[str] = None  # Added for frontend compatibility
     enabled: bool
     api_key_configured: bool  # Never expose the actual key
+    max_tokens: Optional[int] = None
+    temperature: Optional[float] = None
     created_at: datetime
     updated_at: datetime
     usage_stats: Dict[str, Any] = Field(default_factory=dict)

@@ -28,7 +28,8 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
     end: '',
   });
   const [selectedProjects, setSelectedProjects] = React.useState<string[]>([]);
-  const [costRange, setCostRange] = React.useState({ min: 0, max: 100 });
+  const [costRange, setCostRange] = React.useState({ min: 0, max: 1000 });
+  const [useCostFilter, setUseCostFilter] = React.useState(false);
   const [options, setOptions] = React.useState({
     includeMessages: true,
     includeMetadata: true,
@@ -49,22 +50,33 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
   }, [projectsData]);
 
   const handleExport = async () => {
+    // Build filters object - only include filters that have been explicitly set
+    const filters: CreateExportRequest['filters'] = {};
+
+    // Only include date range if both dates are set
+    if (dateRange.start && dateRange.end) {
+      filters.dateRange = {
+        start: dateRange.start,
+        end: dateRange.end,
+      };
+    }
+
+    // Only include project IDs if any are selected
+    if (selectedProjects.length > 0) {
+      filters.projectIds = selectedProjects;
+    }
+
+    // Only include cost range if the user has explicitly enabled the cost filter
+    if (useCostFilter) {
+      filters.costRange = {
+        min: costRange.min,
+        max: costRange.max,
+      };
+    }
+
     const exportRequest: CreateExportRequest = {
       format,
-      filters: {
-        ...(dateRange.start &&
-          dateRange.end && {
-            dateRange: {
-              start: dateRange.start,
-              end: dateRange.end,
-            },
-          }),
-        ...(selectedProjects.length > 0 && { projectIds: selectedProjects }),
-        costRange: {
-          min: costRange.min,
-          max: costRange.max,
-        },
-      },
+      filters: Object.keys(filters).length > 0 ? filters : undefined,
       options: {
         includeMessages: options.includeMessages,
         includeMetadata: options.includeMetadata,
@@ -191,47 +203,68 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
 
         {/* Cost Range Slider */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Cost Range (USD): ${costRange.min} - ${costRange.max}
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Cost Range Filter
+            </label>
+            <label className="flex items-center space-x-2">
               <input
-                type="range"
-                min="0"
-                max="100"
-                value={costRange.min}
-                onChange={(e) =>
-                  setCostRange((prev) => ({
-                    ...prev,
-                    min: parseInt(e.target.value),
-                  }))
-                }
-                className="w-full"
+                type="checkbox"
+                checked={useCostFilter}
+                onChange={(e) => setUseCostFilter(e.target.checked)}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-xs text-gray-500">
-                Min: ${costRange.min}
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Enable cost filter
               </span>
-            </div>
-            <div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={costRange.max}
-                onChange={(e) =>
-                  setCostRange((prev) => ({
-                    ...prev,
-                    max: parseInt(e.target.value),
-                  }))
-                }
-                className="w-full"
-              />
-              <span className="text-xs text-gray-500">
-                Max: ${costRange.max}
-              </span>
-            </div>
+            </label>
           </div>
+          {useCostFilter && (
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                Filter sessions by cost (USD): ${costRange.min} - $
+                {costRange.max}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1000"
+                    value={costRange.min}
+                    onChange={(e) =>
+                      setCostRange((prev) => ({
+                        ...prev,
+                        min: parseInt(e.target.value),
+                      }))
+                    }
+                    className="w-full"
+                  />
+                  <span className="text-xs text-gray-500">
+                    Min: ${costRange.min}
+                  </span>
+                </div>
+                <div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1000"
+                    value={costRange.max}
+                    onChange={(e) =>
+                      setCostRange((prev) => ({
+                        ...prev,
+                        max: parseInt(e.target.value),
+                      }))
+                    }
+                    className="w-full"
+                  />
+                  <span className="text-xs text-gray-500">
+                    Max: ${costRange.max}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Options */}

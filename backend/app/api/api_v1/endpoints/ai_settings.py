@@ -37,8 +37,11 @@ async def get_ai_settings(db: CommonDeps) -> AISettingsResponse:
             _id="default",
             model="gpt-4",
             endpoint=None,
+            base_url=None,
             enabled=False,
             api_key_configured=False,
+            max_tokens=4096,
+            temperature=0.7,
             created_at=now,
             updated_at=now,
             usage_stats={},
@@ -48,6 +51,16 @@ async def get_ai_settings(db: CommonDeps) -> AISettingsResponse:
     settings_dict = settings.model_dump(by_alias=True)
     settings_dict["_id"] = str(settings_dict["_id"])
     settings_dict["api_key_configured"] = bool(settings.api_key_encrypted)
+
+    # Map base_url from endpoint if not present
+    if "base_url" not in settings_dict and "endpoint" in settings_dict:
+        settings_dict["base_url"] = settings_dict["endpoint"]
+
+    # Ensure max_tokens and temperature are included
+    if "max_tokens" not in settings_dict:
+        settings_dict["max_tokens"] = 4096
+    if "temperature" not in settings_dict:
+        settings_dict["temperature"] = 0.7
 
     # Remove the actual API key from response
     if "api_key" in settings_dict:
@@ -71,10 +84,14 @@ async def update_ai_settings(
 
     service = AIService(db)
 
+    # Map base_url to endpoint for backward compatibility
+    update_data = settings_update.model_dump(exclude_none=True)
+    if "base_url" in update_data and update_data["base_url"]:
+        update_data["endpoint"] = update_data["base_url"]
+        # Keep base_url as well for storage
+
     # Update settings - the service handles encryption
-    updated_settings = await service.update_settings(
-        settings_update.model_dump(exclude_none=True)
-    )
+    updated_settings = await service.update_settings(update_data)
 
     if not updated_settings:
         raise HTTPException(status_code=500, detail="Failed to update AI settings")
@@ -83,6 +100,16 @@ async def update_ai_settings(
     settings_dict = updated_settings.model_dump(by_alias=True)
     settings_dict["_id"] = str(settings_dict["_id"])
     settings_dict["api_key_configured"] = bool(updated_settings.api_key_encrypted)
+
+    # Map base_url from endpoint if not present
+    if "base_url" not in settings_dict and "endpoint" in settings_dict:
+        settings_dict["base_url"] = settings_dict["endpoint"]
+
+    # Ensure max_tokens and temperature are included
+    if "max_tokens" not in settings_dict:
+        settings_dict["max_tokens"] = 4096
+    if "temperature" not in settings_dict:
+        settings_dict["temperature"] = 0.7
 
     # Remove the actual API key from response
     if "api_key" in settings_dict:

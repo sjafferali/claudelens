@@ -22,7 +22,8 @@ import { formatDistanceToNow } from 'date-fns';
 export function AISettingsPanel() {
   const { data: settings, isLoading } = useAISettings();
   const { data: stats } = useAIStats();
-  const { data: modelsData } = useAvailableModels();
+  const modelsQuery = useAvailableModels();
+  const modelsData = modelsQuery.data;
   const updateSettings = useUpdateAISettings();
   const testConnection = useTestConnection();
 
@@ -184,9 +185,36 @@ export function AISettingsPanel() {
 
         {/* Model Selection */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Model
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Model
+              </label>
+              <div className="group relative">
+                <Info className="h-3 w-3 text-gray-400" />
+                <div className="absolute hidden group-hover:block z-10 w-64 px-3 py-2 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg -left-2 top-5">
+                  Models are loaded from your configured API endpoint after
+                  saving the API key. Use the refresh button to reload the list.
+                </div>
+              </div>
+            </div>
+            {settings?.api_key_configured && (
+              <button
+                type="button"
+                onClick={() => modelsQuery.refetch()}
+                disabled={!formData.enabled || modelsQuery.isFetching}
+                className="text-xs text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+              >
+                <RefreshCw
+                  className={cn(
+                    'h-3 w-3',
+                    modelsQuery.isFetching && 'animate-spin'
+                  )}
+                />
+                Refresh Models
+              </button>
+            )}
+          </div>
           <div className="relative">
             <select
               value={formData.model}
@@ -200,7 +228,12 @@ export function AISettingsPanel() {
                 </option>
               ))}
             </select>
-            {modelsData?.is_fallback && (
+            {!settings?.api_key_configured && formData.enabled && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Save your API key first to load available models
+              </p>
+            )}
+            {modelsData?.is_fallback && settings?.api_key_configured && (
               <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                 Using default model list (API unavailable)
               </div>

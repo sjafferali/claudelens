@@ -49,7 +49,10 @@ class AISettingsInDB(BaseModel):
     api_key_encrypted: str  # Encrypted with app.core.security
     model: str = "gpt-4"
     endpoint: Optional[str] = None
+    base_url: Optional[str] = None  # Added for frontend compatibility
     enabled: bool = False
+    max_tokens: int = 4096  # Added with default value
+    temperature: float = 0.7  # Added with default value
     usage_stats: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

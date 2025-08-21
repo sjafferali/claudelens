@@ -8,6 +8,8 @@ export interface AISettings {
   base_url?: string;
   max_tokens?: number;
   temperature?: number;
+  api_key_configured?: boolean;
+  endpoint?: string;
 }
 
 export interface AISettingsUpdate {

@@ -40,6 +40,8 @@ export function useUpdateAISettings() {
 
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['ai-stats'] });
+      // Refetch models list after saving API key
+      queryClient.invalidateQueries({ queryKey: ['ai-models'] });
 
       toast.success('AI settings updated successfully');
     },
@@ -134,10 +136,14 @@ export function useAIAvailable() {
 
 // Available models hook
 export function useAvailableModels() {
+  const { data: settings } = useAISettings();
+
   return useQuery({
     queryKey: ['ai-models'],
     queryFn: () => aiApi.getAvailableModels(),
     staleTime: 300000, // 5 minutes
     retry: 1, // Only retry once for model fetching
+    // Only fetch models if API key is configured
+    enabled: !!settings?.api_key_configured,
   });
 }
