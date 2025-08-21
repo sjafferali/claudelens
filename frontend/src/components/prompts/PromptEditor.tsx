@@ -20,8 +20,7 @@ import {
 import { extractVariables } from '@/api/prompts';
 import { VariableChips } from './VariableChips';
 import { VariableHelper } from './VariableHelper';
-import { AIAssistButton } from './AIAssistButton';
-import { AIGenerationModal } from './AIGenerationModal';
+import { AIFieldGenerator } from './AIFieldGenerator';
 
 interface PromptEditorProps {
   isOpen: boolean;
@@ -58,10 +57,7 @@ export function PromptEditor({
   const [tagInput, setTagInput] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [errors, setErrors] = useState<Partial<PromptFormData>>({});
-  const [showAIModal, setShowAIModal] = useState(false);
-  const [aiModalMode, setAIModalMode] = useState<'metadata' | 'content'>(
-    'metadata'
-  );
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const { data: folders } = useFolders();
   const createPrompt = useCreatePrompt();
@@ -94,6 +90,8 @@ export function PromptEditor({
           folder_id: initialData.folder_id || folderId,
           visibility: initialData.visibility || 'private',
         });
+        // For new prompts with initial data, mark as having changes
+        setHasUnsavedChanges(true);
       } else {
         setFormData({
           name: '',
@@ -107,51 +105,12 @@ export function PromptEditor({
       setTagInput('');
       setErrors({});
       setShowPreview(false);
-      setShowAIModal(false);
+      // Only reset unsaved changes if not initial data
+      if (!initialData) {
+        setHasUnsavedChanges(false);
+      }
     }
   }, [isOpen, prompt, folderId, initialData]);
-
-  const handleAIGeneration = (result: {
-    type: 'metadata' | 'content';
-    data: {
-      name?: string;
-      description?: string;
-      tags?: string[];
-      content?: string;
-    };
-  }) => {
-    if (result.type === 'metadata') {
-      // Apply metadata generation results to form
-      if (result.data.name) {
-        setFormData((prev) => ({ ...prev, name: result.data.name ?? '' }));
-      }
-      if (result.data.description) {
-        setFormData((prev) => ({
-          ...prev,
-          description: result.data.description ?? '',
-        }));
-      }
-      if (result.data.tags && Array.isArray(result.data.tags)) {
-        setFormData((prev) => ({
-          ...prev,
-          tags: [
-            ...prev.tags,
-            ...(result.data.tags ?? []).filter(
-              (tag: string) => !prev.tags.includes(tag)
-            ),
-          ],
-        }));
-      }
-    } else if (result.type === 'content') {
-      // Apply content generation results to form
-      if (result.data.content) {
-        setFormData((prev) => ({
-          ...prev,
-          content: result.data.content ?? '',
-        }));
-      }
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,6 +152,7 @@ export function PromptEditor({
           visibility: formData.visibility,
         });
       }
+      setHasUnsavedChanges(false);
       onClose();
     } catch (error) {
       console.error('Failed to save prompt:', error);
@@ -208,6 +168,7 @@ export function PromptEditor({
           ...prev,
           tags: [...prev.tags, newTag],
         }));
+        setHasUnsavedChanges(true);
       }
       setTagInput('');
     }
@@ -218,10 +179,12 @@ export function PromptEditor({
       ...prev,
       tags: prev.tags.filter((tag) => tag !== tagToRemove),
     }));
+    setHasUnsavedChanges(true);
   };
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setFormData((prev) => ({ ...prev, content: e.target.value }));
+    setHasUnsavedChanges(true);
     if (errors.content) {
       setErrors((prev) => ({ ...prev, content: undefined }));
     }
@@ -247,13 +210,6 @@ export function PromptEditor({
             {isEditing ? 'Edit Prompt' : 'Create Prompt'}
           </h2>
           <div className="flex items-center gap-2">
-            <AIAssistButton
-              onGenerate={() => {
-                setAIModalMode('metadata');
-                setShowAIModal(true);
-              }}
-              variant="compact"
-            />
             <Button
               type="button"
               variant="outline"
@@ -290,11 +246,28 @@ export function PromptEditor({
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {/* Name */}
                 <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-medium">
-                    Name *
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="name" className="text-sm font-medium">
+                      Name *
+                    </label>
+                    <div className="relative">
+                      <AIFieldGenerator
+                        fieldName="name"
+                        currentValue={formData.name}
+                        onGenerate={(value) => {
+                          setFormData((prev) => ({ ...prev, name: value }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        context={{
+                          description: formData.description,
+                          content: formData.content,
+                        }}
+                      />
+                    </div>
+                  </div>
                   <input
                     id="name"
+                    data-field="name"
                     type="text"
                     value={formData.name}
                     onChange={(e) => {
@@ -302,13 +275,17 @@ export function PromptEditor({
                         ...prev,
                         name: e.target.value,
                       }));
+                      setHasUnsavedChanges(true);
                       if (errors.name) {
                         setErrors((prev) => ({ ...prev, name: undefined }));
                       }
                     }}
                     placeholder="Enter prompt name"
                     className={cn(
-                      'w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
+                      'w-full px-3 py-2 border rounded-md',
+                      'bg-background text-foreground',
+                      'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
+                      'placeholder:text-muted-foreground',
                       errors.name && 'border-destructive'
                     )}
                   />
@@ -319,21 +296,45 @@ export function PromptEditor({
 
                 {/* Description */}
                 <div className="space-y-2">
-                  <label htmlFor="description" className="text-sm font-medium">
-                    Description
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor="description"
+                      className="text-sm font-medium"
+                    >
+                      Description
+                    </label>
+                    <div className="relative">
+                      <AIFieldGenerator
+                        fieldName="description"
+                        currentValue={formData.description}
+                        onGenerate={(value) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            description: value,
+                          }));
+                          setHasUnsavedChanges(true);
+                        }}
+                        context={{
+                          name: formData.name,
+                          content: formData.content,
+                        }}
+                      />
+                    </div>
+                  </div>
                   <input
                     id="description"
+                    data-field="description"
                     type="text"
                     value={formData.description}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({
                         ...prev,
                         description: e.target.value,
-                      }))
-                    }
+                      }));
+                      setHasUnsavedChanges(true);
+                    }}
                     placeholder="Optional description"
-                    className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent placeholder:text-muted-foreground"
                   />
                 </div>
 
@@ -345,12 +346,13 @@ export function PromptEditor({
                   <select
                     id="folder"
                     value={formData.folder_id || ''}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({
                         ...prev,
                         folder_id: e.target.value || undefined,
-                      }))
-                    }
+                      }));
+                      setHasUnsavedChanges(true);
+                    }}
                     className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="">Root (No folder)</option>
@@ -369,14 +371,23 @@ export function PromptEditor({
                       Content *
                     </label>
                     <div className="flex items-center gap-2">
-                      <AIAssistButton
-                        onGenerate={() => {
-                          setAIModalMode('content');
-                          setShowAIModal(true);
-                        }}
-                        variant="compact"
-                        className="mr-2"
-                      />
+                      <div className="relative">
+                        <AIFieldGenerator
+                          fieldName="content"
+                          currentValue={formData.content}
+                          onGenerate={(value) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              content: value,
+                            }));
+                            setHasUnsavedChanges(true);
+                          }}
+                          context={{
+                            name: formData.name,
+                            description: formData.description,
+                          }}
+                        />
+                      </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Info className="h-3 w-3" />
                         <span>
@@ -387,12 +398,17 @@ export function PromptEditor({
                   </div>
                   <textarea
                     id="content"
+                    data-field="content"
                     value={formData.content}
                     onChange={handleContentChange}
                     placeholder="Enter your prompt content here. Use {{variable}} for dynamic values."
                     rows={10}
                     className={cn(
-                      'w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none font-mono text-sm',
+                      'w-full px-3 py-2 border rounded-md',
+                      'bg-background text-foreground',
+                      'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
+                      'resize-none font-mono text-sm',
+                      'placeholder:text-muted-foreground',
                       errors.content && 'border-destructive'
                     )}
                   />
@@ -473,12 +489,13 @@ export function PromptEditor({
                   <select
                     id="visibility"
                     value={formData.visibility}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData((prev) => ({
                         ...prev,
                         visibility: e.target.value,
-                      }))
-                    }
+                      }));
+                      setHasUnsavedChanges(true);
+                    }}
                     className="w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
                     <option value="private">Private</option>
@@ -489,42 +506,55 @@ export function PromptEditor({
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end gap-3 p-6 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {isEditing ? 'Updating...' : 'Creating...'}
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      {isEditing ? 'Update Prompt' : 'Create Prompt'}
-                    </>
+              <div className="flex items-center justify-between p-6 border-t">
+                <div className="flex items-center gap-2">
+                  {hasUnsavedChanges && (
+                    <span className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <span className="w-2 h-2 bg-amber-600 dark:bg-amber-400 rounded-full animate-pulse"></span>
+                      Unsaved changes
+                    </span>
                   )}
-                </Button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (hasUnsavedChanges) {
+                        if (
+                          confirm(
+                            'You have unsaved changes. Are you sure you want to close?'
+                          )
+                        ) {
+                          onClose();
+                        }
+                      } else {
+                        onClose();
+                      }
+                    }}
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        {isEditing ? 'Updating...' : 'Creating...'}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        {isEditing ? 'Update Prompt' : 'Create Prompt'}
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </form>
           )}
         </div>
       </div>
-
-      {/* AI Generation Modal */}
-      <AIGenerationModal
-        isOpen={showAIModal}
-        onClose={() => setShowAIModal(false)}
-        onAccept={handleAIGeneration}
-        initialContent={formData.content}
-        mode={aiModalMode}
-      />
     </div>
   );
 }

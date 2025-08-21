@@ -12,10 +12,12 @@ from app.api.dependencies import CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
 from app.schemas.ai_generation import (
+    ContentOperation,
     GenerateContentRequest,
     GenerateContentResponse,
     GenerateMetadataRequest,
     GenerateMetadataResponse,
+    GenerationType,
     TokenCountRequest,
     TokenCountResponse,
 )
@@ -401,6 +403,67 @@ async def import_prompts(request: PromptImportRequest, db: CommonDeps) -> dict:
 
 
 # AI generation endpoints - MUST come before /{prompt_id} routes
+@router.post("/ai/generate-field")
+async def generate_field(request: dict, db: CommonDeps) -> dict:
+    """Generate a single field with AI based on instructions."""
+    from app.services.ai_service import AIService
+
+    ai_service = AIService(db)
+
+    field = request.get("field")
+    instruction = request.get("instruction")
+    context = request.get("context", {})
+
+    if not field or not instruction:
+        raise HTTPException(
+            status_code=400, detail="Field and instruction are required"
+        )
+
+    try:
+        # Call appropriate generation method based on field
+        if field == "content":
+            # Generate content using the content generation endpoint
+            content_result = await ai_service.generate_content(
+                GenerateContentRequest(
+                    operation=ContentOperation.CREATE,
+                    requirements=instruction,
+                    existing_content=context.get("current_value", ""),
+                    preserve_variables=True,
+                )
+            )
+            return {"value": content_result.content}
+        else:
+            # For name or description, use metadata generation
+            # Build context string from available data
+            context_str = f"Current {field}: {context.get('current_value', '')}\n"
+            if context.get("content"):
+                context_str += f"Content: {context.get('content', '')[:500]}...\n"
+            if field == "description" and context.get("name"):
+                context_str += f"Name: {context.get('name', '')}\n"
+            elif field == "name" and context.get("description"):
+                context_str += f"Description: {context.get('description', '')}\n"
+            context_str += f"User instructions: {instruction}"
+
+            # Determine what type of metadata to generate
+            generation_type = (
+                GenerationType.NAME if field == "name" else GenerationType.DESCRIPTION
+            )
+
+            metadata_result = await ai_service.generate_metadata(
+                GenerateMetadataRequest(
+                    context=context_str, type=generation_type, requirements=instruction
+                )
+            )
+            if field == "name":
+                return {"value": metadata_result.name or ""}
+            else:  # description
+                return {"value": metadata_result.description or ""}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to generate {field}: {str(e)}"
+        )
+
+
 @router.post("/ai/generate-metadata", response_model=GenerateMetadataResponse)
 async def generate_prompt_metadata(
     request: GenerateMetadataRequest, db: CommonDeps

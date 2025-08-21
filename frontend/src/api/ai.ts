@@ -29,7 +29,7 @@ export interface GenerateMetadataRequest {
 }
 
 export interface GenerateContentRequest {
-  type: 'prompt' | 'description' | 'tags';
+  type: 'prompt' | 'description';
   requirements: string;
   context?: string;
   existing_content?: string;
@@ -39,7 +39,6 @@ export interface GenerateContentRequest {
 export interface GenerateMetadataResponse {
   name: string;
   description: string;
-  tags: string[];
   variables: string[];
 }
 
@@ -120,7 +119,7 @@ export const aiApi = {
     request: GenerateMetadataRequest
   ): Promise<GenerateMetadataResponse> {
     return apiClient.post<GenerateMetadataResponse>(
-      '/ai/generate/metadata',
+      '/prompts/ai/generate-metadata',
       request
     );
   },
@@ -129,7 +128,7 @@ export const aiApi = {
     request: GenerateContentRequest
   ): Promise<GenerateContentResponse> {
     return apiClient.post<GenerateContentResponse>(
-      '/ai/generate/content',
+      '/prompts/ai/generate-content',
       request
     );
   },
