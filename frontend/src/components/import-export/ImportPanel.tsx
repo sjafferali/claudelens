@@ -78,7 +78,9 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({
       setValidationResult(result);
 
       // Set default field mapping from suggestions
-      setFieldMapping(result.fieldMapping.mappingSuggestions);
+      if (result.fieldMapping?.mappingSuggestions) {
+        setFieldMapping(result.fieldMapping.mappingSuggestions);
+      }
     } catch (error) {
       console.error('File validation failed:', error);
     }
@@ -102,7 +104,7 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({
         importOptions
       );
 
-      if (result.conflicts.conflictsCount > 0) {
+      if (result.conflicts?.conflictsCount > 0 && result.conflicts?.conflicts) {
         onConflictsDetected?.(result.conflicts.conflicts, {
           fileId: result.validation.fileId,
           fieldMapping,
@@ -241,60 +243,65 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({
                 <div className="mt-2 text-sm space-y-1">
                   <p className="text-gray-700 dark:text-gray-300">
                     Format: {validationResult.format} | Size:{' '}
-                    {formatFileSize(validationResult.fileInfo.sizeBytes)} |
-                    Conversations:{' '}
-                    {validationResult.fileInfo.conversationsCount} | Messages:{' '}
-                    {validationResult.fileInfo.messagesCount}
+                    {formatFileSize(validationResult.fileInfo?.sizeBytes || 0)}{' '}
+                    | Conversations:{' '}
+                    {validationResult.fileInfo?.conversationsCount || 0} |
+                    Messages: {validationResult.fileInfo?.messagesCount || 0}
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Validation Errors */}
-            {validationResult.validationErrors.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-900/20 dark:border-red-800">
-                <h4 className="font-medium text-red-900 dark:text-red-100 mb-2">
-                  Validation Errors
-                </h4>
-                <ul className="space-y-1 text-sm text-red-700 dark:text-red-300">
-                  {validationResult.validationErrors.map((error, index) => (
-                    <li key={index} className="flex">
-                      <span className="font-medium mr-2">{error.field}:</span>
-                      <span>{error.message}</span>
-                      {error.line && (
-                        <span className="ml-2 text-xs">
-                          (line {error.line})
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {validationResult.validationErrors &&
+              validationResult.validationErrors.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-900/20 dark:border-red-800">
+                  <h4 className="font-medium text-red-900 dark:text-red-100 mb-2">
+                    Validation Errors
+                  </h4>
+                  <ul className="space-y-1 text-sm text-red-700 dark:text-red-300">
+                    {validationResult.validationErrors.map((error, index) => (
+                      <li key={index} className="flex">
+                        <span className="font-medium mr-2">{error.field}:</span>
+                        <span>{error.message}</span>
+                        {error.line && (
+                          <span className="ml-2 text-xs">
+                            (line {error.line})
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
             {/* Validation Warnings */}
-            {validationResult.validationWarnings.length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-900/20 dark:border-yellow-800">
-                <h4 className="font-medium text-yellow-900 dark:text-yellow-100 mb-2">
-                  Warnings
-                </h4>
-                <ul className="space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
-                  {validationResult.validationWarnings.map((warning, index) => (
-                    <li key={index} className="flex">
-                      {warning.field && (
-                        <span className="font-medium mr-2">
-                          {warning.field}:
-                        </span>
-                      )}
-                      <span>{warning.message}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {validationResult.validationWarnings &&
+              validationResult.validationWarnings.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-900/20 dark:border-yellow-800">
+                  <h4 className="font-medium text-yellow-900 dark:text-yellow-100 mb-2">
+                    Warnings
+                  </h4>
+                  <ul className="space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
+                    {validationResult.validationWarnings.map(
+                      (warning, index) => (
+                        <li key={index} className="flex">
+                          {warning.field && (
+                            <span className="font-medium mr-2">
+                              {warning.field}:
+                            </span>
+                          )}
+                          <span>{warning.message}</span>
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              )}
 
             {/* Field Mapping Table */}
             {validationResult.valid &&
+              validationResult.fieldMapping?.detectedFields &&
               validationResult.fieldMapping.detectedFields.length > 0 && (
                 <div>
                   <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3">
