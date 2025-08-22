@@ -10,6 +10,7 @@ from typing import Any, AsyncGenerator, Callable, Dict, Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.backup_job import BackupJob
 from app.models.backup_job import PyObjectId as JobPyObjectId
@@ -31,7 +32,7 @@ from app.services.compression_service import ChecksumCalculator, StreamingCompre
 logger = get_logger(__name__)
 
 # Configuration
-BACKUP_DIR = os.environ.get("BACKUP_DIR", "/var/claudelens/backups")
+BACKUP_DIR = os.environ.get("BACKUP_DIR", settings.BACKUP_STORAGE_PATH)
 BATCH_SIZE = 100
 PROGRESS_UPDATE_INTERVAL = 1.0  # seconds
 

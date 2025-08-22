@@ -12,7 +12,6 @@ class BackupType(str, Enum):
     """Backup type enumeration."""
 
     FULL = "full"
-    INCREMENTAL = "incremental"
     SELECTIVE = "selective"
 
 

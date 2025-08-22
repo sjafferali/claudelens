@@ -211,7 +211,7 @@ export const CreateBackupDialog: React.FC<CreateBackupDialogProps> = ({
     onOpenChange(false);
   };
 
-  const handleTypeChange = (type: 'full' | 'incremental' | 'selective') => {
+  const handleTypeChange = (type: 'full' | 'selective') => {
     setFormData((prev) => ({ ...prev, type }));
     // Clear filters when switching away from selective
     if (type !== 'selective') {
@@ -323,17 +323,12 @@ export const CreateBackupDialog: React.FC<CreateBackupDialogProps> = ({
           {/* Backup Type */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Backup Type</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[
                 {
                   type: 'full' as const,
                   title: 'Full Backup',
                   description: 'Complete backup of all data',
-                },
-                {
-                  type: 'incremental' as const,
-                  title: 'Incremental',
-                  description: 'Only changes since last backup',
                 },
                 {
                   type: 'selective' as const,

@@ -12,7 +12,7 @@ import {
   Package,
   RefreshCw,
 } from 'lucide-react';
-import axios from 'axios';
+import { apiClient } from '@/api/client';
 
 interface ImportJobStatistics {
   imported: number;
@@ -47,15 +47,13 @@ interface ImportJobsResponse {
 }
 
 async function fetchImportJobs(page: number): Promise<ImportJobsResponse> {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  const response = await axios.get(`${apiUrl}/api/v1/import`, {
+  return apiClient.get('/import', {
     params: {
       page,
       size: 10,
       sort: 'createdAt,desc',
     },
   });
-  return response.data;
 }
 
 export const ImportHistory: React.FC = () => {

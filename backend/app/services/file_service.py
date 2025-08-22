@@ -139,7 +139,12 @@ class FileService:
         Returns:
             Dictionary with file metadata
         """
-        file_ext = format if format != "markdown" else "md"
+        if format == "markdown":
+            file_ext = "md"
+        elif format == "pdf":
+            file_ext = "html"  # Generate HTML that can be printed to PDF
+        else:
+            file_ext = format
         file_path = os.path.join(self.export_dir, f"{job_id}.{file_ext}")
 
         size = 0

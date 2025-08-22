@@ -15,13 +15,17 @@ import type {
   ImportProgressResponse,
 } from '@/api/import-export';
 
-// Type guards for error types
-type ExportError = { code: string; message: string; details?: unknown };
-type ImportError = { itemId: string; error: string; details?: string };
-
-function isImportError(error: ExportError | ImportError): error is ImportError {
-  return 'itemId' in error;
-}
+// Enhanced error type that supports both legacy and new formats
+type ImportErrorDetail = {
+  conversation_index?: number;
+  conversation_id?: string;
+  error?: string;
+  timestamp?: string;
+  itemId?: string; // Legacy support
+  message?: string; // Legacy support
+  details?: string | unknown; // Compatible with API type
+  code?: string; // For export errors
+};
 import {
   CheckCircle,
   AlertCircle,
@@ -395,35 +399,69 @@ export const ProgressDialog: React.FC<ProgressDialogProps> = ({
           {/* Errors */}
           {jobData?.errors && jobData.errors.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-900/20 dark:border-red-800">
-              <h4 className="font-medium text-red-900 dark:text-red-100 mb-2">
-                Errors ({jobData.errors.length})
-              </h4>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {jobData.errors.slice(0, 3).map((error, index) => (
-                  <div
-                    key={index}
-                    className="text-sm text-red-700 dark:text-red-300"
-                  >
-                    {isImportError(error as ExportError | ImportError) ? (
-                      <>
-                        <span className="font-medium">
-                          Item {(error as ImportError).itemId}:
-                        </span>{' '}
-                        {(error as ImportError).error}
-                      </>
-                    ) : (
-                      <>
-                        <span className="font-medium">
-                          {(error as ExportError).code || 'Error'}:
-                        </span>{' '}
-                        {(error as ExportError).message}
-                      </>
-                    )}
-                  </div>
-                ))}
-                {jobData.errors.length > 3 && (
-                  <div className="text-sm text-red-600 dark:text-red-400">
-                    ... and {jobData.errors.length - 3} more errors
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-red-900 dark:text-red-100">
+                  Import Errors ({jobData.errors.length})
+                </h4>
+                {jobData.errors.length > 5 && (
+                  <span className="text-xs text-red-600 dark:text-red-400">
+                    Showing first 5 errors
+                  </span>
+                )}
+              </div>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {jobData.errors.slice(0, 5).map((error, index) => {
+                  const errorDetail = error as ImportErrorDetail;
+                  return (
+                    <div
+                      key={index}
+                      className="bg-white dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-md p-3"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="font-medium text-red-900 dark:text-red-100 text-sm">
+                          {/* New detailed format */}
+                          {errorDetail.conversation_index !== undefined ? (
+                            <>
+                              Conversation #{errorDetail.conversation_index + 1}
+                              {errorDetail.conversation_id &&
+                                errorDetail.conversation_id !== 'unknown' && (
+                                  <span className="ml-2 font-mono text-xs text-red-700 dark:text-red-300">
+                                    ID: {errorDetail.conversation_id}
+                                  </span>
+                                )}
+                            </>
+                          ) : (
+                            /* Legacy format support */
+                            <span>Item {errorDetail.itemId || index + 1}</span>
+                          )}
+                        </div>
+                        {errorDetail.timestamp && (
+                          <span className="text-xs text-red-600 dark:text-red-400">
+                            {new Date(
+                              errorDetail.timestamp
+                            ).toLocaleTimeString()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-red-700 dark:text-red-300">
+                        {errorDetail.error || errorDetail.message}
+                      </div>
+                      {(() => {
+                        const details = errorDetail.details;
+                        return details && typeof details === 'string' ? (
+                          <div className="text-xs text-red-600 dark:text-red-400 mt-1 font-mono">
+                            {details}
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  );
+                })}
+                {jobData.errors.length > 5 && (
+                  <div className="text-center py-2">
+                    <span className="text-sm text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-3 py-1 rounded-full">
+                      {jobData.errors.length - 5} more errors not shown
+                    </span>
                   </div>
                 )}
               </div>

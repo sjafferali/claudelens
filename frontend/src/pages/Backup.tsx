@@ -2,14 +2,7 @@ import * as React from 'react';
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { cn } from '@/utils/cn';
-import {
-  Archive,
-  RotateCcw,
-  Settings,
-  Upload,
-  FileUp,
-  Eye,
-} from 'lucide-react';
+import { Archive, RotateCcw, Upload, FileUp, Eye } from 'lucide-react';
 import { BackupList } from '@/components/backup/BackupList';
 import { CreateBackupDialog } from '@/components/backup/CreateBackupDialog';
 import { Button } from '@/components/common/Button';
@@ -45,11 +38,6 @@ const tabs: Tab[] = [
     id: 'restore',
     label: 'Restore',
     icon: <RotateCcw className="w-4 h-4" />,
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    icon: <Settings className="w-4 h-4" />,
   },
 ];
 
@@ -541,28 +529,6 @@ export function BackupPage() {
         {activeTab === 'restore' && (
           <div className="space-y-6">
             <RestoreFromFile onRestoreStarted={handleRestoreStarted} />
-          </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Backup Settings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <Settings className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    Backup Settings
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Backup scheduling and configuration options will be
-                    available in Phase 2.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
       </div>

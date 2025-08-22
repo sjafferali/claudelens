@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/utils/cn';
 import { AlertCircle, Clock } from 'lucide-react';
-import axios from 'axios';
+import { apiClient } from '@/api/client';
 
 interface RateLimitData {
   export: {
@@ -22,9 +22,7 @@ interface RateLimitData {
 }
 
 async function fetchRateLimits(): Promise<RateLimitData> {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  const response = await axios.get(`${apiUrl}/api/v1/rate-limits`);
-  return response.data;
+  return apiClient.get('/rate-limits');
 }
 
 interface RateLimitIndicatorProps {

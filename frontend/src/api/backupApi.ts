@@ -26,7 +26,7 @@ export interface BackupOptions {
 export interface CreateBackupRequest {
   name: string;
   description?: string;
-  type: 'full' | 'incremental' | 'selective';
+  type: 'full' | 'selective';
   filters?: BackupFilters;
   options?: BackupOptions;
 }
@@ -64,7 +64,7 @@ export interface BackupMetadata {
   created_by?: string;
   size_bytes: number;
   compressed_size_bytes?: number;
-  type: 'full' | 'incremental' | 'selective';
+  type: 'full' | 'selective';
   status:
     | 'pending'
     | 'in_progress'
@@ -179,7 +179,7 @@ export interface PreviewBackupResponse {
   backup_id: string;
   name: string;
   created_at: string;
-  type: 'full' | 'incremental' | 'selective';
+  type: 'full' | 'selective';
   contents: BackupContents;
   filters?: BackupFilters;
   size_bytes: number;

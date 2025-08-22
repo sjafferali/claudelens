@@ -45,7 +45,7 @@ class BackupJob(BaseModel):
     status: Literal[
         "queued", "processing", "completed", "failed", "cancelled"
     ] = "queued"
-    type: Literal["full", "incremental", "selective"]
+    type: Literal["full", "selective"]
     filters: Dict[str, Any] = Field(default_factory=dict)
     options: Dict[str, Any] = Field(default_factory=dict)
     progress: Dict[str, Any] = Field(

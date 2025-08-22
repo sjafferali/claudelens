@@ -508,7 +508,7 @@ class ExportService:
         progress_callback: Optional[Callable] = None,
     ) -> AsyncGenerator[bytes, None]:
         """
-        Generate PDF export (placeholder - requires PDF library).
+        Generate PDF export with basic HTML to PDF conversion.
 
         Args:
             job_id: Export job ID
@@ -518,13 +518,123 @@ class ExportService:
         Yields:
             PDF content in chunks
         """
-        # This is a placeholder - actual PDF generation would require a library like ReportLab
-        # For now, we'll generate a simple text representation
-        yield b"PDF export not yet implemented. Please use JSON, CSV, or Markdown format.\n"
+        # Generate HTML content that can be converted to PDF
+        html_parts = []
+        html_parts.append(
+            """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #666; margin-top: 30px; }
+        .session { margin-bottom: 40px; page-break-inside: avoid; }
+        .message { margin: 15px 0; padding: 10px; border-left: 3px solid #ddd; }
+        .user { border-left-color: #4CAF50; background: #f1f8f4; }
+        .assistant { border-left-color: #2196F3; background: #e3f2fd; }
+        .metadata { font-size: 0.9em; color: #666; margin-top: 5px; }
+        .content { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>ClaudeLens Conversation Export</h1>
+    <p>Generated: """
+            + datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+            + """</p>
+"""
+        )
 
+        tracker = None
         if progress_callback:
-            tracker = ExportProgressTracker(job_id, 1, progress_callback, self.db)
+            tracker = ExportProgressTracker(
+                job_id, len(session_ids), progress_callback, self.db
+            )
+
+        # Process each session
+        for idx, session_id in enumerate(session_ids):
+            try:
+                # Get session data
+                session = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
+                if not session:
+                    continue
+
+                # Get messages for this session
+                messages = (
+                    await self.db.messages.find(
+                        {"sessionId": session.get("sessionId", str(session["_id"]))}
+                    )
+                    .sort("timestamp", 1)
+                    .to_list(None)
+                )
+
+                html_parts.append(
+                    f"""
+    <div class="session">
+        <h2>Session: {session.get('title', 'Untitled')}</h2>
+        <div class="metadata">
+            <p>Session ID: {session.get('sessionId', str(session['_id']))}</p>
+            <p>Started: {session.get('startedAt', 'Unknown')}</p>
+            <p>Messages: {len(messages)}</p>
+        </div>
+"""
+                )
+
+                # Add messages
+                for message in messages:
+                    user_type = message.get("userType", "unknown")
+                    content = self._extract_message_content(message)
+                    timestamp = message.get("timestamp", "")
+
+                    css_class = "user" if user_type == "human" else "assistant"
+
+                    html_parts.append(
+                        f"""
+        <div class="message {css_class}">
+            <strong>{user_type.title()}:</strong>
+            <div class="content">{self._escape_html(content)}</div>
+            <div class="metadata">
+                {timestamp}
+            </div>
+        </div>
+"""
+                    )
+
+                html_parts.append("    </div>")
+
+                if tracker:
+                    await tracker.increment()
+
+            except Exception as e:
+                logger.warning(
+                    f"Error processing session {session_id} for PDF export: {e}"
+                )
+
+        html_parts.append(
+            """
+</body>
+</html>
+"""
+        )
+
+        # Convert HTML to bytes and yield
+        html_content = "".join(html_parts)
+        yield html_content.encode("utf-8")
+
+        if tracker:
             await tracker.complete()
+
+    def _escape_html(self, text: str) -> str:
+        """Escape HTML special characters."""
+        if not text:
+            return ""
+        return (
+            text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&#39;")
+        )
 
     def _format_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Format a message for export."""

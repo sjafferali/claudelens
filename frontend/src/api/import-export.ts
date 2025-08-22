@@ -186,9 +186,12 @@ export interface ImportProgressResponse {
     replaced: number;
   };
   errors?: Array<{
-    itemId: string;
+    conversation_index: number;
+    conversation_id: string;
     error: string;
-    details?: string;
+    timestamp: string;
+    itemId?: string; // Legacy support
+    details?: string; // Legacy support
   }>;
   completedAt?: string;
 }

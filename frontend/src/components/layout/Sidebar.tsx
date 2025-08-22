@@ -10,6 +10,7 @@ import {
   Sun,
   Moon,
   Download,
+  Shield,
 } from 'lucide-react';
 import { useStore } from '@/store';
 
@@ -21,6 +22,7 @@ const navItems = [
   { path: '/search', label: 'Search', icon: Search },
   { path: '/analytics', label: 'Analytics', icon: Activity },
   { path: '/import-export', label: 'Import/Export', icon: Download },
+  { path: '/backup', label: 'Backup & Restore', icon: Shield },
 ];
 
 export default function Sidebar() {

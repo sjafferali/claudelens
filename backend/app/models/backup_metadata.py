@@ -48,7 +48,7 @@ class BackupMetadata(BaseModel):
     created_by: Optional[str] = None
     size_bytes: int
     compressed_size_bytes: Optional[int] = None
-    type: Literal["full", "incremental", "selective"]
+    type: Literal["full", "selective"]
     status: Literal[
         "pending", "in_progress", "completed", "failed", "corrupted", "deleting"
     ]

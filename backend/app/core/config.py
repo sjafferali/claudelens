@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     RESTORE_RATE_LIMIT_PER_HOUR: int = 5
 
     # Backup storage settings
-    BACKUP_STORAGE_PATH: str = "/var/claudelens/backups"
+    BACKUP_STORAGE_PATH: str = "/backups"
     BACKUP_RETENTION_DAYS: int = 30
     BACKUP_MAX_SIZE_GB: int = 100
 

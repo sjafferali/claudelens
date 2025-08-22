@@ -19,7 +19,7 @@
 interface CreateBackupRequest {
   name: string;                    // Required, 3-100 chars, alphanumeric + spaces/dashes
   description?: string;            // Optional, max 500 chars
-  type: BackupType;                // Required: 'full' | 'incremental' | 'selective'
+  type: BackupType;                // Required: 'full' | 'selective'
   filters?: BackupFilters;         // Optional, filtering criteria
   options?: BackupOptions;         // Optional, backup configuration
 }
@@ -48,7 +48,6 @@ interface BackupOptions {
 
 enum BackupType {
   FULL = 'full',
-  INCREMENTAL = 'incremental',
   SELECTIVE = 'selective'
 }
 ```

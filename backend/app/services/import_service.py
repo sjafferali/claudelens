@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Any, Dict, Literal, Optional
 
 import aiofiles
-from bson import ObjectId
+from bson import Decimal128, ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.logging import get_logger
@@ -552,8 +552,24 @@ class ImportService:
                         )
 
                 except Exception as e:
-                    logger.error(f"Error importing conversation: {e}")
+                    logger.error(f"Error importing conversation: {e}", exc_info=True)
                     statistics["failed"] += 1
+
+                    # Add detailed error information to job
+                    error_details = {
+                        "conversation_index": idx,
+                        "conversation_id": conv.get(
+                            field_mapping.get("id", "id"), "unknown"
+                        ),
+                        "error": str(e),
+                        "timestamp": datetime.now(UTC).isoformat(),
+                    }
+
+                    # Update job with error details
+                    await self.db.import_jobs.update_one(
+                        {"_id": ObjectId(job_id)},
+                        {"$push": {"errors": error_details}},
+                    )
 
             # Update job completion
             await self.db.import_jobs.update_one(
@@ -657,13 +673,22 @@ class ImportService:
 
     def _map_conversation_to_session(self, conv: Dict, field_mapping: Dict) -> Dict:
         """Map imported conversation to session model."""
+        # Get summary and ensure it's a string (required by schema)
+        summary = conv.get(field_mapping.get("summary", "summary"))
+        if summary is None:
+            summary = ""  # Convert null to empty string
+
+        # Get cost and convert to Decimal128 (required by schema)
+        cost_value = conv.get("costUsd", conv.get("cost_usd", 0.0))
+        total_cost = Decimal128(str(cost_value))
+
         return {
             "sessionId": conv.get(field_mapping.get("id", "id"), str(ObjectId())),
             "projectId": ObjectId(conv.get("projectId"))
             if conv.get("projectId")
             else None,
             "title": conv.get(field_mapping.get("title", "title"), ""),
-            "summary": conv.get(field_mapping.get("summary", "summary")),
+            "summary": summary,
             "startedAt": datetime.fromisoformat(
                 conv.get("createdAt", datetime.now(UTC).isoformat()).replace(
                     "Z", "+00:00"
@@ -675,7 +700,7 @@ class ImportService:
                 )
             ),
             "messageCount": len(conv.get("messages", [])),
-            "totalCost": conv.get("costUsd", conv.get("cost_usd", 0.0)),
+            "totalCost": total_cost,
             "createdAt": datetime.now(UTC),
             "updatedAt": datetime.now(UTC),
         }
