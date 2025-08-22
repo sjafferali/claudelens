@@ -7,7 +7,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any, AsyncGenerator, Callable, Dict, Optional
 
-from bson import ObjectId
+from bson import Decimal128, ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.config import settings
@@ -461,13 +461,23 @@ class BackupService:
         for key, value in document.items():
             if isinstance(value, ObjectId):
                 serialized[key] = str(value)
+            elif isinstance(value, Decimal128):
+                serialized[key] = float(value.to_decimal())
             elif isinstance(value, datetime):
                 serialized[key] = value.isoformat()
             elif isinstance(value, dict):
                 serialized[key] = self._serialize_document(value)
             elif isinstance(value, list):
                 serialized[key] = [
-                    self._serialize_document(item) if isinstance(item, dict) else item
+                    self._serialize_document(item)
+                    if isinstance(item, dict)
+                    else float(item.to_decimal())
+                    if isinstance(item, Decimal128)
+                    else str(item)
+                    if isinstance(item, ObjectId)
+                    else item.isoformat()
+                    if isinstance(item, datetime)
+                    else item
                     for item in value
                 ]
             else:

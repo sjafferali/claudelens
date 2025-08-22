@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Treemap, ResponsiveContainer, Tooltip } from 'recharts';
 import { DirectoryNode } from '../api/analytics';
 import { formatCurrency } from '../utils/format';
@@ -44,6 +44,12 @@ export const DirectoryTreemap: React.FC<DirectoryTreemapProps> = ({
 }) => {
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
   const [currentNode, setCurrentNode] = useState<DirectoryNode>(data);
+
+  // Update currentNode when data prop changes
+  useEffect(() => {
+    setCurrentNode(data);
+    setBreadcrumbs([]); // Reset breadcrumbs when data changes
+  }, [data]);
 
   // Transform directory tree to treemap data format
   const treemapData = useMemo(() => {

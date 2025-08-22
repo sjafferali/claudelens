@@ -530,18 +530,18 @@ export const CreateBackupDialog: React.FC<CreateBackupDialogProps> = ({
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Enable compression
+                    Enable compression (ZSTD)
                   </span>
                 </label>
                 {formData.options?.compress && (
                   <div className="ml-6">
                     <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                      Compression Level (1-9)
+                      Compression Level (ZSTD: 1-22)
                     </label>
                     <input
                       type="range"
                       min="1"
-                      max="9"
+                      max="22"
                       value={formData.options?.compression_level || 3}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -561,6 +561,15 @@ export const CreateBackupDialog: React.FC<CreateBackupDialogProps> = ({
                       </span>
                       <span>Best</span>
                     </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {(formData.options?.compression_level || 3) <= 3
+                        ? 'Fast compression (1-3)'
+                        : (formData.options?.compression_level || 3) <= 9
+                          ? 'Balanced speed and size (4-9)'
+                          : (formData.options?.compression_level || 3) <= 16
+                            ? 'High compression (10-16)'
+                            : 'Maximum compression (17-22)'}
+                    </p>
                   </div>
                 )}
               </div>

@@ -40,7 +40,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
   const [compressionOptions, setCompressionOptions] = React.useState({
     enabled: false,
     format: 'tar.gz' as 'none' | 'zstd' | 'tar.gz',
-    level: 3,
+    level: 6, // Default for tar.gz
   });
 
   // Get projects from API
@@ -334,6 +334,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                       setCompressionOptions((prev) => ({
                         ...prev,
                         format: 'tar.gz',
+                        level: Math.min(prev.level, 9), // Ensure level is within GZIP range
                       }))
                     }
                     className={cn(
@@ -343,7 +344,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     )}
                   >
-                    <div className="font-medium">tar.gz</div>
+                    <div className="font-medium">tar.gz (GZIP)</div>
                     <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                       Universal compatibility
                     </div>
@@ -355,6 +356,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                       setCompressionOptions((prev) => ({
                         ...prev,
                         format: 'zstd',
+                        level: prev.format === 'zstd' ? prev.level : 3, // Use default ZSTD level if switching from tar.gz
                       }))
                     }
                     className={cn(
@@ -364,7 +366,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     )}
                   >
-                    <div className="font-medium">zstd</div>
+                    <div className="font-medium">ZSTD</div>
                     <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                       Better compression, faster
                     </div>
@@ -376,13 +378,14 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
               <div>
                 <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
                   Compression Level: {compressionOptions.level}
+                  {compressionOptions.format === 'zstd' ? ' (1-22)' : ' (1-9)'}
                 </label>
                 <div className="flex items-center space-x-4">
                   <span className="text-xs text-gray-500">Faster</span>
                   <input
                     type="range"
                     min="1"
-                    max="9"
+                    max={compressionOptions.format === 'zstd' ? 22 : 9}
                     value={compressionOptions.level}
                     onChange={(e) =>
                       setCompressionOptions((prev) => ({
@@ -395,13 +398,19 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                   <span className="text-xs text-gray-500">Smaller</span>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {compressionOptions.level <= 3 &&
-                    'Fast compression, larger file'}
-                  {compressionOptions.level > 3 &&
-                    compressionOptions.level <= 6 &&
-                    'Balanced speed and size'}
-                  {compressionOptions.level > 6 &&
-                    'Maximum compression, slower'}
+                  {compressionOptions.format === 'zstd'
+                    ? compressionOptions.level <= 3
+                      ? 'Fast compression (1-3)'
+                      : compressionOptions.level <= 9
+                        ? 'Balanced speed and size (4-9)'
+                        : compressionOptions.level <= 16
+                          ? 'High compression (10-16)'
+                          : 'Maximum compression (17-22)'
+                    : compressionOptions.level <= 3
+                      ? 'Fast compression, larger file'
+                      : compressionOptions.level <= 6
+                        ? 'Balanced speed and size'
+                        : 'Maximum compression, slower'}
                 </p>
               </div>
 
