@@ -7,17 +7,19 @@ import { apiClient } from '@/api/client';
 interface RateLimitData {
   export: {
     current: number;
-    limit: number;
-    remaining: number;
-    window_hours: number;
-    reset_in_seconds: number | null;
+    limit: number | 'unlimited';
+    remaining: number | 'unlimited';
+    reset_in_seconds?: number | null;
   };
   import: {
     current: number;
-    limit: number;
-    remaining: number;
+    limit: number | 'unlimited';
+    remaining: number | 'unlimited';
+    reset_in_seconds?: number | null;
+  };
+  settings?: {
+    rate_limiting_enabled: boolean;
     window_hours: number;
-    reset_in_seconds: number | null;
   };
 }
 
@@ -46,6 +48,41 @@ export const RateLimitIndicator: React.FC<RateLimitIndicatorProps> = ({
   }
 
   const limits = data[type];
+
+  // Check if rate limiting is disabled
+  if (data.settings && !data.settings.rate_limiting_enabled) {
+    return (
+      <div
+        className={cn(
+          'flex items-center gap-2 px-3 py-2 rounded-lg border bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700',
+          className
+        )}
+      >
+        <Clock className="w-4 h-4 text-gray-400" />
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          Rate limiting disabled
+        </span>
+      </div>
+    );
+  }
+
+  // Handle unlimited limits
+  if (limits.limit === 'unlimited' || limits.limit === 0) {
+    return (
+      <div
+        className={cn(
+          'flex items-center gap-2 px-3 py-2 rounded-lg border bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700',
+          className
+        )}
+      >
+        <Clock className="w-4 h-4 text-gray-400" />
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {type === 'export' ? 'Export' : 'Import'}: Unlimited
+        </span>
+      </div>
+    );
+  }
+
   const percentUsed = (limits.current / limits.limit) * 100;
   const isNearLimit = percentUsed >= 80;
   const isAtLimit = limits.remaining === 0;

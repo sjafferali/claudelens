@@ -323,9 +323,11 @@ export default function SessionDetail() {
   }, [messagesWithBranches, activeBranches]);
 
   // Filter messages based on search and track matches
-  const filteredMessages = filteredMessagesWithBranches.filter((msg) =>
-    msg.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredMessages = filteredMessagesWithBranches.filter((msg) => {
+    // Handle null or undefined content
+    const content = msg.content || '';
+    return content.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   // Track all messages that match the search
   useEffect(() => {
@@ -370,7 +372,7 @@ export default function SessionDetail() {
   useEffect(() => {
     if (allMessages.length > 0) {
       const toolResultIds = allMessages
-        .filter((msg) => msg.content.startsWith('[Tool Result:'))
+        .filter((msg) => msg.content && msg.content.startsWith('[Tool Result:'))
         .map((msg) => msg._id);
       setCollapsedToolResults(new Set(toolResultIds));
     }
@@ -525,7 +527,8 @@ export default function SessionDetail() {
 
   const handleSaveToPromptLibrary = useCallback((message: Message) => {
     // Generate a suggested name from the first line or first 50 chars
-    const firstLine = message.content.split('\n')[0].trim();
+    const content = message.content || '';
+    const firstLine = content.split('\n')[0].trim();
     const suggestedName =
       firstLine.length > 50
         ? firstLine.substring(0, 50) + '...'
@@ -1343,7 +1346,7 @@ function TimelineView({
     // Handle tool_result messages
     if (message.type === 'tool_result') {
       // Try to identify the tool type from content
-      const content = message.content.trim();
+      const content = (message.content || '').trim();
 
       // TodoWrite results
       if (content.startsWith('Todos have been modified successfully')) {
@@ -1738,6 +1741,7 @@ function TimelineView({
     // Handle assistant messages with tool uses
     if (
       message.type === 'assistant' &&
+      message.content &&
       (message.content.startsWith('Reading file:') ||
         message.content.startsWith('Writing to file:') ||
         message.content.startsWith('Editing file:') ||
@@ -1754,6 +1758,7 @@ function TimelineView({
     // For example, only for tool_use messages or messages that start with pure JSON
     if (
       message.type === 'tool_use' &&
+      message.content &&
       message.content.trim().startsWith('{') &&
       message.content.includes('"type":')
     ) {
@@ -1986,7 +1991,8 @@ function TimelineView({
                     </div>
 
                     {/* Tool Result - Collapsible */}
-                    {message.content.startsWith('[Tool Result:') &&
+                    {message.content &&
+                    message.content.startsWith('[Tool Result:') &&
                     isToolResultCollapsed ? (
                       <div className="inline-flex items-center gap-2 bg-layer-tertiary px-3 py-1 rounded-md text-sm text-muted-c">
                         <span>Tool Result</span>
@@ -2039,18 +2045,19 @@ function TimelineView({
                                     Show less
                                   </button>
                                 )}
-                                {message.content.startsWith(
-                                  '[Tool Result:'
-                                ) && (
-                                  <button
-                                    onClick={() =>
-                                      onToggleToolResult(message._id)
-                                    }
-                                    className="mt-2 ml-4 text-sm text-primary hover:text-primary-hover"
-                                  >
-                                    Hide
-                                  </button>
-                                )}
+                                {message.content &&
+                                  message.content.startsWith(
+                                    '[Tool Result:'
+                                  ) && (
+                                    <button
+                                      onClick={() =>
+                                        onToggleToolResult(message._id)
+                                      }
+                                      className="mt-2 ml-4 text-sm text-primary hover:text-primary-hover"
+                                    >
+                                      Hide
+                                    </button>
+                                  )}
                               </>
                             );
                           }

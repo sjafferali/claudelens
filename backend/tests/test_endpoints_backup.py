@@ -197,8 +197,12 @@ class TestCreateBackupEndpoint:
 
         # Mock rate limit check
         with patch(
-            "app.api.api_v1.endpoints.backup.check_backup_rate_limit", return_value=True
-        ):
+            "app.api.api_v1.endpoints.backup.RateLimitService"
+        ) as mock_rate_limit:
+            mock_rate_limit_instance = AsyncMock()
+            mock_rate_limit_instance.check_rate_limit.return_value = (True, {})
+            mock_rate_limit.return_value = mock_rate_limit_instance
+
             # Make request
             backup_request = {
                 "name": "Test Backup",
@@ -228,8 +232,12 @@ class TestCreateBackupEndpoint:
         mock_backup_service.return_value = mock_service
 
         with patch(
-            "app.api.api_v1.endpoints.backup.check_backup_rate_limit", return_value=True
-        ):
+            "app.api.api_v1.endpoints.backup.RateLimitService"
+        ) as mock_rate_limit:
+            mock_rate_limit_instance = AsyncMock()
+            mock_rate_limit_instance.check_rate_limit.return_value = (True, {})
+            mock_rate_limit.return_value = mock_rate_limit_instance
+
             # Make request
             backup_request = {
                 "name": "Selective Backup",
@@ -256,9 +264,15 @@ class TestCreateBackupEndpoint:
         """Test rate limit enforcement."""
         # Mock rate limit exceeded
         with patch(
-            "app.api.api_v1.endpoints.backup.check_backup_rate_limit",
-            return_value=False,
-        ):
+            "app.api.api_v1.endpoints.backup.RateLimitService"
+        ) as mock_rate_limit:
+            mock_rate_limit_instance = AsyncMock()
+            mock_rate_limit_instance.check_rate_limit.return_value = (
+                False,
+                {"message": "Rate limit exceeded"},
+            )
+            mock_rate_limit.return_value = mock_rate_limit_instance
+
             backup_request = {
                 "name": "Rate Limited Backup",
                 "type": "full",
@@ -649,19 +663,27 @@ class TestCreateRestoreEndpoint:
         mock_service.create_restore_job.return_value = restore_response
         mock_restore_service.return_value = mock_service
 
-        # Make request
-        restore_request = {
-            "backup_id": backup_id,
-            "mode": "full",
-            "conflict_resolution": "skip",
-        }
-        response = test_client.post("/api/v1/restore/", json=restore_request)
+        # Mock rate limit check
+        with patch(
+            "app.api.api_v1.endpoints.restore.RateLimitService"
+        ) as mock_rate_limit:
+            mock_rate_limit_instance = AsyncMock()
+            mock_rate_limit_instance.check_rate_limit.return_value = (True, {})
+            mock_rate_limit.return_value = mock_rate_limit_instance
 
-        # Verify
-        assert response.status_code == 201
-        data = response.json()
-        assert data["job_id"] == "507f1f77bcf86cd799439015"
-        assert data["backup_id"] == "507f1f77bcf86cd799439012"
+            # Make request
+            restore_request = {
+                "backup_id": backup_id,
+                "mode": "full",
+                "conflict_resolution": "skip",
+            }
+            response = test_client.post("/api/v1/restore/", json=restore_request)
+
+            # Verify
+            assert response.status_code == 201
+            data = response.json()
+            assert data["job_id"] == "507f1f77bcf86cd799439015"
+            assert data["backup_id"] == "507f1f77bcf86cd799439012"
 
     def test_create_restore_selective_mode(
         self, test_client: TestClient, mock_restore_service
@@ -688,22 +710,30 @@ class TestCreateRestoreEndpoint:
         mock_service.create_restore_job.return_value = restore_response
         mock_restore_service.return_value = mock_service
 
-        # Make request
-        restore_request = {
-            "backup_id": backup_id,
-            "mode": "selective",
-            "selections": {
-                "collections": ["projects", "sessions"],
-                "projects": ["project1"],
-            },
-            "conflict_resolution": "overwrite",
-        }
-        response = test_client.post("/api/v1/restore/", json=restore_request)
+        # Mock rate limit check
+        with patch(
+            "app.api.api_v1.endpoints.restore.RateLimitService"
+        ) as mock_rate_limit:
+            mock_rate_limit_instance = AsyncMock()
+            mock_rate_limit_instance.check_rate_limit.return_value = (True, {})
+            mock_rate_limit.return_value = mock_rate_limit_instance
 
-        # Verify
-        assert response.status_code == 201
-        data = response.json()
-        assert data["mode"] == "selective"
+            # Make request
+            restore_request = {
+                "backup_id": backup_id,
+                "mode": "selective",
+                "selections": {
+                    "collections": ["projects", "sessions"],
+                    "projects": ["project1"],
+                },
+                "conflict_resolution": "overwrite",
+            }
+            response = test_client.post("/api/v1/restore/", json=restore_request)
+
+            # Verify
+            assert response.status_code == 201
+            data = response.json()
+            assert data["mode"] == "selective"
 
 
 class TestUploadRestoreEndpoint:
@@ -737,38 +767,54 @@ class TestUploadRestoreEndpoint:
             mock_service.create_restore_job_from_upload.return_value = restore_response
             mock_restore_service.return_value = mock_service
 
-            # Create test file
-            test_file_content = b"fake backup file content"
-            files = {
-                "file": (
-                    "backup.claudelens",
-                    BytesIO(test_file_content),
-                    "application/octet-stream",
+            # Mock rate limit check
+            with patch(
+                "app.api.api_v1.endpoints.restore.RateLimitService"
+            ) as mock_rate_limit:
+                mock_rate_limit_instance = AsyncMock()
+                mock_rate_limit_instance.check_rate_limit.return_value = (True, {})
+                mock_rate_limit.return_value = mock_rate_limit_instance
+
+                # Create test file
+                test_file_content = b"fake backup file content"
+                files = {
+                    "file": (
+                        "backup.claudelens",
+                        BytesIO(test_file_content),
+                        "application/octet-stream",
+                    )
+                }
+
+                # Make request
+                response = test_client.post(
+                    "/api/v1/restore/upload",
+                    files=files,
+                    params={"mode": "full", "conflict_resolution": "skip"},
                 )
-            }
 
-            # Make request
-            response = test_client.post(
-                "/api/v1/restore/upload",
-                files=files,
-                params={"mode": "full", "conflict_resolution": "skip"},
-            )
-
-        # Verify
-        assert response.status_code == 202
-        data = response.json()
-        assert "job_id" in data
+                # Verify
+                assert response.status_code == 202
+                data = response.json()
+                assert "job_id" in data
 
     def test_upload_restore_file_validation(self, test_client: TestClient):
         """Test file upload validation."""
-        # Test missing file - FastAPI returns 422 for missing required field
-        response = test_client.post("/api/v1/restore/upload")
-        assert response.status_code == 422
+        # Mock rate limit check for all requests
+        with patch(
+            "app.api.api_v1.endpoints.restore.RateLimitService"
+        ) as mock_rate_limit:
+            mock_rate_limit_instance = AsyncMock()
+            mock_rate_limit_instance.check_rate_limit.return_value = (True, {})
+            mock_rate_limit.return_value = mock_rate_limit_instance
 
-        # Test invalid file type - endpoint returns 400 for wrong file type
-        files = {"file": ("backup.txt", BytesIO(b"content"), "text/plain")}
-        response = test_client.post("/api/v1/restore/upload", files=files)
-        assert response.status_code == 400
+            # Test missing file - FastAPI returns 422 for missing required field
+            response = test_client.post("/api/v1/restore/upload")
+            assert response.status_code == 422
+
+            # Test invalid file type - endpoint returns 400 for wrong file type
+            files = {"file": ("backup.txt", BytesIO(b"content"), "text/plain")}
+            response = test_client.post("/api/v1/restore/upload", files=files)
+            assert response.status_code == 400
 
 
 class TestGetRestoreStatusEndpoint:

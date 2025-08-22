@@ -2,9 +2,10 @@ import * as React from 'react';
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { cn } from '@/utils/cn';
-import { Archive, RotateCcw, Upload, FileUp, Eye } from 'lucide-react';
+import { Archive, RotateCcw, Upload, FileUp, Eye, Clock } from 'lucide-react';
 import { BackupList } from '@/components/backup/BackupList';
 import { CreateBackupDialog } from '@/components/backup/CreateBackupDialog';
+import { RestoreHistory } from '@/components/backup/RestoreHistory';
 import { Button } from '@/components/common/Button';
 import {
   Card,
@@ -38,6 +39,11 @@ const tabs: Tab[] = [
     id: 'restore',
     label: 'Restore',
     icon: <RotateCcw className="w-4 h-4" />,
+  },
+  {
+    id: 'history',
+    label: 'Restore History',
+    icon: <Clock className="w-4 h-4" />,
   },
 ];
 
@@ -529,6 +535,12 @@ export function BackupPage() {
         {activeTab === 'restore' && (
           <div className="space-y-6">
             <RestoreFromFile onRestoreStarted={handleRestoreStarted} />
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          <div className="space-y-6">
+            <RestoreHistory onRefresh={() => {}} />
           </div>
         )}
       </div>

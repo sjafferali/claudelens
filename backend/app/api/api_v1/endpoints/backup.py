@@ -1,15 +1,14 @@
 """Backup API endpoints."""
 
 import math
-from datetime import UTC, datetime, timedelta
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any, Dict
 
 from bson import ObjectId
 from fastapi import HTTPException, Query, WebSocket
 from fastapi.responses import StreamingResponse
 
 from app.api.dependencies import CommonDeps
-from app.core.config import settings
 from app.core.custom_router import APIRouter
 from app.core.logging import get_logger
 from app.schemas.backup_schemas import (
@@ -21,33 +20,13 @@ from app.schemas.backup_schemas import (
 )
 from app.services.backup_service import BackupService
 from app.services.file_service import FileService
+from app.services.rate_limit_service import RateLimitService
 from app.services.websocket_manager import connection_manager
 
 router = APIRouter()
 logger = get_logger(__name__)
 
-# Rate limiting tracking (simple in-memory for now)
-backup_rate_limit: Dict[str, List[datetime]] = {}
-
-
-async def check_backup_rate_limit(user_id: str) -> bool:
-    """Check if user has exceeded backup rate limit."""
-    now = datetime.now(UTC)
-    window_ago = now - timedelta(hours=settings.RATE_LIMIT_WINDOW_HOURS)
-
-    if user_id not in backup_rate_limit:
-        backup_rate_limit[user_id] = []
-
-    # Clean old entries
-    backup_rate_limit[user_id] = [
-        timestamp for timestamp in backup_rate_limit[user_id] if timestamp > window_ago
-    ]
-
-    if len(backup_rate_limit[user_id]) >= settings.BACKUP_RATE_LIMIT_PER_HOUR:
-        return False
-
-    backup_rate_limit[user_id].append(now)
-    return True
+# Rate limiting now handled by RateLimitService
 
 
 async def broadcast_backup_progress(job_id: str, progress: Dict[str, Any]) -> None:
@@ -82,11 +61,14 @@ async def create_backup(
     # In production, this should be controlled by configuration
     user_id = "anonymous"
 
-    # Check rate limit
-    if not await check_backup_rate_limit(user_id):
+    # Check rate limit using the new service
+    rate_limit_service = RateLimitService(db)
+    allowed, info = await rate_limit_service.check_rate_limit(user_id, "backup")
+
+    if not allowed:
         raise HTTPException(
             status_code=429,
-            detail=f"Rate limit exceeded. Maximum {settings.BACKUP_RATE_LIMIT_PER_HOUR} backups per {settings.RATE_LIMIT_WINDOW_HOURS} hour(s).",
+            detail=info.get("message", "Rate limit exceeded"),
         )
 
     # Create backup job

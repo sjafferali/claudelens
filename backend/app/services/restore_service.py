@@ -630,6 +630,53 @@ class RestoreService:
                 # Remove metadata fields
                 doc = {k: v for k, v in document.items() if not k.startswith("_")}
 
+                # Check if document should be restored in selective mode
+                if (
+                    options.get("mode") == "selective"
+                    or options.get("mode") == RestoreMode.SELECTIVE
+                ):
+                    selections = options.get("selections", {})
+                    if selections:
+                        criteria = selections.get("criteria", {})
+
+                        # Filter by project IDs
+                        if collection_name == "projects" and criteria.get(
+                            "project_ids"
+                        ):
+                            if str(doc.get("_id", "")) not in criteria["project_ids"]:
+                                stats["skipped"] += 1
+                                continue
+
+                        # Filter by session IDs
+                        if collection_name == "sessions":
+                            session_id = str(doc.get("_id", ""))
+                            project_id = str(doc.get("projectId", ""))
+
+                            # Check if session is explicitly selected
+                            if (
+                                criteria.get("session_ids")
+                                and session_id not in criteria["session_ids"]
+                            ):
+                                # Also check if its project is selected
+                                if (
+                                    not criteria.get("project_ids")
+                                    or project_id not in criteria["project_ids"]
+                                ):
+                                    stats["skipped"] += 1
+                                    continue
+
+                        # Filter messages by their session
+                        if collection_name == "messages":
+                            session_id = doc.get("sessionId", "")
+                            # Check if this message's session is being restored
+                            if (
+                                criteria.get("session_ids")
+                                and session_id not in criteria["session_ids"]
+                            ):
+                                # Skip this message as its session is not selected
+                                stats["skipped"] += 1
+                                continue
+
                 # Handle ObjectId conversion
                 if "_id" in doc and isinstance(doc["_id"], str):
                     original_id = doc["_id"]
@@ -1153,14 +1200,52 @@ class RestoreService:
                 1 for k, v in contents.items() if k.endswith("_count") and v > 0
             )
 
-            # Build collection previews
-            for key, count in contents.items():
-                if key.endswith("_count") and key != "total_documents":
-                    collection_name = key.replace("_count", "s")
+            # Try to get sample data from the backup file
+            try:
+                sample_limit = 10  # Limit samples per collection
+                samples_by_collection: Dict[str, List[Dict[str, Any]]] = {}
+                current_collection = None
+                collection_counts: Dict[str, int] = {}
+
+                # Stream through backup to get samples
+                async for document in self._stream_backup_data(backup_id):
+                    if "collection" in document:
+                        current_collection = document["collection"]
+                        if current_collection not in samples_by_collection:
+                            samples_by_collection[current_collection] = []
+                            collection_counts[current_collection] = 0
+                    elif (
+                        current_collection
+                        and collection_counts[current_collection] < sample_limit
+                    ):
+                        # Add sample document
+                        samples_by_collection[current_collection].append(document)
+                        collection_counts[current_collection] += 1
+
+                    # Stop if we have enough samples
+                    if all(
+                        count >= sample_limit for count in collection_counts.values()
+                    ):
+                        break
+
+                # Add samples to preview data
+                for collection_name, samples in samples_by_collection.items():
                     preview_data["collections"][collection_name] = {
-                        "count": count if isinstance(count, int) else 0,
-                        "sample_data": [],  # Would need to read from file for actual samples
+                        "count": contents.get(
+                            f"{collection_name[:-1]}_count", len(samples)
+                        ),
+                        "sample_data": samples,
                     }
+            except Exception as e:
+                logger.warning(f"Could not extract sample data from backup: {e}")
+                # Fall back to metadata only
+                for key, count in contents.items():
+                    if key.endswith("_count") and key != "total_documents":
+                        collection_name = key.replace("_count", "s")
+                        preview_data["collections"][collection_name] = {
+                            "count": count if isinstance(count, int) else 0,
+                            "sample_data": [],
+                        }
 
         return preview_data
 

@@ -362,7 +362,7 @@ class AnalyticsService:
 
         # Aggregation pipeline
         pipeline: list[dict[str, Any]] = [
-            {"$match": {**time_filter, "model": {"$exists": True}}},
+            {"$match": {**time_filter, "model": {"$exists": True, "$nin": [None, ""]}}},
             {
                 "$group": {
                     "_id": "$model",
@@ -373,6 +373,7 @@ class AnalyticsService:
                     "avgOutputTokens": {"$avg": "$tokensOutput"},
                 }
             },
+            {"$match": {"_id": {"$ne": None}}},  # Additional filter after grouping
             {"$sort": {"count": -1}},
         ]
 
@@ -387,10 +388,13 @@ class AnalyticsService:
 
         for result in results:
             model = result["_id"]
+            # Skip if model is None (extra safety check)
+            if model is None:
+                continue
             count = result["count"]
             total_cost = self._safe_float(result.get("totalCost", 0))
 
-            # Track most/least used
+            # Track most/least used (moved after None check)
             if count > max_count:
                 max_count = count
                 most_used = model
@@ -406,9 +410,9 @@ class AnalyticsService:
                     avg_cost_per_message=round(
                         total_cost / count if count > 0 else 0, 4
                     ),
-                    avg_response_time_ms=result["avgResponseTime"],
-                    avg_tokens_input=result["avgInputTokens"],
-                    avg_tokens_output=result["avgOutputTokens"],
+                    avg_response_time_ms=result.get("avgResponseTime") or 0,
+                    avg_tokens_input=result.get("avgInputTokens") or 0,
+                    avg_tokens_output=result.get("avgOutputTokens") or 0,
                 )
             )
 

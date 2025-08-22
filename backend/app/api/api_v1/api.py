@@ -9,6 +9,7 @@ from app.api.api_v1.endpoints import (
     messages,
     projects,
     prompts,
+    rate_limit_settings,
     restore,
     search,
     sessions,
@@ -54,6 +55,11 @@ api_router.include_router(import_export.router, prefix="", tags=["import-export"
 # Backup and restore endpoints
 api_router.include_router(backup.router, prefix="/backups", tags=["backup"])
 api_router.include_router(restore.router, prefix="/restore", tags=["restore"])
+
+# Rate limit settings endpoints
+api_router.include_router(
+    rate_limit_settings.router, prefix="/settings", tags=["settings"]
+)
 
 
 @api_router.get("/health")

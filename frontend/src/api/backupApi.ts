@@ -275,4 +275,37 @@ export const backupApi = {
 
   previewBackup: (backupId: string): Promise<PreviewBackupResponse> =>
     apiClient.get(`/restore/preview/${backupId}`),
+
+  listRestoreJobs: (params?: {
+    page?: number;
+    size?: number;
+    sort?: string;
+    status?: string;
+  }): Promise<{
+    items: Array<{
+      job_id: string;
+      backup_id?: string;
+      backup_name: string;
+      status: string;
+      mode: string;
+      conflict_resolution?: string;
+      created_at: string;
+      started_at?: string;
+      completed_at?: string;
+      statistics: Record<string, number>;
+      errors: Array<{ item_id: string; error: string; details?: string }>;
+      progress: {
+        processed: number;
+        total: number;
+        percentage: number;
+        current_item?: string;
+      };
+    }>;
+    pagination: {
+      page: number;
+      size: number;
+      total_elements: number;
+      total_pages: number;
+    };
+  }> => apiClient.get('/restore/jobs', { params }),
 };

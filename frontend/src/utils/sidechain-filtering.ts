@@ -80,9 +80,9 @@ export interface SidechainTypeInfo {
 }
 
 export function getSidechainType(message: Message): SidechainTypeInfo {
-  const content = message.content.toLowerCase();
+  const content = (message.content || '').toLowerCase();
 
-  if (message.type === 'tool_use') {
+  if (message.type === 'tool_use' && message.content) {
     try {
       const parsed = JSON.parse(message.content);
       const toolName = (parsed.name || '').toLowerCase();

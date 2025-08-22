@@ -2,9 +2,11 @@
 
 import json
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any, AsyncGenerator, Callable, Dict, List, Literal, Optional
 
 from bson import ObjectId
+from bson.decimal128 import Decimal128
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.logging import get_logger
@@ -12,6 +14,22 @@ from app.models.export_job import ExportJob
 from app.services.file_service import FileService
 
 logger = get_logger(__name__)
+
+
+class MongoJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles MongoDB Decimal128 types."""
+
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, Decimal128):
+            # Convert Decimal128 to float for JSON serialization
+            return float(obj.to_decimal())
+        elif isinstance(obj, Decimal):
+            return float(obj)
+        elif isinstance(obj, ObjectId):
+            return str(obj)
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 
 class ExportProgressTracker:
@@ -316,6 +334,11 @@ class ExportService:
                     {"sessionId": session.get("sessionId")}
                 ).to_list(length=None)
 
+                # Convert totalCost from Decimal128 to float if needed
+                total_cost = session.get("totalCost", 0.0)
+                if isinstance(total_cost, Decimal128):
+                    total_cost = float(total_cost.to_decimal())
+
                 export_data = {
                     "id": str(session["_id"]),
                     "title": session.get("title", ""),
@@ -330,14 +353,14 @@ class ExportService:
                     if session.get("endedAt")
                     else None,
                     "model": messages[0].get("model") if messages else "unknown",
-                    "costUsd": session.get("totalCost", 0.0),
+                    "costUsd": total_cost,
                     "messageCount": session.get("messageCount", 0),
                     "tags": [],
                     "metadata": {},
                     "messages": [self._format_message(m) for m in messages],
                 }
 
-                yield json.dumps(export_data).encode("utf-8")
+                yield json.dumps(export_data, cls=MongoJSONEncoder).encode("utf-8")
 
                 if tracker:
                     await tracker.increment()
@@ -406,6 +429,11 @@ class ExportService:
                     {"sessionId": session.get("sessionId")}
                 )
 
+                # Convert totalCost from Decimal128 to float if needed
+                total_cost = session.get("totalCost", 0.0)
+                if isinstance(total_cost, Decimal128):
+                    total_cost = float(total_cost.to_decimal())
+
                 writer.writerow(
                     [
                         str(session["_id"]),
@@ -415,7 +443,7 @@ class ExportService:
                         if session.get("startedAt")
                         else "",
                         session.get("messageCount", 0),
-                        session.get("totalCost", 0.0),
+                        total_cost,
                         first_message.get("model", "") if first_message else "",
                     ]
                 )
@@ -468,6 +496,11 @@ class ExportService:
             if not session:
                 continue
 
+            # Convert totalCost from Decimal128 to float if needed
+            total_cost = session.get("totalCost", 0.0)
+            if isinstance(total_cost, Decimal128):
+                total_cost = float(total_cost.to_decimal())
+
             # Session header
             yield f"## {idx}. {session.get('title', 'Untitled Session')}\n\n".encode(
                 "utf-8"
@@ -477,7 +510,7 @@ class ExportService:
                 "utf-8"
             )
             yield f"**Messages**: {session.get('messageCount', 0)}\n".encode("utf-8")
-            yield f"**Cost**: ${session.get('totalCost', 0.0):.4f}\n\n".encode("utf-8")
+            yield f"**Cost**: ${total_cost:.4f}\n\n".encode("utf-8")
 
             if session.get("summary"):
                 yield f"### Summary\n{session['summary']}\n\n".encode("utf-8")
@@ -660,24 +693,48 @@ class ExportService:
 
     def _format_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Format a message for export."""
+        # Convert costUsd from Decimal128 to float if needed
+        cost_usd = message.get("costUsd")
+        if isinstance(cost_usd, Decimal128):
+            cost_usd = float(cost_usd.to_decimal())
+
+        # Determine message type - check both 'type' and 'userType' fields
+        msg_type = message.get("type") or message.get("userType") or "unknown"
+
         return {
             "id": str(message.get("_id", "")),
-            "type": message.get("userType", "unknown"),
+            "type": msg_type,
             "content": self._extract_message_content(message),
             "timestamp": message["timestamp"].isoformat()
             if message.get("timestamp") and hasattr(message["timestamp"], "isoformat")
             else None,
             "model": message.get("model"),
-            "costUsd": message.get("costUsd"),
+            "costUsd": cost_usd,
             "metadata": {
                 "cwd": message.get("cwd"),
                 "gitBranch": message.get("gitBranch"),
                 "version": message.get("version"),
+                "uuid": message.get("uuid"),
+                "sessionId": message.get("sessionId"),
             },
         }
 
     def _extract_message_content(self, message: Dict[str, Any]) -> str:
         """Extract content from a message."""
+        # First check if there's a direct content field
+        if "content" in message and message["content"] is not None:
+            content = message["content"]
+            if isinstance(content, str):
+                return content
+            elif isinstance(content, list):
+                # Extract text from content blocks
+                text_parts = []
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        text_parts.append(block.get("text", ""))
+                return "\n".join(text_parts)
+
+        # Then check for nested message field (legacy format)
         if message.get("message"):
             msg_data = message["message"]
             if isinstance(msg_data, dict):
@@ -696,6 +753,8 @@ class ExportService:
                         return "\n".join(text_parts)
             else:
                 return str(msg_data)
+
+        # Fallback to empty string if no content found
         return ""
 
     async def _estimate_conversation_count(

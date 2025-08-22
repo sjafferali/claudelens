@@ -1,14 +1,13 @@
 """Restore API endpoints."""
 
 import asyncio
-from datetime import UTC, datetime, timedelta
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any, Dict, Optional
 
 from bson import ObjectId
 from fastapi import File, HTTPException, UploadFile, WebSocket
 
 from app.api.dependencies import CommonDeps
-from app.core.config import settings
 from app.core.custom_router import APIRouter
 from app.core.logging import get_logger
 from app.schemas.backup_schemas import (
@@ -18,34 +17,14 @@ from app.schemas.backup_schemas import (
     RestoreProgressResponse,
 )
 from app.services.file_service import FileService
+from app.services.rate_limit_service import RateLimitService
 from app.services.restore_service import RestoreService
 from app.services.websocket_manager import connection_manager
 
 router = APIRouter()
 logger = get_logger(__name__)
 
-# Rate limiting tracking (simple in-memory for now)
-restore_rate_limit: Dict[str, List[datetime]] = {}
-
-
-async def check_restore_rate_limit(user_id: str) -> bool:
-    """Check if user has exceeded restore rate limit."""
-    now = datetime.now(UTC)
-    window_ago = now - timedelta(hours=settings.RATE_LIMIT_WINDOW_HOURS)
-
-    if user_id not in restore_rate_limit:
-        restore_rate_limit[user_id] = []
-
-    # Clean old entries
-    restore_rate_limit[user_id] = [
-        timestamp for timestamp in restore_rate_limit[user_id] if timestamp > window_ago
-    ]
-
-    if len(restore_rate_limit[user_id]) >= settings.RESTORE_RATE_LIMIT_PER_HOUR:
-        return False
-
-    restore_rate_limit[user_id].append(now)
-    return True
+# Rate limiting now handled by RateLimitService
 
 
 async def broadcast_restore_progress(job_id: str, progress: Dict[str, Any]) -> None:
@@ -81,11 +60,14 @@ async def create_restore(
     # In production, this should be controlled by configuration
     user_id = "anonymous"
 
-    # Check rate limit
-    if not await check_restore_rate_limit(user_id):
+    # Check rate limit using the new service
+    rate_limit_service = RateLimitService(db)
+    allowed, info = await rate_limit_service.check_rate_limit(user_id, "restore")
+
+    if not allowed:
         raise HTTPException(
             status_code=429,
-            detail=f"Rate limit exceeded. Maximum {settings.RESTORE_RATE_LIMIT_PER_HOUR} restores per {settings.RATE_LIMIT_WINDOW_HOURS} hour(s).",
+            detail=info.get("message", "Rate limit exceeded"),
         )
 
     # Validate backup exists
@@ -121,11 +103,14 @@ async def restore_from_upload(
     # For now, allow anonymous restores similar to other endpoints
     user_id = "anonymous"
 
-    # Check rate limit
-    if not await check_restore_rate_limit(user_id):
+    # Check rate limit using the new service
+    rate_limit_service = RateLimitService(db)
+    allowed, info = await rate_limit_service.check_rate_limit(user_id, "restore")
+
+    if not allowed:
         raise HTTPException(
             status_code=429,
-            detail=f"Rate limit exceeded. Maximum {settings.RESTORE_RATE_LIMIT_PER_HOUR} restores per {settings.RATE_LIMIT_WINDOW_HOURS} hour(s).",
+            detail=info.get("message", "Rate limit exceeded"),
         )
 
     # Validate file type and size
@@ -264,6 +249,81 @@ async def preview_backup(
         can_restore=backup.get("can_restore", True),
         warnings=warnings,
     )
+
+
+@router.get("/jobs", response_model=Dict[str, Any])
+async def list_restore_jobs(
+    db: CommonDeps,
+    page: int = 0,
+    size: int = 20,
+    sort: str = "created_at,desc",
+    status: Optional[str] = None,
+) -> Dict[str, Any]:
+    """List restore jobs (restore history) for the current user."""
+    # For now, use anonymous user (same as other endpoints)
+    user_id = "anonymous"
+
+    # Build filter
+    filter_dict = {"user_id": user_id}
+    if status:
+        filter_dict["status"] = status
+
+    # Parse sort parameter
+    sort_parts = sort.split(",")
+    sort_field = sort_parts[0]
+    sort_direction = -1 if len(sort_parts) > 1 and sort_parts[1] == "desc" else 1
+
+    # Get total count
+    total = await db.restore_jobs.count_documents(filter_dict)
+
+    # Get paginated results
+    cursor = db.restore_jobs.find(filter_dict)
+    cursor = cursor.sort(sort_field, sort_direction)
+    cursor = cursor.skip(page * size).limit(size)
+
+    jobs = []
+    async for job in cursor:
+        # Get backup name if available
+        backup_name = "Unknown"
+        if job.get("backup_id"):
+            backup = await db.backup_metadata.find_one(
+                {"_id": ObjectId(job["backup_id"])}
+            )
+            if backup:
+                backup_name = backup.get("name", "Unknown")
+
+        jobs.append(
+            {
+                "job_id": str(job["_id"]),
+                "backup_id": job.get("backup_id"),
+                "backup_name": backup_name,
+                "status": job.get("status", "unknown"),
+                "mode": job.get("mode", "unknown"),
+                "conflict_resolution": job.get("conflict_resolution"),
+                "created_at": job.get("created_at").isoformat()
+                if job.get("created_at")
+                else "",
+                "started_at": job.get("started_at").isoformat()
+                if job.get("started_at")
+                else None,
+                "completed_at": job.get("completed_at").isoformat()
+                if job.get("completed_at")
+                else None,
+                "statistics": job.get("statistics", {}),
+                "errors": job.get("errors", []),
+                "progress": job.get("progress", {}),
+            }
+        )
+
+    return {
+        "items": jobs,
+        "pagination": {
+            "page": page,
+            "size": size,
+            "total_elements": total,
+            "total_pages": (total + size - 1) // size if size > 0 else 0,
+        },
+    }
 
 
 @router.websocket("/ws/restore/{job_id}")

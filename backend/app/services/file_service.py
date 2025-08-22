@@ -47,7 +47,7 @@ class FileService:
     async def validate_and_save_upload(
         self,
         file: UploadFile,
-        max_size: int = MAX_UPLOAD_SIZE,
+        max_size: Optional[int] = None,
         allowed_extensions: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
@@ -55,7 +55,7 @@ class FileService:
 
         Args:
             file: The uploaded file
-            max_size: Maximum allowed file size in bytes
+            max_size: Maximum allowed file size in bytes (if None, uses MAX_UPLOAD_SIZE)
             allowed_extensions: List of allowed file extensions (with dots), defaults to common formats
 
         Returns:
@@ -64,6 +64,9 @@ class FileService:
         Raises:
             HTTPException: If file validation fails
         """
+        # Use default max size if not provided
+        if max_size is None:
+            max_size = MAX_UPLOAD_SIZE
         # Check file extension
         if allowed_extensions is None:
             allowed_extensions = [".json", ".csv", ".md", ".jsonl"]
