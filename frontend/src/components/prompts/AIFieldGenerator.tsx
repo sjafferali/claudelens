@@ -133,7 +133,7 @@ export function AIFieldGenerator({
         ...context,
       };
 
-      const response = await fetch('/api/v1/ai/generate-field', {
+      const response = await fetch('/api/v1/prompts/ai/generate-field', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

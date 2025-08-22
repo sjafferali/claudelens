@@ -37,6 +37,12 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
     compress: false,
   });
 
+  const [compressionOptions, setCompressionOptions] = React.useState({
+    enabled: false,
+    format: 'tar.gz' as 'none' | 'zstd' | 'tar.gz',
+    level: 3,
+  });
+
   // Get projects from API
   const projects = React.useMemo(() => {
     if (!projectsData?.items) return [];
@@ -79,6 +85,10 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
         includeMetadata: options.includeMetadata,
         includeToolCalls: options.includeToolCalls,
         compress: options.compress,
+        compressionFormat: compressionOptions.enabled
+          ? compressionOptions.format
+          : 'none',
+        compressionLevel: compressionOptions.level,
       },
     };
 
@@ -269,12 +279,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
               { key: 'includeMessages', label: 'Include Messages' },
               { key: 'includeMetadata', label: 'Include Metadata' },
               { key: 'includeToolCalls', label: 'Include Tool Calls' },
-              {
-                key: 'compress',
-                label: 'Compress Output (Coming soon)',
-                disabled: true,
-              },
-            ].map(({ key, label, disabled }) => (
+            ].map(({ key, label }) => (
               <label key={key} className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -285,8 +290,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                       [key]: e.target.checked,
                     }))
                   }
-                  disabled={disabled}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   {label}
@@ -294,6 +298,134 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
               </label>
             ))}
           </div>
+        </div>
+
+        {/* Compression Options */}
+        <div>
+          <div className="flex items-center space-x-2 mb-3">
+            <input
+              type="checkbox"
+              checked={compressionOptions.enabled}
+              onChange={(e) =>
+                setCompressionOptions((prev) => ({
+                  ...prev,
+                  enabled: e.target.checked,
+                  format: e.target.checked ? 'tar.gz' : 'none',
+                }))
+              }
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Enable Compression
+            </label>
+          </div>
+
+          {compressionOptions.enabled && (
+            <div className="ml-6 space-y-4">
+              {/* Compression Format Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                  Compression Format
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCompressionOptions((prev) => ({
+                        ...prev,
+                        format: 'tar.gz',
+                      }))
+                    }
+                    className={cn(
+                      'p-3 rounded-lg border-2 transition-all text-sm',
+                      compressionOptions.format === 'tar.gz'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    )}
+                  >
+                    <div className="font-medium">tar.gz</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      Universal compatibility
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCompressionOptions((prev) => ({
+                        ...prev,
+                        format: 'zstd',
+                      }))
+                    }
+                    className={cn(
+                      'p-3 rounded-lg border-2 transition-all text-sm',
+                      compressionOptions.format === 'zstd'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    )}
+                  >
+                    <div className="font-medium">zstd</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      Better compression, faster
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Compression Level */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                  Compression Level: {compressionOptions.level}
+                </label>
+                <div className="flex items-center space-x-4">
+                  <span className="text-xs text-gray-500">Faster</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="9"
+                    value={compressionOptions.level}
+                    onChange={(e) =>
+                      setCompressionOptions((prev) => ({
+                        ...prev,
+                        level: parseInt(e.target.value),
+                      }))
+                    }
+                    className="flex-1"
+                  />
+                  <span className="text-xs text-gray-500">Smaller</span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {compressionOptions.level <= 3 &&
+                    'Fast compression, larger file'}
+                  {compressionOptions.level > 3 &&
+                    compressionOptions.level <= 6 &&
+                    'Balanced speed and size'}
+                  {compressionOptions.level > 6 &&
+                    'Maximum compression, slower'}
+                </p>
+              </div>
+
+              {/* Format Recommendation */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  {compressionOptions.format === 'tar.gz' && (
+                    <>
+                      <strong>tar.gz recommended for:</strong> Manual downloads,
+                      sharing with others, archival storage. Works with all
+                      operating systems and tools.
+                    </>
+                  )}
+                  {compressionOptions.format === 'zstd' && (
+                    <>
+                      <strong>zstd recommended for:</strong> API consumption,
+                      automated processing, frequent downloads. 30% better
+                      compression than gzip.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Export Button */}

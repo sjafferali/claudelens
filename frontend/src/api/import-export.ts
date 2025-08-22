@@ -29,6 +29,8 @@ export interface CreateExportRequest {
     includeMetadata?: boolean;
     includeToolCalls?: boolean;
     compress?: boolean;
+    compressionFormat?: 'none' | 'zstd' | 'tar.gz';
+    compressionLevel?: number;
     splitSizeMb?: number;
     encryption?: {
       enabled: boolean;
@@ -58,9 +60,12 @@ export interface ExportStatusResponse {
   fileInfo?: {
     format: string;
     sizeBytes: number;
+    compressedSizeBytes?: number;
     conversationsCount: number;
     messagesCount: number;
   };
+  compressionFormat?: string;
+  compressionSavings?: number;
   errors?: Array<{
     code: string;
     message: string;
@@ -80,8 +85,11 @@ export interface ExportJobListItem {
   completedAt?: string;
   fileInfo?: {
     sizeBytes: number;
+    compressedSizeBytes?: number;
     conversationsCount: number;
   };
+  compressionFormat?: string;
+  compressionSavings?: number;
 }
 
 export interface PagedExportJobsResponse {
@@ -211,14 +219,25 @@ export const exportApi = {
   getExportStatus: (jobId: string): Promise<ExportStatusResponse> =>
     apiClient.get(`/export/${jobId}/status`),
 
-  downloadExport: async (jobId: string): Promise<void> => {
+  downloadExport: async (
+    params: { jobId: string; decompress?: boolean } | string
+  ): Promise<void> => {
+    // Support both string (backward compatibility) and object parameter
+    const jobId = typeof params === 'string' ? params : params.jobId;
+    const decompress = typeof params === 'object' ? params.decompress : false;
+
+    // Build URL with optional decompress query param
+    const url = decompress
+      ? `/export/${jobId}/download?decompress=true`
+      : `/export/${jobId}/download`;
+
     // Use apiClient.get with responseType: 'blob' to handle binary data
-    const blob = await apiClient.get<Blob>(`/export/${jobId}/download`, {
+    const blob = await apiClient.get<Blob>(url, {
       responseType: 'blob',
     });
-    const url = window.URL.createObjectURL(blob);
+    const downloadUrl = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = downloadUrl;
 
     // Default filename if not provided
     const filename = `export_${jobId}.json`;
@@ -226,7 +245,7 @@ export const exportApi = {
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
+    window.URL.revokeObjectURL(downloadUrl);
     document.body.removeChild(a);
   },
 

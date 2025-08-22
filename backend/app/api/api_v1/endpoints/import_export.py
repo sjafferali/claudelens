@@ -3,11 +3,11 @@
 import asyncio
 import math
 from datetime import UTC, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from bson import ObjectId
-from fastapi import File, HTTPException, Query, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import File, HTTPException, Query, Response, UploadFile
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.dependencies import CommonDeps
 from app.core.config import settings
@@ -196,6 +196,8 @@ async def get_export_status(
         progress=export_job.get("progress"),
         currentItem=export_job.get("progress", {}).get("current_item"),
         fileInfo=export_job.get("file_info"),
+        compressionFormat=export_job.get("compression_format"),
+        compressionSavings=export_job.get("compression_savings"),
         errors=export_job.get("errors", []),
         createdAt=export_job.get("created_at").isoformat()
         if export_job.get("created_at")
@@ -216,8 +218,9 @@ async def get_export_status(
 async def download_export(
     job_id: str,
     db: CommonDeps,
-) -> StreamingResponse:
-    """Download the exported file."""
+    decompress: bool = Query(False, description="Decompress file server-side"),
+) -> Response:
+    """Download the exported file with optional server-side decompression."""
     if not ObjectId.is_valid(job_id):
         raise HTTPException(status_code=400, detail="Invalid job ID")
 
@@ -244,6 +247,7 @@ async def download_export(
 
     # Stream the file
     file_service = FileService()
+    compression_format = export_job.get("compression_format", "none")
 
     # Determine media type and filename
     format_map = {
@@ -257,16 +261,73 @@ async def download_export(
         export_job.get("format", "json"), ("application/octet-stream", "bin")
     )
 
-    filename = f"claudelens_export_{job_id}.{extension}"
+    # Adjust filename based on compression
+    if compression_format == "zstd" and not decompress:
+        filename = f"claudelens_export_{job_id}.{extension}.zst"
+        return FileResponse(
+            file_path,
+            media_type="application/zstd",
+            headers={
+                "Content-Encoding": "zstd",
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-cache",
+            },
+        )
+    elif compression_format == "tar.gz":
+        filename = f"claudelens_export_{job_id}.{extension}.tar.gz"
+        return FileResponse(
+            file_path,
+            media_type="application/gzip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-cache",
+            },
+        )
+    elif compression_format == "zstd" and decompress:
+        # Server-side decompression for zstd
+        async def stream_decompressed_zstd() -> AsyncGenerator[bytes, None]:
+            """Stream decompressed zstd content."""
+            import aiofiles
 
-    return StreamingResponse(
-        file_service.stream_file(file_path),
-        media_type=media_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Cache-Control": "no-cache",
-        },
-    )
+            try:
+                import zstandard as zstd
+            except ImportError:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Server-side decompression not available for zstd",
+                )
+
+            dctx = zstd.ZstdDecompressor()
+            async with aiofiles.open(file_path, "rb") as f:
+                decompressor = dctx.decompressobj()
+                while True:
+                    chunk = await f.read(8192)
+                    if not chunk:
+                        break
+                    decompressed = decompressor.decompress(chunk)
+                    if decompressed:
+                        yield decompressed
+
+        filename = f"claudelens_export_{job_id}.{extension}"
+        return StreamingResponse(
+            stream_decompressed_zstd(),
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-cache",
+            },
+        )
+    else:
+        # Uncompressed file
+        filename = f"claudelens_export_{job_id}.{extension}"
+        return StreamingResponse(
+            file_service.stream_file(file_path),
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-cache",
+            },
+        )
 
 
 @router.delete("/export/{job_id}", response_model=CancelExportResponse)
@@ -392,6 +453,8 @@ async def list_export_jobs(
                 if job.get("completed_at")
                 else None,
                 fileInfo=job.get("file_info"),
+                compressionFormat=job.get("compression_format"),
+                compressionSavings=job.get("compression_savings"),
             )
         )
 

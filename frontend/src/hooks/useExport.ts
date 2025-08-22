@@ -52,7 +52,8 @@ export function useExportStatus(jobId: string | null, enabled = true) {
 
 export function useDownloadExport() {
   return useMutation({
-    mutationFn: (jobId: string) => exportApi.downloadExport(jobId),
+    mutationFn: (params: { jobId: string; decompress?: boolean } | string) =>
+      exportApi.downloadExport(params),
     onSuccess: () => {
       toast.success('Export downloaded successfully');
     },

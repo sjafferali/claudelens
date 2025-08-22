@@ -1,9 +1,18 @@
 """Export operation schemas."""
 
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class CompressionFormat(str, Enum):
+    """Supported compression formats for exports."""
+
+    NONE = "none"
+    ZSTD = "zstd"
+    TARGZ = "tar.gz"
 
 
 class CreateExportRequest(BaseModel):
@@ -34,6 +43,20 @@ class CreateExportRequest(BaseModel):
                     raise ValueError("Password required when encryption is enabled")
                 if len(v["encryption"]["password"]) < 8:
                     raise ValueError("Password must be at least 8 characters")
+            # Validate compression settings
+            if "compressionFormat" in v:
+                compression_format = v["compressionFormat"]
+                if compression_format not in ["none", "zstd", "tar.gz", None]:
+                    raise ValueError(
+                        "compressionFormat must be 'none', 'zstd', or 'tar.gz'"
+                    )
+            if "compressionLevel" in v:
+                compression_level = v["compressionLevel"]
+                if (
+                    not isinstance(compression_level, int)
+                    or not 1 <= compression_level <= 22
+                ):
+                    raise ValueError("compressionLevel must be between 1 and 22")
         return v if isinstance(v, dict) else {}
 
     @field_validator("filters", mode="before")
@@ -90,6 +113,8 @@ class ExportStatusResponse(BaseModel):
     progress: Optional[Dict[str, Any]] = None
     current_item: Optional[str] = Field(None, alias="currentItem")
     file_info: Optional[Dict[str, Any]] = Field(None, alias="fileInfo")
+    compression_format: Optional[str] = Field(None, alias="compressionFormat")
+    compression_savings: Optional[float] = Field(None, alias="compressionSavings")
     errors: List[Dict[str, Any]] = Field(default_factory=list)
     created_at: str = Field(alias="createdAt")
     started_at: Optional[str] = Field(None, alias="startedAt")
@@ -118,6 +143,8 @@ class ExportJobListItem(BaseModel):
     created_at: str = Field(alias="createdAt")
     completed_at: Optional[str] = Field(None, alias="completedAt")
     file_info: Optional[Dict[str, Any]] = Field(None, alias="fileInfo")
+    compression_format: Optional[str] = Field(None, alias="compressionFormat")
+    compression_savings: Optional[float] = Field(None, alias="compressionSavings")
 
     model_config = ConfigDict(populate_by_name=True)
 

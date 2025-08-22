@@ -193,17 +193,30 @@ class ExportService:
             else:
                 raise ValueError(f"Unsupported format: {export_job['format']}")
 
-            # Save export file
-            file_info = await self.file_service.save_export_file(
-                job_id, content_generator, export_job["format"]
+            # Get compression settings from options
+            compression_format = export_job.get("options", {}).get(
+                "compressionFormat", "none"
+            )
+            compression_level = export_job.get("options", {}).get("compressionLevel", 3)
+
+            # Save export file with compression
+            file_info = await self.file_service.save_export_file_compressed(
+                job_id,
+                content_generator,
+                export_job["format"],
+                compression_format=compression_format,
+                compression_level=compression_level,
             )
 
             # Update job with completion info
             # Transform file_info to match frontend expectations
             frontend_file_info = {
                 "sizeBytes": file_info["size"],
+                "compressedSizeBytes": file_info.get(
+                    "compressed_size", file_info["size"]
+                ),
                 "conversationsCount": len(session_ids),
-                "format": file_info["format"],
+                "format": file_info.get("format", export_job["format"]),
                 "checksum": file_info.get("checksum"),
             }
 
@@ -215,9 +228,18 @@ class ExportService:
                         "completed_at": datetime.now(UTC),
                         "file_info": frontend_file_info,
                         "file_path": file_info["path"],
+                        "compression_format": file_info.get(
+                            "compression_format", "none"
+                        ),
+                        "compression_savings": file_info.get(
+                            "compression_savings_percent", 0
+                        ),
                         "statistics": {
                             "conversations_count": len(session_ids),
                             "file_size": file_info["size"],
+                            "compressed_size": file_info.get(
+                                "compressed_size", file_info["size"]
+                            ),
                         },
                     }
                 },

@@ -235,6 +235,16 @@ class BackupService:
             checksum_calculator = ChecksumCalculator()
             backup_path = os.path.join(self.backup_dir, f"{backup_id}.backup.zst")
 
+            # Ensure backup directory exists before writing
+            try:
+                os.makedirs(self.backup_dir, exist_ok=True)
+                logger.info(f"Ensured backup directory exists: {self.backup_dir}")
+            except Exception as e:
+                logger.error(
+                    f"Failed to create backup directory {self.backup_dir}: {e}"
+                )
+                raise Exception(f"Cannot create backup directory: {e}")
+
             size = 0
             contents = {
                 "projects_count": 0,

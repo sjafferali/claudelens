@@ -1,8 +1,12 @@
 """File service for handling import/export file operations."""
 
+import gzip
 import hashlib
+import io
 import os
+import tarfile
 import tempfile
+import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -176,6 +180,175 @@ class FileService:
 
             logger.error(f"Error saving export: {e}")
             raise
+
+    async def save_export_file_compressed(
+        self,
+        job_id: str,
+        content_generator: AsyncGenerator[bytes, None],
+        format: str,
+        compression_format: str = "none",
+        compression_level: int = 3,
+    ) -> Dict[str, Any]:
+        """Save export file with selected compression format."""
+        # Collect content first for size calculation
+        content_chunks = []
+        original_size = 0
+        async for chunk in content_generator:
+            content_chunks.append(chunk)
+            original_size += len(chunk)
+
+        if compression_format == "zstd":
+            file_info = await self._compress_zstd(
+                job_id, content_chunks, format, compression_level, original_size
+            )
+        elif compression_format == "tar.gz":
+            file_info = await self._compress_targz(
+                job_id, content_chunks, format, compression_level, original_size
+            )
+        else:
+            # No compression - use original save method
+            if format == "markdown":
+                file_ext = "md"
+            elif format == "pdf":
+                file_ext = "html"
+            else:
+                file_ext = format
+            file_path = os.path.join(self.export_dir, f"{job_id}.{file_ext}")
+
+            async with aiofiles.open(file_path, "wb") as f:
+                for chunk in content_chunks:
+                    await f.write(chunk)
+
+            file_info = {
+                "path": file_path,
+                "size": original_size,
+                "compressed_size": original_size,
+                "compression_ratio": 1.0,
+                "compression_format": "none",
+            }
+
+        return file_info
+
+    async def _compress_zstd(
+        self,
+        job_id: str,
+        content_chunks: List[bytes],
+        format: str,
+        compression_level: int,
+        original_size: int,
+    ) -> Dict[str, Any]:
+        """Compress using Zstandard."""
+        try:
+            import zstandard as zstd
+        except ImportError:
+            logger.warning("zstandard library not installed, falling back to gzip")
+            return await self._compress_targz(
+                job_id, content_chunks, format, compression_level, original_size
+            )
+
+        if format == "markdown":
+            file_ext = "md"
+        elif format == "pdf":
+            file_ext = "html"
+        else:
+            file_ext = format
+
+        cctx = zstd.ZstdCompressor(level=min(compression_level, 22))
+        file_path = os.path.join(self.export_dir, f"{job_id}.{file_ext}.zst")
+
+        compressed_size = 0
+        async with aiofiles.open(file_path, "wb") as f:
+            compressor = cctx.compressobj()
+            for chunk in content_chunks:
+                compressed_chunk = compressor.compress(chunk)
+                if compressed_chunk:
+                    await f.write(compressed_chunk)
+                    compressed_size += len(compressed_chunk)
+
+            # Write final chunk
+            final_chunk = compressor.flush()
+            if final_chunk:
+                await f.write(final_chunk)
+                compressed_size += len(final_chunk)
+
+        return {
+            "path": file_path,
+            "size": original_size,
+            "compressed_size": compressed_size,
+            "compression_ratio": (
+                original_size / compressed_size if compressed_size > 0 else 1
+            ),
+            "compression_format": "zstd",
+            "compression_savings_percent": (
+                round((1 - compressed_size / original_size) * 100, 1)
+                if original_size > 0
+                else 0
+            ),
+        }
+
+    async def _compress_targz(
+        self,
+        job_id: str,
+        content_chunks: List[bytes],
+        format: str,
+        compression_level: int,
+        original_size: int,
+    ) -> Dict[str, Any]:
+        """Compress using tar.gz format."""
+        if format == "markdown":
+            file_ext = "md"
+        elif format == "pdf":
+            file_ext = "html"
+        else:
+            file_ext = format
+
+        file_path = os.path.join(self.export_dir, f"{job_id}.{file_ext}.tar.gz")
+
+        # Create tar.gz file
+        async with aiofiles.open(file_path, "wb") as f:
+            # Create gzip wrapper
+            gzip_buffer = io.BytesIO()
+
+            with gzip.GzipFile(
+                fileobj=gzip_buffer, mode="wb", compresslevel=min(compression_level, 9)
+            ) as gz:
+                # Create tar archive in memory
+                tar_buffer = io.BytesIO()
+                with tarfile.open(fileobj=tar_buffer, mode="w") as tar:
+                    # Create a file-like object from chunks
+                    content = b"".join(content_chunks)
+                    file_buffer = io.BytesIO(content)
+
+                    # Add file to tar
+                    tarinfo = tarfile.TarInfo(name=f"export_{job_id}.{file_ext}")
+                    tarinfo.size = len(content)
+                    tarinfo.mtime = time.time()
+                    file_buffer.seek(0)
+                    tar.addfile(tarinfo, file_buffer)
+
+                # Write tar to gzip
+                tar_buffer.seek(0)
+                gz.write(tar_buffer.read())
+
+            # Write compressed data to file
+            gzip_buffer.seek(0)
+            await f.write(gzip_buffer.read())
+
+        # Get actual file size
+        actual_size = os.path.getsize(file_path)
+
+        return {
+            "path": file_path,
+            "size": original_size,
+            "compressed_size": actual_size,
+            "compression_ratio": original_size / actual_size if actual_size > 0 else 1,
+            "compression_format": "tar.gz",
+            "compression_savings_percent": (
+                round((1 - actual_size / original_size) * 100, 1)
+                if original_size > 0
+                else 0
+            ),
+        }
 
     async def stream_file(
         self,

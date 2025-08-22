@@ -145,7 +145,10 @@ export const aiApi = {
 
   // Token operations
   async countTokens(request: CountTokensRequest): Promise<CountTokensResponse> {
-    return apiClient.post<CountTokensResponse>('/ai/count-tokens', request);
+    return apiClient.post<CountTokensResponse>(
+      '/prompts/ai/count-tokens',
+      request
+    );
   },
 
   // Statistics

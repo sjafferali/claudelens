@@ -92,9 +92,9 @@ export const ExportHistory: React.FC<ExportHistoryProps> = ({ className }) => {
     return new Date(dateString).toLocaleString();
   };
 
-  const handleDownload = async (jobId: string) => {
+  const handleDownload = async (jobId: string, decompress: boolean = false) => {
     try {
-      await downloadExport.mutateAsync(jobId);
+      await downloadExport.mutateAsync({ jobId, decompress });
     } catch (error) {
       console.error('Download failed:', error);
     }
@@ -232,6 +232,29 @@ export const ExportHistory: React.FC<ExportHistoryProps> = ({ className }) => {
                               {formatFileSize(job.fileInfo.sizeBytes || 0)}
                             </span>
                           </div>
+                          {job.compressionFormat &&
+                            job.compressionFormat !== 'none' && (
+                              <div className="text-xs">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">
+                                  {job.compressionFormat}
+                                </span>
+                                <span className="ml-1 text-gray-500">
+                                  {job.fileInfo.compressedSizeBytes && (
+                                    <>
+                                      {formatFileSize(
+                                        job.fileInfo.compressedSizeBytes
+                                      )}
+                                      {job.compressionSavings && (
+                                        <span className="text-green-600 dark:text-green-400">
+                                          {' '}
+                                          (-{job.compressionSavings}%)
+                                        </span>
+                                      )}
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                            )}
                           {job.fileInfo.conversationsCount && (
                             <div className="text-xs text-gray-500">
                               {job.fileInfo.conversationsCount} conversations
@@ -243,19 +266,55 @@ export const ExportHistory: React.FC<ExportHistoryProps> = ({ className }) => {
                     <td className="py-4">
                       <div className="flex items-center space-x-2">
                         {canDownload(job.status) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownload(job.jobId)}
-                            disabled={downloadExport.isPending}
-                            className="text-green-600 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-600 dark:hover:bg-green-900/20"
-                          >
-                            {downloadExport.isPending ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
+                          <>
+                            {job.compressionFormat === 'zstd' ? (
+                              <div className="flex items-center space-x-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleDownload(job.jobId, false)
+                                  }
+                                  disabled={downloadExport.isPending}
+                                  className="text-green-600 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-600 dark:hover:bg-green-900/20"
+                                  title="Download compressed (.zst)"
+                                >
+                                  {downloadExport.isPending ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Download className="w-3 h-3" />
+                                  )}
+                                  <span className="text-xs ml-1">.zst</span>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    handleDownload(job.jobId, true)
+                                  }
+                                  disabled={downloadExport.isPending}
+                                  className="text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                                  title="Download decompressed"
+                                >
+                                  <Download className="w-3 h-3" />
+                                </Button>
+                              </div>
                             ) : (
-                              <Download className="w-3 h-3" />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDownload(job.jobId)}
+                                disabled={downloadExport.isPending}
+                                className="text-green-600 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-600 dark:hover:bg-green-900/20"
+                              >
+                                {downloadExport.isPending ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Download className="w-3 h-3" />
+                                )}
+                              </Button>
                             )}
-                          </Button>
+                          </>
                         )}
                         {canCancel(job.status) && (
                           <Button
