@@ -43,8 +43,6 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({
   >('skip');
   const [importOptions, setImportOptions] = React.useState({
     createBackup: true,
-    validateReferences: true,
-    calculateCosts: true,
   });
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -398,47 +396,27 @@ export const ImportPanel: React.FC<ImportPanelProps> = ({
                   Import Options
                 </label>
                 <div className="space-y-2">
-                  {[
-                    {
-                      key: 'createBackup',
-                      label: 'Create backup before import',
-                      description: 'Recommended for safety',
-                    },
-                    {
-                      key: 'validateReferences',
-                      label: 'Validate data references',
-                      description: 'Check for broken links',
-                    },
-                    {
-                      key: 'calculateCosts',
-                      label: 'Calculate token costs',
-                      description: 'Estimate usage costs',
-                    },
-                  ].map(({ key, label, description }) => (
-                    <label key={key} className="flex items-start space-x-3">
-                      <input
-                        type="checkbox"
-                        checked={
-                          importOptions[key as keyof typeof importOptions]
-                        }
-                        onChange={(e) =>
-                          setImportOptions((prev) => ({
-                            ...prev,
-                            [key]: e.target.checked,
-                          }))
-                        }
-                        className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {label}
-                        </span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {description}
-                        </p>
-                      </div>
-                    </label>
-                  ))}
+                  <label className="flex items-start space-x-3">
+                    <input
+                      type="checkbox"
+                      checked={importOptions.createBackup}
+                      onChange={(e) =>
+                        setImportOptions((prev) => ({
+                          ...prev,
+                          createBackup: e.target.checked,
+                        }))
+                      }
+                      className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Create backup before import
+                      </span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Saves a rollback point (enables undo if import fails)
+                      </p>
+                    </div>
+                  </label>
                 </div>
               </div>
             )}

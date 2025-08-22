@@ -35,9 +35,6 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
     includeMetadata: true,
     includeToolCalls: true,
     compress: false,
-    redactPii: false,
-    anonymizeUsers: false,
-    removeApiKeys: true,
   });
 
   // Get projects from API
@@ -82,11 +79,6 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
         includeMetadata: options.includeMetadata,
         includeToolCalls: options.includeToolCalls,
         compress: options.compress,
-        privacy: {
-          redactPii: options.redactPii,
-          anonymizeUsers: options.anonymizeUsers,
-          removeApiKeys: options.removeApiKeys,
-        },
       },
     };
 
@@ -272,67 +264,35 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             Export Options
           </label>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Content Options */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">
-                  Content
-                </h4>
-                {[
-                  { key: 'includeMessages', label: 'Include Messages' },
-                  { key: 'includeMetadata', label: 'Include Metadata' },
-                  { key: 'includeToolCalls', label: 'Include Tool Calls' },
-                  { key: 'compress', label: 'Compress Output' },
-                ].map(({ key, label }) => (
-                  <label key={key} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={options[key as keyof typeof options]}
-                      onChange={(e) =>
-                        setOptions((prev) => ({
-                          ...prev,
-                          [key]: e.target.checked,
-                        }))
-                      }
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {label}
-                    </span>
-                  </label>
-                ))}
-              </div>
-
-              {/* Privacy Options */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">
-                  Privacy
-                </h4>
-                {[
-                  { key: 'redactPii', label: 'Redact PII' },
-                  { key: 'anonymizeUsers', label: 'Anonymize Users' },
-                  { key: 'removeApiKeys', label: 'Remove API Keys' },
-                ].map(({ key, label }) => (
-                  <label key={key} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={options[key as keyof typeof options]}
-                      onChange={(e) =>
-                        setOptions((prev) => ({
-                          ...prev,
-                          [key]: e.target.checked,
-                        }))
-                      }
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {label}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
+          <div className="space-y-2">
+            {[
+              { key: 'includeMessages', label: 'Include Messages' },
+              { key: 'includeMetadata', label: 'Include Metadata' },
+              { key: 'includeToolCalls', label: 'Include Tool Calls' },
+              {
+                key: 'compress',
+                label: 'Compress Output (Coming soon)',
+                disabled: true,
+              },
+            ].map(({ key, label, disabled }) => (
+              <label key={key} className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={options[key as keyof typeof options]}
+                  onChange={(e) =>
+                    setOptions((prev) => ({
+                      ...prev,
+                      [key]: e.target.checked,
+                    }))
+                  }
+                  disabled={disabled}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  {label}
+                </span>
+              </label>
+            ))}
           </div>
         </div>
 

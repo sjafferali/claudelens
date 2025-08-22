@@ -2,12 +2,14 @@
 
 from app.api.api_v1.endpoints import (
     analytics,
+    backup,
     export,
     import_export,
     ingest,
     messages,
     projects,
     prompts,
+    restore,
     search,
     sessions,
 )
@@ -36,7 +38,7 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=["analytic
 
 api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
 
-api_router.include_router(export.router, prefix="/mcp-export", tags=["mcp-export"])
+api_router.include_router(export.router, prefix="/export", tags=["export"])
 
 api_router.include_router(prompts.router, prefix="/prompts", tags=["prompts"])
 
@@ -48,6 +50,10 @@ if AI_SETTINGS_AVAILABLE:
 
 # New import/export endpoints with comprehensive functionality
 api_router.include_router(import_export.router, prefix="", tags=["import-export"])
+
+# Backup and restore endpoints
+api_router.include_router(backup.router, prefix="/backups", tags=["backup"])
+api_router.include_router(restore.router, prefix="/restore", tags=["restore"])
 
 
 @api_router.get("/health")

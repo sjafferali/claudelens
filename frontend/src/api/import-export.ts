@@ -34,11 +34,6 @@ export interface CreateExportRequest {
       enabled: boolean;
       password?: string;
     };
-    privacy?: {
-      redactPii?: boolean;
-      anonymizeUsers?: boolean;
-      removeApiKeys?: boolean;
-    };
   };
 }
 

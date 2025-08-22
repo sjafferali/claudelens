@@ -9,6 +9,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useExportStatus, useCancelExport } from '@/hooks/useExport';
 import { useImportProgress, useRollbackImport } from '@/hooks/useImport';
+import { useImportExportWebSocket } from '@/hooks/useImportExportWebSocket';
 import type {
   ExportStatusResponse,
   ImportProgressResponse,
@@ -47,6 +48,8 @@ export const ProgressDialog: React.FC<ProgressDialogProps> = ({
   jobType,
   onComplete,
 }) => {
+  const [showSuccessState, setShowSuccessState] = React.useState(false);
+
   // Hooks based on job type
   const exportStatus = useExportStatus(
     jobType === 'export' ? jobId : null,
@@ -60,6 +63,42 @@ export const ProgressDialog: React.FC<ProgressDialogProps> = ({
   const cancelExport = useCancelExport();
   const rollbackImport = useRollbackImport();
 
+  // Use WebSocket for real-time updates
+  useImportExportWebSocket({
+    onImportProgress: React.useCallback(
+      (event: {
+        job_id: string;
+        completed: boolean;
+        [key: string]: unknown;
+      }) => {
+        if (event.job_id === jobId && event.completed) {
+          // Show success state for 3 seconds before closing
+          setShowSuccessState(true);
+          setTimeout(() => {
+            onComplete?.();
+          }, 3000);
+        }
+      },
+      [jobId, onComplete]
+    ),
+    onExportProgress: React.useCallback(
+      (event: {
+        job_id: string;
+        completed: boolean;
+        [key: string]: unknown;
+      }) => {
+        if (event.job_id === jobId && event.completed) {
+          // Show success state for 3 seconds before closing
+          setShowSuccessState(true);
+          setTimeout(() => {
+            onComplete?.();
+          }, 3000);
+        }
+      },
+      [jobId, onComplete]
+    ),
+  });
+
   // Get current job data based on type
   const jobData =
     jobType === 'export'
@@ -68,12 +107,13 @@ export const ProgressDialog: React.FC<ProgressDialogProps> = ({
   const isLoading =
     jobType === 'export' ? exportStatus.isLoading : importProgress.isLoading;
 
-  // Handle job completion
+  // Handle job completion - don't auto-close, let the WebSocket handler do it
   React.useEffect(() => {
-    if (jobData?.status === 'completed' && onComplete) {
-      onComplete();
+    if (jobData?.status === 'completed' && showSuccessState) {
+      // Success state is already set by WebSocket handler
+      // which will call onComplete after delay
     }
-  }, [jobData?.status, onComplete]);
+  }, [jobData?.status, showSuccessState]);
 
   const handleCancel = async () => {
     if (!jobId) return;
@@ -183,6 +223,39 @@ export const ProgressDialog: React.FC<ProgressDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Show success message when complete */}
+          {showSuccessState && jobData?.status === 'completed' && (
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <CheckCircle className="w-8 h-8 text-green-500" />
+                <div>
+                  <h3 className="font-semibold text-green-900 dark:text-green-100">
+                    {jobType === 'export' ? 'Export' : 'Import'} Completed
+                    Successfully!
+                  </h3>
+                  {jobType === 'import' &&
+                    jobData &&
+                    'statistics' in jobData && (
+                      <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                        {
+                          (jobData as ImportProgressResponse).statistics
+                            .imported
+                        }{' '}
+                        items imported,{' '}
+                        {(jobData as ImportProgressResponse).statistics.skipped}{' '}
+                        skipped
+                      </p>
+                    )}
+                  {jobType === 'export' && jobData && 'fileInfo' in jobData && (
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                      Export ready for download
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Status and Progress */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Sparkles, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { toast } from 'react-hot-toast';
@@ -27,6 +27,96 @@ export function AIFieldGenerator({
   const [instruction, setInstruction] = useState('');
   const [generatedValue, setGeneratedValue] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [popupPosition, setPopupPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  // Calculate popup position to keep it within viewport
+  useEffect(() => {
+    const calculatePosition = () => {
+      if (isOpen && buttonRef.current) {
+        const buttonRect = buttonRef.current.getBoundingClientRect();
+        const popupWidth = 384; // w-96 = 24rem = 384px
+        const popupHeight = 400; // Approximate height
+        const padding = 8;
+
+        let left = buttonRect.left;
+        let top = buttonRect.bottom + 8;
+
+        // Check if popup would overflow right edge
+        if (left + popupWidth > window.innerWidth - padding) {
+          // Align to right edge of button or viewport
+          left = Math.max(
+            padding,
+            Math.min(
+              buttonRect.right - popupWidth,
+              window.innerWidth - popupWidth - padding
+            )
+          );
+        }
+
+        // Check if popup would overflow left edge
+        if (left < padding) {
+          left = padding;
+        }
+
+        // Check if popup would overflow bottom edge
+        if (top + popupHeight > window.innerHeight - padding) {
+          // Show above button if there's more space there
+          const spaceAbove = buttonRect.top;
+          const spaceBelow = window.innerHeight - buttonRect.bottom;
+
+          if (spaceAbove > spaceBelow && spaceAbove > popupHeight) {
+            top = buttonRect.top - popupHeight - 8;
+          } else {
+            // Keep below but adjust height if needed
+            top = Math.min(top, window.innerHeight - popupHeight - padding);
+          }
+        }
+
+        setPopupPosition({ top, left });
+      }
+    };
+
+    calculatePosition();
+
+    // Recalculate on window resize
+    if (isOpen) {
+      window.addEventListener('resize', calculatePosition);
+      window.addEventListener('scroll', calculatePosition);
+      return () => {
+        window.removeEventListener('resize', calculatePosition);
+        window.removeEventListener('scroll', calculatePosition);
+      };
+    }
+  }, [isOpen]);
+
+  // Close popup when clicking outside
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        buttonRef.current &&
+        popupRef.current &&
+        !buttonRef.current.contains(event.target as Node) &&
+        !popupRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+        setInstruction('');
+        setGeneratedValue('');
+        setShowPreview(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const handleGenerate = async () => {
     if (!instruction.trim()) {
@@ -118,6 +208,7 @@ export function AIFieldGenerator({
     <>
       {/* Sparkle Button */}
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
@@ -137,8 +228,15 @@ export function AIFieldGenerator({
       </button>
 
       {/* AI Generation Popup */}
-      {isOpen && (
-        <div className="absolute z-50 mt-2 p-4 bg-background border border-border rounded-lg shadow-lg w-96">
+      {isOpen && popupPosition && (
+        <div
+          ref={popupRef}
+          className="fixed z-50 p-4 bg-background border border-border rounded-lg shadow-lg w-96 max-h-[400px] overflow-y-auto"
+          style={{
+            top: `${popupPosition.top}px`,
+            left: `${popupPosition.left}px`,
+          }}
+        >
           <div className="space-y-3">
             {/* Header */}
             <div className="flex items-center justify-between">

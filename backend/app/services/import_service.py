@@ -519,14 +519,35 @@ class ImportService:
 
                     statistics[result] += 1
 
-                    # Update progress
-                    if progress_callback and idx % 10 == 0:
-                        await progress_callback(
-                            job_id,
+                    # Update progress - broadcast every item or at intervals for large imports
+                    if progress_callback:
+                        # For small imports (< 100 items), update every item
+                        # For large imports, update every 10 items
+                        should_update = total < 100 or idx % 10 == 0 or idx == total - 1
+                        if should_update:
+                            await progress_callback(
+                                job_id,
+                                {
+                                    "processed": idx + 1,
+                                    "total": total,
+                                    "percentage": round((idx + 1) / total * 100, 2),
+                                    "message": f"Processing conversation {idx + 1} of {total}",
+                                    "statistics": statistics,
+                                },
+                            )
+
+                    # Update database progress periodically
+                    if idx % 10 == 0 or idx == total - 1:
+                        await self.db.import_jobs.update_one(
+                            {"_id": ObjectId(job_id)},
                             {
-                                "processed": idx + 1,
-                                "total": total,
-                                "percentage": round((idx + 1) / total * 100, 2),
+                                "$set": {
+                                    "progress.processed": idx + 1,
+                                    "progress.percentage": round(
+                                        (idx + 1) / total * 100, 2
+                                    ),
+                                    "statistics": statistics,
+                                }
                             },
                         )
 

@@ -35,6 +35,20 @@ class Settings(BaseSettings):
     AI_MAX_TOKENS: int = 2000
     AI_DEFAULT_TEMPERATURE: float = 0.7
 
+    # Import/Export Rate Limits
+    EXPORT_RATE_LIMIT_PER_HOUR: int = 10
+    IMPORT_RATE_LIMIT_PER_HOUR: int = 5
+    RATE_LIMIT_WINDOW_HOURS: int = 1
+
+    # Backup/Restore Rate Limits
+    BACKUP_RATE_LIMIT_PER_HOUR: int = 10
+    RESTORE_RATE_LIMIT_PER_HOUR: int = 5
+
+    # Backup storage settings
+    BACKUP_STORAGE_PATH: str = "/var/claudelens/backups"
+    BACKUP_RETENTION_DAYS: int = 30
+    BACKUP_MAX_SIZE_GB: int = 100
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
 

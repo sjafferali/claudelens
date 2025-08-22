@@ -6,7 +6,7 @@ import tempfile
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, List, Optional
 
 import aiofiles
 import aiofiles.os
@@ -44,6 +44,7 @@ class FileService:
         self,
         file: UploadFile,
         max_size: int = MAX_UPLOAD_SIZE,
+        allowed_extensions: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Validate and save uploaded file with streaming to avoid memory issues.
@@ -51,6 +52,7 @@ class FileService:
         Args:
             file: The uploaded file
             max_size: Maximum allowed file size in bytes
+            allowed_extensions: List of allowed file extensions (with dots), defaults to common formats
 
         Returns:
             Dictionary with file metadata
@@ -59,14 +61,16 @@ class FileService:
             HTTPException: If file validation fails
         """
         # Check file extension
-        allowed_extensions = {".json", ".csv", ".md", ".jsonl"}
+        if allowed_extensions is None:
+            allowed_extensions = [".json", ".csv", ".md", ".jsonl"]
+        allowed_extensions_set = set(allowed_extensions)
         if file.filename is None:
             raise HTTPException(status_code=400, detail="File must have a filename")
         file_ext = Path(file.filename).suffix.lower()
-        if file_ext not in allowed_extensions:
+        if file_ext not in allowed_extensions_set:
             raise HTTPException(
                 status_code=400,
-                detail=f"File type {file_ext} not allowed. Supported: {', '.join(allowed_extensions)}",
+                detail=f"File type {file_ext} not allowed. Supported: {', '.join(allowed_extensions_set)}",
             )
 
         # Generate unique file path

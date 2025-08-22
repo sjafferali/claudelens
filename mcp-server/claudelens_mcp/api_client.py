@@ -243,9 +243,22 @@ class ClaudeLensAPIClient:
     # Analytics endpoints
     async def get_session_analytics(self, session_id: str) -> Dict[str, Any]:
         """Get analytics for a specific session."""
-        response = await self.client.get(f"{self.api_v1_url}/analytics/sessions/{session_id}")
+        # Note: The backend doesn't have a specific session analytics endpoint
+        # We'll return basic session info with statistics
+        response = await self.client.get(f"{self.api_v1_url}/sessions/{session_id}")
         response.raise_for_status()
-        return response.json()
+        session_data = response.json()
+
+        # Return analytics-style response with available data
+        return {
+            "session_id": session_id,
+            "message_count": session_data.get("messageCount", 0),
+            "total_cost": session_data.get("totalCost", 0.0),
+            "started_at": session_data.get("startedAt"),
+            "ended_at": session_data.get("endedAt"),
+            "duration": None,  # Could be calculated from start/end times
+            "summary": session_data.get("summary", "No summary available")
+        }
 
     async def get_project_analytics(self, project_id: str) -> Dict[str, Any]:
         """Get analytics for a specific project."""

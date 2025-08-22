@@ -9,6 +9,8 @@ import {
   ProgressDialog,
   ConflictResolver,
 } from '@/components/import-export';
+import { RateLimitIndicator } from '@/components/import-export/RateLimitIndicator';
+import { ImportHistory } from '@/components/import-export/ImportHistory';
 import { ExecuteImportRequest, ConflictItem } from '@/api/import-export';
 
 interface Tab {
@@ -25,8 +27,13 @@ const tabs: Tab[] = [
   },
   { id: 'import', label: 'Import Data', icon: <Upload className="w-4 h-4" /> },
   {
-    id: 'history',
+    id: 'export-history',
     label: 'Export History',
+    icon: <History className="w-4 h-4" />,
+  },
+  {
+    id: 'import-history',
+    label: 'Import History',
     icon: <History className="w-4 h-4" />,
   },
 ];
@@ -112,6 +119,7 @@ export function ImportExportPage() {
       <div className="mt-6">
         {activeTab === 'export' && (
           <div className="space-y-6">
+            <RateLimitIndicator type="export" />
             <div className="bg-card rounded-lg border p-6">
               <h2 className="text-xl font-semibold mb-4">Export Your Data</h2>
               <p className="text-sm text-muted-foreground mb-6">
@@ -125,6 +133,7 @@ export function ImportExportPage() {
 
         {activeTab === 'import' && (
           <div className="space-y-6">
+            <RateLimitIndicator type="import" />
             <div className="bg-card rounded-lg border p-6">
               <h2 className="text-xl font-semibold mb-4">Import Data</h2>
               <p className="text-sm text-muted-foreground mb-6">
@@ -139,7 +148,7 @@ export function ImportExportPage() {
           </div>
         )}
 
-        {activeTab === 'history' && (
+        {activeTab === 'export-history' && (
           <div className="space-y-6">
             <div className="bg-card rounded-lg border p-6">
               <h2 className="text-xl font-semibold mb-4">Export History</h2>
@@ -148,6 +157,19 @@ export function ImportExportPage() {
                 for 30 days.
               </p>
               <ExportHistory />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'import-history' && (
+          <div className="space-y-6">
+            <div className="bg-card rounded-lg border p-6">
+              <h2 className="text-xl font-semibold mb-4">Import History</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                View your import history and check the status of previous
+                imports.
+              </p>
+              <ImportHistory />
             </div>
           </div>
         )}

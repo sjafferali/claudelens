@@ -10,6 +10,7 @@ from fastapi import File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.api.dependencies import CommonDeps
+from app.core.config import settings
 from app.core.custom_router import APIRouter
 from app.core.logging import get_logger
 from app.schemas.export import (
@@ -43,19 +44,19 @@ import_rate_limit: Dict[str, List[datetime]] = {}
 
 
 async def check_export_rate_limit(user_id: str) -> bool:
-    """Check if user has exceeded export rate limit (10/hour)."""
+    """Check if user has exceeded export rate limit."""
     now = datetime.now(UTC)
-    hour_ago = now - timedelta(hours=1)
+    window = now - timedelta(hours=settings.RATE_LIMIT_WINDOW_HOURS)
 
     if user_id not in export_rate_limit:
         export_rate_limit[user_id] = []
 
     # Clean old entries
     export_rate_limit[user_id] = [
-        timestamp for timestamp in export_rate_limit[user_id] if timestamp > hour_ago
+        timestamp for timestamp in export_rate_limit[user_id] if timestamp > window
     ]
 
-    if len(export_rate_limit[user_id]) >= 10:
+    if len(export_rate_limit[user_id]) >= settings.EXPORT_RATE_LIMIT_PER_HOUR:
         return False
 
     export_rate_limit[user_id].append(now)
@@ -63,19 +64,19 @@ async def check_export_rate_limit(user_id: str) -> bool:
 
 
 async def check_import_rate_limit(user_id: str) -> bool:
-    """Check if user has exceeded import rate limit (5/hour)."""
+    """Check if user has exceeded import rate limit."""
     now = datetime.now(UTC)
-    hour_ago = now - timedelta(hours=1)
+    window = now - timedelta(hours=settings.RATE_LIMIT_WINDOW_HOURS)
 
     if user_id not in import_rate_limit:
         import_rate_limit[user_id] = []
 
     # Clean old entries
     import_rate_limit[user_id] = [
-        timestamp for timestamp in import_rate_limit[user_id] if timestamp > hour_ago
+        timestamp for timestamp in import_rate_limit[user_id] if timestamp > window
     ]
 
-    if len(import_rate_limit[user_id]) >= 5:
+    if len(import_rate_limit[user_id]) >= settings.IMPORT_RATE_LIMIT_PER_HOUR:
         return False
 
     import_rate_limit[user_id].append(now)
@@ -100,6 +101,7 @@ async def broadcast_import_progress(job_id: str, progress: Dict[str, Any]) -> No
         current=progress.get("processed", 0),
         total=progress.get("total", 0),
         message=progress.get("message", ""),
+        statistics=progress.get("statistics"),
         completed=progress.get("percentage", 0) >= 100,
     )
 
@@ -118,7 +120,7 @@ async def create_export(
     if not await check_export_rate_limit(user_id):
         raise HTTPException(
             status_code=429,
-            detail="Rate limit exceeded. Maximum 10 exports per hour.",
+            detail=f"Rate limit exceeded. Maximum {settings.EXPORT_RATE_LIMIT_PER_HOUR} exports per {settings.RATE_LIMIT_WINDOW_HOURS} hour(s).",
         )
 
     # Create export job
@@ -476,7 +478,7 @@ async def execute_import(
     if not await check_import_rate_limit(user_id):
         raise HTTPException(
             status_code=429,
-            detail="Rate limit exceeded. Maximum 5 imports per hour.",
+            detail=f"Rate limit exceeded. Maximum {settings.IMPORT_RATE_LIMIT_PER_HOUR} imports per {settings.RATE_LIMIT_WINDOW_HOURS} hour(s).",
         )
 
     # Get file path from file ID
@@ -622,3 +624,128 @@ async def rollback_import(
         itemsReverted=import_job.get("statistics", {}).get("imported", 0),
         message="Import successfully rolled back",
     )
+
+
+@router.get("/rate-limits")
+async def get_rate_limits() -> Dict[str, Any]:
+    """Get current rate limit status for the user."""
+    # For now, use anonymous user (same as other endpoints)
+    user_id = "anonymous"
+
+    now = datetime.now(UTC)
+    window = now - timedelta(hours=settings.RATE_LIMIT_WINDOW_HOURS)
+
+    # Count exports in current window
+    export_count = 0
+    if user_id in export_rate_limit:
+        export_rate_limit[user_id] = [
+            timestamp for timestamp in export_rate_limit[user_id] if timestamp > window
+        ]
+        export_count = len(export_rate_limit[user_id])
+
+    # Count imports in current window
+    import_count = 0
+    if user_id in import_rate_limit:
+        import_rate_limit[user_id] = [
+            timestamp for timestamp in import_rate_limit[user_id] if timestamp > window
+        ]
+        import_count = len(import_rate_limit[user_id])
+
+    # Calculate when the oldest entry will expire
+    export_reset_in = None
+    if export_count > 0 and user_id in export_rate_limit:
+        oldest_export = min(export_rate_limit[user_id])
+        export_reset_in = (
+            oldest_export + timedelta(hours=settings.RATE_LIMIT_WINDOW_HOURS) - now
+        ).total_seconds()
+        export_reset_in = max(0, export_reset_in)  # Don't show negative values
+
+    import_reset_in = None
+    if import_count > 0 and user_id in import_rate_limit:
+        oldest_import = min(import_rate_limit[user_id])
+        import_reset_in = (
+            oldest_import + timedelta(hours=settings.RATE_LIMIT_WINDOW_HOURS) - now
+        ).total_seconds()
+        import_reset_in = max(0, import_reset_in)
+
+    return {
+        "export": {
+            "current": export_count,
+            "limit": settings.EXPORT_RATE_LIMIT_PER_HOUR,
+            "remaining": max(0, settings.EXPORT_RATE_LIMIT_PER_HOUR - export_count),
+            "window_hours": settings.RATE_LIMIT_WINDOW_HOURS,
+            "reset_in_seconds": export_reset_in,
+        },
+        "import": {
+            "current": import_count,
+            "limit": settings.IMPORT_RATE_LIMIT_PER_HOUR,
+            "remaining": max(0, settings.IMPORT_RATE_LIMIT_PER_HOUR - import_count),
+            "window_hours": settings.RATE_LIMIT_WINDOW_HOURS,
+            "reset_in_seconds": import_reset_in,
+        },
+    }
+
+
+@router.get("/import")
+async def list_import_jobs(
+    db: CommonDeps,
+    page: int = Query(0, ge=0),
+    size: int = Query(20, ge=1, le=100),
+    sort: str = Query("createdAt,desc"),
+    status: Optional[str] = None,
+) -> Dict[str, Any]:
+    """List import jobs for the current user."""
+    # For read-only operations, we don't require authentication
+    # This matches the pattern used in sessions and projects endpoints
+    user_id = "anonymous"
+
+    # Build filter
+    filter_dict = {"user_id": user_id}
+    if status:
+        filter_dict["status"] = status
+
+    # Parse sort parameter
+    sort_parts = sort.split(",")
+    sort_field = sort_parts[0]
+    sort_direction = -1 if len(sort_parts) > 1 and sort_parts[1] == "desc" else 1
+
+    # Map sort field to database field
+    sort_field_map = {
+        "createdAt": "created_at",
+        "completedAt": "completed_at",
+    }
+    sort_field = sort_field_map.get(sort_field, sort_field)
+
+    # Get total count
+    total = await db.import_jobs.count_documents(filter_dict)
+
+    # Get paginated results
+    cursor = db.import_jobs.find(filter_dict)
+    cursor = cursor.sort(sort_field, sort_direction)
+    cursor = cursor.skip(page * size).limit(size)
+
+    jobs = []
+    async for job in cursor:
+        jobs.append(
+            {
+                "jobId": str(job["_id"]),
+                "status": job.get("status", "unknown"),
+                "fileId": job.get("file_id"),
+                "createdAt": job.get("created_at").isoformat()
+                if job.get("created_at")
+                else "",
+                "completedAt": job.get("completed_at").isoformat()
+                if job.get("completed_at")
+                else None,
+                "statistics": job.get("statistics", {}),
+                "errors": job.get("errors", []),
+            }
+        )
+
+    return {
+        "content": jobs,
+        "totalElements": total,
+        "totalPages": math.ceil(total / size) if size > 0 else 0,
+        "size": size,
+        "number": page,
+    }
