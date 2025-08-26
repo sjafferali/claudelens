@@ -61,7 +61,7 @@ class RateLimitSettings(BaseModel):
     class Config:
         """Pydantic configuration."""
 
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "export_limit_per_hour": 10,
                 "import_limit_per_hour": 5,

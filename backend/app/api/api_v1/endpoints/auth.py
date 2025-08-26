@@ -180,3 +180,115 @@ async def get_current_user(
         email=current_user.email,
         role=current_user.role,
     )
+
+
+class ChangePasswordRequest(BaseModel):
+    """Change password request model."""
+
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: UserInDB = Depends(get_current_user_from_token),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+) -> dict:
+    """Change the current user's password."""
+    # Verify current password
+    if not current_user.password_hash or not AuthService.verify_password(
+        request.current_password, current_user.password_hash
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    # Hash new password
+    new_password_hash = AuthService.hash_password(request.new_password)
+
+    # Update user's password
+    from datetime import UTC, datetime
+
+    result = await db.users.update_one(
+        {"_id": current_user.id},
+        {
+            "$set": {
+                "password_hash": new_password_hash,
+                "updated_at": datetime.now(UTC),
+            }
+        },
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update password",
+        )
+
+    return {"message": "Password changed successfully"}
+
+
+class ApiKeyResponse(BaseModel):
+    """API key information."""
+
+    name: str
+    hash: str
+    created_at: str
+
+
+@router.get("/me/api-keys", response_model=list[ApiKeyResponse])
+async def get_my_api_keys(
+    current_user: UserInDB = Depends(get_current_user_from_token),
+) -> list[ApiKeyResponse]:
+    """Get the current user's API keys."""
+    return [
+        ApiKeyResponse(
+            name=key.name,
+            hash=key.key_hash,
+            created_at=key.created_at.isoformat() if key.created_at else "",
+        )
+        for key in current_user.api_keys
+    ]
+
+
+@router.post("/me/api-keys")
+async def generate_my_api_key(
+    key_name: str,
+    current_user: UserInDB = Depends(get_current_user_from_token),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+) -> dict:
+    """Generate a new API key for the current user."""
+    user_service = UserService(db)
+    api_key = await user_service.generate_new_api_key(str(current_user.id), key_name)
+
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate API key",
+        )
+
+    return {
+        "api_key": api_key,
+        "message": "API key generated successfully. Store it securely as it won't be shown again.",
+    }
+
+
+@router.delete("/me/api-keys/{key_hash}")
+async def revoke_my_api_key(
+    key_hash: str,
+    current_user: UserInDB = Depends(get_current_user_from_token),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+) -> dict:
+    """Revoke one of the current user's API keys."""
+    user_service = UserService(db)
+    success = await user_service.revoke_api_key(str(current_user.id), key_hash)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="API key not found",
+        )
+
+    return {"message": "API key revoked successfully"}

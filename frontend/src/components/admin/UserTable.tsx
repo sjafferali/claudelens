@@ -9,6 +9,7 @@ import {
   UserPlus,
   ShieldCheck,
   Eye,
+  Key,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -23,6 +24,8 @@ import {
 import { Button } from '@/components/common/Button';
 import Loading from '@/components/common/Loading';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { CreateUserModal } from './CreateUserModal';
+import { ApiKeyModal } from './ApiKeyModal';
 import { cn } from '@/utils/cn';
 
 interface ApiError {
@@ -91,6 +94,8 @@ export const UserTable: React.FC<UserTableProps> = ({ className }) => {
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   // Fetch users
@@ -234,7 +239,10 @@ export const UserTable: React.FC<UserTableProps> = ({ className }) => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>User Management</CardTitle>
-          <Button className="flex items-center gap-2">
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2"
+          >
             <Plus className="w-4 h-4" />
             Add User
           </Button>
@@ -386,11 +394,23 @@ export const UserTable: React.FC<UserTableProps> = ({ className }) => {
                             </span>
                             <span className="ml-2">{user.message_count}</span>
                           </div>
-                          <div>
+                          <div className="flex items-center gap-2">
                             <span className="font-medium text-gray-600 dark:text-gray-400">
                               API Keys:
                             </span>
-                            <span className="ml-2">{user.api_key_count}</span>
+                            <span>{user.api_key_count}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowApiKeyModal(true);
+                              }}
+                              className="ml-2"
+                            >
+                              <Key className="w-3 h-3 mr-1" />
+                              Manage
+                            </Button>
                           </div>
                           <div>
                             <span className="font-medium text-gray-600 dark:text-gray-400">
@@ -453,6 +473,31 @@ export const UserTable: React.FC<UserTableProps> = ({ className }) => {
         message={`Are you sure you want to delete user "${selectedUser?.username}"? This will permanently delete all their data including projects, sessions, and messages.`}
         variant="destructive"
       />
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+          setShowCreateModal(false);
+        }}
+      />
+
+      {/* API Key Management Modal */}
+      {selectedUser && (
+        <ApiKeyModal
+          isOpen={showApiKeyModal}
+          onClose={() => {
+            setShowApiKeyModal(false);
+            setSelectedUser(null);
+          }}
+          user={selectedUser}
+          onApiKeyGenerated={() => {
+            queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+          }}
+        />
+      )}
     </Card>
   );
 };

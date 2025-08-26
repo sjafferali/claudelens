@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { AISettingsPanel } from '@/components/settings/AISettingsPanel';
 import { RateLimitSettingsPanel } from '@/components/settings/RateLimitSettings';
+import AccountSettings from '@/components/settings/AccountSettings';
 
 const SETTINGS_TABS = [
   { id: 'ai', label: 'AI Assistant', icon: Zap },
@@ -87,24 +88,6 @@ export default function Settings() {
 }
 
 // Placeholder components for other settings tabs
-function AccountSettings() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2 pb-4 border-b border-gray-200 dark:border-gray-700">
-        <User className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          Account Settings
-        </h2>
-      </div>
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 text-center">
-        <p className="text-gray-500 dark:text-gray-400">
-          Account settings coming soon...
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function PrivacySettings() {
   return (
     <div className="space-y-6">
