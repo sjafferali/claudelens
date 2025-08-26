@@ -1,5 +1,6 @@
 """Main FastAPI application."""
 
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -8,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.api_v1.api import api_router
 from app.api.api_v1.endpoints.websocket import router as websocket_router
@@ -61,6 +63,21 @@ app = FastAPI(
 )
 
 # Add middleware
+# IMPORTANT: SessionMiddleware must be added before OAuth initialization
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SESSION_SECRET_KEY
+    if hasattr(settings, "SESSION_SECRET_KEY")
+    else secrets.token_urlsafe(32),
+    session_cookie=settings.SESSION_COOKIE_NAME
+    if hasattr(settings, "SESSION_COOKIE_NAME")
+    else "claudelens_session",
+    https_only=settings.SESSION_COOKIE_SECURE
+    if hasattr(settings, "SESSION_COOKIE_SECURE")
+    else False,
+    same_site="lax",  # type: ignore
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,

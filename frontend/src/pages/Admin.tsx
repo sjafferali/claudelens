@@ -8,6 +8,7 @@ import {
   HardDrive,
   Shield,
   AlertTriangle,
+  Settings,
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,6 +22,7 @@ import {
 import Loading from '@/components/common/Loading';
 import { UserTable } from '@/components/admin/UserTable';
 import { DiskUsageChart } from '@/components/admin/DiskUsageChart';
+import { OIDCSettingsPanel } from '@/components/settings/OIDCSettingsPanel';
 import { cn } from '@/utils/cn';
 
 const formatBytes = (bytes: number): string => {
@@ -103,9 +105,9 @@ const StatCard = ({
 
 export default function Admin() {
   const { isAdmin, isLoading: authLoading, currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'storage'>(
-    'overview'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'users' | 'storage' | 'settings'
+  >('overview');
 
   // Redirect if not admin
   useEffect(() => {
@@ -171,6 +173,7 @@ export default function Admin() {
     { id: 'overview', label: 'Overview', icon: TrendingUp },
     { id: 'users', label: 'User Management', icon: Users },
     { id: 'storage', label: 'Storage Analysis', icon: HardDrive },
+    { id: 'settings', label: 'Authentication', icon: Settings },
   ] as const;
 
   return (
@@ -392,6 +395,12 @@ export default function Admin() {
               data={storageData || null}
               isLoading={storageLoading}
             />
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="max-w-4xl">
+            <OIDCSettingsPanel />
           </div>
         )}
       </div>

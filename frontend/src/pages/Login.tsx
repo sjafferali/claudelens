@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
-import { Lock } from 'lucide-react';
+import { Lock, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/api/client';
+import { getOIDCStatus, initiateOIDCLogin } from '@/api/oidcApi';
 
 interface LoginResponse {
   access_token: string;
@@ -16,8 +17,35 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isOIDCEnabled, setIsOIDCEnabled] = useState(false);
+  const [isOIDCLoading, setIsOIDCLoading] = useState(false);
   const navigate = useNavigate();
   const setAccessToken = useStore((state) => state.setAccessToken);
+
+  useEffect(() => {
+    // Check if OIDC is enabled
+    const checkOIDCStatus = async () => {
+      try {
+        const status = await getOIDCStatus();
+        setIsOIDCEnabled(status.enabled);
+      } catch (error) {
+        console.error('Failed to check OIDC status:', error);
+      }
+    };
+    checkOIDCStatus();
+  }, []);
+
+  const handleSSOLogin = async () => {
+    setIsOIDCLoading(true);
+    try {
+      const { authorization_url } = await initiateOIDCLogin();
+      // Redirect to OIDC provider
+      window.location.href = authorization_url;
+    } catch (error) {
+      toast.error('Failed to initiate SSO login');
+      setIsOIDCLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,16 +161,43 @@ const Login: React.FC = () => {
             </div>
           </div>
 
-          <div>
+          <div className="space-y-3">
             <Button
               type="submit"
               variant="default"
               size="lg"
               className="w-full"
-              disabled={isLoading}
+              disabled={isLoading || isOIDCLoading}
             >
               {isLoading ? 'Authenticating...' : 'Sign In'}
             </Button>
+
+            {isOIDCEnabled && (
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300 dark:border-gray-700" />
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400">
+                      Or continue with
+                    </span>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="w-full flex items-center justify-center gap-2"
+                  onClick={handleSSOLogin}
+                  disabled={isOIDCLoading || isLoading}
+                >
+                  <Shield className="w-5 h-5" />
+                  {isOIDCLoading ? 'Redirecting...' : 'Login with SSO'}
+                </Button>
+              </>
+            )}
           </div>
         </form>
       </div>

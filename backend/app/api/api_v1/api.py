@@ -9,6 +9,7 @@ from app.api.api_v1.endpoints import (
     import_export,
     ingest,
     messages,
+    oidc,
     projects,
     prompts,
     rate_limit_settings,
@@ -31,6 +32,7 @@ api_router = APIRouter()
 
 # Include all endpoint routers
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(oidc.router, prefix="/auth/oidc", tags=["oidc"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])

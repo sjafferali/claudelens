@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     BACKUP_RETENTION_DAYS: int = 30
     BACKUP_MAX_SIZE_GB: int = 100
 
+    # Session Configuration for OIDC
+    SESSION_SECRET_KEY: str = "change-this-to-a-secure-secret-key-in-production"
+    SESSION_COOKIE_NAME: str = "claudelens_session"
+    SESSION_COOKIE_SECURE: bool = False  # Set to True in production with HTTPS
+    SESSION_COOKIE_SAMESITE: str = "lax"
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
 

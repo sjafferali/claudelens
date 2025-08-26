@@ -8,7 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.dependencies import get_db, require_admin
+from app.models.oidc_settings import OIDCSettingsInDB
 from app.models.user import UserInDB, UserRole
+from app.schemas.oidc import (
+    OIDCSettingsResponse,
+    OIDCSettingsUpdate,
+    OIDCTestConnectionRequest,
+    OIDCTestConnectionResponse,
+)
+from app.services.oidc_service import oidc_service
 from app.services.storage_metrics import StorageMetricsService
 from app.services.user import UserService
 
@@ -382,3 +390,139 @@ async def get_recent_activity(
     activity.sort(key=lambda x: x["timestamp"], reverse=True)
 
     return activity[:limit]
+
+
+# OIDC Settings Management Endpoints
+
+
+@router.get("/oidc-settings", response_model=OIDCSettingsResponse)
+async def get_oidc_settings(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> OIDCSettingsResponse:
+    """Get OIDC settings."""
+    settings = await oidc_service.load_settings(db)
+
+    if not settings:
+        # Return default settings if none exist
+        from app.models.oidc_settings import PyObjectId
+
+        settings = OIDCSettingsInDB(
+            _id=PyObjectId(),
+            enabled=False,
+            client_id="",
+            client_secret_encrypted="",
+            discovery_endpoint="",
+            redirect_uri="",
+            scopes=["openid", "email", "profile"],
+            auto_create_users=True,
+            default_role="user",
+        )
+
+    return OIDCSettingsResponse(
+        _id=str(settings.id),
+        enabled=settings.enabled,
+        client_id=settings.client_id,
+        discovery_endpoint=settings.discovery_endpoint,
+        redirect_uri=settings.redirect_uri,
+        scopes=settings.scopes,
+        auto_create_users=settings.auto_create_users,
+        default_role=settings.default_role,
+        api_key_configured=bool(settings.client_secret_encrypted),
+        created_at=settings.created_at,
+        updated_at=settings.updated_at,
+        updated_by=settings.updated_by,
+    )
+
+
+@router.put("/oidc-settings", response_model=OIDCSettingsResponse)
+async def update_oidc_settings(
+    settings_update: OIDCSettingsUpdate,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> OIDCSettingsResponse:
+    """Update OIDC settings."""
+    # Load existing settings or create new
+    existing = await oidc_service.load_settings(db)
+
+    if existing:
+        # Update existing settings
+        settings_dict = existing.model_dump()
+        update_dict = settings_update.model_dump(exclude_unset=True)
+
+        # Handle client secret encryption if provided
+        if "client_secret" in update_dict and update_dict["client_secret"]:
+            update_dict["client_secret_encrypted"] = oidc_service.encrypt_client_secret(
+                update_dict.pop("client_secret")
+            )
+        elif "client_secret" in update_dict:
+            update_dict.pop("client_secret")
+
+        settings_dict.update(update_dict)
+        settings_dict["updated_by"] = str(admin_user.id)
+        settings = OIDCSettingsInDB(**settings_dict)
+    else:
+        # Create new settings
+        settings_dict = settings_update.model_dump(exclude_unset=True)
+
+        # Handle client secret encryption
+        if "client_secret" in settings_dict and settings_dict["client_secret"]:
+            settings_dict[
+                "client_secret_encrypted"
+            ] = oidc_service.encrypt_client_secret(settings_dict.pop("client_secret"))
+        else:
+            settings_dict.pop("client_secret", None)
+            settings_dict["client_secret_encrypted"] = ""
+
+        settings_dict["updated_by"] = str(admin_user.id)
+        settings = OIDCSettingsInDB(**settings_dict)
+
+    # Save settings
+    await oidc_service.save_settings(db, settings)
+
+    return OIDCSettingsResponse(
+        _id=str(settings.id),
+        enabled=settings.enabled,
+        client_id=settings.client_id,
+        discovery_endpoint=settings.discovery_endpoint,
+        redirect_uri=settings.redirect_uri,
+        scopes=settings.scopes,
+        auto_create_users=settings.auto_create_users,
+        default_role=settings.default_role,
+        api_key_configured=bool(settings.client_secret_encrypted),
+        created_at=settings.created_at,
+        updated_at=settings.updated_at,
+        updated_by=settings.updated_by,
+    )
+
+
+@router.post("/oidc-settings/test", response_model=OIDCTestConnectionResponse)
+async def test_oidc_connection(
+    test_request: OIDCTestConnectionRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> OIDCTestConnectionResponse:
+    """Test OIDC connection."""
+    # Load settings if no override endpoint provided
+    if not test_request.discovery_endpoint:
+        await oidc_service.load_settings(db)
+
+    # Test connection
+    result = await oidc_service.test_connection(test_request.discovery_endpoint)
+
+    return OIDCTestConnectionResponse(**result)
+
+
+@router.delete("/oidc-settings")
+async def delete_oidc_settings(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, str]:
+    """Delete OIDC settings."""
+    result = await db.oidc_settings.delete_many({})
+
+    # Clear OIDC service configuration
+    oidc_service._configured = False
+    oidc_service._settings = None
+
+    return {"message": f"Deleted {result.deleted_count} OIDC settings"}

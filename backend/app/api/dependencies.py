@@ -30,9 +30,10 @@ async def verify_api_key_or_jwt(
     """Verify authentication via API key or JWT token.
 
     Supports:
-    1. JWT Bearer token (for UI)
-    2. X-API-Key header (for programmatic access)
-    3. Localhost access without authentication (for development)
+    1. OIDC session (for SSO)
+    2. JWT Bearer token (for UI)
+    3. X-API-Key header (for programmatic access)
+    4. Localhost access without authentication (for development)
     """
     # Check if request is from localhost (nginx proxy or direct)
     if request:
@@ -73,7 +74,16 @@ async def verify_api_key_or_jwt(
                 return str(default_user["_id"])
 
     # For non-localhost requests, check for authentication
-    # First try JWT token (for UI)
+    # First check for OIDC session
+    if hasattr(request, "session") and request.session and request.session.get("user"):
+        user_data = request.session.get("user")
+        if user_data:
+            context = await get_tenant_context(request)
+            context.user_id = str(user_data.get("id"))
+            context.user_role = UserRole(user_data.get("role", "user"))
+            return str(user_data.get("id"))
+
+    # Then try JWT token (for UI)
     if credentials and credentials.credentials:
         token_data = AuthService.decode_access_token(credentials.credentials)
         if token_data:

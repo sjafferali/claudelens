@@ -40,6 +40,14 @@ class UserInDB(BaseModel):
     updated_at: datetime
     is_active: bool = True
 
+    # OIDC fields
+    oidc_sub: Optional[str] = None  # OIDC subject identifier
+    oidc_provider: Optional[str] = None  # Provider discovery URL
+    auth_method: str = "local"  # 'local', 'oidc', 'api_key'
+    email_verified: Optional[bool] = None
+    full_name: Optional[str] = None
+    last_login: Optional[datetime] = None
+
     # Usage statistics (denormalized for performance)
     project_count: int = 0
     session_count: int = 0

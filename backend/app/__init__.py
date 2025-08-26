@@ -1,5 +1,6 @@
 """ClaudeLens Backend API."""
 
-from app.main import app
+__version__ = "0.1.0"
 
-__all__ = ["app"]
+# Don't import app here to avoid circular imports during testing
+__all__ = ["__version__"]
