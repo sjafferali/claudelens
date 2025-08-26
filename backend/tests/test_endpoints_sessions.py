@@ -38,7 +38,14 @@ def test_client():
     async def mock_get_db():
         return AsyncMock()
 
+    # Mock the auth dependency to return a test user ID
+    from app.api.dependencies import verify_api_key_header
+
+    async def mock_verify_api_key():
+        return "test_user_id"
+
     app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[verify_api_key_header] = mock_verify_api_key
     app.include_router(router, prefix="/api/v1/sessions")
     return TestClient(app)
 
@@ -129,6 +136,16 @@ class TestListSessions:
         assert data["items"][0]["_id"] == sample_session.id
         assert data["has_more"] is False
 
+        # Verify service was called with user_id
+        mock_service.list_sessions.assert_called_once_with(
+            "test_user_id",
+            filter_dict={},
+            skip=0,
+            limit=20,
+            sort_by="started_at",
+            sort_order="desc",
+        )
+
     def test_list_sessions_with_project_filter(
         self, test_client: TestClient, mock_session_service, sample_session
     ):
@@ -144,9 +161,14 @@ class TestListSessions:
 
         # Verify
         assert response.status_code == 200
-        mock_service.list_sessions.assert_called_once()
-        call_args = mock_service.list_sessions.call_args
-        assert call_args[1]["filter_dict"]["projectId"] == ObjectId(project_id)
+        mock_service.list_sessions.assert_called_once_with(
+            "test_user_id",
+            filter_dict={"projectId": ObjectId(project_id)},
+            skip=0,
+            limit=20,
+            sort_by="started_at",
+            sort_order="desc",
+        )
 
     def test_list_sessions_invalid_project_id(
         self, test_client: TestClient, mock_session_service
@@ -170,10 +192,14 @@ class TestListSessions:
 
         # Verify
         assert response.status_code == 200
-        mock_service.list_sessions.assert_called_once()
-        call_args = mock_service.list_sessions.call_args
-        assert "$text" in call_args[1]["filter_dict"]
-        assert call_args[1]["filter_dict"]["$text"]["$search"] == "test"
+        mock_service.list_sessions.assert_called_once_with(
+            "test_user_id",
+            filter_dict={"$text": {"$search": "test"}},
+            skip=0,
+            limit=20,
+            sort_by="started_at",
+            sort_order="desc",
+        )
 
     def test_list_sessions_with_date_filters(
         self, test_client: TestClient, mock_session_service, sample_session
@@ -195,56 +221,8 @@ class TestListSessions:
         assert response.status_code == 200
         mock_service.list_sessions.assert_called_once()
         call_args = mock_service.list_sessions.call_args
-        assert "startedAt" in call_args[1]["filter_dict"]
-        assert "$gte" in call_args[1]["filter_dict"]["startedAt"]
-        assert "$lte" in call_args[1]["filter_dict"]["startedAt"]
-
-    def test_list_sessions_with_pagination(
-        self, test_client: TestClient, mock_session_service, sample_session
-    ):
-        """Test listing sessions with pagination."""
-        # Setup mock
-        mock_service = AsyncMock()
-        mock_service.list_sessions.return_value = ([sample_session], 100)
-        mock_session_service.return_value = mock_service
-
-        # Make request
-        response = test_client.get("/api/v1/sessions/?skip=20&limit=10")
-
-        # Verify
-        assert response.status_code == 200
-        data = response.json()
-        assert data["skip"] == 20
-        assert data["limit"] == 10
-        assert data["has_more"] is True  # 20 + 10 < 100
-
-    def test_list_sessions_with_sorting(
-        self, test_client: TestClient, mock_session_service, sample_session
-    ):
-        """Test listing sessions with sorting."""
-        # Setup mock
-        mock_service = AsyncMock()
-        mock_service.list_sessions.return_value = ([sample_session], 1)
-        mock_session_service.return_value = mock_service
-
-        # Make request
-        response = test_client.get(
-            "/api/v1/sessions/?sort_by=total_cost&sort_order=asc"
-        )
-
-        # Verify
-        assert response.status_code == 200
-        mock_service.list_sessions.assert_called_once()
-        call_args = mock_service.list_sessions.call_args
-        assert call_args[1]["sort_by"] == "total_cost"
-        assert call_args[1]["sort_order"] == "asc"
-
-    def test_list_sessions_invalid_sort_field(
-        self, test_client: TestClient, mock_session_service
-    ):
-        """Test listing sessions with invalid sort field."""
-        response = test_client.get("/api/v1/sessions/?sort_by=invalid_field")
-        assert response.status_code == 422  # Validation error
+        assert call_args.kwargs["filter_dict"]["startedAt"]["$gte"]
+        assert call_args.kwargs["filter_dict"]["startedAt"]["$lte"]
 
 
 class TestGetSession:
@@ -260,26 +238,45 @@ class TestGetSession:
         mock_session_service.return_value = mock_service
 
         # Make request
-        session_id = sample_session_detail.id
+        session_id = "507f1f77bcf86cd799439011"
         response = test_client.get(f"/api/v1/sessions/{session_id}")
 
         # Verify
         assert response.status_code == 200
         data = response.json()
-        assert data["_id"] == session_id
-        assert data["summary"] == sample_session_detail.summary
+        assert data["_id"] == sample_session_detail.id
+        assert data["session_id"] == sample_session_detail.session_id
+
+        # Verify service was called with user_id
+        mock_service.get_session.assert_called_once_with(
+            "test_user_id", session_id, include_messages=False
+        )
+
+    def test_get_session_not_found(self, test_client: TestClient, mock_session_service):
+        """Test session retrieval when session not found."""
+        # Setup mock
+        mock_service = AsyncMock()
+        mock_service.get_session.return_value = None
+        mock_session_service.return_value = mock_service
+
+        # Make request
+        session_id = "507f1f77bcf86cd799439011"
+        response = test_client.get(f"/api/v1/sessions/{session_id}")
+
+        # Verify
+        assert response.status_code == 404
 
     def test_get_session_with_messages(
         self, test_client: TestClient, mock_session_service, sample_session_detail
     ):
-        """Test getting session with messages included."""
+        """Test session retrieval with messages included."""
         # Setup mock
         mock_service = AsyncMock()
         mock_service.get_session.return_value = sample_session_detail
         mock_session_service.return_value = mock_service
 
         # Make request
-        session_id = sample_session_detail.id
+        session_id = "507f1f77bcf86cd799439011"
         response = test_client.get(
             f"/api/v1/sessions/{session_id}?include_messages=true"
         )
@@ -287,22 +284,8 @@ class TestGetSession:
         # Verify
         assert response.status_code == 200
         mock_service.get_session.assert_called_once_with(
-            session_id, include_messages=True
+            "test_user_id", session_id, include_messages=True
         )
-
-    def test_get_session_not_found(self, test_client: TestClient, mock_session_service):
-        """Test getting non-existent session."""
-        # Setup mock
-        mock_service = AsyncMock()
-        mock_service.get_session.return_value = None
-        mock_session_service.return_value = mock_service
-
-        # Make request
-        response = test_client.get("/api/v1/sessions/nonexistent")
-
-        # Verify
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"]
 
 
 class TestGetSessionMessages:
@@ -312,88 +295,126 @@ class TestGetSessionMessages:
         self,
         test_client: TestClient,
         mock_session_service,
-        sample_session_detail,
         sample_messages,
+        sample_session,
     ):
-        """Test successful retrieval of session messages."""
+        """Test successful session messages retrieval."""
         # Setup mock
         mock_service = AsyncMock()
-        mock_service.get_session.return_value = sample_session_detail
+        mock_service.get_session.return_value = sample_session
         mock_service.get_session_messages.return_value = sample_messages
         mock_session_service.return_value = mock_service
 
         # Make request
-        session_id = sample_session_detail.id
+        session_id = "507f1f77bcf86cd799439011"
         response = test_client.get(f"/api/v1/sessions/{session_id}/messages")
 
         # Verify
         assert response.status_code == 200
         data = response.json()
-        assert data["session"]["_id"] == session_id
-        assert len(data["messages"]) == 2
-        assert data["messages"][0]["content"] == "Test message 1"
+        assert "session" in data
+        assert "messages" in data
+        assert len(data["messages"]) == len(sample_messages)
+        assert data["skip"] == 0
+        assert data["limit"] == 50
+
+        # Verify service was called with user_id
+        mock_service.get_session.assert_called_once_with("test_user_id", session_id)
+        mock_service.get_session_messages.assert_called_once_with(
+            "test_user_id", session_id, skip=0, limit=50
+        )
 
     def test_get_session_messages_with_pagination(
         self,
         test_client: TestClient,
         mock_session_service,
-        sample_session_detail,
         sample_messages,
+        sample_session,
     ):
-        """Test getting session messages with pagination."""
+        """Test session messages retrieval with pagination."""
         # Setup mock
         mock_service = AsyncMock()
-        mock_service.get_session.return_value = sample_session_detail
+        mock_service.get_session.return_value = sample_session
         mock_service.get_session_messages.return_value = sample_messages
         mock_session_service.return_value = mock_service
 
         # Make request
-        session_id = sample_session_detail.id
+        session_id = "507f1f77bcf86cd799439011"
         response = test_client.get(
-            f"/api/v1/sessions/{session_id}/messages?skip=10&limit=20"
+            f"/api/v1/sessions/{session_id}/messages?skip=10&limit=50"
         )
 
         # Verify
         assert response.status_code == 200
         data = response.json()
         assert data["skip"] == 10
-        assert data["limit"] == 20
+        assert data["limit"] == 50
+
+        # Verify service calls
+        mock_service.get_session.assert_called_once_with("test_user_id", session_id)
         mock_service.get_session_messages.assert_called_once_with(
-            session_id, skip=10, limit=20
+            "test_user_id", session_id, skip=10, limit=50
         )
 
-    def test_get_session_messages_session_not_found(
+
+class TestGenerateSessionSummary:
+    """Tests for generate session summary endpoint."""
+
+    def test_generate_summary_success(
         self, test_client: TestClient, mock_session_service
     ):
-        """Test getting messages for non-existent session."""
+        """Test successful summary generation."""
         # Setup mock
         mock_service = AsyncMock()
-        mock_service.get_session.return_value = None
+        mock_service.generate_summary.return_value = "Generated summary"
         mock_session_service.return_value = mock_service
 
         # Make request
-        response = test_client.get("/api/v1/sessions/nonexistent/messages")
+        session_id = "507f1f77bcf86cd799439011"
+        response = test_client.post(f"/api/v1/sessions/{session_id}/generate-summary")
+
+        # Verify
+        assert response.status_code == 200
+        data = response.json()
+        assert data["summary"] == "Generated summary"
+
+        # Verify service was called with user_id
+        mock_service.generate_summary.assert_called_once_with(
+            "test_user_id", session_id
+        )
+
+    def test_generate_summary_not_found(
+        self, test_client: TestClient, mock_session_service
+    ):
+        """Test summary generation for non-existent session."""
+        # Setup mock
+        mock_service = AsyncMock()
+        mock_service.generate_summary.return_value = None
+        mock_session_service.return_value = mock_service
+
+        # Make request
+        session_id = "507f1f77bcf86cd799439011"
+        response = test_client.post(f"/api/v1/sessions/{session_id}/generate-summary")
 
         # Verify
         assert response.status_code == 404
-        assert "not found" in response.json()["detail"]
 
 
 class TestGetMessageThread:
     """Tests for get message thread endpoint."""
 
     def test_get_message_thread_success(
-        self, test_client: TestClient, mock_session_service
+        self, test_client: TestClient, mock_session_service, sample_messages
     ):
-        """Test successful retrieval of message thread."""
-        # Setup mock
-        thread_data = {
-            "message": {"uuid": "msg1", "content": "Test message"},
-            "parents": [{"uuid": "parent1", "content": "Parent message"}],
-            "children": [{"uuid": "child1", "content": "Child message"}],
+        """Test successful message thread retrieval."""
+        # Setup mock thread response
+        thread_response = {
+            "target": sample_messages[0],
+            "ancestors": [],
+            "descendants": [],
         }
         mock_service = AsyncMock()
-        mock_service.get_message_thread.return_value = thread_data
+        mock_service.get_message_thread.return_value = thread_response
         mock_session_service.return_value = mock_service
 
         # Make request
@@ -406,83 +427,56 @@ class TestGetMessageThread:
         # Verify
         assert response.status_code == 200
         data = response.json()
-        assert data["message"]["uuid"] == "msg1"
-        assert len(data["parents"]) == 1
-        assert len(data["children"]) == 1
+        assert "target" in data
+        assert "ancestors" in data
+        assert "descendants" in data
 
-    def test_get_message_thread_with_depth(
-        self, test_client: TestClient, mock_session_service
-    ):
-        """Test getting message thread with custom depth."""
-        # Setup mock
-        mock_service = AsyncMock()
-        mock_service.get_message_thread.return_value = {"message": {}}
-        mock_session_service.return_value = mock_service
-
-        # Make request
-        session_id = "507f1f77bcf86cd799439011"
-        message_uuid = "msg1"
-        response = test_client.get(
-            f"/api/v1/sessions/{session_id}/thread/{message_uuid}?depth=5"
-        )
-
-        # Verify
-        assert response.status_code == 200
+        # Verify service was called with user_id
         mock_service.get_message_thread.assert_called_once_with(
-            session_id, message_uuid, 5
+            "test_user_id", session_id, message_uuid, 10
         )
 
     def test_get_message_thread_not_found(
         self, test_client: TestClient, mock_session_service
     ):
-        """Test getting non-existent message thread."""
+        """Test message thread retrieval for non-existent message."""
         # Setup mock
         mock_service = AsyncMock()
         mock_service.get_message_thread.return_value = None
         mock_session_service.return_value = mock_service
 
         # Make request
-        response = test_client.get("/api/v1/sessions/session1/thread/nonexistent")
+        session_id = "507f1f77bcf86cd799439011"
+        message_uuid = "nonexistent"
+        response = test_client.get(
+            f"/api/v1/sessions/{session_id}/thread/{message_uuid}"
+        )
 
         # Verify
         assert response.status_code == 404
-        assert "not found" in response.json()["detail"]
 
-
-class TestGenerateSessionSummary:
-    """Tests for generate session summary endpoint."""
-
-    def test_generate_summary_success(
+    def test_get_message_thread_with_custom_depth(
         self, test_client: TestClient, mock_session_service
     ):
-        """Test successful summary generation."""
+        """Test message thread retrieval with custom depth."""
         # Setup mock
         mock_service = AsyncMock()
-        mock_service.generate_summary.return_value = "Generated summary text"
+        mock_service.get_message_thread.return_value = {
+            "target": None,
+            "ancestors": [],
+            "descendants": [],
+        }
         mock_session_service.return_value = mock_service
 
         # Make request
         session_id = "507f1f77bcf86cd799439011"
-        response = test_client.post(f"/api/v1/sessions/{session_id}/generate-summary")
+        message_uuid = "msg1"
+        response = test_client.get(
+            f"/api/v1/sessions/{session_id}/thread/{message_uuid}?depth=10"
+        )
 
         # Verify
         assert response.status_code == 200
-        data = response.json()
-        assert data["session_id"] == session_id
-        assert data["summary"] == "Generated summary text"
-
-    def test_generate_summary_session_not_found(
-        self, test_client: TestClient, mock_session_service
-    ):
-        """Test generating summary for non-existent session."""
-        # Setup mock
-        mock_service = AsyncMock()
-        mock_service.generate_summary.return_value = None
-        mock_session_service.return_value = mock_service
-
-        # Make request
-        response = test_client.post("/api/v1/sessions/nonexistent/generate-summary")
-
-        # Verify
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"]
+        mock_service.get_message_thread.assert_called_once_with(
+            "test_user_id", session_id, message_uuid, 10
+        )

@@ -36,7 +36,14 @@ def test_client():
     async def mock_get_db():
         return AsyncMock()
 
+    # Mock the auth dependency to return a test user ID
+    from app.api.dependencies import verify_api_key_header
+
+    async def mock_verify_api_key():
+        return "test_user_id"
+
     app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[verify_api_key_header] = mock_verify_api_key
     app.include_router(router, prefix="/api/v1/messages")
     return TestClient(app)
 
@@ -103,6 +110,11 @@ class TestListMessages:
         assert data["items"][0]["_id"] == sample_message.id
         assert data["has_more"] is False
 
+        # Verify service was called with user_id
+        mock_service.list_messages.assert_called_once_with(
+            "test_user_id", filter_dict={}, skip=0, limit=50, sort_order="asc"
+        )
+
     def test_list_messages_with_session_filter(
         self, test_client: TestClient, mock_message_service, sample_message
     ):
@@ -118,9 +130,13 @@ class TestListMessages:
 
         # Verify
         assert response.status_code == 200
-        mock_service.list_messages.assert_called_once()
-        call_args = mock_service.list_messages.call_args
-        assert call_args[1]["filter_dict"]["sessionId"] == session_id
+        mock_service.list_messages.assert_called_once_with(
+            "test_user_id",
+            filter_dict={"sessionId": session_id},
+            skip=0,
+            limit=50,
+            sort_order="asc",
+        )
 
     def test_list_messages_with_type_filter(
         self, test_client: TestClient, mock_message_service, sample_message
@@ -137,9 +153,13 @@ class TestListMessages:
 
         # Verify
         assert response.status_code == 200
-        mock_service.list_messages.assert_called_once()
-        call_args = mock_service.list_messages.call_args
-        assert call_args[1]["filter_dict"]["type"] == message_type
+        mock_service.list_messages.assert_called_once_with(
+            "test_user_id",
+            filter_dict={"type": message_type},
+            skip=0,
+            limit=50,
+            sort_order="asc",
+        )
 
     def test_list_messages_with_model_filter(
         self, test_client: TestClient, mock_message_service, sample_message
@@ -156,9 +176,13 @@ class TestListMessages:
 
         # Verify
         assert response.status_code == 200
-        mock_service.list_messages.assert_called_once()
-        call_args = mock_service.list_messages.call_args
-        assert call_args[1]["filter_dict"]["model"] == model
+        mock_service.list_messages.assert_called_once_with(
+            "test_user_id",
+            filter_dict={"model": model},
+            skip=0,
+            limit=50,
+            sort_order="asc",
+        )
 
     def test_list_messages_with_multiple_filters(
         self, test_client: TestClient, mock_message_service, sample_message
@@ -176,12 +200,17 @@ class TestListMessages:
 
         # Verify
         assert response.status_code == 200
-        mock_service.list_messages.assert_called_once()
-        call_args = mock_service.list_messages.call_args
-        filter_dict = call_args[1]["filter_dict"]
-        assert filter_dict["sessionId"] == "test_session"
-        assert filter_dict["type"] == "user"
-        assert filter_dict["model"] == "claude-3-sonnet"
+        mock_service.list_messages.assert_called_once_with(
+            "test_user_id",
+            filter_dict={
+                "sessionId": "test_session",
+                "type": "user",
+                "model": "claude-3-sonnet",
+            },
+            skip=0,
+            limit=50,
+            sort_order="asc",
+        )
 
     def test_list_messages_with_pagination(
         self, test_client: TestClient, mock_message_service, sample_message
@@ -203,10 +232,9 @@ class TestListMessages:
         assert data["has_more"] is True  # 20 + 10 < 100
 
         # Verify service call
-        mock_service.list_messages.assert_called_once()
-        call_args = mock_service.list_messages.call_args
-        assert call_args[1]["skip"] == 20
-        assert call_args[1]["limit"] == 10
+        mock_service.list_messages.assert_called_once_with(
+            "test_user_id", filter_dict={}, skip=20, limit=10, sort_order="asc"
+        )
 
     def test_list_messages_with_sort_order(
         self, test_client: TestClient, mock_message_service, sample_message
@@ -222,9 +250,9 @@ class TestListMessages:
 
         # Verify
         assert response.status_code == 200
-        mock_service.list_messages.assert_called_once()
-        call_args = mock_service.list_messages.call_args
-        assert call_args[1]["sort_order"] == "desc"
+        mock_service.list_messages.assert_called_once_with(
+            "test_user_id", filter_dict={}, skip=0, limit=50, sort_order="desc"
+        )
 
     def test_list_messages_invalid_sort_order(
         self, test_client: TestClient, mock_message_service
@@ -294,6 +322,9 @@ class TestGetMessage:
         assert data["_id"] == message_id
         assert data["content"] == sample_message_detail.content
 
+        # Verify service was called with user_id
+        mock_service.get_message.assert_called_once_with("test_user_id", message_id)
+
     def test_get_message_not_found(self, test_client: TestClient, mock_message_service):
         """Test getting non-existent message."""
         # Setup mock
@@ -331,6 +362,9 @@ class TestGetMessageByUuid:
         assert data["uuid"] == uuid
         assert data["content"] == sample_message_detail.content
 
+        # Verify service was called with user_id
+        mock_service.get_message_by_uuid.assert_called_once_with("test_user_id", uuid)
+
     def test_get_message_by_uuid_not_found(
         self, test_client: TestClient, mock_message_service
     ):
@@ -357,9 +391,10 @@ class TestGetMessageContext:
         """Test successful message context retrieval."""
         # Setup mock
         context_data = {
-            "message": {"id": "msg1", "content": "Test message"},
+            "target": {"id": "msg1", "content": "Test message"},
             "before": [{"id": "before1", "content": "Before message"}],
             "after": [{"id": "after1", "content": "After message"}],
+            "session_id": "test_session",
         }
         mock_service = AsyncMock()
         mock_service.get_message_context.return_value = context_data
@@ -372,9 +407,14 @@ class TestGetMessageContext:
         # Verify
         assert response.status_code == 200
         data = response.json()
-        assert data["message"]["id"] == "msg1"
+        assert data["target"]["id"] == "msg1"
         assert len(data["before"]) == 1
         assert len(data["after"]) == 1
+
+        # Verify service was called with user_id
+        mock_service.get_message_context.assert_called_once_with(
+            "test_user_id", message_id, 5, 5
+        )
 
     def test_get_message_context_with_custom_params(
         self, test_client: TestClient, mock_message_service
@@ -383,9 +423,10 @@ class TestGetMessageContext:
         # Setup mock
         mock_service = AsyncMock()
         mock_service.get_message_context.return_value = {
-            "message": {},
+            "target": {},
             "before": [],
             "after": [],
+            "session_id": "test_session",
         }
         mock_message_service.return_value = mock_service
 
@@ -397,7 +438,9 @@ class TestGetMessageContext:
 
         # Verify
         assert response.status_code == 200
-        mock_service.get_message_context.assert_called_once_with(message_id, 10, 15)
+        mock_service.get_message_context.assert_called_once_with(
+            "test_user_id", message_id, 10, 15
+        )
 
     def test_get_message_context_invalid_params(
         self, test_client: TestClient, mock_message_service
@@ -456,6 +499,11 @@ class TestMessageCostOperations:
         assert data["message_id"] == message_id
         assert data["cost_usd"] == cost_usd
 
+        # Verify service was called with user_id
+        mock_service.update_message_cost.assert_called_once_with(
+            "test_user_id", message_id, cost_usd
+        )
+
     def test_update_message_cost_not_found(
         self, test_client: TestClient, mock_message_service
     ):
@@ -507,6 +555,11 @@ class TestMessageCostOperations:
         assert data["success"] is True
         assert data["updated_count"] == 2
         assert data["requested_count"] == 2
+
+        # Verify service was called with user_id
+        mock_service.batch_update_costs.assert_called_once_with(
+            "test_user_id", cost_updates
+        )
 
     def test_batch_update_costs_partial_success(
         self, test_client: TestClient, mock_message_service

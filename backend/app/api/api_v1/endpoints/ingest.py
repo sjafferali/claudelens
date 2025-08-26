@@ -1,7 +1,7 @@
 """Ingestion API endpoints."""
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import BackgroundTasks, HTTPException
@@ -149,7 +149,7 @@ async def update_project_metadata(
                         "$set": {
                             "stats.message_count": stats["message_count"],
                             "stats.session_count": len(stats["session_count"]),
-                            "updated_at": datetime.utcnow(),
+                            "updated_at": datetime.now(UTC),
                         }
                     },
                 )

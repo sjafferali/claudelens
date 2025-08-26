@@ -1,6 +1,6 @@
 """Comprehensive tests for analytics service conversation flow functionality."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -797,7 +797,7 @@ class TestAnalyticsServiceConversationFlow:
                 duration_ms=1000,
                 tool_count=0,
                 summary="Single node",
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
             )
         ]
         single_metrics = analytics_service._calculate_conversation_metrics(

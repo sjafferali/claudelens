@@ -1,6 +1,6 @@
 """Tests for WebSocket endpoints."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -65,7 +65,7 @@ class TestGetLiveSessionStats:
         )
 
         # Mock last message
-        last_message = {"timestamp": datetime.utcnow() - timedelta(minutes=2)}
+        last_message = {"timestamp": datetime.now(UTC) - timedelta(minutes=2)}
         mock_db.messages.find_one = AsyncMock(return_value=last_message)
 
         result = await get_live_session_stats(session_id, mock_db)
@@ -132,7 +132,7 @@ class TestGetLiveSessionStats:
         )
 
         # Last activity more than 5 minutes ago
-        old_timestamp = datetime.utcnow() - timedelta(minutes=10)
+        old_timestamp = datetime.now(UTC) - timedelta(minutes=10)
         last_message = {"timestamp": old_timestamp}
         mock_db.messages.find_one = AsyncMock(return_value=last_message)
 
@@ -410,7 +410,7 @@ class TestStatsAggregationLogic:
     async def test_active_session_calculation(self, mock_db):
         """Test active session calculation logic."""
         # Test cutoff time calculation
-        datetime.utcnow() - timedelta(minutes=5)
+        datetime.now(UTC) - timedelta(minutes=5)
 
         mock_db.messages.count_documents = AsyncMock(return_value=1)
         mock_db.messages.aggregate.return_value.to_list = AsyncMock(return_value=[])
@@ -500,7 +500,7 @@ class TestDateTimeHandling:
         mock_db.messages.aggregate.return_value.to_list = AsyncMock(return_value=[])
 
         # Test exactly 5 minutes ago (should be inactive)
-        exactly_5_min = datetime.utcnow() - timedelta(minutes=5)
+        exactly_5_min = datetime.now(UTC) - timedelta(minutes=5)
         last_message = {"timestamp": exactly_5_min}
         mock_db.messages.find_one = AsyncMock(return_value=last_message)
 
@@ -520,7 +520,7 @@ class TestDateTimeHandling:
         mock_db.messages.aggregate.return_value.to_list = AsyncMock(return_value=[])
 
         # Test 4 minutes 59 seconds ago (should be active)
-        recent_time = datetime.utcnow() - timedelta(minutes=4, seconds=59)
+        recent_time = datetime.now(UTC) - timedelta(minutes=4, seconds=59)
         last_message = {"timestamp": recent_time}
         mock_db.messages.find_one = AsyncMock(return_value=last_message)
 

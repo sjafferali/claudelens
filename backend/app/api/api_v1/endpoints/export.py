@@ -7,7 +7,7 @@ from bson import ObjectId
 from fastapi import HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from app.api.dependencies import CommonDeps
+from app.api.dependencies import AuthDeps, CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
@@ -20,6 +20,7 @@ logger = get_logger(__name__)
 async def export_session_for_mcp(
     session_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
     format: str = Query("json", description="Export format (json, markdown)"),
     include_metadata: bool = Query(True, description="Include metadata"),
     include_costs: bool = Query(True, description="Include cost information"),

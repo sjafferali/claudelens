@@ -8,7 +8,7 @@ from bson import ObjectId
 from fastapi import HTTPException, Query, WebSocket
 from fastapi.responses import StreamingResponse
 
-from app.api.dependencies import CommonDeps
+from app.api.dependencies import AuthDeps, CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.logging import get_logger
 from app.schemas.backup_schemas import (
@@ -55,11 +55,10 @@ async def broadcast_backup_progress(job_id: str, progress: Dict[str, Any]) -> No
 async def create_backup(
     request: CreateBackupRequest,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> CreateBackupResponse:
     """Create a new backup job."""
-    # For now, allow anonymous backups similar to export endpoints
-    # In production, this should be controlled by configuration
-    user_id = "anonymous"
+    # User ID comes from authentication
 
     # Check rate limit using the new service
     rate_limit_service = RateLimitService(db)
@@ -85,6 +84,7 @@ async def create_backup(
 @router.get("/", response_model=PagedBackupsResponse)
 async def list_backups(
     db: CommonDeps,
+    user_id: AuthDeps,
     page: int = Query(0, ge=0),
     size: int = Query(20, ge=1, le=100),
     sort: str = Query("created_at,desc"),
@@ -92,9 +92,7 @@ async def list_backups(
     type: str = Query(None),
 ) -> PagedBackupsResponse:
     """List backups with pagination and filtering."""
-    # For read-only operations, we don't require authentication
-    # This matches the pattern used in other endpoints
-    user_id = "anonymous"
+    # User ID comes from authentication
 
     # Build filter
     filter_dict = {"created_by": user_id}
@@ -168,12 +166,15 @@ async def list_backups(
 async def get_backup_details(
     backup_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> BackupDetailResponse:
     """Get detailed backup information."""
     if not ObjectId.is_valid(backup_id):
         raise HTTPException(status_code=400, detail="Invalid backup ID")
 
-    backup = await db.backup_metadata.find_one({"_id": ObjectId(backup_id)})
+    backup = await db.backup_metadata.find_one(
+        {"_id": ObjectId(backup_id), "created_by": user_id}
+    )
     if not backup:
         raise HTTPException(status_code=404, detail="Backup not found")
 
@@ -208,12 +209,15 @@ async def get_backup_details(
 async def download_backup(
     backup_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> StreamingResponse:
     """Download a backup file."""
     if not ObjectId.is_valid(backup_id):
         raise HTTPException(status_code=400, detail="Invalid backup ID")
 
-    backup = await db.backup_metadata.find_one({"_id": ObjectId(backup_id)})
+    backup = await db.backup_metadata.find_one(
+        {"_id": ObjectId(backup_id), "created_by": user_id}
+    )
     if not backup:
         raise HTTPException(status_code=404, detail="Backup not found")
 
@@ -242,13 +246,14 @@ async def download_backup(
 async def delete_backup(
     backup_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> Dict[str, Any]:
     """Delete a backup and its associated files."""
     if not ObjectId.is_valid(backup_id):
         raise HTTPException(status_code=400, detail="Invalid backup ID")
 
     obj_id = ObjectId(backup_id)
-    backup = await db.backup_metadata.find_one({"_id": obj_id})
+    backup = await db.backup_metadata.find_one({"_id": obj_id, "created_by": user_id})
     if not backup:
         raise HTTPException(status_code=404, detail="Backup not found")
 

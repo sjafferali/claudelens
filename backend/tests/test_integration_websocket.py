@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -147,7 +147,7 @@ class TestWebSocketIntegration:
         message_preview = MessagePreview(
             uuid="msg_123",
             author="user",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             preview="Test message content",
             tool_used=None,
         )

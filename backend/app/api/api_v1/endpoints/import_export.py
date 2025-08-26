@@ -9,7 +9,7 @@ from bson import ObjectId
 from fastapi import File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
-from app.api.dependencies import CommonDeps
+from app.api.dependencies import AuthDeps, CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.logging import get_logger
 from app.schemas.export import (
@@ -68,11 +68,10 @@ async def broadcast_import_progress(job_id: str, progress: Dict[str, Any]) -> No
 async def create_export(
     request: CreateExportRequest,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> CreateExportResponse:
     """Create a new export job."""
-    # For now, allow anonymous exports similar to GET endpoints
-    # In production, this should be controlled by configuration
-    user_id = "anonymous"
+    # User ID comes from authentication
 
     # Check rate limit using the new service
     rate_limit_service = RateLimitService(db)
@@ -142,6 +141,7 @@ async def create_export(
 async def get_export_status(
     job_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> ExportStatusResponse:
     """Get the status of an export job."""
     if not ObjectId.is_valid(job_id):
@@ -179,6 +179,7 @@ async def get_export_status(
 async def download_export(
     job_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
     decompress: bool = Query(False, description="Decompress file server-side"),
 ) -> Response:
     """Download the exported file with optional server-side decompression."""
@@ -295,6 +296,7 @@ async def download_export(
 async def cancel_export(
     job_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> CancelExportResponse:
     """Cancel a running export job."""
     if not ObjectId.is_valid(job_id):
@@ -332,6 +334,7 @@ async def cancel_export(
 async def delete_export_permanently(
     job_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> Dict[str, str]:
     """Permanently delete an export job and its associated files."""
     if not ObjectId.is_valid(job_id):
@@ -365,6 +368,7 @@ async def delete_export_permanently(
 @router.get("/export", response_model=PagedExportJobsResponse)
 async def list_export_jobs(
     db: CommonDeps,
+    user_id: AuthDeps,
     page: int = Query(0, ge=0),
     size: int = Query(20, ge=1, le=100),
     sort: str = Query("createdAt,desc"),
@@ -431,6 +435,7 @@ async def list_export_jobs(
 @router.post("/import/validate", response_model=ValidateImportResponse)
 async def validate_import(
     db: CommonDeps,
+    user_id: AuthDeps,
     file: UploadFile = File(...),
     dry_run: bool = Query(True),
 ) -> ValidateImportResponse:
@@ -460,6 +465,7 @@ async def validate_import(
 async def check_conflicts(
     request: CheckConflictsRequest,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> ConflictsResponse:
     """Check for conflicts before import execution."""
     # Get file path from file ID
@@ -492,6 +498,7 @@ async def check_conflicts(
 async def execute_import(
     request: ExecuteImportRequest,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> ExecuteImportResponse:
     """Execute the import with specified conflict resolution."""
     # For now, allow anonymous imports similar to exports
@@ -599,6 +606,7 @@ async def execute_import(
 async def get_import_progress(
     job_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> ImportProgressResponse:
     """Get the progress of an import job."""
     if not ObjectId.is_valid(job_id):
@@ -624,6 +632,7 @@ async def get_import_progress(
 async def rollback_import(
     job_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> RollbackResponse:
     """Rollback a completed or partially completed import."""
     if not ObjectId.is_valid(job_id):
@@ -654,10 +663,9 @@ async def rollback_import(
 
 
 @router.get("/rate-limits")
-async def get_rate_limits(db: CommonDeps) -> Dict[str, Any]:
+async def get_rate_limits(db: CommonDeps, user_id: AuthDeps) -> Dict[str, Any]:
     """Get current rate limit status for the user."""
-    # For now, use anonymous user (same as other endpoints)
-    user_id = "anonymous"
+    # User ID comes from authentication
 
     # Use the new rate limit service
     rate_limit_service = RateLimitService(db)
@@ -677,6 +685,7 @@ async def get_rate_limits(db: CommonDeps) -> Dict[str, Any]:
 @router.get("/import")
 async def list_import_jobs(
     db: CommonDeps,
+    user_id: AuthDeps,
     page: int = Query(0, ge=0),
     size: int = Query(20, ge=1, le=100),
     sort: str = Query("createdAt,desc"),

@@ -178,9 +178,9 @@ async def get_live_session_stats(
     # Determine if session is active (activity within last 5 minutes)
     is_active = False
     if last_activity:
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
-        is_active = (datetime.utcnow() - last_activity) < timedelta(minutes=5)
+        is_active = (datetime.now(UTC) - last_activity) < timedelta(minutes=5)
 
     return LiveSessionStats(
         session_id=session_id,
@@ -245,9 +245,9 @@ async def get_live_global_stats(
         total_cost = float(raw_total_cost)
 
     # Get active sessions count (sessions with activity in last 5 minutes)
-    from datetime import datetime, timedelta
+    from datetime import UTC, datetime, timedelta
 
-    cutoff_time = datetime.utcnow() - timedelta(minutes=5)
+    cutoff_time = datetime.now(UTC) - timedelta(minutes=5)
 
     active_sessions_pipeline: list[dict[str, Any]] = [
         {

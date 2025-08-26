@@ -1,7 +1,7 @@
 """File watching utilities for continuous sync."""
 import asyncio
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from rich.console import Console
@@ -60,7 +60,7 @@ class BatchedFileWatcher:
     def _on_file_change(self, file_path: Path):
         """Handle file change event."""
         self._pending_files.add(file_path)
-        self._last_event_time = datetime.utcnow()
+        self._last_event_time = datetime.now(UTC)
 
         # Schedule processing
         if self._process_task:
@@ -73,11 +73,9 @@ class BatchedFileWatcher:
         await asyncio.sleep(self.batch_delay)
 
         # Check if more events came in
-        if (
-            self._last_event_time
-            and datetime.utcnow() - self._last_event_time
-            < timedelta(seconds=self.batch_delay)
-        ):
+        if self._last_event_time and datetime.now(
+            UTC
+        ) - self._last_event_time < timedelta(seconds=self.batch_delay):
             # More events might be coming, wait more
             await asyncio.sleep(self.batch_delay)
 

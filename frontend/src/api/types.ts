@@ -268,3 +268,99 @@ export interface AIUsageStats {
   average_response_time: number;
   last_request_at?: string;
 }
+
+// User Management Types
+export enum UserRole {
+  ADMIN = 'admin',
+  USER = 'user',
+  VIEWER = 'viewer',
+}
+
+export interface User {
+  id: string;
+  email: string;
+  username: string;
+  role: UserRole;
+  created_at: string;
+  updated_at: string;
+  project_count: number;
+  session_count: number;
+  message_count: number;
+  total_disk_usage: number;
+  api_key_count: number;
+  last_active?: string;
+}
+
+export interface CreateUserRequest {
+  email: string;
+  username: string;
+  role: UserRole;
+}
+
+export interface UpdateUserRequest {
+  email?: string;
+  username?: string;
+  role?: UserRole;
+}
+
+export interface CreateUserResponse {
+  user: User;
+  api_key: string;
+}
+
+export interface AdminStats {
+  total_users: number;
+  users_by_role: Record<
+    string,
+    {
+      count: number;
+      total_storage: number;
+      avg_storage: number;
+    }
+  >;
+  top_users_by_storage: Array<{
+    id: string;
+    username: string;
+    email: string;
+    total_disk_usage: number;
+    session_count: number;
+    message_count: number;
+    project_count: number;
+  }>;
+  system_totals: {
+    total_storage_bytes: number;
+    total_sessions: number;
+    total_messages: number;
+    total_projects: number;
+  };
+}
+
+export interface StorageBreakdown {
+  system_metrics: {
+    total_size_bytes: number;
+    by_collection: Record<string, number>;
+    by_user: Array<{
+      user_id: string;
+      username: string;
+      total_size: number;
+      collections: Record<string, number>;
+    }>;
+  };
+  top_users: Array<{
+    user_id: string;
+    username: string;
+    total_disk_usage: number;
+    session_count: number;
+    message_count: number;
+    project_count: number;
+  }>;
+}
+
+export interface RecentActivity {
+  type: string;
+  timestamp: string;
+  user: string;
+  session_id: string;
+  message_count: number;
+  total_cost: number;
+}

@@ -895,7 +895,11 @@ class IngestService:
                         from .session import SessionService
 
                         session_service = SessionService(self.db)
-                        await session_service.generate_summary(str(session["_id"]))
+                        # Get user_id from the session
+                        user_id = str(session.get("user_id", ""))
+                        await session_service.generate_summary(
+                            user_id, str(session["_id"])
+                        )
 
     async def _log_ingestion(self, stats: IngestStats) -> None:
         """Log ingestion statistics."""

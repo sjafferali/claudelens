@@ -498,13 +498,13 @@ class AIService:
         self, settings_update: Dict[str, Any]
     ) -> Optional[AISettingsInDB]:
         """Update AI settings in database."""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         # Get existing settings or create new
         existing = await self.settings_collection.find_one()
 
         # Prepare update data
-        update_data = {**settings_update, "updated_at": datetime.utcnow()}
+        update_data = {**settings_update, "updated_at": datetime.now(UTC)}
 
         # Handle API key encryption if provided
         if "api_key" in update_data and update_data["api_key"]:
@@ -525,9 +525,9 @@ class AIService:
             updated = await self.settings_collection.find_one({"_id": existing["_id"]})
         else:
             # Create new
-            from datetime import datetime
+            from datetime import UTC, datetime
 
-            update_data["created_at"] = datetime.utcnow()
+            update_data["created_at"] = datetime.now(UTC)
             update_data["usage_stats"] = {}
             result = await self.settings_collection.insert_one(update_data)
             updated = await self.settings_collection.find_one(

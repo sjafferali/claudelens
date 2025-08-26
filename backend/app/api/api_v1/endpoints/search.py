@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import HTTPException, Query
 
-from app.api.dependencies import CommonDeps
+from app.api.dependencies import AuthDeps, CommonDeps
 from app.core.custom_router import APIRouter
 from app.schemas.search import (
     SearchFilters,
@@ -18,7 +18,9 @@ router = APIRouter()
 
 
 @router.post("/", response_model=SearchResponse)
-async def search(request: SearchRequest, db: CommonDeps) -> SearchResponse:
+async def search(
+    request: SearchRequest, db: CommonDeps, user_id: AuthDeps
+) -> SearchResponse:
     """Perform a search across messages.
 
     Supports full-text search with filtering by project, date range,
@@ -36,18 +38,19 @@ async def search(request: SearchRequest, db: CommonDeps) -> SearchResponse:
 
     # Perform search
     return await service.search_messages(
-        query=request.query,
-        filters=request.filters,
-        skip=request.skip,
-        limit=request.limit,
-        highlight=request.highlight,
-        is_regex=request.is_regex,
+        request.query,
+        request.filters,
+        request.skip,
+        request.limit,
+        request.highlight,
+        request.is_regex,
     )
 
 
 @router.get("/suggestions")
 async def search_suggestions(
     db: CommonDeps,
+    user_id: AuthDeps,
     query: str = Query(..., min_length=2, description="Partial search query"),
     limit: int = Query(10, ge=1, le=20),
 ) -> list[SearchSuggestion]:
@@ -62,7 +65,7 @@ async def search_suggestions(
 
 @router.get("/recent")
 async def recent_searches(
-    db: CommonDeps, limit: int = Query(10, ge=1, le=50)
+    db: CommonDeps, user_id: AuthDeps, limit: int = Query(10, ge=1, le=50)
 ) -> list[dict[str, Any]]:
     """Get recent search queries.
 
@@ -77,6 +80,7 @@ async def recent_searches(
 async def search_code(
     request: SearchRequest,
     db: CommonDeps,
+    user_id: AuthDeps,
     language: str | None = Query(None, description="Programming language filter"),
 ) -> SearchResponse:
     """Search specifically for code snippets.
@@ -105,15 +109,15 @@ async def search_code(
         request.filters.code_language = language
 
     return await service.search_code(
-        query=request.query,
-        filters=request.filters,
-        skip=request.skip,
-        limit=request.limit,
+        request.query,
+        request.filters,
+        request.skip,
+        request.limit,
     )
 
 
 @router.get("/stats")
-async def search_stats(db: CommonDeps) -> dict[str, Any]:
+async def search_stats(db: CommonDeps, user_id: AuthDeps) -> dict[str, Any]:
     """Get search statistics.
 
     Returns information about search usage, popular queries,

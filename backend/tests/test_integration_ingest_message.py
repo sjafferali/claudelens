@@ -183,6 +183,7 @@ class TestIngestMessageIntegration:
 
             # Retrieve all messages
             messages, total = await message_service.list_messages(
+                user_id="507f1f77bcf86cd799439011",
                 filter_dict={"uuid": {"$regex": "^test_"}},
                 skip=0,
                 limit=10,
@@ -278,6 +279,7 @@ class TestIngestMessageIntegration:
 
             # Test session filtering
             messages, total = await message_service.list_messages(
+                user_id="507f1f77bcf86cd799439011",
                 filter_dict={"sessionId": "test_session_001"},
                 skip=0,
                 limit=10,
@@ -310,7 +312,11 @@ class TestIngestMessageIntegration:
 
             # Test message service operations
             messages, total = await message_service.list_messages(
-                filter_dict={}, skip=0, limit=10, sort_order="asc"
+                user_id="507f1f77bcf86cd799439011",
+                filter_dict={},
+                skip=0,
+                limit=10,
+                sort_order="asc",
             )
 
             # Verify service integration doesn't crash

@@ -3,7 +3,7 @@
 import math
 import re
 import statistics
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
@@ -99,7 +99,7 @@ class AnalyticsService:
 
     def _get_time_filter(self, time_range: TimeRange) -> dict[str, Any]:
         """Convert time range to MongoDB filter."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         if time_range == TimeRange.LAST_24_HOURS:
             start = now - timedelta(hours=24)
@@ -928,7 +928,7 @@ class AnalyticsService:
 
     def _get_previous_period_filter(self, time_range: TimeRange) -> dict[str, Any]:
         """Get filter for previous period (for trend calculation)."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         if time_range == TimeRange.LAST_24_HOURS:
             start = now - timedelta(hours=48)
@@ -2028,7 +2028,7 @@ class AnalyticsService:
                 messages=0,
                 sessions=0,
                 avg_cost_per_session=0.0,
-                last_active=datetime.utcnow(),
+                last_active=datetime.now(UTC),
             )
             empty_node = DirectoryNode(
                 path="/",
@@ -2113,7 +2113,7 @@ class AnalyticsService:
                             "cost": 0.0,
                             "messages": 0,
                             "sessions": 0,
-                            "last_active": datetime.min,
+                            "last_active": datetime.min.replace(tzinfo=UTC),
                         },
                         "_children": {},
                     }
@@ -2144,7 +2144,7 @@ class AnalyticsService:
                 "cost": 0.0,
                 "messages": 0,
                 "sessions": 0,
-                "last_active": datetime.min,
+                "last_active": datetime.min.replace(tzinfo=UTC),
             },
             "_children": tree,
         }
@@ -2186,7 +2186,7 @@ class AnalyticsService:
         total_node_cost = 0.0
         total_messages = 0
         total_sessions = 0
-        latest_activity = datetime.min
+        latest_activity = datetime.min.replace(tzinfo=UTC)
 
         # Collect data from all descendants
         def collect_metrics(node_tree: dict) -> None:
@@ -2231,7 +2231,7 @@ class AnalyticsService:
 
         # Ensure we have a valid timestamp
         if latest_activity == datetime.min:
-            latest_activity = datetime.utcnow()
+            latest_activity = datetime.now(UTC)
 
         metrics = DirectoryMetrics(
             cost=round(total_node_cost, 2),
@@ -2430,7 +2430,7 @@ class AnalyticsService:
             if group_by in ["hour", "day"]:
                 timestamp = datetime.fromisoformat(result["_id"].replace("Z", "+00:00"))
             else:
-                timestamp = datetime.utcnow()
+                timestamp = datetime.now(UTC)
 
             time_series.append(
                 TokenAnalyticsDataPoint(
@@ -2933,7 +2933,7 @@ class AnalyticsService:
                     formatted_values=empty_formatted,
                     session_id=session_id,
                     time_range=time_range,
-                    generated_at=datetime.utcnow(),
+                    generated_at=datetime.now(UTC),
                 )
 
         # Aggregation pipeline for detailed token analysis
@@ -3796,7 +3796,7 @@ class AnalyticsService:
         if not daily_costs:
             # No historical data, return zero predictions
             predictions = []
-            start_date = datetime.utcnow().replace(
+            start_date = datetime.now(UTC).replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
             for i in range(prediction_days):
@@ -3840,7 +3840,7 @@ class AnalyticsService:
 
         # Generate predictions
         predictions = []
-        start_date = datetime.utcnow().replace(
+        start_date = datetime.now(UTC).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         total_predicted = 0.0

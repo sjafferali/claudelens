@@ -29,7 +29,7 @@ class RateLimitService:
         # Check cache
         if self._cached_settings and self._cache_timestamp:
             if (
-                datetime.utcnow() - self._cache_timestamp
+                datetime.now(UTC) - self._cache_timestamp
             ).total_seconds() < self._cache_ttl_seconds:
                 return self._cached_settings
 
@@ -59,7 +59,7 @@ class RateLimitService:
             # Save defaults to database
             await self._save_settings(self._cached_settings)
 
-        self._cache_timestamp = datetime.utcnow()
+        self._cache_timestamp = datetime.now(UTC)
         return self._cached_settings
 
     async def update_settings(
@@ -75,7 +75,7 @@ class RateLimitService:
                 updated_data[key] = value
 
         # Update metadata
-        updated_data["updated_at"] = datetime.utcnow()
+        updated_data["updated_at"] = datetime.now(UTC)
         updated_data["updated_by"] = updated_by
 
         # Create new settings object
@@ -86,7 +86,7 @@ class RateLimitService:
 
         # Update cache
         self._cached_settings = new_settings
-        self._cache_timestamp = datetime.utcnow()
+        self._cache_timestamp = datetime.now(UTC)
 
         logger.info(f"Rate limit settings updated by {updated_by or 'system'}")
 
@@ -100,7 +100,7 @@ class RateLimitService:
                 "$set": {
                     "key": self.SETTINGS_KEY,
                     "value": settings.dict(),
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": datetime.now(UTC),
                 }
             },
             upsert=True,

@@ -15,9 +15,17 @@ class MessageService:
         self.db = db
 
     async def list_messages(
-        self, filter_dict: dict[str, Any], skip: int, limit: int, sort_order: str
+        self,
+        user_id: str,
+        filter_dict: dict[str, Any],
+        skip: int,
+        limit: int,
+        sort_order: str,
     ) -> tuple[list[Message], int]:
         """List messages with pagination."""
+        # Add user_id filtering
+        filter_dict["user_id"] = ObjectId(user_id)
+
         # Count total
         total = await self.db.messages.count_documents(filter_dict)
 
@@ -49,34 +57,42 @@ class MessageService:
 
         return messages, total
 
-    async def get_message(self, message_id: str) -> MessageDetail | None:
+    async def get_message(self, user_id: str, message_id: str) -> MessageDetail | None:
         """Get a single message by ID."""
         if not ObjectId.is_valid(message_id):
             return None
 
-        doc = await self.db.messages.find_one({"_id": ObjectId(message_id)})
+        doc = await self.db.messages.find_one(
+            {"_id": ObjectId(message_id), "user_id": ObjectId(user_id)}
+        )
         if not doc:
             return None
 
         return self._doc_to_message_detail(doc)
 
-    async def get_message_by_uuid(self, uuid: str) -> MessageDetail | None:
+    async def get_message_by_uuid(
+        self, user_id: str, uuid: str
+    ) -> MessageDetail | None:
         """Get a message by its Claude UUID."""
-        doc = await self.db.messages.find_one({"uuid": uuid})
+        doc = await self.db.messages.find_one(
+            {"uuid": uuid, "user_id": ObjectId(user_id)}
+        )
         if not doc:
             return None
 
         return self._doc_to_message_detail(doc)
 
     async def get_message_context(
-        self, message_id: str, before: int, after: int
+        self, user_id: str, message_id: str, before: int, after: int
     ) -> dict | None:
         """Get a message with surrounding context."""
         if not ObjectId.is_valid(message_id):
             return None
 
         # Get the target message
-        target = await self.db.messages.find_one({"_id": ObjectId(message_id)})
+        target = await self.db.messages.find_one(
+            {"_id": ObjectId(message_id), "user_id": ObjectId(user_id)}
+        )
         if not target:
             return None
 
@@ -86,7 +102,11 @@ class MessageService:
         # Get messages before
         before_cursor = (
             self.db.messages.find(
-                {"sessionId": session_id, "timestamp": {"$lt": timestamp}}
+                {
+                    "sessionId": session_id,
+                    "timestamp": {"$lt": timestamp},
+                    "user_id": ObjectId(user_id),
+                }
             )
             .sort("timestamp", -1)
             .limit(before)
@@ -114,7 +134,11 @@ class MessageService:
         # Get messages after
         after_cursor = (
             self.db.messages.find(
-                {"sessionId": session_id, "timestamp": {"$gt": timestamp}}
+                {
+                    "sessionId": session_id,
+                    "timestamp": {"$gt": timestamp},
+                    "user_id": ObjectId(user_id),
+                }
             )
             .sort("timestamp", 1)
             .limit(after)
@@ -174,27 +198,31 @@ class MessageService:
             content_hash=doc.get("contentHash"),
         )
 
-    async def update_message_cost(self, message_id: str, cost_usd: float) -> bool:
+    async def update_message_cost(
+        self, user_id: str, message_id: str, cost_usd: float
+    ) -> bool:
         """Update the cost for a specific message."""
-        from bson import Decimal128, ObjectId
+        from bson import Decimal128
 
         try:
             result = await self.db.messages.update_one(
-                {"_id": ObjectId(message_id)},
+                {"_id": ObjectId(message_id), "user_id": ObjectId(user_id)},
                 {"$set": {"costUsd": Decimal128(str(cost_usd))}},
             )
             return result.modified_count > 0
         except Exception:
             return False
 
-    async def batch_update_costs(self, cost_updates: dict[str, float]) -> int:
+    async def batch_update_costs(
+        self, user_id: str, cost_updates: dict[str, float]
+    ) -> int:
         """Batch update costs for multiple messages by UUID."""
         from bson import Decimal128
 
         updated_count = 0
         for uuid, cost in cost_updates.items():
             result = await self.db.messages.update_one(
-                {"uuid": uuid},
+                {"uuid": uuid, "user_id": ObjectId(user_id)},
                 {"$set": {"costUsd": Decimal128(str(cost))}},
             )
             if result.modified_count > 0:
@@ -203,21 +231,22 @@ class MessageService:
         # Update session total costs
         session_ids = set()
         cursor = self.db.messages.find(
-            {"uuid": {"$in": list(cost_updates.keys())}}, {"sessionId": 1}
+            {"uuid": {"$in": list(cost_updates.keys())}, "user_id": ObjectId(user_id)},
+            {"sessionId": 1},
         )
         async for doc in cursor:
             session_ids.add(doc["sessionId"])
 
         # Update each session's total cost
         for session_id in session_ids:
-            await self._update_session_total_cost(session_id)
+            await self._update_session_total_cost(user_id, session_id)
 
         return updated_count
 
-    async def _update_session_total_cost(self, session_id: str) -> None:
+    async def _update_session_total_cost(self, user_id: str, session_id: str) -> None:
         """Update the total cost for a session."""
         pipeline: list[dict[str, Any]] = [
-            {"$match": {"sessionId": session_id}},
+            {"$match": {"sessionId": session_id, "user_id": ObjectId(user_id)}},
             {
                 "$group": {
                     "_id": None,
@@ -241,6 +270,6 @@ class MessageService:
             from bson import Decimal128
 
             await self.db.sessions.update_one(
-                {"sessionId": session_id},
+                {"sessionId": session_id, "user_id": ObjectId(user_id)},
                 {"$set": {"totalCost": Decimal128(str(total_cost))}},
             )

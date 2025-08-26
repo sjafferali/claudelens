@@ -1,6 +1,6 @@
 """Basic tests for analytics service session-related functionality."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -104,7 +104,7 @@ class TestAnalyticsServiceSessionBasic:
 
     def test_time_filter_covers_correct_ranges(self, analytics_service):
         """Test that time filters generate correct date ranges."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Test 24 hours
         filter_24h = analytics_service._get_time_filter(TimeRange.LAST_24_HOURS)

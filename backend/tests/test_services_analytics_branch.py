@@ -1,6 +1,6 @@
 """Tests for analytics service branch-related functionality."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -36,7 +36,7 @@ class TestAnalyticsServiceBranchAnalytics:
     @pytest.fixture
     def sample_branch_data(self):
         """Sample branch data for testing."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         return [
             {
                 "branch": "main",
@@ -184,7 +184,7 @@ class TestAnalyticsServiceBranchAnalytics:
         mock_aggregate.to_list = AsyncMock(return_value=tool_usage_data)
         mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
 
-        time_filter = {"timestamp": {"$gte": datetime.utcnow() - timedelta(days=7)}}
+        time_filter = {"timestamp": {"$gte": datetime.now(UTC) - timedelta(days=7)}}
         result = await analytics_service._get_tool_usage_by_branch(time_filter)
 
         assert "main" in result
@@ -265,7 +265,7 @@ class TestAnalyticsServiceBranchAnalytics:
     def test_calculate_branch_comparisons(self, analytics_service):
         """Test branch comparison calculations."""
         # Create sample branch analytics
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         branches = [
             BranchAnalytics(
                 name="main",
@@ -350,7 +350,7 @@ class TestAnalyticsServiceBranchAnalytics:
 
     def test_calculate_branch_comparisons_no_feature_cost(self, analytics_service):
         """Test branch comparison calculations with no feature branches."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         branches = [
             BranchAnalytics(
                 name="main",
@@ -527,8 +527,8 @@ class TestAnalyticsServiceBranchAnalytics:
                 "cost": 20.0,
                 "messages": 90,
                 "sessions": 2,
-                "first_activity": datetime.utcnow() - timedelta(days=4),
-                "last_activity": datetime.utcnow(),
+                "first_activity": datetime.now(UTC) - timedelta(days=4),
+                "last_activity": datetime.now(UTC),
                 "active_days": 4,
             },
             {
@@ -536,8 +536,8 @@ class TestAnalyticsServiceBranchAnalytics:
                 "cost": 18.0,
                 "messages": 85,
                 "sessions": 1,
-                "first_activity": datetime.utcnow() - timedelta(days=6),
-                "last_activity": datetime.utcnow(),
+                "first_activity": datetime.now(UTC) - timedelta(days=6),
+                "last_activity": datetime.now(UTC),
                 "active_days": 6,
             },
         ]
@@ -579,8 +579,8 @@ class TestAnalyticsServiceBranchAnalytics:
                 "cost": 5.0,
                 "messages": 25,
                 "sessions": 1,
-                "first_activity": datetime.utcnow() - timedelta(days=1),
-                "last_activity": datetime.utcnow(),
+                "first_activity": datetime.now(UTC) - timedelta(days=1),
+                "last_activity": datetime.now(UTC),
                 "active_days": 1,
             },
             {
@@ -588,8 +588,8 @@ class TestAnalyticsServiceBranchAnalytics:
                 "cost": 3.0,
                 "messages": 15,
                 "sessions": 1,
-                "first_activity": datetime.utcnow() - timedelta(days=1),
-                "last_activity": datetime.utcnow(),
+                "first_activity": datetime.now(UTC) - timedelta(days=1),
+                "last_activity": datetime.now(UTC),
                 "active_days": 1,
             },
         ]
@@ -630,8 +630,8 @@ class TestAnalyticsServiceBranchAnalytics:
                 "cost": 25.0,
                 "messages": 100,
                 "sessions": 2,
-                "first_activity": datetime.utcnow() - timedelta(days=5),
-                "last_activity": datetime.utcnow(),
+                "first_activity": datetime.now(UTC) - timedelta(days=5),
+                "last_activity": datetime.now(UTC),
                 "active_days": 5,
             },
             {
@@ -639,8 +639,8 @@ class TestAnalyticsServiceBranchAnalytics:
                 "cost": 15.0,
                 "messages": 60,
                 "sessions": 1,
-                "first_activity": datetime.utcnow() - timedelta(days=3),
-                "last_activity": datetime.utcnow(),
+                "first_activity": datetime.now(UTC) - timedelta(days=3),
+                "last_activity": datetime.now(UTC),
                 "active_days": 3,
             },
             {
@@ -648,8 +648,8 @@ class TestAnalyticsServiceBranchAnalytics:
                 "cost": 8.0,
                 "messages": 30,
                 "sessions": 1,
-                "first_activity": datetime.utcnow() - timedelta(days=1),
-                "last_activity": datetime.utcnow(),
+                "first_activity": datetime.now(UTC) - timedelta(days=1),
+                "last_activity": datetime.now(UTC),
                 "active_days": 1,
             },
         ]
@@ -704,8 +704,8 @@ class TestAnalyticsServiceBranchAnalytics:
                 "cost": 0.0,
                 "messages": 10,
                 "sessions": 1,
-                "first_activity": datetime.utcnow() - timedelta(days=1),
-                "last_activity": datetime.utcnow(),
+                "first_activity": datetime.now(UTC) - timedelta(days=1),
+                "last_activity": datetime.now(UTC),
                 "active_days": 1,
             },
             {
@@ -713,8 +713,8 @@ class TestAnalyticsServiceBranchAnalytics:
                 "cost": 25.0,
                 "messages": 100,
                 "sessions": 2,
-                "first_activity": datetime.utcnow() - timedelta(days=5),
-                "last_activity": datetime.utcnow(),
+                "first_activity": datetime.now(UTC) - timedelta(days=5),
+                "last_activity": datetime.now(UTC),
                 "active_days": 5,
             },
         ]
@@ -755,8 +755,8 @@ class TestAnalyticsServiceBranchAnalytics:
                 "cost": 5.0,
                 "messages": 10,
                 "sessions": 1,
-                "first_activity": datetime.utcnow() - timedelta(hours=2),
-                "last_activity": datetime.utcnow(),
+                "first_activity": datetime.now(UTC) - timedelta(hours=2),
+                "last_activity": datetime.now(UTC),
                 "active_days": 1,  # Should be minimum 1 day
             }
         ]
@@ -790,7 +790,7 @@ class TestAnalyticsServiceBranchAnalytics:
         mock_aggregate.to_list = AsyncMock(return_value=empty_tool_data)
         mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
 
-        time_filter = {"timestamp": {"$gte": datetime.utcnow() - timedelta(days=7)}}
+        time_filter = {"timestamp": {"$gte": datetime.now(UTC) - timedelta(days=7)}}
         result = await analytics_service._get_tool_usage_by_branch(time_filter)
 
         assert result == {}
@@ -823,7 +823,7 @@ class TestAnalyticsServiceBranchAnalytics:
         mock_aggregate.to_list = AsyncMock(return_value=malformed_tool_data)
         mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
 
-        time_filter = {"timestamp": {"$gte": datetime.utcnow() - timedelta(days=7)}}
+        time_filter = {"timestamp": {"$gte": datetime.now(UTC) - timedelta(days=7)}}
         result = await analytics_service._get_tool_usage_by_branch(time_filter)
 
         # Should still process valid data
@@ -895,7 +895,7 @@ class TestAnalyticsServiceBranchAnalytics:
 
     def test_calculate_branch_comparisons_edge_cases(self, analytics_service):
         """Test branch comparison calculations with edge cases."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Test with only feature branches (no main)
         feature_only_branches = [
@@ -1015,8 +1015,8 @@ class TestAnalyticsServiceBranchAnalytics:
                     "cost": float(i * 0.5),
                     "messages": i * 10,
                     "sessions": max(1, i // 10),
-                    "first_activity": datetime.utcnow() - timedelta(days=i % 30),
-                    "last_activity": datetime.utcnow(),
+                    "first_activity": datetime.now(UTC) - timedelta(days=i % 30),
+                    "last_activity": datetime.now(UTC),
                     "active_days": max(1, i % 30),
                 }
             )

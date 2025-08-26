@@ -1,6 +1,7 @@
 """Main API router."""
 
 from app.api.api_v1.endpoints import (
+    admin,
     analytics,
     backup,
     export,
@@ -13,6 +14,7 @@ from app.api.api_v1.endpoints import (
     restore,
     search,
     sessions,
+    users,
 )
 from app.core.custom_router import APIRouter
 
@@ -27,6 +29,8 @@ except ImportError:
 api_router = APIRouter()
 
 # Include all endpoint routers
+api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 
 api_router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])

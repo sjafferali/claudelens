@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import HTTPException, Query
 
-from app.api.dependencies import CommonDeps
+from app.api.dependencies import AuthDeps, CommonDeps
 from app.core.custom_router import APIRouter
 from app.schemas.analytics import (
     ActivityHeatmap,
@@ -42,7 +42,9 @@ router = APIRouter()
 
 @router.get("/summary", response_model=AnalyticsSummary)
 async def get_analytics_summary(
-    db: CommonDeps, time_range: TimeRange = Query(TimeRange.LAST_30_DAYS)
+    db: CommonDeps,
+    user_id: AuthDeps,
+    time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
 ) -> AnalyticsSummary:
     """Get overall analytics summary.
 
@@ -56,6 +58,7 @@ async def get_analytics_summary(
 @router.get("/activity/heatmap", response_model=ActivityHeatmap)
 async def get_activity_heatmap(
     db: CommonDeps,
+    user_id: AuthDeps,
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
     timezone: str = Query("UTC", description="Timezone for aggregation"),
 ) -> ActivityHeatmap:
@@ -71,6 +74,7 @@ async def get_activity_heatmap(
 @router.get("/costs", response_model=CostAnalytics)
 async def get_cost_analytics(
     db: CommonDeps,
+    user_id: AuthDeps,
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
     group_by: str = Query("day", pattern="^(hour|day|week|month)$"),
     project_id: str | None = Query(None),
@@ -87,6 +91,7 @@ async def get_cost_analytics(
 @router.get("/models/usage", response_model=ModelUsageStats)
 async def get_model_usage(
     db: CommonDeps,
+    user_id: AuthDeps,
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
     project_id: str | None = Query(None),
 ) -> ModelUsageStats:
@@ -102,6 +107,7 @@ async def get_model_usage(
 @router.get("/tokens", response_model=TokenUsageStats)
 async def get_token_usage(
     db: CommonDeps,
+    user_id: AuthDeps,
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
     group_by: str = Query("day", pattern="^(hour|day|week|month)$"),
 ) -> TokenUsageStats:
@@ -116,6 +122,7 @@ async def get_token_usage(
 @router.get("/projects/comparison")
 async def compare_projects(
     db: CommonDeps,
+    user_id: AuthDeps,
     project_ids: list[str] = Query(..., description="Project IDs to compare"),
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
 ) -> dict[str, Any]:
@@ -135,6 +142,7 @@ async def compare_projects(
 @router.get("/trends")
 async def get_usage_trends(
     db: CommonDeps,
+    user_id: AuthDeps,
     time_range: TimeRange = Query(TimeRange.LAST_90_DAYS),
     metric: str = Query("messages", pattern="^(messages|costs|sessions)$"),
 ) -> dict[str, Any]:
@@ -149,6 +157,7 @@ async def get_usage_trends(
 @router.get("/tools/summary", response_model=ToolUsageSummary)
 async def get_tool_usage_summary(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None),
     project_id: str | None = Query(None),
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
@@ -164,6 +173,7 @@ async def get_tool_usage_summary(
 @router.get("/tools/detailed", response_model=ToolUsageDetailed)
 async def get_tool_usage_detailed(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None),
     project_id: str | None = Query(None),
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
@@ -179,6 +189,7 @@ async def get_tool_usage_detailed(
 @router.get("/conversation-flow", response_model=ConversationFlowAnalytics)
 async def get_conversation_flow(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str = Query(..., description="Session ID to analyze"),
     include_sidechains: bool = Query(
         True, description="Include sidechain conversations"
@@ -196,6 +207,7 @@ async def get_conversation_flow(
 @router.get("/session/health", response_model=SessionHealth)
 async def get_session_health(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None, description="Filter by specific session"),
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
 ) -> SessionHealth:
@@ -211,6 +223,7 @@ async def get_session_health(
 @router.get("/errors/detailed", response_model=ErrorDetailsResponse)
 async def get_detailed_errors(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None, description="Filter by specific session"),
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
     error_severity: str
@@ -232,6 +245,7 @@ async def get_detailed_errors(
 @router.get("/success-rate", response_model=SuccessRateMetrics)
 async def get_success_rate(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None, description="Filter by specific session"),
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
 ) -> SuccessRateMetrics:
@@ -247,6 +261,7 @@ async def get_success_rate(
 @router.get("/directory-usage", response_model=DirectoryUsageResponse)
 async def get_directory_usage(
     db: CommonDeps,
+    user_id: AuthDeps,
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
     depth: int = Query(
         3, ge=1, le=10, description="Maximum directory depth to analyze"
@@ -267,6 +282,7 @@ async def get_directory_usage(
 @router.get("/token-analytics", response_model=TokenAnalytics)
 async def get_token_analytics(
     db: CommonDeps,
+    user_id: AuthDeps,
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
     percentiles: list[int]
     | None = Query(
@@ -291,6 +307,7 @@ async def get_token_analytics(
 @router.get("/git-branches", response_model=GitBranchAnalyticsResponse)
 async def get_git_branch_analytics(
     db: CommonDeps,
+    user_id: AuthDeps,
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
     project_id: str | None = Query(None, description="Filter by project ID"),
     include_pattern: str
@@ -312,6 +329,7 @@ async def get_git_branch_analytics(
 @router.get("/tokens/summary", response_model=TokenEfficiencySummary)
 async def get_token_efficiency_summary(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None, description="Filter by specific session"),
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
     include_cache_metrics: bool = Query(
@@ -332,6 +350,7 @@ async def get_token_efficiency_summary(
 @router.get("/tokens/detailed", response_model=TokenEfficiencyDetailed)
 async def get_token_efficiency_detailed(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None, description="Filter by specific session"),
     time_range: TimeRange = Query(TimeRange.LAST_30_DAYS),
     include_cache_metrics: bool = Query(
@@ -352,6 +371,7 @@ async def get_token_efficiency_detailed(
 @router.get("/session-depth", response_model=SessionDepthAnalytics)
 async def get_session_depth_analytics(
     db: CommonDeps,
+    user_id: AuthDeps,
     time_range: TimeRange = Query(
         TimeRange.LAST_30_DAYS, description="Time range for analysis"
     ),
@@ -381,6 +401,7 @@ async def get_session_depth_analytics(
 @router.get("/cost/summary", response_model=CostSummary)
 async def get_cost_summary(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None, description="Filter by specific session"),
     project_id: str | None = Query(None, description="Filter by project"),
     time_range: TimeRange = Query(
@@ -399,6 +420,7 @@ async def get_cost_summary(
 @router.get("/cost/breakdown", response_model=CostBreakdownResponse)
 async def get_cost_breakdown(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None, description="Filter by specific session"),
     project_id: str | None = Query(None, description="Filter by project"),
     time_range: TimeRange = Query(
@@ -417,6 +439,7 @@ async def get_cost_breakdown(
 @router.get("/cost/prediction", response_model=CostPrediction)
 async def get_cost_prediction(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None, description="Filter by specific session"),
     project_id: str | None = Query(None, description="Filter by project"),
     prediction_days: int = Query(
@@ -438,6 +461,7 @@ async def get_cost_prediction(
 @router.get("/topics/extract", response_model=TopicExtractionResponse)
 async def extract_session_topics(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str = Query(..., description="Session ID to extract topics from"),
     confidence_threshold: float = Query(
         0.3, ge=0.0, le=1.0, description="Minimum confidence threshold for topics"
@@ -459,6 +483,7 @@ async def extract_session_topics(
 @router.get("/topics/suggest", response_model=TopicSuggestionResponse)
 async def get_topic_suggestions(
     db: CommonDeps,
+    user_id: AuthDeps,
     time_range: TimeRange = Query(
         TimeRange.LAST_30_DAYS, description="Time range for topic analysis"
     ),
@@ -478,6 +503,7 @@ async def get_topic_suggestions(
 @router.get("/benchmarks", response_model=BenchmarkResponse)
 async def get_benchmarks(
     db: CommonDeps,
+    user_id: AuthDeps,
     entity_type: BenchmarkEntityType = Query(
         ..., description="Type of entities to benchmark"
     ),
@@ -510,7 +536,7 @@ async def get_benchmarks(
 
     service = AnalyticsService(db)
     return await service.get_benchmarks(
-        entity_type=entity_type,
+        entity_type,
         entity_ids=entity_ids,
         time_range=time_range,
         normalization_method=normalization_method,
@@ -521,6 +547,7 @@ async def get_benchmarks(
 @router.post("/create-benchmark", response_model=BenchmarkResponse)
 async def create_benchmark(
     db: CommonDeps,
+    user_id: AuthDeps,
     request: CreateBenchmarkRequest,
 ) -> BenchmarkResponse:
     """Create a new benchmark analysis.
@@ -530,7 +557,7 @@ async def create_benchmark(
     """
     service = AnalyticsService(db)
     return await service.get_benchmarks(
-        entity_type=request.entity_type,
+        request.entity_type,
         entity_ids=request.entity_ids,
         time_range=request.time_range,
         normalization_method=request.normalization_method,
@@ -541,6 +568,7 @@ async def create_benchmark(
 @router.get("/benchmark-comparison", response_model=BenchmarkResponse)
 async def get_benchmark_comparison(
     db: CommonDeps,
+    user_id: AuthDeps,
     primary_entity_id: str = Query(
         ..., description="Primary entity to compare against"
     ),
@@ -568,7 +596,7 @@ async def get_benchmark_comparison(
     service = AnalyticsService(db)
 
     return await service.get_benchmark_comparison(
-        primary_entity_id=primary_entity_id,
+        primary_entity_id,
         comparison_entity_ids=comparison_entity_ids,
         entity_type=entity_type,
         time_range=time_range,

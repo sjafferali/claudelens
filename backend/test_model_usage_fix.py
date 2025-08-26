@@ -3,7 +3,7 @@
 
 import asyncio
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 
 sys.path.insert(0, ".")
 
@@ -27,7 +27,7 @@ async def test_model_usage_with_null_models():
                 "durationMs": 1000,
                 "tokensInput": 100,
                 "tokensOutput": 200,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
             {
                 "sessionId": "test-session-analytics",
@@ -37,7 +37,7 @@ async def test_model_usage_with_null_models():
                 "durationMs": 2000,
                 "tokensInput": 150,
                 "tokensOutput": 250,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
             {
                 "sessionId": "test-session-analytics",
@@ -47,13 +47,13 @@ async def test_model_usage_with_null_models():
                 "durationMs": 1500,
                 "tokensInput": 200,
                 "tokensOutput": 300,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
             {
                 "sessionId": "test-session-analytics",
                 "type": "user",  # User message without model
                 "content": "Test prompt",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         ]
 

@@ -1,6 +1,6 @@
 """Comprehensive tests for analytics service cost prediction functions."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -42,7 +42,7 @@ class TestAnalyticsServiceCostPrediction:
     @pytest.fixture
     def sample_daily_costs(self):
         """Sample daily cost data for time series."""
-        base_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        base_date = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
         return [
             {"_id": (base_date - timedelta(days=7)).strftime("%Y-%m-%d"), "cost": 2.15},
             {"_id": (base_date - timedelta(days=6)).strftime("%Y-%m-%d"), "cost": 3.42},

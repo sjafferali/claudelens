@@ -1,6 +1,6 @@
 """Simple tests for analytics service message-related functionality."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -133,7 +133,7 @@ class TestAnalyticsServiceMessageSimple:
     def test_message_analytics_utility_methods(self, analytics_service):
         """Test utility methods used in message analytics."""
         # Test time filter ranges are properly calculated
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Test 24 hours
         filter_24h = analytics_service._get_time_filter(TimeRange.LAST_24_HOURS)
@@ -231,21 +231,21 @@ class TestAnalyticsServiceToolUsage:
     def sample_tool_usage_data(self):
         """Sample tool usage aggregation results."""
         return [
-            {"_id": "read_file", "count": 10, "last_used": datetime.utcnow()},
+            {"_id": "read_file", "count": 10, "last_used": datetime.now(UTC)},
             {
                 "_id": "write_file",
                 "count": 8,
-                "last_used": datetime.utcnow() - timedelta(hours=1),
+                "last_used": datetime.now(UTC) - timedelta(hours=1),
             },
             {
                 "_id": "search_code",
                 "count": 5,
-                "last_used": datetime.utcnow() - timedelta(hours=2),
+                "last_used": datetime.now(UTC) - timedelta(hours=2),
             },
             {
                 "_id": "bash_command",
                 "count": 3,
-                "last_used": datetime.utcnow() - timedelta(hours=3),
+                "last_used": datetime.now(UTC) - timedelta(hours=3),
             },
         ]
 
@@ -541,9 +541,9 @@ class TestAnalyticsServiceToolUsage:
         """Test percentage calculations in get_tool_usage_detailed."""
         # Sample data with specific counts for percentage testing
         sample_data = [
-            {"_id": "tool_a", "count": 7, "last_used": datetime.utcnow()},
-            {"_id": "tool_b", "count": 2, "last_used": datetime.utcnow()},
-            {"_id": "tool_c", "count": 1, "last_used": datetime.utcnow()},
+            {"_id": "tool_a", "count": 7, "last_used": datetime.now(UTC)},
+            {"_id": "tool_b", "count": 2, "last_used": datetime.now(UTC)},
+            {"_id": "tool_c", "count": 1, "last_used": datetime.now(UTC)},
         ]
 
         # Mock the database aggregation
@@ -569,7 +569,7 @@ class TestAnalyticsServiceToolUsage:
         """Test get_tool_usage_detailed with single tool (100% usage)."""
         # Sample data with single tool
         sample_data = [
-            {"_id": "only_tool", "count": 15, "last_used": datetime.utcnow()},
+            {"_id": "only_tool", "count": 15, "last_used": datetime.now(UTC)},
         ]
 
         # Mock the database aggregation
@@ -639,9 +639,9 @@ class TestAnalyticsServiceToolUsage:
         """Test handling of null or empty tool names."""
         # Sample data with null/empty tool names
         sample_data = [
-            {"_id": "valid_tool", "count": 5, "last_used": datetime.utcnow()},
-            {"_id": None, "count": 3, "last_used": datetime.utcnow()},
-            {"_id": "", "count": 2, "last_used": datetime.utcnow()},
+            {"_id": "valid_tool", "count": 5, "last_used": datetime.now(UTC)},
+            {"_id": None, "count": 3, "last_used": datetime.now(UTC)},
+            {"_id": "", "count": 2, "last_used": datetime.now(UTC)},
         ]
 
         # Mock the database aggregation

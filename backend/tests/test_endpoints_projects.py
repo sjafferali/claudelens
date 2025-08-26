@@ -31,7 +31,7 @@ def test_client():
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
 
-    from app.api.dependencies import get_db
+    from app.api.dependencies import get_db, verify_api_key_header
     from app.core.exceptions import ClaudeLensException
 
     app = FastAPI()
@@ -51,7 +51,12 @@ def test_client():
     async def mock_get_db():
         return AsyncMock()
 
+    # Mock the auth dependency to return a test user ID
+    async def mock_auth():
+        return "test_user_id"
+
     app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[verify_api_key_header] = mock_auth
     app.include_router(router, prefix="/projects")
     return TestClient(app)
 
@@ -75,6 +80,7 @@ def sample_project_in_db():
     """Create a sample ProjectInDB instance."""
     return ProjectInDB(
         id=PyObjectId("507f1f77bcf86cd799439011"),
+        user_id=ObjectId("507f191e810c19729de860ea"),  # Add a test user_id
         name="Test Project",
         path="/projects/test",
         description="A test project",
@@ -97,13 +103,8 @@ class TestProjectsEndpoints:
         mock_service_instance.list_projects = AsyncMock(return_value=([], 0))
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
-        # Make request with mock db
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get("/projects/")
+        # Make request
+        response = test_client.get("/projects/")
 
         # Assert
         assert response.status_code == 200
@@ -113,6 +114,13 @@ class TestProjectsEndpoints:
         assert data["skip"] == 0
         assert data["limit"] == 20
         assert data["has_more"] is False
+
+        # Verify service was called with user_id
+        mock_service_instance.list_projects.assert_called_once()
+        call_args = mock_service_instance.list_projects.call_args
+        assert (
+            call_args[0][0] == "test_user_id"
+        )  # First positional argument should be user_id
 
     @pytest.mark.asyncio
     async def test_list_projects_with_data(
@@ -126,13 +134,8 @@ class TestProjectsEndpoints:
         )
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get("/projects/")
+        response = test_client.get("/projects/")
 
         # Assert
         assert response.status_code == 200
@@ -141,6 +144,11 @@ class TestProjectsEndpoints:
         assert data["items"][0]["name"] == "Test Project"
         assert data["items"][0]["stats"]["message_count"] == 100
         assert data["total"] == 1
+
+        # Verify service was called with user_id
+        mock_service_instance.list_projects.assert_called_once()
+        call_args = mock_service_instance.list_projects.call_args
+        assert call_args[0][0] == "test_user_id"
 
     @pytest.mark.asyncio
     async def test_list_projects_with_pagination(
@@ -152,13 +160,8 @@ class TestProjectsEndpoints:
         mock_service_instance.list_projects = AsyncMock(return_value=([], 50))
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get("/projects/?skip=20&limit=10")
+        response = test_client.get("/projects/?skip=20&limit=10")
 
         # Assert
         assert response.status_code == 200
@@ -167,8 +170,9 @@ class TestProjectsEndpoints:
         assert data["limit"] == 10
         assert data["has_more"] is True  # 20 + 10 < 50
 
-        # Verify service was called with correct params
+        # Verify service was called with correct params including user_id
         mock_service_instance.list_projects.assert_called_once_with(
+            "test_user_id",
             filter_dict={},
             skip=20,
             limit=10,
@@ -186,20 +190,21 @@ class TestProjectsEndpoints:
         mock_service_instance.list_projects = AsyncMock(return_value=([], 0))
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get("/projects/?search=test")
+        response = test_client.get("/projects/?search=test")
 
         # Assert
         assert response.status_code == 200
 
         # Verify filter was applied
-        call_args = mock_service_instance.list_projects.call_args
-        assert call_args[1]["filter_dict"] == {"$text": {"$search": "test"}}
+        mock_service_instance.list_projects.assert_called_once_with(
+            "test_user_id",
+            filter_dict={"$text": {"$search": "test"}},
+            skip=0,
+            limit=20,
+            sort_by="updated_at",
+            sort_order="desc",
+        )
 
     @pytest.mark.asyncio
     async def test_list_projects_with_sorting(
@@ -211,35 +216,27 @@ class TestProjectsEndpoints:
         mock_service_instance.list_projects = AsyncMock(return_value=([], 0))
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get(
-                "/projects/?sort_by=message_count&sort_order=asc"
-            )
+        response = test_client.get("/projects/?sort_by=message_count&sort_order=asc")
 
         # Assert
         assert response.status_code == 200
 
         # Verify sort params
-        call_args = mock_service_instance.list_projects.call_args
-        assert call_args[1]["sort_by"] == "message_count"
-        assert call_args[1]["sort_order"] == "asc"
+        mock_service_instance.list_projects.assert_called_once_with(
+            "test_user_id",
+            filter_dict={},
+            skip=0,
+            limit=20,
+            sort_by="message_count",
+            sort_order="asc",
+        )
 
     @pytest.mark.asyncio
     async def test_list_projects_invalid_sort_field(self, test_client, mock_db):
         """Test listing projects with invalid sort field."""
-
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get("/projects/?sort_by=invalid")
+        response = test_client.get("/projects/?sort_by=invalid")
 
         # Assert - FastAPI validation should reject this
         assert response.status_code == 422
@@ -257,13 +254,8 @@ class TestProjectsEndpoints:
         )
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get(f"/projects/{project_id}")
+        response = test_client.get(f"/projects/{project_id}")
 
         # Assert
         assert response.status_code == 200
@@ -271,6 +263,11 @@ class TestProjectsEndpoints:
         assert data["_id"] == project_id
         assert data["name"] == "Test Project"
         assert data["stats"]["message_count"] == 100
+
+        # Verify service was called with user_id
+        mock_service_instance.get_project.assert_called_once_with(
+            "test_user_id", ObjectId(project_id)
+        )
 
     @pytest.mark.asyncio
     async def test_get_project_not_found(
@@ -283,13 +280,8 @@ class TestProjectsEndpoints:
         mock_service_instance.get_project = AsyncMock(return_value=None)
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get(f"/projects/{project_id}")
+        response = test_client.get(f"/projects/{project_id}")
 
         # Assert
         assert response.status_code == 404
@@ -298,14 +290,8 @@ class TestProjectsEndpoints:
     @pytest.mark.asyncio
     async def test_get_project_invalid_id(self, test_client, mock_db):
         """Test getting a project with invalid ObjectId."""
-
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get("/projects/invalid-id")
+        response = test_client.get("/projects/invalid-id")
 
         # Assert
         assert response.status_code == 400
@@ -334,13 +320,8 @@ class TestProjectsEndpoints:
         )
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get(f"/projects/{project_id}/stats")
+        response = test_client.get(f"/projects/{project_id}/stats")
 
         # Assert
         assert response.status_code == 200
@@ -348,6 +329,11 @@ class TestProjectsEndpoints:
         assert data["project_id"] == project_id
         assert data["total_messages"] == 100
         assert data["total_cost"] == 1.23
+
+        # Verify service was called with user_id
+        mock_service_instance.get_project_statistics.assert_called_once_with(
+            "test_user_id", ObjectId(project_id)
+        )
 
     @pytest.mark.asyncio
     async def test_get_project_stats_not_found(
@@ -360,13 +346,8 @@ class TestProjectsEndpoints:
         mock_service_instance.get_project_statistics = AsyncMock(return_value=None)
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get(f"/projects/{project_id}/stats")
+        response = test_client.get(f"/projects/{project_id}/stats")
 
         # Assert
         assert response.status_code == 404
@@ -374,14 +355,8 @@ class TestProjectsEndpoints:
     @pytest.mark.asyncio
     async def test_get_project_stats_invalid_id(self, test_client, mock_db):
         """Test getting stats with invalid project ID."""
-
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.get("/projects/invalid-id/stats")
+        response = test_client.get("/projects/invalid-id/stats")
 
         # Assert
         assert response.status_code == 400
@@ -391,21 +366,18 @@ class TestProjectsEndpoints:
     async def test_list_projects_limit_validation(self, test_client, mock_db):
         """Test list projects with limit validation."""
         # Test limit too high
-        with patch("app.api.dependencies.get_db", return_value=mock_db):
-            response = test_client.get("/projects/?limit=101")
+        response = test_client.get("/projects/?limit=101")
         assert response.status_code == 422
 
         # Test limit too low
-        with patch("app.api.dependencies.get_db", return_value=mock_db):
-            response = test_client.get("/projects/?limit=0")
+        response = test_client.get("/projects/?limit=0")
         assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_list_projects_skip_validation(self, test_client, mock_db):
         """Test list projects with skip validation."""
         # Test negative skip
-        with patch("app.api.dependencies.get_db", return_value=mock_db):
-            response = test_client.get("/projects/?skip=-1")
+        response = test_client.get("/projects/?skip=-1")
         assert response.status_code == 422
 
     @pytest.mark.asyncio
@@ -421,20 +393,15 @@ class TestProjectsEndpoints:
         )
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.post(
-                "/projects/",
-                json={
-                    "name": "Test Project",
-                    "path": "/projects/test",
-                    "description": "A test project",
-                },
-            )
+        response = test_client.post(
+            "/projects/",
+            json={
+                "name": "Test Project",
+                "path": "/projects/test",
+                "description": "A test project",
+            },
+        )
 
         # Assert
         assert response.status_code == 201
@@ -442,6 +409,14 @@ class TestProjectsEndpoints:
         assert data["name"] == "Test Project"
         assert data["path"] == "/projects/test"
         assert data["description"] == "A test project"
+
+        # Verify service was called with user_id
+        mock_service_instance.get_project_by_path.assert_called_once_with(
+            "test_user_id", "/projects/test"
+        )
+        mock_service_instance.create_project.assert_called_once()
+        create_call = mock_service_instance.create_project.call_args
+        assert create_call[0][0] == "test_user_id"
 
     @pytest.mark.asyncio
     async def test_create_project_existing_path(
@@ -455,20 +430,15 @@ class TestProjectsEndpoints:
         )
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.post(
-                "/projects/",
-                json={
-                    "name": "Different Name",
-                    "path": "/projects/test",
-                    "description": "Different description",
-                },
-            )
+        response = test_client.post(
+            "/projects/",
+            json={
+                "name": "Different Name",
+                "path": "/projects/test",
+                "description": "Different description",
+            },
+        )
 
         # Assert - should return the existing project
         assert response.status_code == 201
@@ -496,22 +466,23 @@ class TestProjectsEndpoints:
         mock_service_instance.update_project = AsyncMock(return_value=updated_project)
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.patch(
-                f"/projects/{project_id}",
-                json={"name": "Updated Name", "description": "Updated description"},
-            )
+        response = test_client.patch(
+            f"/projects/{project_id}",
+            json={"name": "Updated Name", "description": "Updated description"},
+        )
 
         # Assert
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Updated Name"
         assert data["description"] == "Updated description"
+
+        # Verify service was called with user_id
+        mock_service_instance.update_project.assert_called_once()
+        call_args = mock_service_instance.update_project.call_args
+        assert call_args[0][0] == "test_user_id"
+        assert call_args[0][1] == ObjectId(project_id)
 
     @pytest.mark.asyncio
     async def test_update_project_not_found(
@@ -524,15 +495,10 @@ class TestProjectsEndpoints:
         mock_service_instance.update_project = AsyncMock(return_value=None)
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.patch(
-                f"/projects/{project_id}", json={"name": "New Name"}
-            )
+        response = test_client.patch(
+            f"/projects/{project_id}", json={"name": "New Name"}
+        )
 
         # Assert
         assert response.status_code == 404
@@ -541,14 +507,8 @@ class TestProjectsEndpoints:
     @pytest.mark.asyncio
     async def test_update_project_invalid_id(self, test_client, mock_db):
         """Test updating a project with invalid ID."""
-
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.patch("/projects/invalid-id", json={"name": "Test"})
+        response = test_client.patch("/projects/invalid-id", json={"name": "Test"})
 
         # Assert
         assert response.status_code == 400
@@ -568,13 +528,8 @@ class TestProjectsEndpoints:
         mock_service_instance.delete_project = AsyncMock(return_value=True)
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.delete(f"/projects/{project_id}")
+        response = test_client.delete(f"/projects/{project_id}")
 
         # Assert
         assert response.status_code == 200
@@ -584,9 +539,10 @@ class TestProjectsEndpoints:
         assert "project_id" in response_data
         assert response_data["project_id"] == project_id
         assert response_data["async"] is False  # Small project, sync deletion
-        # Verify cascade is now always True
+
+        # Verify cascade is now always True and user_id is passed
         mock_service_instance.delete_project.assert_called_once_with(
-            ObjectId(project_id), cascade=True
+            "test_user_id", ObjectId(project_id), cascade=True
         )
 
     @pytest.mark.asyncio
@@ -603,13 +559,8 @@ class TestProjectsEndpoints:
         mock_service_instance.delete_project = AsyncMock(return_value=True)
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.delete(f"/projects/{project_id}?cascade=true")
+        response = test_client.delete(f"/projects/{project_id}?cascade=true")
 
         # Assert
         assert response.status_code == 200
@@ -619,9 +570,10 @@ class TestProjectsEndpoints:
         assert "project_id" in response_data
         assert response_data["project_id"] == project_id
         assert response_data["async"] is False  # Still small project, sync deletion
-        # Verify cascade was True
+
+        # Verify cascade was True and user_id is passed
         mock_service_instance.delete_project.assert_called_once_with(
-            ObjectId(project_id), cascade=True
+            "test_user_id", ObjectId(project_id), cascade=True
         )
 
     @pytest.mark.asyncio
@@ -638,13 +590,8 @@ class TestProjectsEndpoints:
         mock_service_instance.delete_project_async = AsyncMock()
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.delete(f"/projects/{project_id}?cascade=true")
+        response = test_client.delete(f"/projects/{project_id}?cascade=true")
 
         # Assert
         assert response.status_code == 200
@@ -657,6 +604,11 @@ class TestProjectsEndpoints:
         assert response_data["project_id"] == project_id
         assert response_data["async"] is True  # Large project, async deletion
         assert response_data["estimated_messages"] == 2000
+
+        # Verify async delete was called with user_id
+        mock_service_instance.delete_project_async.assert_called_once_with(
+            "test_user_id", ObjectId(project_id), cascade=True
+        )
 
     @pytest.mark.asyncio
     async def test_delete_project_not_found(
@@ -672,13 +624,8 @@ class TestProjectsEndpoints:
         mock_service_instance.delete_project = AsyncMock(return_value=False)
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.delete(f"/projects/{project_id}")
+        response = test_client.delete(f"/projects/{project_id}")
 
         # Assert
         assert response.status_code == 404
@@ -687,14 +634,8 @@ class TestProjectsEndpoints:
     @pytest.mark.asyncio
     async def test_delete_project_invalid_id(self, test_client, mock_db):
         """Test deleting a project with invalid ID."""
-
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.delete("/projects/invalid-id")
+        response = test_client.delete("/projects/invalid-id")
 
         # Assert
         assert response.status_code == 400
@@ -703,14 +644,8 @@ class TestProjectsEndpoints:
     @pytest.mark.asyncio
     async def test_create_project_validation_error(self, test_client, mock_db):
         """Test creating a project with invalid data."""
-
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request with missing required fields
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.post("/projects/", json={"name": "Test"})
+        response = test_client.post("/projects/", json={"name": "Test"})
 
         # Assert
         assert response.status_code == 422  # Validation error
@@ -728,15 +663,12 @@ class TestProjectsEndpoints:
         )
         mock_project_service.return_value = mock_service_instance
 
-        # Mock get_db to return an async generator
-        async def mock_get_db():
-            yield mock_db
-
         # Make request with empty update
-        with patch("app.api.dependencies.get_db", mock_get_db):
-            response = test_client.patch(f"/projects/{project_id}", json={})
+        response = test_client.patch(f"/projects/{project_id}", json={})
 
         # Assert
         assert response.status_code == 200
-        # Should still call update with empty dict
+        # Should still call update with empty dict but include user_id
         mock_service_instance.update_project.assert_called_once()
+        call_args = mock_service_instance.update_project.call_args
+        assert call_args[0][0] == "test_user_id"

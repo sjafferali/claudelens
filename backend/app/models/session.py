@@ -12,6 +12,7 @@ class SessionInDB(BaseModel):
     id: ObjectId = Field(alias="_id")
     sessionId: str
     projectId: ObjectId
+    user_id: ObjectId  # Owner of this session
     startedAt: datetime
     endedAt: datetime
     messageCount: int = 0

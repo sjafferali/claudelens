@@ -3,7 +3,7 @@
 from bson import ObjectId
 from fastapi import HTTPException, Query
 
-from app.api.dependencies import CommonDeps
+from app.api.dependencies import AuthDeps, CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
 from app.schemas.common import PaginatedResponse
@@ -16,6 +16,7 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResponse[ProjectWithStats])
 async def list_projects(
     db: CommonDeps,
+    user_id: AuthDeps,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     search: str | None = Query(None, description="Search in project names"),
@@ -37,6 +38,7 @@ async def list_projects(
 
     # Get projects
     projects, total = await service.list_projects(
+        user_id,
         filter_dict=filter_dict,
         skip=skip,
         limit=limit,
@@ -54,7 +56,9 @@ async def list_projects(
 
 
 @router.get("/{project_id}", response_model=ProjectWithStats)
-async def get_project(project_id: str, db: CommonDeps) -> ProjectWithStats:
+async def get_project(
+    project_id: str, db: CommonDeps, user_id: AuthDeps
+) -> ProjectWithStats:
     """Get a specific project by ID.
 
     Returns the project with detailed statistics.
@@ -63,7 +67,7 @@ async def get_project(project_id: str, db: CommonDeps) -> ProjectWithStats:
         raise HTTPException(status_code=400, detail="Invalid project ID")
 
     service = ProjectService(db)
-    project = await service.get_project(ObjectId(project_id))
+    project = await service.get_project(user_id, ObjectId(project_id))
 
     if not project:
         raise NotFoundError("Project", project_id)
@@ -72,7 +76,9 @@ async def get_project(project_id: str, db: CommonDeps) -> ProjectWithStats:
 
 
 @router.post("/", response_model=Project, status_code=201)
-async def create_project(project: ProjectCreate, db: CommonDeps) -> Project:
+async def create_project(
+    project: ProjectCreate, db: CommonDeps, user_id: AuthDeps
+) -> Project:
     """Create a new project.
 
     Projects are usually created automatically during ingestion,
@@ -81,7 +87,7 @@ async def create_project(project: ProjectCreate, db: CommonDeps) -> Project:
     service = ProjectService(db)
 
     # Check if project with same path exists
-    existing = await service.get_project_by_path(project.path)
+    existing = await service.get_project_by_path(user_id, project.path)
     if existing:
         # Return existing project instead of 409 error
         return Project(
@@ -93,7 +99,7 @@ async def create_project(project: ProjectCreate, db: CommonDeps) -> Project:
             updatedAt=existing.updated_at,
         )
 
-    created = await service.create_project(project)
+    created = await service.create_project(user_id, project)
     return Project(
         _id=str(created.id),
         name=created.name,
@@ -106,14 +112,14 @@ async def create_project(project: ProjectCreate, db: CommonDeps) -> Project:
 
 @router.patch("/{project_id}", response_model=Project)
 async def update_project(
-    project_id: str, update: ProjectUpdate, db: CommonDeps
+    project_id: str, update: ProjectUpdate, db: CommonDeps, user_id: AuthDeps
 ) -> Project:
     """Update a project's metadata."""
     if not ObjectId.is_valid(project_id):
         raise HTTPException(status_code=400, detail="Invalid project ID")
 
     service = ProjectService(db)
-    updated = await service.update_project(ObjectId(project_id), update)
+    updated = await service.update_project(user_id, ObjectId(project_id), update)
 
     if not updated:
         raise NotFoundError("Project", project_id)
@@ -132,6 +138,7 @@ async def update_project(
 async def delete_project(
     project_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
     cascade: bool = Query(
         True,
         description="Delete all associated data (always enabled to prevent orphaned data)",
@@ -152,7 +159,7 @@ async def delete_project(
     service = ProjectService(db)
 
     # Check if project exists
-    project = await service.get_project(ObjectId(project_id))
+    project = await service.get_project(user_id, ObjectId(project_id))
     if not project:
         raise NotFoundError("Project", project_id)
 
@@ -160,7 +167,7 @@ async def delete_project(
     if project.stats and project.stats.message_count > 1000:
         # Start async deletion in background (always cascade)
         asyncio.create_task(
-            service.delete_project_async(ObjectId(project_id), cascade=True)
+            service.delete_project_async(user_id, ObjectId(project_id), cascade=True)
         )
 
         return {
@@ -172,7 +179,9 @@ async def delete_project(
         }
     else:
         # Use synchronous deletion for smaller projects (always cascade)
-        deleted = await service.delete_project(ObjectId(project_id), cascade=True)
+        deleted = await service.delete_project(
+            user_id, ObjectId(project_id), cascade=True
+        )
 
         if not deleted:
             raise NotFoundError("Project", project_id)
@@ -185,7 +194,7 @@ async def delete_project(
 
 
 @router.get("/{project_id}/stats")
-async def get_project_stats(project_id: str, db: CommonDeps) -> dict:
+async def get_project_stats(project_id: str, db: CommonDeps, user_id: AuthDeps) -> dict:
     """Get detailed statistics for a project.
 
     Returns message counts by type, cost breakdown, and activity timeline.
@@ -194,7 +203,7 @@ async def get_project_stats(project_id: str, db: CommonDeps) -> dict:
         raise HTTPException(status_code=400, detail="Invalid project ID")
 
     service = ProjectService(db)
-    stats = await service.get_project_statistics(ObjectId(project_id))
+    stats = await service.get_project_statistics(user_id, ObjectId(project_id))
 
     if not stats:
         raise NotFoundError("Project", project_id)

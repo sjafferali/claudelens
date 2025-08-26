@@ -18,6 +18,7 @@ class ProjectService:
 
     async def list_projects(
         self,
+        user_id: str,
         filter_dict: dict[str, Any],
         skip: int,
         limit: int,
@@ -25,6 +26,9 @@ class ProjectService:
         sort_order: str,
     ) -> tuple[list[ProjectWithStats], int]:
         """List projects with pagination."""
+        # Add user_id filtering
+        filter_dict["user_id"] = ObjectId(user_id)
+
         # Count total
         total = await self.db.projects.count_documents(filter_dict)
 
@@ -47,40 +51,47 @@ class ProjectService:
             # Convert ObjectId to string
             doc["_id"] = str(doc["_id"])
             # Enrich with real-time stats
-            stats = await self._get_project_stats(ObjectId(doc["_id"]))
+            stats = await self._get_project_stats(user_id, ObjectId(doc["_id"]))
             doc["stats"] = stats
             projects.append(ProjectWithStats(**doc))
 
         return projects, total
 
-    async def get_project(self, project_id: ObjectId) -> ProjectWithStats | None:
+    async def get_project(
+        self, user_id: str, project_id: ObjectId
+    ) -> ProjectWithStats | None:
         """Get a single project."""
-        doc = await self.db.projects.find_one({"_id": project_id})
+        doc = await self.db.projects.find_one(
+            {"_id": project_id, "user_id": ObjectId(user_id)}
+        )
         if not doc:
             return None
 
         # Convert ObjectId to string
         doc["_id"] = str(doc["_id"])
         # Enrich with stats
-        stats = await self._get_project_stats(project_id)
+        stats = await self._get_project_stats(user_id, project_id)
         doc["stats"] = stats
 
         return ProjectWithStats(**doc)
 
-    async def get_project_by_path(self, path: str) -> ProjectInDB | None:
+    async def get_project_by_path(self, user_id: str, path: str) -> ProjectInDB | None:
         """Get project by path."""
-        doc = await self.db.projects.find_one({"path": path})
+        doc = await self.db.projects.find_one(
+            {"path": path, "user_id": ObjectId(user_id)}
+        )
         if doc:
             doc["_id"] = str(doc["_id"])
         return ProjectInDB(**doc) if doc else None
 
-    async def create_project(self, project: ProjectCreate) -> ProjectInDB:
+    async def create_project(self, user_id: str, project: ProjectCreate) -> ProjectInDB:
         """Create a new project."""
         doc = {
             "_id": ObjectId(),
             "name": project.name,
             "path": project.path,
             "description": project.description,
+            "user_id": ObjectId(user_id),
             "createdAt": datetime.now(UTC),
             "updatedAt": datetime.now(UTC),
         }
@@ -91,13 +102,14 @@ class ProjectService:
             name=cast(str, doc["name"]),
             description=cast(str | None, doc.get("description")),
             path=cast(str, doc["path"]),
+            user_id=cast(ObjectId, doc["user_id"]),
             stats=ProjectStats(),
             createdAt=cast(datetime, doc["createdAt"]),
             updatedAt=cast(datetime, doc["updatedAt"]),
         )
 
     async def update_project(
-        self, project_id: ObjectId, update: ProjectUpdate
+        self, user_id: str, project_id: ObjectId, update: ProjectUpdate
     ) -> ProjectInDB | None:
         """Update a project."""
         update_dict = update.model_dump(exclude_unset=True)
@@ -105,7 +117,9 @@ class ProjectService:
             update_dict["updatedAt"] = datetime.now(UTC)
 
             result = await self.db.projects.find_one_and_update(
-                {"_id": project_id}, {"$set": update_dict}, return_document=True
+                {"_id": project_id, "user_id": ObjectId(user_id)},
+                {"$set": update_dict},
+                return_document=True,
             )
 
             if result:
@@ -114,13 +128,17 @@ class ProjectService:
             return None
 
         # If no update provided, return existing project
-        existing = await self.db.projects.find_one({"_id": project_id})
+        existing = await self.db.projects.find_one(
+            {"_id": project_id, "user_id": ObjectId(user_id)}
+        )
         if existing:
             existing["_id"] = str(existing["_id"])
             return ProjectInDB(**existing)
         return None
 
-    async def delete_project(self, project_id: ObjectId, cascade: bool = False) -> bool:
+    async def delete_project(
+        self, user_id: str, project_id: ObjectId, cascade: bool = False
+    ) -> bool:
         """Delete a project with robust error handling and recovery.
 
         Always performs cascade deletion to prevent orphaned data.
@@ -137,7 +155,7 @@ class ProjectService:
 
         # Use the robust deletion with recovery
         result = await deletion_service.delete_project_with_recovery(
-            project_id, retry_delay=retry_delay
+            ObjectId(project_id), retry_delay=retry_delay
         )
 
         if not result["success"]:
@@ -146,12 +164,12 @@ class ProjectService:
             print(f"Project deletion failed: {error_msg}")
 
             # Try cleanup to remove any orphaned data
-            await deletion_service._cleanup_orphaned_data(project_id)
+            await deletion_service._cleanup_orphaned_data(ObjectId(project_id))
 
         return bool(result["success"])
 
     async def delete_project_async(
-        self, project_id: ObjectId, cascade: bool = False
+        self, user_id: str, project_id: ObjectId, cascade: bool = False
     ) -> None:
         """Delete a project asynchronously with progress updates via WebSocket.
 
@@ -182,7 +200,7 @@ class ProjectService:
             )
 
             session_ids = await self.db.sessions.distinct(
-                "sessionId", {"projectId": project_id}
+                "sessionId", {"projectId": project_id, "user_id": ObjectId(user_id)}
             )
             total_sessions = len(session_ids)
 
@@ -190,7 +208,7 @@ class ProjectService:
                 message_count = 0
             else:
                 message_count = await self.db.messages.count_documents(
-                    {"sessionId": {"$in": session_ids}}
+                    {"sessionId": {"$in": session_ids}, "user_id": ObjectId(user_id)}
                 )
 
             await connection_manager.broadcast_deletion_progress(
@@ -208,7 +226,9 @@ class ProjectService:
                 message="Performing transactional deletion...",
             )
 
-            result = await deletion_service.delete_project_with_recovery(project_id)
+            result = await deletion_service.delete_project_with_recovery(
+                project_id, 30  # recovery_hours as int, not ObjectId
+            )
 
             if result["success"]:
                 await connection_manager.broadcast_deletion_progress(
@@ -257,21 +277,30 @@ class ProjectService:
             )
             raise
 
-    async def get_project_statistics(self, project_id: ObjectId) -> dict | None:
+    async def get_project_statistics(
+        self, user_id: str, project_id: ObjectId
+    ) -> dict | None:
         """Get detailed project statistics."""
         # Check project exists
-        project = await self.db.projects.find_one({"_id": project_id})
+        project = await self.db.projects.find_one(
+            {"_id": project_id, "user_id": ObjectId(user_id)}
+        )
         if not project:
             return None
 
         # Get session IDs
         session_ids = await self.db.sessions.distinct(
-            "sessionId", {"projectId": project_id}
+            "sessionId", {"projectId": project_id, "user_id": ObjectId(user_id)}
         )
 
         # Aggregate statistics
         pipeline: list[dict[str, Any]] = [
-            {"$match": {"sessionId": {"$in": session_ids}}},
+            {
+                "$match": {
+                    "sessionId": {"$in": session_ids},
+                    "user_id": ObjectId(user_id),
+                }
+            },
             {
                 "$group": {
                     "_id": None,
@@ -308,20 +337,20 @@ class ProjectService:
             "models_used": [],
         }
 
-    async def _get_project_stats(self, project_id: ObjectId) -> dict:
+    async def _get_project_stats(self, user_id: str, project_id: ObjectId) -> dict:
         """Get basic project statistics."""
         # Count sessions
         session_count = await self.db.sessions.count_documents(
-            {"projectId": project_id}
+            {"projectId": project_id, "user_id": ObjectId(user_id)}
         )
 
         # Count messages (through sessions)
         session_ids = await self.db.sessions.distinct(
-            "sessionId", {"projectId": project_id}
+            "sessionId", {"projectId": project_id, "user_id": ObjectId(user_id)}
         )
 
         message_count = await self.db.messages.count_documents(
-            {"sessionId": {"$in": session_ids}}
+            {"sessionId": {"$in": session_ids}, "user_id": ObjectId(user_id)}
         )
 
         return {"session_count": session_count, "message_count": message_count}

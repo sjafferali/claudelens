@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from fastapi import Query
 
-from app.api.dependencies import CommonDeps
+from app.api.dependencies import AuthDeps, CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
 from app.core.logging import get_logger
@@ -20,6 +20,7 @@ logger = get_logger(__name__)
 @router.get("/", response_model=PaginatedResponse[Message])
 async def list_messages(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: str | None = Query(None, description="Filter by session ID"),
     type: str | None = Query(None, description="Filter by message type"),
     model: str | None = Query(None, description="Filter by model"),
@@ -44,7 +45,7 @@ async def list_messages(
 
     # Get messages
     messages, total = await service.list_messages(
-        filter_dict=filter_dict, skip=skip, limit=limit, sort_order=sort_order
+        user_id, filter_dict=filter_dict, skip=skip, limit=limit, sort_order=sort_order
     )
 
     return PaginatedResponse(
@@ -57,10 +58,12 @@ async def list_messages(
 
 
 @router.get("/{message_id}", response_model=MessageDetail)
-async def get_message(message_id: str, db: CommonDeps) -> MessageDetail:
+async def get_message(
+    message_id: str, db: CommonDeps, user_id: AuthDeps
+) -> MessageDetail:
     """Get a specific message by ID."""
     service = MessageService(db)
-    message = await service.get_message(message_id)
+    message = await service.get_message(user_id, message_id)
 
     if not message:
         raise NotFoundError("Message", message_id)
@@ -69,10 +72,12 @@ async def get_message(message_id: str, db: CommonDeps) -> MessageDetail:
 
 
 @router.get("/uuid/{uuid}", response_model=MessageDetail)
-async def get_message_by_uuid(uuid: str, db: CommonDeps) -> MessageDetail:
+async def get_message_by_uuid(
+    uuid: str, db: CommonDeps, user_id: AuthDeps
+) -> MessageDetail:
     """Get a message by its Claude UUID."""
     service = MessageService(db)
-    message = await service.get_message_by_uuid(uuid)
+    message = await service.get_message_by_uuid(user_id, uuid)
 
     if not message:
         raise NotFoundError("Message with UUID", uuid)
@@ -84,6 +89,7 @@ async def get_message_by_uuid(uuid: str, db: CommonDeps) -> MessageDetail:
 async def get_message_context(
     message_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
     before: int = Query(5, ge=0, le=50, description="Number of messages before"),
     after: int = Query(5, ge=0, le=50, description="Number of messages after"),
 ) -> dict:
@@ -93,7 +99,7 @@ async def get_message_context(
     in the same session.
     """
     service = MessageService(db)
-    context = await service.get_message_context(message_id, before, after)
+    context = await service.get_message_context(user_id, message_id, before, after)
 
     if not context:
         raise NotFoundError("Message", message_id)
@@ -105,11 +111,12 @@ async def get_message_context(
 async def update_message_cost(
     message_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
     cost_usd: float = Query(..., description="Cost in USD"),
 ) -> dict:
     """Update the cost for a specific message."""
     service = MessageService(db)
-    success = await service.update_message_cost(message_id, cost_usd)
+    success = await service.update_message_cost(user_id, message_id, cost_usd)
 
     if not success:
         raise NotFoundError("Message", message_id)
@@ -120,6 +127,7 @@ async def update_message_cost(
 @router.post("/batch-update-costs")
 async def batch_update_costs(
     db: CommonDeps,
+    user_id: AuthDeps,
     cost_updates: dict[str, float],
 ) -> dict:
     """Batch update costs for multiple messages.
@@ -127,7 +135,7 @@ async def batch_update_costs(
     Expects a dictionary mapping message UUIDs to their costs in USD.
     """
     service = MessageService(db)
-    updated_count = await service.batch_update_costs(cost_updates)
+    updated_count = await service.batch_update_costs(user_id, cost_updates)
 
     return {
         "success": True,
@@ -139,6 +147,7 @@ async def batch_update_costs(
 @router.post("/calculate-costs")
 async def calculate_message_costs(
     db: CommonDeps,
+    user_id: AuthDeps,
     session_id: Optional[str] = None,
     message_ids: Optional[List[str]] = None,
 ) -> dict:
@@ -162,6 +171,7 @@ async def calculate_message_costs(
         if session_id:
             # Get all message IDs first
             basic_messages, total = await service.list_messages(
+                user_id,
                 filter_dict={"sessionId": session_id},
                 skip=0,
                 limit=10000,  # Get all messages in session
@@ -172,12 +182,12 @@ async def calculate_message_costs(
             )
             # Get detailed messages with usage data
             for msg in basic_messages:
-                detailed_msg = await service.get_message(msg.id)
+                detailed_msg = await service.get_message(user_id, msg.id)
                 if detailed_msg:
                     messages.append(detailed_msg)
         elif message_ids:
             for msg_id in message_ids:
-                detailed_msg = await service.get_message(msg_id)
+                detailed_msg = await service.get_message(user_id, msg_id)
                 if detailed_msg:
                     messages.append(detailed_msg)
 
@@ -229,7 +239,7 @@ async def calculate_message_costs(
         # Batch update costs in database
         updated_count = 0
         if cost_updates:
-            updated_count = await service.batch_update_costs(cost_updates)
+            updated_count = await service.batch_update_costs(user_id, cost_updates)
 
         return {
             "success": True,

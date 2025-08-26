@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 from bson import ObjectId
 from fastapi import File, HTTPException, UploadFile, WebSocket
 
-from app.api.dependencies import CommonDeps
+from app.api.dependencies import AuthDeps, CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.logging import get_logger
 from app.schemas.backup_schemas import (
@@ -54,11 +54,10 @@ async def broadcast_restore_progress(job_id: str, progress: Dict[str, Any]) -> N
 async def create_restore(
     request: CreateRestoreRequest,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> CreateRestoreResponse:
     """Create a restore job from an existing backup."""
-    # For now, allow anonymous restores similar to other endpoints
-    # In production, this should be controlled by configuration
-    user_id = "anonymous"
+    # User ID comes from authentication
 
     # Check rate limit using the new service
     rate_limit_service = RateLimitService(db)
@@ -95,13 +94,13 @@ async def create_restore(
 @router.post("/upload", response_model=CreateRestoreResponse, status_code=202)
 async def restore_from_upload(
     db: CommonDeps,
+    user_id: AuthDeps,
     file: UploadFile = File(...),
     mode: str = "full",
     conflict_resolution: str = "skip",
 ) -> CreateRestoreResponse:
     """Upload a backup file and create a restore job."""
-    # For now, allow anonymous restores similar to other endpoints
-    user_id = "anonymous"
+    # User ID comes from authentication
 
     # Check rate limit using the new service
     rate_limit_service = RateLimitService(db)
@@ -186,6 +185,7 @@ async def restore_from_upload(
 async def get_restore_status(
     job_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> RestoreProgressResponse:
     """Get the status and progress of a restore job."""
     if not ObjectId.is_valid(job_id):
@@ -209,6 +209,7 @@ async def get_restore_status(
 async def preview_backup(
     backup_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
 ) -> PreviewBackupResponse:
     """Preview the contents of a backup before restoring."""
     if not ObjectId.is_valid(backup_id):
@@ -254,6 +255,7 @@ async def preview_backup(
 @router.get("/jobs", response_model=Dict[str, Any])
 async def list_restore_jobs(
     db: CommonDeps,
+    user_id: AuthDeps,
     page: int = 0,
     size: int = 20,
     sort: str = "created_at,desc",

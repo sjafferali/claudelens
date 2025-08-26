@@ -1,6 +1,6 @@
 """Comprehensive tests for analytics service directory insights functionality."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -34,7 +34,7 @@ class TestAnalyticsServiceDirectory:
     @pytest.fixture
     def sample_directory_data(self):
         """Sample directory data from MongoDB aggregation."""
-        base_time = datetime.utcnow()
+        base_time = datetime.now(UTC)
         return [
             {
                 "path": "/home/user/project",
@@ -74,7 +74,7 @@ class TestAnalyticsServiceDirectory:
     @pytest.fixture
     def windows_directory_data(self):
         """Windows-style directory paths for cross-platform testing."""
-        base_time = datetime.utcnow()
+        base_time = datetime.now(UTC)
         return [
             {
                 "path": "C:\\Users\\user\\project",
@@ -313,7 +313,7 @@ class TestAnalyticsServiceDirectory:
                 "total_cost": 10.0,
                 "message_count": 5,
                 "session_count": 2,
-                "last_active": datetime.utcnow(),
+                "last_active": datetime.now(UTC),
             },
         ]
 
@@ -403,14 +403,14 @@ class TestAnalyticsServiceDirectory:
                 "total_cost": 5.0,
                 "message_count": 3,
                 "session_count": 1,
-                "last_active": datetime.utcnow(),
+                "last_active": datetime.now(UTC),
             },
             {
                 "path": None,
                 "total_cost": 3.0,
                 "message_count": 2,
                 "session_count": 1,
-                "last_active": datetime.utcnow(),
+                "last_active": datetime.now(UTC),
             },
         ]
 
@@ -439,7 +439,7 @@ class TestAnalyticsServiceDirectory:
                         "cost": 5.0,
                         "messages": 3,
                         "sessions": 1,
-                        "last_active": datetime.utcnow(),
+                        "last_active": datetime.now(UTC),
                     },
                     "_children": {},
                 },
@@ -450,7 +450,7 @@ class TestAnalyticsServiceDirectory:
                         "cost": 3.0,
                         "messages": 2,
                         "sessions": 1,
-                        "last_active": datetime.utcnow() - timedelta(hours=1),
+                        "last_active": datetime.now(UTC) - timedelta(hours=1),
                     },
                     "_children": {},
                 },
@@ -482,7 +482,7 @@ class TestAnalyticsServiceDirectory:
                 "cost": 25.0,
                 "messages": 10,
                 "sessions": 2,
-                "last_active": datetime.utcnow(),
+                "last_active": datetime.now(UTC),
             },
             "_children": {},
         }
@@ -500,7 +500,7 @@ class TestAnalyticsServiceDirectory:
                 "cost": 15.0,
                 "messages": 10,
                 "sessions": 3,
-                "last_active": datetime.utcnow(),
+                "last_active": datetime.now(UTC),
             },
             "_children": {},
         }
@@ -519,7 +519,7 @@ class TestAnalyticsServiceDirectory:
                 "cost": 10.0,
                 "messages": 5,
                 "sessions": 0,
-                "last_active": datetime.utcnow(),
+                "last_active": datetime.now(UTC),
             },
             "_children": {},
         }
@@ -564,7 +564,7 @@ class TestAnalyticsServiceDirectory:
                 "total_cost": 20.0,
                 "message_count": 50,
                 "session_count": 10,  # High concurrency
-                "last_active": datetime.utcnow(),
+                "last_active": datetime.now(UTC),
             },
         ]
 
@@ -594,7 +594,7 @@ class TestAnalyticsServiceDirectory:
     @pytest.mark.asyncio
     async def test_get_directory_usage_old_data(self, analytics_service, mock_db):
         """Test get_directory_usage with very old last_active timestamps."""
-        old_time = datetime.utcnow() - timedelta(days=365)  # One year old
+        old_time = datetime.now(UTC) - timedelta(days=365)  # One year old
         directory_data = [
             {
                 "path": "/old/project",

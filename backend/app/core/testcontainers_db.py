@@ -34,7 +34,9 @@ def get_testcontainer_mongodb_url() -> str | None:
 
     try:
         # Import testcontainers only when needed
-        from testcontainers.mongodb import MongoDbContainer
+        from testcontainers.mongodb import (
+            MongoDbContainer,  # type: ignore[import-untyped]
+        )
 
         logger.info("Starting MongoDB testcontainer...")
         _mongo_container = MongoDbContainer("mongo:7.0")

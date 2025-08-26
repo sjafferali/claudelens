@@ -6,7 +6,7 @@ from typing import Any
 from bson import ObjectId
 from fastapi import HTTPException, Query
 
-from app.api.dependencies import CommonDeps
+from app.api.dependencies import AuthDeps, CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
 from app.schemas.common import PaginatedResponse
@@ -19,6 +19,7 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResponse[Session])
 async def list_sessions(
     db: CommonDeps,
+    user_id: AuthDeps,
     project_id: str | None = Query(None, description="Filter by project ID"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -54,6 +55,7 @@ async def list_sessions(
 
     # Get sessions
     sessions, total = await service.list_sessions(
+        user_id,
         filter_dict=filter_dict,
         skip=skip,
         limit=limit,
@@ -74,11 +76,14 @@ async def list_sessions(
 async def get_session(
     session_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
     include_messages: bool = Query(False, description="Include first 10 messages"),
 ) -> SessionDetail:
     """Get a specific session by ID."""
     service = SessionService(db)
-    session = await service.get_session(session_id, include_messages=include_messages)
+    session = await service.get_session(
+        user_id, session_id, include_messages=include_messages
+    )
 
     if not session:
         raise NotFoundError("Session", session_id)
@@ -90,6 +95,7 @@ async def get_session(
 async def get_session_messages(
     session_id: str,
     db: CommonDeps,
+    user_id: AuthDeps,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=1000),
 ) -> SessionWithMessages:
@@ -100,12 +106,14 @@ async def get_session_messages(
     service = SessionService(db)
 
     # Get session
-    session = await service.get_session(session_id)
+    session = await service.get_session(user_id, session_id)
     if not session:
         raise NotFoundError("Session", session_id)
 
     # Get messages
-    messages = await service.get_session_messages(session_id, skip=skip, limit=limit)
+    messages = await service.get_session_messages(
+        user_id, session_id, skip=skip, limit=limit
+    )
 
     return SessionWithMessages(
         session=session, messages=messages, skip=skip, limit=limit
@@ -117,6 +125,7 @@ async def get_message_thread(
     session_id: str,
     message_uuid: str,
     db: CommonDeps,
+    user_id: AuthDeps,
     depth: int = Query(10, ge=1, le=100, description="Maximum thread depth"),
 ) -> dict:
     """Get the conversation thread for a specific message.
@@ -124,7 +133,7 @@ async def get_message_thread(
     Returns the message and its parent/child messages up to the specified depth.
     """
     service = SessionService(db)
-    thread = await service.get_message_thread(session_id, message_uuid, depth)
+    thread = await service.get_message_thread(user_id, session_id, message_uuid, depth)
 
     if not thread:
         raise NotFoundError("Message thread", f"{session_id}/{message_uuid}")
@@ -133,13 +142,15 @@ async def get_message_thread(
 
 
 @router.post("/{session_id}/generate-summary")
-async def generate_session_summary(session_id: str, db: CommonDeps) -> dict:
+async def generate_session_summary(
+    session_id: str, db: CommonDeps, user_id: AuthDeps
+) -> dict:
     """Generate or regenerate a summary for a session.
 
     Uses the first and last few messages to create a concise summary.
     """
     service = SessionService(db)
-    summary = await service.generate_summary(session_id)
+    summary = await service.generate_summary(user_id, session_id)
 
     if not summary:
         raise NotFoundError("Session", session_id)

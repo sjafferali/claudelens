@@ -1,7 +1,7 @@
 """State management for sync operations."""
 import hashlib
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -91,11 +91,11 @@ class StateManager:
         """Update state for a project."""
         if project_path not in self.state.projects:
             self.state.projects[project_path] = ProjectState(
-                last_sync=datetime.utcnow()
+                last_sync=datetime.now(UTC)
             )
 
         project_state = self.state.projects[project_path]
-        project_state.last_sync = datetime.utcnow()
+        project_state.last_sync = datetime.now(UTC)
 
         if last_file is not None:
             project_state.last_file = last_file
@@ -107,7 +107,7 @@ class StateManager:
             project_state.synced_messages.update(new_messages)
             project_state.message_count = len(project_state.synced_messages)
 
-        self.state.last_sync = datetime.utcnow()
+        self.state.last_sync = datetime.now(UTC)
         self.save()
 
     def is_message_synced(self, project_path: str, message_id: str) -> bool:

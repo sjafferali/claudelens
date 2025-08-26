@@ -8,7 +8,7 @@ from typing import Any, Optional, cast
 from bson import ObjectId
 from fastapi import HTTPException, Query, Response
 
-from app.api.dependencies import CommonDeps
+from app.api.dependencies import AuthDeps, CommonDeps
 from app.core.custom_router import APIRouter
 from app.core.exceptions import NotFoundError
 from app.schemas.ai_generation import (
@@ -45,6 +45,7 @@ router = APIRouter()
 @router.get("/", response_model=PaginatedResponse[Prompt])
 async def list_prompts(
     db: CommonDeps,
+    user_id: AuthDeps,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     search: Optional[str] = Query(None, description="Search in prompt names, content"),
@@ -84,7 +85,7 @@ async def list_prompts(
 
     # Get prompts with combined filters
     prompts, total = await service.list_prompts(
-        filter_dict=filter_dict,
+        filter_dict,
         skip=skip,
         limit=limit,
         sort_by=sort_by,
@@ -101,7 +102,9 @@ async def list_prompts(
 
 
 @router.post("/", response_model=Prompt, status_code=201)
-async def create_prompt(prompt: PromptCreate, db: CommonDeps) -> Prompt:
+async def create_prompt(
+    prompt: PromptCreate, db: CommonDeps, user_id: AuthDeps
+) -> Prompt:
     """Create a new prompt."""
     service = PromptService(db)
 
@@ -132,7 +135,7 @@ async def create_prompt(prompt: PromptCreate, db: CommonDeps) -> Prompt:
 
 # Tags endpoint - MUST come before /{prompt_id}
 @router.get("/tags/", response_model=list[dict])
-async def get_unique_tags(db: CommonDeps) -> list[dict]:
+async def get_unique_tags(db: CommonDeps, user_id: AuthDeps) -> list[dict]:
     """Get all unique tags with their usage counts."""
     service = PromptService(db)
     tags = await service.get_unique_tags()
@@ -141,7 +144,7 @@ async def get_unique_tags(db: CommonDeps) -> list[dict]:
 
 # Folder endpoints - MUST come before /{prompt_id}
 @router.get("/folders/", response_model=list[Folder])
-async def list_folders(db: CommonDeps) -> list[Folder]:
+async def list_folders(db: CommonDeps, user_id: AuthDeps) -> list[Folder]:
     """List all folders."""
     service = PromptService(db)
     folders = await service.list_folders()
@@ -156,7 +159,7 @@ async def list_folders(db: CommonDeps) -> list[Folder]:
             del folder_dict["parentId"]
 
         # Get prompt count for this folder
-        prompts, count = await service.get_prompts_by_folder(folder.id, 0, 1)
+        prompts, count = await service.get_prompts_by_folder(folder.id, 1)
         folder_dict["prompt_count"] = count
 
         folder_list.append(Folder(**folder_dict))
@@ -165,7 +168,9 @@ async def list_folders(db: CommonDeps) -> list[Folder]:
 
 
 @router.post("/folders/", response_model=Folder, status_code=201)
-async def create_folder(folder: FolderCreate, db: CommonDeps) -> Folder:
+async def create_folder(
+    folder: FolderCreate, db: CommonDeps, user_id: AuthDeps
+) -> Folder:
     """Create a new folder."""
     service = PromptService(db)
 
@@ -187,7 +192,9 @@ async def create_folder(folder: FolderCreate, db: CommonDeps) -> Folder:
 
 
 @router.patch("/folders/{folder_id}", response_model=Folder)
-async def update_folder(folder_id: str, update: FolderUpdate, db: CommonDeps) -> Folder:
+async def update_folder(
+    folder_id: str, update: FolderUpdate, db: CommonDeps, user_id: AuthDeps
+) -> Folder:
     """Update a folder."""
     if not ObjectId.is_valid(folder_id):
         raise HTTPException(status_code=400, detail="Invalid folder ID")
@@ -210,14 +217,14 @@ async def update_folder(folder_id: str, update: FolderUpdate, db: CommonDeps) ->
         del folder_dict["parentId"]
 
     # Get prompt count for this folder
-    prompts, count = await service.get_prompts_by_folder(updated_folder.id, 0, 1)
+    prompts, count = await service.get_prompts_by_folder(updated_folder.id, 1)
     folder_dict["prompt_count"] = count
 
     return Folder(**folder_dict)
 
 
 @router.delete("/folders/{folder_id}", status_code=200)
-async def delete_folder(folder_id: str, db: CommonDeps) -> dict:
+async def delete_folder(folder_id: str, db: CommonDeps, user_id: AuthDeps) -> dict:
     """Delete a folder (prompts are moved to root)."""
     if not ObjectId.is_valid(folder_id):
         raise HTTPException(status_code=400, detail="Invalid folder ID")
@@ -233,7 +240,9 @@ async def delete_folder(folder_id: str, db: CommonDeps) -> dict:
 
 # Export/Import endpoints - MUST come before /{prompt_id}
 @router.post("/export", response_model=dict)
-async def export_prompts(request: PromptExportRequest, db: CommonDeps) -> Response:
+async def export_prompts(
+    request: PromptExportRequest, db: CommonDeps, user_id: AuthDeps
+) -> Response:
     """Export prompts in various formats."""
     service = PromptService(db)
 
@@ -302,7 +311,9 @@ async def export_prompts(request: PromptExportRequest, db: CommonDeps) -> Respon
 
 
 @router.post("/import", response_model=dict)
-async def import_prompts(request: PromptImportRequest, db: CommonDeps) -> dict:
+async def import_prompts(
+    request: PromptImportRequest, db: CommonDeps, user_id: AuthDeps
+) -> dict:
     """Import prompts from various formats."""
     service = PromptService(db)
 
@@ -404,7 +415,7 @@ async def import_prompts(request: PromptImportRequest, db: CommonDeps) -> dict:
 
 # AI generation endpoints - MUST come before /{prompt_id} routes
 @router.post("/ai/generate-field")
-async def generate_field(request: dict, db: CommonDeps) -> dict:
+async def generate_field(request: dict, db: CommonDeps, user_id: AuthDeps) -> dict:
     """Generate a single field with AI based on instructions."""
     from app.services.ai_service import AIService
 
@@ -466,7 +477,7 @@ async def generate_field(request: dict, db: CommonDeps) -> dict:
 
 @router.post("/ai/generate-metadata", response_model=GenerateMetadataResponse)
 async def generate_prompt_metadata(
-    request: GenerateMetadataRequest, db: CommonDeps
+    request: GenerateMetadataRequest, db: CommonDeps, user_id: AuthDeps
 ) -> GenerateMetadataResponse:
     """Generate prompt metadata using AI."""
     from app.services.ai_service import AIService
@@ -484,7 +495,7 @@ async def generate_prompt_metadata(
 
 @router.post("/ai/generate-content", response_model=GenerateContentResponse)
 async def generate_prompt_content(
-    request: GenerateContentRequest, db: CommonDeps
+    request: GenerateContentRequest, db: CommonDeps, user_id: AuthDeps
 ) -> GenerateContentResponse:
     """Generate prompt content using AI."""
     from app.services.ai_service import AIService
@@ -502,7 +513,7 @@ async def generate_prompt_content(
 
 @router.post("/ai/count-tokens", response_model=TokenCountResponse)
 async def count_tokens(
-    request: TokenCountRequest, db: CommonDeps
+    request: TokenCountRequest, db: CommonDeps, user_id: AuthDeps
 ) -> TokenCountResponse:
     """Count tokens in text."""
     from app.services.ai_service import AIService
@@ -518,7 +529,7 @@ async def count_tokens(
 
 # Individual prompt endpoints - these MUST come LAST
 @router.get("/{prompt_id}", response_model=PromptDetail)
-async def get_prompt(prompt_id: str, db: CommonDeps) -> PromptDetail:
+async def get_prompt(prompt_id: str, db: CommonDeps, user_id: AuthDeps) -> PromptDetail:
     """Get a specific prompt by ID."""
     if not ObjectId.is_valid(prompt_id):
         raise HTTPException(status_code=400, detail="Invalid prompt ID")
@@ -533,7 +544,9 @@ async def get_prompt(prompt_id: str, db: CommonDeps) -> PromptDetail:
 
 
 @router.patch("/{prompt_id}", response_model=Prompt)
-async def update_prompt(prompt_id: str, update: PromptUpdate, db: CommonDeps) -> Prompt:
+async def update_prompt(
+    prompt_id: str, update: PromptUpdate, db: CommonDeps, user_id: AuthDeps
+) -> Prompt:
     """Update a prompt."""
     if not ObjectId.is_valid(prompt_id):
         raise HTTPException(status_code=400, detail="Invalid prompt ID")
@@ -568,7 +581,7 @@ async def update_prompt(prompt_id: str, update: PromptUpdate, db: CommonDeps) ->
 
 
 @router.delete("/{prompt_id}", status_code=200)
-async def delete_prompt(prompt_id: str, db: CommonDeps) -> dict:
+async def delete_prompt(prompt_id: str, db: CommonDeps, user_id: AuthDeps) -> dict:
     """Delete a prompt."""
     if not ObjectId.is_valid(prompt_id):
         raise HTTPException(status_code=400, detail="Invalid prompt ID")
@@ -585,7 +598,7 @@ async def delete_prompt(prompt_id: str, db: CommonDeps) -> dict:
 # Special operation endpoints for specific prompts
 @router.post("/{prompt_id}/test", response_model=PromptTestResponse)
 async def test_prompt(
-    prompt_id: str, request: PromptTestRequest, db: CommonDeps
+    prompt_id: str, request: PromptTestRequest, db: CommonDeps, user_id: AuthDeps
 ) -> PromptTestResponse:
     """Test a prompt with variable substitution and AI generation."""
     if not ObjectId.is_valid(prompt_id):
@@ -693,7 +706,7 @@ async def test_prompt(
 
 @router.post("/{prompt_id}/share", response_model=dict)
 async def share_prompt(
-    prompt_id: str, request: PromptShareRequest, db: CommonDeps
+    prompt_id: str, request: PromptShareRequest, db: CommonDeps, user_id: AuthDeps
 ) -> dict:
     """Share a prompt with other users."""
     if not ObjectId.is_valid(prompt_id):

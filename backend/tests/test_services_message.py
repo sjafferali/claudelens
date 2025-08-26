@@ -43,12 +43,17 @@ class TestMessageService:
         )
 
         # Execute
-        messages, total = await message_service.list_messages({}, 0, 10, "desc")
+        user_id = str(ObjectId())
+        messages, total = await message_service.list_messages(
+            user_id, {}, 0, 10, "desc"
+        )
 
         # Assert
         assert messages == []
         assert total == 0
-        mock_db.messages.count_documents.assert_called_once_with({})
+        mock_db.messages.count_documents.assert_called_once_with(
+            {"user_id": ObjectId(user_id)}
+        )
 
     @pytest.mark.asyncio
     async def test_list_messages_with_data(self, message_service, mock_db):
@@ -84,7 +89,10 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
-        messages, total = await message_service.list_messages({}, 0, 10, "desc")
+        user_id = str(ObjectId())
+        messages, total = await message_service.list_messages(
+            user_id, {}, 0, 10, "desc"
+        )
 
         # Assert
         assert len(messages) == 2
@@ -106,10 +114,18 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
-        messages, total = await message_service.list_messages(filter_dict, 0, 10, "asc")
+        user_id = str(ObjectId())
+        messages, total = await message_service.list_messages(
+            user_id, filter_dict, 0, 10, "asc"
+        )
 
         # Assert
-        mock_db.messages.find.assert_called_once_with(filter_dict)
+        expected_filter = {
+            "sessionId": "session-123",
+            "type": "user",
+            "user_id": ObjectId(user_id),
+        }
+        mock_db.messages.find.assert_called_once_with(expected_filter)
         mock_cursor.sort.assert_called_once_with("timestamp", 1)  # asc = 1
 
     @pytest.mark.asyncio
@@ -132,7 +148,8 @@ class TestMessageService:
         mock_db.messages.find_one = AsyncMock(return_value=message_data)
 
         # Execute
-        message = await message_service.get_message(message_id)
+        user_id = str(ObjectId())
+        message = await message_service.get_message(user_id, message_id)
 
         # Assert
         assert message is not None
@@ -144,7 +161,8 @@ class TestMessageService:
     async def test_get_message_invalid_id(self, message_service, mock_db):
         """Test getting a message with invalid ID."""
         # Execute
-        message = await message_service.get_message("invalid-id")
+        user_id = str(ObjectId())
+        message = await message_service.get_message(user_id, "invalid-id")
 
         # Assert
         assert message is None
@@ -157,7 +175,8 @@ class TestMessageService:
         mock_db.messages.find_one = AsyncMock(return_value=None)
 
         # Execute
-        message = await message_service.get_message("507f1f77bcf86cd799439011")
+        user_id = str(ObjectId())
+        message = await message_service.get_message(user_id, "507f1f77bcf86cd799439011")
 
         # Assert
         assert message is None
@@ -179,12 +198,14 @@ class TestMessageService:
         mock_db.messages.find_one = AsyncMock(return_value=message_data)
 
         # Execute
-        message = await message_service.get_message_by_uuid("msg-123")
+        user_id = str(ObjectId())
+        message = await message_service.get_message_by_uuid(user_id, "msg-123")
 
         # Assert
         assert message is not None
         assert message.uuid == "msg-123"
-        mock_db.messages.find_one.assert_called_once_with({"uuid": "msg-123"})
+        expected_query = {"uuid": "msg-123", "user_id": ObjectId(user_id)}
+        mock_db.messages.find_one.assert_called_once_with(expected_query)
 
     @pytest.mark.asyncio
     async def test_get_message_context(self, message_service, mock_db):
@@ -252,8 +273,9 @@ class TestMessageService:
         mock_db.messages.find = MagicMock(side_effect=mock_find)
 
         # Execute
+        user_id = str(ObjectId())
         context = await message_service.get_message_context(
-            message_id, before=2, after=2
+            user_id, message_id, before=2, after=2
         )
 
         # Assert
@@ -269,7 +291,8 @@ class TestMessageService:
     async def test_get_message_context_invalid_id(self, message_service, mock_db):
         """Test getting message context with invalid ID."""
         # Execute
-        context = await message_service.get_message_context("invalid-id", 2, 2)
+        user_id = str(ObjectId())
+        context = await message_service.get_message_context(user_id, "invalid-id", 2, 2)
 
         # Assert
         assert context is None
@@ -325,13 +348,17 @@ class TestMessageService:
         mock_db.messages.update_one = AsyncMock(return_value=mock_result)
 
         # Execute
-        success = await message_service.update_message_cost(message_id, 0.005)
+        user_id = str(ObjectId())
+        success = await message_service.update_message_cost(user_id, message_id, 0.005)
 
         # Assert
         assert success is True
         mock_db.messages.update_one.assert_called_once()
         update_call = mock_db.messages.update_one.call_args
-        assert update_call[0][0] == {"_id": ObjectId(message_id)}
+        assert update_call[0][0] == {
+            "_id": ObjectId(message_id),
+            "user_id": ObjectId(user_id),
+        }
         assert "$set" in update_call[0][1]
         assert "costUsd" in update_call[0][1]["$set"]
 
@@ -343,8 +370,9 @@ class TestMessageService:
         mock_db.messages.update_one = AsyncMock(return_value=mock_result)
 
         # Execute
+        user_id = str(ObjectId())
         success = await message_service.update_message_cost(
-            "507f1f77bcf86cd799439011", 0.005
+            user_id, "507f1f77bcf86cd799439011", 0.005
         )
 
         # Assert
@@ -357,8 +385,9 @@ class TestMessageService:
         mock_db.messages.update_one = AsyncMock(side_effect=Exception("DB error"))
 
         # Execute
+        user_id = str(ObjectId())
         success = await message_service.update_message_cost(
-            "507f1f77bcf86cd799439011", 0.005
+            user_id, "507f1f77bcf86cd799439011", 0.005
         )
 
         # Assert
@@ -397,7 +426,8 @@ class TestMessageService:
         mock_db.sessions.update_one = AsyncMock()
 
         # Execute
-        updated_count = await message_service.batch_update_costs(cost_updates)
+        user_id = str(ObjectId())
+        updated_count = await message_service.batch_update_costs(user_id, cost_updates)
 
         # Assert
         assert updated_count == 3
@@ -428,7 +458,8 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
-        updated_count = await message_service.batch_update_costs(cost_updates)
+        user_id = str(ObjectId())
+        updated_count = await message_service.batch_update_costs(user_id, cost_updates)
 
         # Assert
         assert updated_count == 1
@@ -446,12 +477,16 @@ class TestMessageService:
         mock_db.sessions.update_one = AsyncMock()
 
         # Execute
-        await message_service._update_session_total_cost(session_id)
+        user_id = str(ObjectId())
+        await message_service._update_session_total_cost(user_id, session_id)
 
         # Assert
         mock_db.sessions.update_one.assert_called_once()
         update_call = mock_db.sessions.update_one.call_args
-        assert update_call[0][0] == {"sessionId": session_id}
+        assert update_call[0][0] == {
+            "sessionId": session_id,
+            "user_id": ObjectId(user_id),
+        }
         assert "$set" in update_call[0][1]
         assert "totalCost" in update_call[0][1]["$set"]
 
@@ -465,7 +500,8 @@ class TestMessageService:
         mock_db.sessions.update_one = AsyncMock()
 
         # Execute
-        await message_service._update_session_total_cost("session-123")
+        user_id = str(ObjectId())
+        await message_service._update_session_total_cost(user_id, "session-123")
 
         # Assert
         mock_db.sessions.update_one.assert_not_called()
@@ -494,7 +530,8 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
-        messages, _ = await message_service.list_messages({}, 0, 10, "desc")
+        user_id = str(ObjectId())
+        messages, _ = await message_service.list_messages(user_id, {}, 0, 10, "desc")
 
         # Assert
         assert messages[0].parent_uuid == "msg-122"
@@ -537,8 +574,9 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         messages, total = await message_service.list_messages(
-            {}, skip=20, limit=10, sort_order="asc"
+            user_id, {}, skip=20, limit=10, sort_order="asc"
         )
 
         # Assert
@@ -574,14 +612,16 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         messages, total = await message_service.list_messages(
-            filter_dict, 0, 10, "desc"
+            user_id, filter_dict, 0, 10, "desc"
         )
 
         # Assert
         assert len(messages) == 1
         assert messages[0].type == "assistant"
-        mock_db.messages.find.assert_called_once_with(filter_dict)
+        expected_filter = {"type": "assistant", "user_id": ObjectId(user_id)}
+        mock_db.messages.find.assert_called_once_with(expected_filter)
 
     @pytest.mark.asyncio
     async def test_list_messages_filter_by_model(self, message_service, mock_db):
@@ -617,8 +657,9 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         messages, total = await message_service.list_messages(
-            filter_dict, 0, 10, "desc"
+            user_id, filter_dict, 0, 10, "desc"
         )
 
         # Assert
@@ -643,11 +684,18 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
-        await message_service.list_messages(filter_dict, 0, 20, "asc")
+        user_id = str(ObjectId())
+        await message_service.list_messages(user_id, filter_dict, 0, 20, "asc")
 
         # Assert
-        mock_db.messages.find.assert_called_once_with(filter_dict)
-        mock_db.messages.count_documents.assert_called_once_with(filter_dict)
+        expected_filter = {
+            "sessionId": "session-123",
+            "type": {"$in": ["user", "assistant"]},
+            "timestamp": {"$gte": datetime(2024, 1, 1, tzinfo=UTC)},
+            "user_id": ObjectId(user_id),
+        }
+        mock_db.messages.find.assert_called_once_with(expected_filter)
+        mock_db.messages.count_documents.assert_called_once_with(expected_filter)
 
     @pytest.mark.asyncio
     async def test_list_messages_with_content_filter(self, message_service, mock_db):
@@ -673,8 +721,9 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         messages, total = await message_service.list_messages(
-            filter_dict, 0, 10, "desc"
+            user_id, filter_dict, 0, 10, "desc"
         )
 
         # Assert
@@ -715,7 +764,10 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
-        messages, total = await message_service.list_messages({}, 0, 10, "desc")
+        user_id = str(ObjectId())
+        messages, total = await message_service.list_messages(
+            user_id, {}, 0, 10, "desc"
+        )
 
         # Assert
         assert len(messages) == 2
@@ -743,10 +795,18 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
-        await message_service.list_messages(filter_dict, 0, 50, "asc")
+        user_id = str(ObjectId())
+        await message_service.list_messages(user_id, filter_dict, 0, 50, "asc")
 
         # Assert
-        mock_db.messages.find.assert_called_once_with(filter_dict)
+        expected_filter = {
+            "timestamp": {
+                "$gte": start_date,
+                "$lte": end_date,
+            },
+            "user_id": ObjectId(user_id),
+        }
+        mock_db.messages.find.assert_called_once_with(expected_filter)
 
     @pytest.mark.asyncio
     async def test_list_messages_filter_by_parent_uuid(self, message_service, mock_db):
@@ -773,8 +833,9 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         messages, total = await message_service.list_messages(
-            filter_dict, 0, 10, "desc"
+            user_id, filter_dict, 0, 10, "desc"
         )
 
         # Assert
@@ -807,8 +868,9 @@ class TestMessageService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         messages, total = await message_service.list_messages(
-            filter_dict, 0, 10, "desc"
+            user_id, filter_dict, 0, 10, "desc"
         )
 
         # Assert
@@ -841,8 +903,9 @@ class TestMessageService:
         mock_db.messages.find.return_value = empty_cursor
 
         # Execute
+        user_id = str(ObjectId())
         context = await message_service.get_message_context(
-            message_id, before=5, after=5
+            user_id, message_id, before=5, after=5
         )
 
         # Assert
@@ -860,8 +923,9 @@ class TestMessageService:
         mock_db.messages.find_one = AsyncMock(return_value=None)
 
         # Execute
+        user_id = str(ObjectId())
         context = await message_service.get_message_context(
-            "507f1f77bcf86cd799439011", 2, 2
+            user_id, "507f1f77bcf86cd799439011", 2, 2
         )
 
         # Assert

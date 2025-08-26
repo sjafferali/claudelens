@@ -3,7 +3,7 @@ import asyncio
 import json
 from collections import defaultdict
 from collections.abc import AsyncIterator, Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -33,7 +33,7 @@ class SyncStats:
         self.messages_updated = 0
         self.messages_skipped = 0
         self.errors = 0
-        self.start_time = datetime.utcnow()
+        self.start_time = datetime.now(UTC)
         # Additional stats that may be set during sync
         self.sessions_processed = 0
         self.unique_messages_found = 0
@@ -42,7 +42,7 @@ class SyncStats:
     @property
     def duration(self) -> float:
         """Get duration in seconds."""
-        return (datetime.utcnow() - self.start_time).total_seconds()
+        return (datetime.now(UTC) - self.start_time).total_seconds()
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""

@@ -23,7 +23,7 @@ router = APIRouter()
 @router.get("/", response_model=AISettingsResponse)
 async def get_ai_settings(db: CommonDeps) -> AISettingsResponse:
     """Get current AI settings."""
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     from app.services.ai_service import AIService
 
@@ -32,7 +32,7 @@ async def get_ai_settings(db: CommonDeps) -> AISettingsResponse:
 
     if not settings:
         # Return default settings when none exist
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         return AISettingsResponse(
             _id="default",
             model="gpt-4",

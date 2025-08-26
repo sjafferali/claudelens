@@ -1,6 +1,6 @@
 """Comprehensive tests for analytics service session depth analysis functionality."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -34,7 +34,7 @@ class TestAnalyticsServiceSessionDepth:
     @pytest.fixture
     def sample_messages_simple(self):
         """Sample messages for a simple conversation tree."""
-        base_time = datetime.utcnow()
+        base_time = datetime.now(UTC)
         return [
             {
                 "uuid": "msg1",
@@ -81,7 +81,7 @@ class TestAnalyticsServiceSessionDepth:
     @pytest.fixture
     def sample_messages_with_branches(self):
         """Sample messages with branching conversation."""
-        base_time = datetime.utcnow()
+        base_time = datetime.now(UTC)
         return [
             # Main thread
             {
@@ -162,7 +162,7 @@ class TestAnalyticsServiceSessionDepth:
     @pytest.fixture
     def sample_messages_with_sidechains(self):
         """Sample messages with sidechain conversations."""
-        base_time = datetime.utcnow()
+        base_time = datetime.now(UTC)
         return [
             # Main thread
             {
@@ -222,7 +222,7 @@ class TestAnalyticsServiceSessionDepth:
     @pytest.fixture
     def sample_multi_session_messages(self):
         """Sample messages from multiple sessions for distribution testing."""
-        base_time = datetime.utcnow()
+        base_time = datetime.now(UTC)
         messages = []
 
         # Session 1: shallow (depth 2)
@@ -1015,7 +1015,7 @@ class TestAnalyticsServiceSessionDepth:
         """Test session depth analytics with complex realistic scenario."""
         # Create a complex dataset with mixed patterns
         complex_messages = []
-        base_time = datetime.utcnow()
+        base_time = datetime.now(UTC)
 
         # Session 1: Shallow exploration (depth 3) with branches
         session1_msgs = [

@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -194,7 +194,7 @@ class TestConnectionManager:
         message_preview = MessagePreview(
             uuid="msg-123",
             author="user",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             preview="Hello world",
             tool_used="bash",
         )
@@ -352,7 +352,7 @@ class TestConnectionManager:
         await manager.broadcast_new_message(
             "nonexistent-session",
             MessagePreview(
-                uuid="test", author="user", timestamp=datetime.utcnow(), preview="test"
+                uuid="test", author="user", timestamp=datetime.now(UTC), preview="test"
             ),
         )
 
@@ -552,7 +552,7 @@ class TestRealtimeStatsService:
         message_data = {
             "uuid": "msg-456",
             "author": "assistant",
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(UTC),
             "text": "This is a very long message that should definitely be truncated because it clearly exceeds the 100 character preview limit that is set in the WebSocket manager service for message previews",
             "toolsUsed": [{"name": "bash"}],
         }
@@ -587,7 +587,7 @@ class TestRealtimeStatsService:
         message_data = {
             "uuid": "msg-789",
             "author": "user",
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(UTC),
             "text": "Short message",
             "toolsUsed": [],
         }
@@ -611,7 +611,7 @@ class TestRealtimeStatsService:
         message_data = {
             "uuid": "msg-999",
             "author": "user",
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(UTC),
             "text": "Message without tools",
         }
 

@@ -13,6 +13,7 @@ class MessageInDB(BaseModel):
     id: ObjectId = Field(alias="_id")
     uuid: str
     sessionId: str
+    user_id: ObjectId  # Owner of this message
     type: str
     timestamp: datetime
 

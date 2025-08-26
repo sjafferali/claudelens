@@ -43,14 +43,17 @@ class TestSessionService:
         )
 
         # Execute
+        user_id = str(ObjectId())
         sessions, total = await session_service.list_sessions(
-            {}, 0, 10, "started_at", "desc"
+            user_id, {}, 0, 10, "started_at", "desc"
         )
 
         # Assert
         assert sessions == []
         assert total == 0
-        mock_db.sessions.count_documents.assert_called_once_with({})
+        mock_db.sessions.count_documents.assert_called_once_with(
+            {"user_id": ObjectId(user_id)}
+        )
 
     @pytest.mark.asyncio
     async def test_list_sessions_with_data(self, session_service, mock_db):
@@ -81,8 +84,9 @@ class TestSessionService:
         mock_db.sessions.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         sessions, total = await session_service.list_sessions(
-            {}, 0, 10, "started_at", "desc"
+            user_id, {}, 0, 10, "started_at", "desc"
         )
 
         # Assert
@@ -113,7 +117,8 @@ class TestSessionService:
         ]
 
         for input_field, expected_field in sort_tests:
-            await session_service.list_sessions({}, 0, 10, input_field, "asc")
+            user_id = str(ObjectId())
+            await session_service.list_sessions(user_id, {}, 0, 10, input_field, "asc")
             mock_cursor.sort.assert_called_with(expected_field, 1)
 
     @pytest.mark.asyncio
@@ -148,7 +153,8 @@ class TestSessionService:
         )
 
         # Execute
-        session = await session_service.get_session(session_id)
+        user_id = str(ObjectId())
+        session = await session_service.get_session(user_id, session_id)
 
         # Assert
         assert session is not None
@@ -182,7 +188,8 @@ class TestSessionService:
         mock_db.messages.find_one = AsyncMock(return_value=None)
 
         # Execute - using a non-ObjectId string
-        session = await session_service.get_session("session-123")
+        user_id = str(ObjectId())
+        session = await session_service.get_session(user_id, "session-123")
 
         # Assert
         assert session is not None
@@ -196,7 +203,8 @@ class TestSessionService:
         """Test getting a non-existent session."""
         mock_db.sessions.find_one = AsyncMock(return_value=None)
 
-        session = await session_service.get_session("non-existent")
+        user_id = str(ObjectId())
+        session = await session_service.get_session(user_id, "non-existent")
         assert session is None
 
     @pytest.mark.asyncio
@@ -252,8 +260,9 @@ class TestSessionService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         session = await session_service.get_session(
-            "507f1f77bcf86cd799439011", include_messages=True
+            user_id, "507f1f77bcf86cd799439011", include_messages=True
         )
 
         # Assert
@@ -304,8 +313,9 @@ class TestSessionService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         messages = await session_service.get_session_messages(
-            "507f1f77bcf86cd799439011", skip=0, limit=10
+            user_id, "507f1f77bcf86cd799439011", skip=0, limit=10
         )
 
         # Assert
@@ -348,7 +358,8 @@ class TestSessionService:
         mock_db.sessions.update_one = AsyncMock()
 
         # Execute
-        summary = await session_service.generate_summary(session_id)
+        user_id = str(ObjectId())
+        summary = await session_service.generate_summary(user_id, session_id)
 
         # Assert
         assert summary == "How can I implement a binary search tree in Python?"
@@ -384,7 +395,8 @@ class TestSessionService:
         mock_db.sessions.update_one = AsyncMock()
 
         # Execute
-        summary = await session_service.generate_summary(session_id)
+        user_id = str(ObjectId())
+        summary = await session_service.generate_summary(user_id, session_id)
 
         # Assert
         assert len(summary) == 200  # Should be truncated to 197 + "..."
@@ -416,7 +428,8 @@ class TestSessionService:
         mock_db.sessions.update_one = AsyncMock()
 
         # Execute
-        summary = await session_service.generate_summary(session_id)
+        user_id = str(ObjectId())
+        summary = await session_service.generate_summary(user_id, session_id)
 
         # Assert
         assert "```" not in summary
@@ -453,7 +466,8 @@ class TestSessionService:
         mock_db.sessions.update_one = AsyncMock()
 
         # Execute
-        summary = await session_service.generate_summary(session_id)
+        user_id = str(ObjectId())
+        summary = await session_service.generate_summary(user_id, session_id)
 
         # Assert
         assert summary == "Implementation task"
@@ -476,7 +490,8 @@ class TestSessionService:
         mock_db.sessions.update_one = AsyncMock()
 
         # Execute
-        summary = await session_service.generate_summary(session_id)
+        user_id = str(ObjectId())
+        summary = await session_service.generate_summary(user_id, session_id)
 
         # Assert
         assert summary == "Empty conversation"
@@ -486,7 +501,8 @@ class TestSessionService:
         """Test generating summary with invalid session ID."""
         mock_db.sessions.find_one = AsyncMock(return_value=None)
 
-        summary = await session_service.generate_summary("invalid-id")
+        user_id = str(ObjectId())
+        summary = await session_service.generate_summary(user_id, "invalid-id")
         assert summary is None
 
     @pytest.mark.asyncio
@@ -539,7 +555,10 @@ class TestSessionService:
         )
 
         # Execute
-        thread = await session_service.get_message_thread(session_id, "msg-2", depth=2)
+        user_id = str(ObjectId())
+        thread = await session_service.get_message_thread(
+            user_id, session_id, "msg-2", depth=2
+        )
 
         # Assert
         assert thread is not None
@@ -568,8 +587,9 @@ class TestSessionService:
         mock_db.sessions.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         sessions, _ = await session_service.list_sessions(
-            {}, 0, 10, "started_at", "desc"
+            user_id, {}, 0, 10, "started_at", "desc"
         )
 
         # Assert
@@ -601,15 +621,18 @@ class TestSessionService:
         mock_db.sessions.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         sessions, total = await session_service.list_sessions(
-            filter_dict, 0, 10, "started_at", "desc"
+            user_id, filter_dict, 0, 10, "started_at", "desc"
         )
 
         # Assert
         assert len(sessions) == 1
         assert total == 1
         assert sessions[0].project_id == str(project_id)
-        mock_db.sessions.find.assert_called_once_with(filter_dict)
+        # Note: filter_dict will be modified by the service to add user_id
+        expected_filter = {"projectId": project_id, "user_id": ObjectId(user_id)}
+        mock_db.sessions.find.assert_called_once_with(expected_filter)
 
     @pytest.mark.asyncio
     async def test_list_sessions_with_date_range_filter(self, session_service, mock_db):
@@ -629,14 +652,19 @@ class TestSessionService:
         mock_db.sessions.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         sessions, total = await session_service.list_sessions(
-            filter_dict, 0, 10, "started_at", "desc"
+            user_id, filter_dict, 0, 10, "started_at", "desc"
         )
 
         # Assert
         assert sessions == []
         assert total == 2
-        mock_db.sessions.find.assert_called_once_with(filter_dict)
+        expected_filter = {
+            "startedAt": {"$gte": start_date, "$lte": end_date},
+            "user_id": ObjectId(user_id),
+        }
+        mock_db.sessions.find.assert_called_once_with(expected_filter)
 
     @pytest.mark.asyncio
     async def test_list_sessions_with_multiple_filters(self, session_service, mock_db):
@@ -657,14 +685,21 @@ class TestSessionService:
         mock_db.sessions.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         sessions, total = await session_service.list_sessions(
-            filter_dict, 0, 10, "total_cost", "desc"
+            user_id, filter_dict, 0, 10, "total_cost", "desc"
         )
 
         # Assert
         assert sessions == []
         assert total == 0
-        mock_db.sessions.find.assert_called_once_with(filter_dict)
+        expected_filter = {
+            "projectId": project_id,
+            "messageCount": {"$gte": 5},
+            "totalCost": {"$exists": True, "$ne": None},
+            "user_id": ObjectId(user_id),
+        }
+        mock_db.sessions.find.assert_called_once_with(expected_filter)
 
     @pytest.mark.asyncio
     async def test_list_sessions_pagination_edge_cases(self, session_service, mock_db):
@@ -691,15 +726,16 @@ class TestSessionService:
         )
         mock_db.sessions.find.return_value = mock_cursor
 
+        user_id = str(ObjectId())
         sessions, total = await session_service.list_sessions(
-            {}, 20, 10, "started_at", "desc"
+            user_id, {}, 20, 10, "started_at", "desc"
         )
         assert sessions == []
         assert total == 15
 
         # Test case 2: Limit 0 (should return empty list)
         sessions, total = await session_service.list_sessions(
-            {}, 0, 0, "started_at", "desc"
+            user_id, {}, 0, 0, "started_at", "desc"
         )
         assert sessions == []
         assert total == 15
@@ -798,7 +834,10 @@ class TestSessionService:
         mock_db.messages.find = MagicMock(side_effect=mock_find)
 
         # Execute with depth=2
-        thread = await session_service.get_message_thread(session_id, "msg-2", depth=2)
+        user_id = str(ObjectId())
+        thread = await session_service.get_message_thread(
+            user_id, session_id, "msg-2", depth=2
+        )
 
         # Assert
         assert thread is not None
@@ -827,7 +866,8 @@ class TestSessionService:
         mock_db.messages.find_one = AsyncMock(return_value=None)
 
         # Execute
-        session = await session_service.get_session("507f1f77bcf86cd799439011")
+        user_id = str(ObjectId())
+        session = await session_service.get_session(user_id, "507f1f77bcf86cd799439011")
 
         # Assert
         assert session is not None
@@ -850,16 +890,20 @@ class TestSessionService:
         )
         mock_db.sessions.find.return_value = mock_cursor
 
+        user_id = str(ObjectId())
+
         # Test ascending
-        await session_service.list_sessions({}, 0, 10, "message_count", "asc")
+        await session_service.list_sessions(user_id, {}, 0, 10, "message_count", "asc")
         mock_cursor.sort.assert_called_with("messageCount", 1)
 
         # Test descending
-        await session_service.list_sessions({}, 0, 10, "message_count", "desc")
+        await session_service.list_sessions(user_id, {}, 0, 10, "message_count", "desc")
         mock_cursor.sort.assert_called_with("messageCount", -1)
 
         # Test default (not desc) should be ascending
-        await session_service.list_sessions({}, 0, 10, "message_count", "random")
+        await session_service.list_sessions(
+            user_id, {}, 0, 10, "message_count", "random"
+        )
         mock_cursor.sort.assert_called_with("messageCount", 1)
 
     @pytest.mark.asyncio
@@ -891,7 +935,8 @@ class TestSessionService:
         mock_db.sessions.update_one = AsyncMock()
 
         # Execute
-        summary = await session_service.generate_summary(session_id)
+        user_id = str(ObjectId())
+        summary = await session_service.generate_summary(user_id, session_id)
 
         # Assert
         assert (
@@ -950,8 +995,9 @@ class TestSessionService:
         mock_db.messages.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         messages = await session_service.get_session_messages(
-            "507f1f77bcf86cd799439011", skip=0, limit=10
+            user_id, "507f1f77bcf86cd799439011", skip=0, limit=10
         )
 
         # Assert
@@ -986,7 +1032,8 @@ class TestSessionService:
         mock_db.sessions.update_one = AsyncMock()
 
         # Execute
-        summary = await session_service.generate_summary(session_id)
+        user_id = str(ObjectId())
+        summary = await session_service.generate_summary(user_id, session_id)
 
         # Assert summary was generated correctly
         assert summary == "Update the login form"
@@ -994,7 +1041,10 @@ class TestSessionService:
         # Assert session was updated with summary and updatedAt
         mock_db.sessions.update_one.assert_called_once()
         update_call = mock_db.sessions.update_one.call_args
-        assert update_call[0][0] == {"_id": ObjectId(session_id)}
+        assert update_call[0][0] == {
+            "_id": ObjectId(session_id),
+            "user_id": ObjectId(user_id),
+        }
         assert "$set" in update_call[0][1]
         assert update_call[0][1]["$set"]["summary"] == summary
         assert "updatedAt" in update_call[0][1]["$set"]
@@ -1034,8 +1084,9 @@ class TestSessionService:
         )
         mock_db.sessions.find.return_value = mock_cursor
 
+        user_id = str(ObjectId())
         sessions, total = await session_service.list_sessions(
-            {"projectId": project_id}, 0, 10, "started_at", "desc"
+            user_id, {"projectId": project_id}, 0, 10, "started_at", "desc"
         )
         assert total == 2
         assert len(sessions) == 2
@@ -1081,9 +1132,11 @@ class TestSessionService:
         mock_db.messages.distinct = AsyncMock(return_value=["gpt-4"])
         mock_db.messages.find_one = AsyncMock(return_value=None)
 
+        user_id = str(ObjectId())
+
         # Get session twice
-        session1 = await session_service.get_session(session_id)
-        session2 = await session_service.get_session(session_id)
+        session1 = await session_service.get_session(user_id, session_id)
+        session2 = await session_service.get_session(user_id, session_id)
 
         # Assert values changed between calls
         assert session1.total_cost == 0.10
@@ -1133,8 +1186,9 @@ class TestSessionService:
         mock_db.sessions.find.return_value = mock_cursor
 
         # Execute
+        user_id = str(ObjectId())
         sessions, total = await session_service.list_sessions(
-            {}, 0, 10, "started_at", "desc"
+            user_id, {}, 0, 10, "started_at", "desc"
         )
 
         # Assert all sessions were processed successfully
@@ -1190,8 +1244,9 @@ class TestSessionService:
         )
 
         # Execute
+        user_id = str(ObjectId())
         thread = await session_service.get_message_thread(
-            session_id, "orphaned-msg", depth=5
+            user_id, session_id, "orphaned-msg", depth=5
         )
 
         # Assert thread was still created successfully

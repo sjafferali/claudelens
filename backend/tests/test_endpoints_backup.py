@@ -29,7 +29,7 @@ def test_client():
     from fastapi.responses import JSONResponse
 
     from app.api.api_v1.endpoints.backup import router
-    from app.api.dependencies import get_db
+    from app.api.dependencies import get_db, verify_api_key_header
     from app.core.exceptions import ClaudeLensException
 
     app = FastAPI()
@@ -101,7 +101,11 @@ def test_client():
     async def mock_get_db():
         return mock_db
 
+    async def mock_auth():
+        return "test_user_id"
+
     app.dependency_overrides[get_db] = mock_get_db
+    app.dependency_overrides[verify_api_key_header] = mock_auth
     app.include_router(router, prefix="/api/v1/backups")
 
     # Add restore routes

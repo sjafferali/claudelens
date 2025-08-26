@@ -13,6 +13,7 @@ import Analytics from '@/pages/Analytics';
 import ImportExport from '@/pages/ImportExport';
 import Backup from '@/pages/Backup';
 import Settings from '@/pages/Settings';
+import Admin from '@/pages/Admin';
 import NotFound from '@/pages/NotFound';
 import { PageTransition } from '@/components/PageTransition';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -47,6 +48,7 @@ function App() {
               <Route path="/import-export" element={<ImportExport />} />
               <Route path="/backup" element={<Backup />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </PageTransition>

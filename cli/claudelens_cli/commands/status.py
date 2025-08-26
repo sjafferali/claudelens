@@ -1,5 +1,5 @@
 """Status command implementation."""
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
@@ -45,7 +45,7 @@ def status(detailed: bool):
 
     # Sync status
     if state_manager.state.last_sync:
-        time_since = datetime.utcnow() - state_manager.state.last_sync
+        time_since = datetime.now(UTC) - state_manager.state.last_sync
         status_info.append(f"\nLast sync: {_format_time_ago(time_since)} ago")
     else:
         status_info.append("\nLast sync: Never")
@@ -68,7 +68,7 @@ def status(detailed: bool):
 
         for project_path, project_state in state_manager.state.projects.items():
             project_name = Path(project_path).name
-            time_since = datetime.utcnow() - project_state.last_sync
+            time_since = datetime.now(UTC) - project_state.last_sync
 
             table.add_row(
                 project_name,

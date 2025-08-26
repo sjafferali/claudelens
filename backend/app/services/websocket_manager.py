@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Dict, Set
 from weakref import WeakSet
 
@@ -459,7 +459,7 @@ class RealtimeStatsService:
             preview = MessagePreview(
                 uuid=message_data.get("uuid", ""),
                 author=message_data.get("author", ""),
-                timestamp=message_data.get("timestamp", datetime.utcnow()),
+                timestamp=message_data.get("timestamp", datetime.now(UTC)),
                 preview=message_data.get("text", "")[:100] + "..."
                 if len(message_data.get("text", "")) > 100
                 else message_data.get("text", ""),
