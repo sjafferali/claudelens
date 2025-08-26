@@ -21,9 +21,9 @@ class ApiClient {
       (config) => {
         // Use environment variable for API key, fall back to store if needed
         const apiKey =
-          import.meta.env.VITE_API_KEY ||
-          useStore.getState().auth.apiKey ||
-          'default-api-key';
+          import.meta.env.VITE_API_KEY || useStore.getState().auth.apiKey;
+
+        // Only set the API key header if we have one
         if (apiKey) {
           config.headers['X-API-Key'] = apiKey;
         }
@@ -49,7 +49,12 @@ class ApiClient {
 
           if (error.response.status === 401) {
             toast.error('Authentication required');
-            // Handle auth error
+            // Clear the stored API key and redirect to login
+            useStore.getState().setApiKey(null);
+            // Check if we're not already on the login page to avoid infinite redirects
+            if (!window.location.pathname.includes('/login')) {
+              window.location.href = '/login';
+            }
           } else if (error.response.status === 429) {
             toast.error('Rate limit exceeded. Please try again later.');
           } else if (!isExpected404) {

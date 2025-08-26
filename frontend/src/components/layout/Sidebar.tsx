@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home,
   FolderOpen,
@@ -11,8 +11,10 @@ import {
   Moon,
   Download,
   Shield,
+  LogOut,
 } from 'lucide-react';
 import { useStore } from '@/store';
+import toast from 'react-hot-toast';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
@@ -28,6 +30,15 @@ const navItems = [
 export default function Sidebar() {
   const theme = useStore((state) => state.ui.theme);
   const toggleTheme = useStore((state) => state.toggleTheme);
+  const setApiKey = useStore((state) => state.setApiKey);
+  const apiKey = useStore((state) => state.auth.apiKey);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    setApiKey(null);
+    toast.success('Logged out successfully');
+    navigate('/login');
+  };
 
   return (
     <aside className="w-60 bg-layer-secondary border-r border-primary-c flex flex-col">
@@ -67,8 +78,8 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Settings */}
-      <div className="mt-auto p-5">
+      {/* Settings and Logout */}
+      <div className="mt-auto p-5 space-y-2">
         <NavLink
           to="/settings"
           className={({ isActive }) =>
@@ -80,6 +91,17 @@ export default function Sidebar() {
           <Settings className="h-5 w-5" />
           <span className="text-sm font-medium">Settings</span>
         </NavLink>
+
+        {/* Show logout button only if API key is from store (not from environment) */}
+        {apiKey && !import.meta.env.VITE_API_KEY && (
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-3 py-2.5 w-full text-tertiary-c hover:bg-layer-tertiary hover:text-primary-c rounded-lg transition-all duration-200"
+          >
+            <LogOut className="h-5 w-5" />
+            <span className="text-sm font-medium">Logout</span>
+          </button>
+        )}
       </div>
     </aside>
   );
