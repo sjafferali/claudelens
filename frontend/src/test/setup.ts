@@ -1,6 +1,6 @@
 // Test setup file for Vitest
 import '@testing-library/jest-dom';
-import { beforeAll, afterAll } from 'vitest';
+import { beforeAll, afterAll, vi } from 'vitest';
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
@@ -43,3 +43,16 @@ beforeAll(() => {
 afterAll(() => {
   console.warn = originalWarn;
 });
+
+// Mock useAuth hook globally to prevent network calls in tests
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    currentUser: null,
+    isAuthenticated: false,
+    isAdmin: false,
+    hasPermission: () => false,
+    login: vi.fn(),
+    logout: vi.fn(),
+    isLoading: false,
+  }),
+}));

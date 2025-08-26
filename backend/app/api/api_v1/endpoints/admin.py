@@ -3,6 +3,7 @@
 import asyncio
 from typing import Any, Dict, List, Mapping, Sequence
 
+from bson import Decimal128
 from fastapi import APIRouter, Depends, HTTPException, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -12,6 +13,13 @@ from app.services.storage_metrics import StorageMetricsService
 from app.services.user import UserService
 
 router = APIRouter()
+
+
+def convert_decimal128(value: Any) -> Any:
+    """Convert Decimal128 values to float for JSON serialization."""
+    if isinstance(value, Decimal128):
+        return float(str(value))
+    return value
 
 
 @router.get("/stats")
@@ -305,6 +313,11 @@ async def get_recent_activity(
     for session in recent_sessions:
         # Get user info
         user = await db.users.find_one({"_id": session.get("user_id")})
+
+        # Convert totalCost from Decimal128 to float
+        total_cost = session.get("totalCost", 0)
+        total_cost = convert_decimal128(total_cost)
+
         activity.append(
             {
                 "type": "session",
@@ -312,7 +325,7 @@ async def get_recent_activity(
                 "user": user.get("username") if user else "Unknown",
                 "session_id": str(session["_id"]),
                 "message_count": session.get("messageCount", 0),
-                "total_cost": session.get("totalCost", 0),
+                "total_cost": total_cost,
             }
         )
 
