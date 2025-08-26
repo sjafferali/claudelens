@@ -66,7 +66,7 @@ export const DiskUsageChart: React.FC<DiskUsageChartProps> = ({
   isLoading,
 }) => {
   const pieData = useMemo(() => {
-    if (!data?.system_metrics.by_collection) return [];
+    if (!data?.system_metrics?.by_collection) return [];
 
     return Object.entries(data.system_metrics.by_collection).map(
       ([collection, size]) => ({
@@ -81,12 +81,12 @@ export const DiskUsageChart: React.FC<DiskUsageChartProps> = ({
     if (!data?.top_users) return [];
 
     return data.top_users.slice(0, 10).map((user) => ({
-      username: user.username,
-      storage: user.total_disk_usage,
-      formattedStorage: formatBytes(user.total_disk_usage),
-      sessions: user.session_count,
-      messages: user.message_count,
-      projects: user.project_count,
+      username: user.username || 'Unknown',
+      storage: user.total_disk_usage || 0,
+      formattedStorage: formatBytes(user.total_disk_usage || 0),
+      sessions: user.session_count || 0,
+      messages: user.message_count || 0,
+      projects: user.project_count || 0,
     }));
   }, [data]);
 
@@ -124,7 +124,7 @@ export const DiskUsageChart: React.FC<DiskUsageChartProps> = ({
     );
   }
 
-  if (!data) {
+  if (!data || !data.system_metrics || !data.top_users) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
@@ -191,7 +191,8 @@ export const DiskUsageChart: React.FC<DiskUsageChartProps> = ({
         <CardHeader>
           <CardTitle>Storage by Collection</CardTitle>
           <CardDescription>
-            Total storage: {formatBytes(data.system_metrics.total_size_bytes)}
+            Total storage:{' '}
+            {formatBytes(data.system_metrics?.total_size_bytes || 0)}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -276,21 +277,26 @@ export const DiskUsageChart: React.FC<DiskUsageChartProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(data.system_metrics.by_collection)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([collection, size]) => {
-                    const percentage = (
-                      (size / data.system_metrics.total_size_bytes) *
-                      100
-                    ).toFixed(1);
-                    return (
-                      <tr key={collection} className="border-b border-gray-100">
-                        <td className="p-2 font-medium">{collection}</td>
-                        <td className="p-2 text-right">{formatBytes(size)}</td>
-                        <td className="p-2 text-right">{percentage}%</td>
-                      </tr>
-                    );
-                  })}
+                {data.system_metrics?.by_collection &&
+                  Object.entries(data.system_metrics.by_collection)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([collection, size]) => {
+                      const totalBytes =
+                        data.system_metrics?.total_size_bytes || 1;
+                      const percentage = ((size / totalBytes) * 100).toFixed(1);
+                      return (
+                        <tr
+                          key={collection}
+                          className="border-b border-gray-100"
+                        >
+                          <td className="p-2 font-medium">{collection}</td>
+                          <td className="p-2 text-right">
+                            {formatBytes(size)}
+                          </td>
+                          <td className="p-2 text-right">{percentage}%</td>
+                        </tr>
+                      );
+                    })}
               </tbody>
             </table>
           </div>

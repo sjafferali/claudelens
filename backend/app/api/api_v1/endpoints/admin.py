@@ -302,11 +302,40 @@ async def get_storage_breakdown(
     # Get top users by storage
     top_users = await storage_service.get_top_users_by_storage(limit=20)
 
+    # Transform system_metrics to match frontend expectations
+    by_collection = {}
+    if system_metrics.get("breakdown"):
+        # Extract collection sizes from breakdown
+        for key, value in system_metrics["breakdown"].items():
+            if key.endswith("_bytes"):
+                collection_name = key.replace("_bytes", "")
+                by_collection[collection_name] = value
+
+    transformed_metrics = {
+        "total_size_bytes": system_metrics.get("total_disk_usage", 0),
+        "by_collection": by_collection,
+        "by_user": [],  # This would require additional aggregation if needed
+    }
+
+    # Format top users
+    formatted_top_users = []
+    for user in top_users:
+        formatted_top_users.append(
+            {
+                "user_id": str(user.get("_id", "")),
+                "username": user.get("username", "Unknown"),
+                "total_disk_usage": user.get("total_disk_usage", 0),
+                "session_count": user.get("session_count", 0),
+                "message_count": user.get("message_count", 0),
+                "project_count": user.get("project_count", 0),
+            }
+        )
+
     # Convert any BSON types to JSON-serializable types
     result = convert_bson_types(
         {
-            "system_metrics": system_metrics,
-            "top_users": top_users,
+            "system_metrics": transformed_metrics,
+            "top_users": formatted_top_users,
         }
     )
 
