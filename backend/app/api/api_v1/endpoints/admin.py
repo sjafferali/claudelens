@@ -1,9 +1,9 @@
 """Admin dashboard endpoints."""
 
 import asyncio
-from typing import Any, Dict, List, Mapping, Sequence
+from typing import Any, Dict, List, Mapping, Sequence, cast
 
-from bson import Decimal128
+from bson import Decimal128, ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -13,6 +13,20 @@ from app.services.storage_metrics import StorageMetricsService
 from app.services.user import UserService
 
 router = APIRouter()
+
+
+def convert_bson_types(obj: Any) -> Any:
+    """Recursively convert BSON types to JSON-serializable types."""
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    elif isinstance(obj, Decimal128):
+        return float(str(obj))
+    elif isinstance(obj, dict):
+        return {key: convert_bson_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_bson_types(item) for item in obj]
+    else:
+        return obj
 
 
 def convert_decimal128(value: Any) -> Any:
@@ -288,10 +302,16 @@ async def get_storage_breakdown(
     # Get top users by storage
     top_users = await storage_service.get_top_users_by_storage(limit=20)
 
-    return {
-        "system_metrics": system_metrics,
-        "top_users": top_users,
-    }
+    # Convert any BSON types to JSON-serializable types
+    result = convert_bson_types(
+        {
+            "system_metrics": system_metrics,
+            "top_users": top_users,
+        }
+    )
+
+    # Cast the result to the correct type for mypy
+    return cast(Dict[str, Any], result)
 
 
 @router.get("/activity/recent")
