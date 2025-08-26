@@ -19,14 +19,20 @@ class ApiClient {
     // Request interceptor
     this.client.interceptors.request.use(
       (config) => {
-        // Use environment variable for API key, fall back to store if needed
-        const apiKey =
-          import.meta.env.VITE_API_KEY || useStore.getState().auth.apiKey;
+        const authState = useStore.getState().auth;
 
-        // Only set the API key header if we have one
-        if (apiKey) {
-          config.headers['X-API-Key'] = apiKey;
+        // First check for JWT access token (for UI authentication)
+        if (authState.accessToken) {
+          config.headers['Authorization'] = `Bearer ${authState.accessToken}`;
         }
+        // Fall back to API key (for programmatic access or env variable)
+        else {
+          const apiKey = import.meta.env.VITE_API_KEY || authState.apiKey;
+          if (apiKey) {
+            config.headers['X-API-Key'] = apiKey;
+          }
+        }
+
         return config;
       },
       (error) => {
@@ -49,8 +55,9 @@ class ApiClient {
 
           if (error.response.status === 401) {
             toast.error('Authentication required');
-            // Clear the stored API key and redirect to login
+            // Clear both API key and access token
             useStore.getState().setApiKey(null);
+            useStore.getState().setAccessToken(null);
             // Check if we're not already on the login page to avoid infinite redirects
             if (!window.location.pathname.includes('/login')) {
               window.location.href = '/login';

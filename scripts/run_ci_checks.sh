@@ -280,11 +280,11 @@ if [ "$SKIP_LINT" = false ]; then
     # Save the current EXIT_CODE before Backend ruff check
     SAVED_EXIT_CODE=$EXIT_CODE
 
-    if ! run_check "Backend ruff" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check ."; then
+    if ! run_check "Backend ruff" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check . scripts/"; then
         if [ "$AUTO_FIX" = true ]; then
             auto_fix_ruff "$PROJECT_ROOT/backend"
             # Re-run the check after fix
-            if run_check "Backend ruff (after fix)" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check ."; then
+            if run_check "Backend ruff (after fix)" "cd \"$PROJECT_ROOT/backend\" && \"$CI_VENV/bin/ruff\" check . scripts/"; then
                 # If the check passes after auto-fix, restore the previous EXIT_CODE
                 EXIT_CODE=$SAVED_EXIT_CODE
                 AUTO_FIXED_AND_PASSED+=("Backend Ruff")

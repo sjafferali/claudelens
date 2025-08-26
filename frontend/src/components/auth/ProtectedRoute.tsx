@@ -7,10 +7,10 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const apiKey = useStore((state) => state.auth.apiKey);
+  const { apiKey, accessToken } = useStore((state) => state.auth);
 
-  // Check if we have an API key (either from store or environment)
-  const hasAuth = apiKey || import.meta.env.VITE_API_KEY;
+  // Check if we have authentication (JWT token for UI, API key for programmatic, or env variable)
+  const hasAuth = accessToken || apiKey || import.meta.env.VITE_API_KEY;
 
   if (!hasAuth) {
     return <Navigate to="/login" replace />;

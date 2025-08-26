@@ -11,6 +11,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.models.user import APIKey, UserCreate, UserInDB, UserRole, UserUpdate
+from app.services.auth import AuthService
 
 
 class UserService:
@@ -63,11 +64,16 @@ class UserService:
             "api_keys": [initial_key.model_dump()],
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC),
+            "is_active": True,
             "project_count": 0,
             "session_count": 0,
             "message_count": 0,
             "total_disk_usage": 0,
         }
+
+        # Add password hash if password is provided
+        if user_data.password:
+            user_doc["password_hash"] = AuthService.hash_password(user_data.password)
 
         result = await self.db.users.insert_one(user_doc)
         user_doc["_id"] = result.inserted_id
@@ -142,6 +148,11 @@ class UserService:
         update_data = user_update.model_dump(exclude_unset=True)
         if not update_data:
             return await self.get_user_by_id(user_id)
+
+        # Handle password update
+        if "password" in update_data:
+            password = update_data.pop("password")
+            update_data["password_hash"] = AuthService.hash_password(password)
 
         update_data["updated_at"] = datetime.now(UTC)
 

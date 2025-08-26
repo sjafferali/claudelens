@@ -31,11 +31,13 @@ export default function Sidebar() {
   const theme = useStore((state) => state.ui.theme);
   const toggleTheme = useStore((state) => state.toggleTheme);
   const setApiKey = useStore((state) => state.setApiKey);
-  const apiKey = useStore((state) => state.auth.apiKey);
+  const setAccessToken = useStore((state) => state.setAccessToken);
+  const { apiKey, accessToken } = useStore((state) => state.auth);
   const navigate = useNavigate();
 
   const handleLogout = () => {
     setApiKey(null);
+    setAccessToken(null);
     toast.success('Logged out successfully');
     navigate('/login');
   };
@@ -92,8 +94,8 @@ export default function Sidebar() {
           <span className="text-sm font-medium">Settings</span>
         </NavLink>
 
-        {/* Show logout button only if API key is from store (not from environment) */}
-        {apiKey && !import.meta.env.VITE_API_KEY && (
+        {/* Show logout button only if authenticated via UI (not via environment API key) */}
+        {(accessToken || (apiKey && !import.meta.env.VITE_API_KEY)) && (
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-3 py-2.5 w-full text-tertiary-c hover:bg-layer-tertiary hover:text-primary-c rounded-lg transition-all duration-200"

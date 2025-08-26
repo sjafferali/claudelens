@@ -33,10 +33,12 @@ class UserInDB(BaseModel):
     id: ObjectId = Field(alias="_id")
     email: str
     username: str
+    password_hash: Optional[str] = None  # For password authentication
     role: UserRole = UserRole.USER
     api_keys: List[APIKey] = []
     created_at: datetime
     updated_at: datetime
+    is_active: bool = True
 
     # Usage statistics (denormalized for performance)
     project_count: int = 0
@@ -52,6 +54,7 @@ class UserCreate(BaseModel):
 
     email: str
     username: str
+    password: Optional[str] = None  # Optional password for UI users
     role: UserRole = UserRole.USER
 
 
@@ -60,7 +63,9 @@ class UserUpdate(BaseModel):
 
     email: Optional[str] = None
     username: Optional[str] = None
+    password: Optional[str] = None  # For password changes
     role: Optional[UserRole] = None
+    is_active: Optional[bool] = None
 
 
 class UserResponse(BaseModel):

@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # API
     API_V1_STR: str = "/api/v1"
     API_KEY: str = "default-api-key"
+    SECRET_KEY: str = "your-secret-key-change-in-production-minimum-32-chars"
 
     # CORS
     BACKEND_CORS_ORIGINS: ClassVar[list[str]] = ["*"]

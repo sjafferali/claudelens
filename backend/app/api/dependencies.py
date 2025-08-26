@@ -1,14 +1,19 @@
 """API dependencies."""
 
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import Depends, Header, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.database import get_database
 from app.middleware.tenant import get_tenant_context, verify_tenant_from_api_key
 from app.models.user import UserInDB, UserRole
+from app.services.auth import AuthService
 from app.services.user import UserService
+
+# Bearer token scheme for JWT
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_db() -> AsyncIOMotorDatabase:
@@ -16,15 +21,18 @@ async def get_db() -> AsyncIOMotorDatabase:
     return await get_database()
 
 
-async def verify_api_key_header(
+async def verify_api_key_or_jwt(
     request: Request,
     x_api_key: Annotated[str | None, Header()] = None,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ) -> str:
-    """Verify API key from header.
+    """Verify authentication via API key or JWT token.
 
-    Allow requests from localhost/127.0.0.1 without authentication.
-    This enables the frontend to communicate with the backend without API key.
+    Supports:
+    1. JWT Bearer token (for UI)
+    2. X-API-Key header (for programmatic access)
+    3. Localhost access without authentication (for development)
     """
     # Check if request is from localhost (nginx proxy or direct)
     if request:
@@ -64,21 +72,32 @@ async def verify_api_key_header(
                 context.user_role = UserRole(default_user.get("role", "admin"))
                 return str(default_user["_id"])
 
-    # For non-localhost requests, require API key
-    if not x_api_key:
-        raise HTTPException(
-            status_code=401,
-            detail="API key required",
-            headers={"WWW-Authenticate": "ApiKey"},
-        )
+    # For non-localhost requests, check for authentication
+    # First try JWT token (for UI)
+    if credentials and credentials.credentials:
+        token_data = AuthService.decode_access_token(credentials.credentials)
+        if token_data:
+            # JWT is valid, set up tenant context
+            context = await get_tenant_context(request)
+            context.user_id = token_data.user_id
+            context.user_role = UserRole(token_data.role)
+            return token_data.user_id
 
-    # Verify API key and get user
-    user_id = await verify_tenant_from_api_key(x_api_key, db, request)
-    return user_id
+    # Then try API key (for programmatic access)
+    if x_api_key:
+        user_id = await verify_tenant_from_api_key(x_api_key, db, request)
+        return user_id
+
+    # No valid authentication found
+    raise HTTPException(
+        status_code=401,
+        detail="Authentication required",
+        headers={"WWW-Authenticate": "Bearer, ApiKey"},
+    )
 
 
 async def get_current_user(
-    user_id: str = Depends(verify_api_key_header),
+    user_id: str = Depends(verify_api_key_or_jwt),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ) -> UserInDB:
     """Get the current authenticated user."""
@@ -102,6 +121,9 @@ async def require_admin(
 
 # Common dependencies
 CommonDeps = Annotated[AsyncIOMotorDatabase, Depends(get_db)]
-AuthDeps = Annotated[str, Depends(verify_api_key_header)]
+AuthDeps = Annotated[str, Depends(verify_api_key_or_jwt)]
 CurrentUser = Annotated[UserInDB, Depends(get_current_user)]
 AdminUser = Annotated[UserInDB, Depends(require_admin)]
+
+# Backward compatibility alias for tests
+verify_api_key_header = verify_api_key_or_jwt

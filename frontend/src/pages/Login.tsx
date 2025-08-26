@@ -7,40 +7,58 @@ import { Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/api/client';
 
+interface LoginResponse {
+  access_token: string;
+  token_type: string;
+}
+
 const Login: React.FC = () => {
-  const [apiKey, setApiKey] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const setStoreApiKey = useStore((state) => state.setApiKey);
+  const setAccessToken = useStore((state) => state.setAccessToken);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!apiKey.trim()) {
-      toast.error('Please enter an API key');
+    if (!username.trim() || !password.trim()) {
+      toast.error('Please enter username and password');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      // Store the API key first
-      setStoreApiKey(apiKey);
+      // Login with username/password
+      const response = await apiClient.post<LoginResponse>(
+        '/auth/login',
+        new URLSearchParams({
+          username,
+          password,
+          grant_type: 'password',
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
 
-      // Test the API key by making a request to sessions endpoint
-      await apiClient.get('/sessions/?limit=1');
+      // Store the access token
+      setAccessToken(response.access_token);
 
-      // If successful, navigate to dashboard
-      toast.success('Successfully authenticated');
+      // Navigate to dashboard
+      toast.success('Successfully logged in');
       navigate('/dashboard');
     } catch (error: unknown) {
-      // Clear the invalid API key
-      setStoreApiKey(null);
+      // Clear any stored token
+      setAccessToken(null);
 
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { status?: number } };
         if (axiosError.response?.status === 401) {
-          toast.error('Invalid API key');
+          toast.error('Invalid username or password');
         } else {
           toast.error('Failed to authenticate. Please try again.');
         }
@@ -61,34 +79,56 @@ const Login: React.FC = () => {
             Sign in to ClaudeLens
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Enter your API key to access the dashboard
+            Enter your username and password to access the dashboard
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
               <label
-                htmlFor="api-key"
+                htmlFor="username"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                API Key
+                Username or Email
               </label>
               <Input
-                id="api-key"
-                name="api-key"
-                type="password"
-                autoComplete="off"
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
                 required
-                value={apiKey}
+                value={username}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setApiKey(e.target.value)
+                  setUsername(e.target.value)
                 }
-                placeholder="Enter your API key"
+                placeholder="Enter your username or email"
+                className="mt-1"
+                disabled={isLoading}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Password
+              </label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setPassword(e.target.value)
+                }
+                placeholder="Enter your password"
                 className="mt-1"
                 disabled={isLoading}
               />
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Contact your administrator if you don't have an API key
+                Contact your administrator if you forgot your password
               </p>
             </div>
           </div>

@@ -7,7 +7,8 @@ interface UIState {
 }
 
 interface AuthState {
-  apiKey: string | null;
+  apiKey: string | null; // For programmatic API access
+  accessToken: string | null; // JWT token for UI authentication
 }
 
 interface AppState {
@@ -16,6 +17,7 @@ interface AppState {
   toggleSidebar: () => void;
   toggleTheme: () => void;
   setApiKey: (key: string | null) => void;
+  setAccessToken: (token: string | null) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -29,6 +31,7 @@ export const useStore = create<AppState>()(
         },
         auth: {
           apiKey: null,
+          accessToken: null,
         },
         // Actions
         toggleSidebar: () =>
@@ -45,6 +48,10 @@ export const useStore = create<AppState>()(
         setApiKey: (key) =>
           set((state) => ({
             auth: { ...state.auth, apiKey: key },
+          })),
+        setAccessToken: (token) =>
+          set((state) => ({
+            auth: { ...state.auth, accessToken: token },
           })),
       }),
       {
