@@ -39,6 +39,15 @@ const Login: React.FC = () => {
     setIsOIDCLoading(true);
     try {
       const { authorization_url } = await initiateOIDCLogin();
+
+      // Extract state parameter from authorization URL for validation
+      const urlParams = new URLSearchParams(authorization_url.split('?')[1]);
+      const state = urlParams.get('state');
+      if (state) {
+        // Store state in sessionStorage for validation in callback
+        sessionStorage.setItem('oidc_state', state);
+      }
+
       // Redirect to OIDC provider
       window.location.href = authorization_url;
     } catch (error) {

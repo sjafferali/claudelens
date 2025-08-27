@@ -15,6 +15,7 @@ import Backup from '@/pages/Backup';
 import Settings from '@/pages/Settings';
 import Admin from '@/pages/Admin';
 import Login from '@/pages/Login';
+import OIDCCallback from '@/pages/OIDCCallback';
 import NotFound from '@/pages/NotFound';
 import { PageTransition } from '@/components/PageTransition';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -36,6 +37,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/auth/oidc/callback" element={<OIDCCallback />} />
           <Route
             path="/*"
             element={

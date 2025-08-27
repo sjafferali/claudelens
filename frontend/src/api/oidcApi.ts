@@ -77,7 +77,7 @@ export async function initiateOIDCLogin(): Promise<{
   return apiClient.get<{ authorization_url: string }>('/auth/oidc/login');
 }
 
-// Handle OIDC callback (usually not called directly, handled by redirect)
+// Handle OIDC callback - exchange authorization code for token
 export async function handleOIDCCallback(
   code: string,
   state: string
@@ -92,7 +92,10 @@ export async function handleOIDCCallback(
     auth_method: string;
   };
 }> {
-  return apiClient.get<{
+  // Build the redirect URI that was used in the authorization request
+  const redirectUri = `${window.location.origin}/auth/oidc/callback`;
+
+  return apiClient.post<{
     access_token: string;
     token_type: string;
     user: {
@@ -102,8 +105,8 @@ export async function handleOIDCCallback(
       role: string;
       auth_method: string;
     };
-  }>('/auth/oidc/callback', {
-    params: { code, state },
+  }>('/auth/oidc/callback', null, {
+    params: { code, state, redirect_uri: redirectUri },
   });
 }
 
