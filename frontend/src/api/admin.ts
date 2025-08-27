@@ -113,6 +113,18 @@ class AdminApi {
     });
   }
 
+  async resetUserPassword(
+    userId: string,
+    newPassword: string
+  ): Promise<{
+    message: string;
+    user: { id: string; username: string; email: string };
+  }> {
+    return apiClient.post(`${this.baseUrl}/users/${userId}/reset-password`, {
+      new_password: newPassword,
+    });
+  }
+
   // API Key Management
   async generateApiKey(
     userId: string,

@@ -1,11 +1,13 @@
 """Admin dashboard endpoints."""
 
 import asyncio
+from datetime import datetime
 from typing import Any, Dict, List, Mapping, Sequence, cast
 
 from bson import Decimal128, ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pydantic import BaseModel as PydanticBaseModel
 
 from app.api.dependencies import get_db, require_admin
 from app.models.oidc_settings import OIDCSettingsInDB
@@ -292,6 +294,72 @@ async def change_user_role(
             "username": user.username,
             "email": user.email,
             "role": user.role,
+        },
+    }
+
+
+class PasswordResetRequest(PydanticBaseModel):
+    """Request model for password reset."""
+
+    new_password: str
+
+
+@router.post("/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: str,
+    request: PasswordResetRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, Any]:
+    """Reset a user's password (admin only)."""
+    from app.services.auth import AuthService
+
+    # Validate password strength
+    if len(request.new_password) < 8:
+        raise HTTPException(
+            status_code=400, detail="Password must be at least 8 characters long"
+        )
+
+    # Check if password contains at least one number and one letter
+    if not any(c.isdigit() for c in request.new_password):
+        raise HTTPException(
+            status_code=400, detail="Password must contain at least one number"
+        )
+
+    if not any(c.isalpha() for c in request.new_password):
+        raise HTTPException(
+            status_code=400, detail="Password must contain at least one letter"
+        )
+
+    # Hash the new password
+    password_hash = AuthService.hash_password(request.new_password)
+
+    # Check if user exists
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update password_hash directly
+    result = await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "$set": {
+                "password_hash": password_hash,
+                "updated_at": datetime.utcnow(),
+                "auth_method": "local",  # Ensure auth method is set to local
+            }
+        },
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to update password")
+
+    return {
+        "message": f"Password reset successfully for user {user['username']}",
+        "user": {
+            "id": str(user["_id"]),
+            "username": user["username"],
+            "email": user["email"],
         },
     }
 

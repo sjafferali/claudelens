@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Eye,
   Key,
+  Lock,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -26,6 +27,7 @@ import Loading from '@/components/common/Loading';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { CreateUserModal } from './CreateUserModal';
 import { ApiKeyModal } from './ApiKeyModal';
+import { ResetPasswordModal } from './ResetPasswordModal';
 import { cn } from '@/utils/cn';
 
 interface ApiError {
@@ -96,6 +98,7 @@ export const UserTable: React.FC<UserTableProps> = ({ className }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   // Fetch users
@@ -365,7 +368,20 @@ export const UserTable: React.FC<UserTableProps> = ({ className }) => {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setShowResetPasswordModal(true);
+                          }}
+                          title="Reset Password"
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          <Lock className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleDeleteUser(user)}
+                          title="Delete User"
                           className="text-red-600 hover:text-red-800"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -498,6 +514,16 @@ export const UserTable: React.FC<UserTableProps> = ({ className }) => {
           }}
         />
       )}
+
+      {/* Reset Password Modal */}
+      <ResetPasswordModal
+        isOpen={showResetPasswordModal}
+        onClose={() => {
+          setShowResetPasswordModal(false);
+          setSelectedUser(null);
+        }}
+        user={selectedUser}
+      />
     </Card>
   );
 };
