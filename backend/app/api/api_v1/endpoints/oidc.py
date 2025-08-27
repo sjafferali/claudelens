@@ -84,9 +84,9 @@ async def oidc_callback(
 
     start_time = time.time()
 
-    # Load OIDC configuration
-    logger.info("Loading OIDC settings")
-    await oidc_service.load_settings(db)
+    # Load OIDC configuration - skip re-configuration to avoid timeout
+    logger.info("Loading OIDC settings (skip configure)")
+    await oidc_service.load_settings(db, skip_configure=True)
     logger.info(f"Settings loaded, time elapsed: {time.time() - start_time:.2f}s")
 
     if not oidc_service.is_configured():

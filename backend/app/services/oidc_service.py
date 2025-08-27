@@ -70,13 +70,23 @@ class OIDCService:
         return user_dict
 
     async def load_settings(
-        self, db: AsyncIOMotorDatabase
+        self, db: AsyncIOMotorDatabase, skip_configure: bool = False
     ) -> Optional[OIDCSettingsInDB]:
         """Load OIDC settings from database."""
+        # If settings are already loaded and skip_configure is True, just return them
+        if self._settings and skip_configure:
+            return self._settings
+
         settings_doc = await db.oidc_settings.find_one()
         if settings_doc:
             self._settings = OIDCSettingsInDB(**settings_doc)
-            if self._settings.enabled and self._settings.client_id:
+            # Only configure provider if not skipping and not already configured
+            if (
+                not skip_configure
+                and self._settings.enabled
+                and self._settings.client_id
+                and not self._configured
+            ):
                 await self.configure_provider(self._settings)
             return self._settings
         return None
