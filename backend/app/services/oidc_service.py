@@ -3,7 +3,7 @@
 import logging
 import secrets
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import httpx
 from authlib.integrations.starlette_client import OAuth, OAuthError  # type: ignore
@@ -289,25 +289,41 @@ class OIDCService:
                 "grant_type": "authorization_code",
                 "code": code,
                 "redirect_uri": redirect_uri,
-                "client_id": self._settings.client_id,
             }
 
-            # Add client secret if configured
+            # Prepare auth for client_secret_basic
+            auth: Optional[httpx.BasicAuth] = None
             if self._settings.client_secret_encrypted:
                 try:
                     client_secret = ai_settings.decrypt_api_key(
                         self._settings.client_secret_encrypted
                     )
-                    token_data["client_secret"] = client_secret
-                except Exception:
-                    logger.warning("Failed to decrypt client secret")
+                    # Use HTTP Basic Authentication for client_secret_basic
+                    auth = httpx.BasicAuth(self._settings.client_id, client_secret)
+                    logger.info("Using client_secret_basic authentication")
+                    # DO NOT include client_id in body when using Basic Auth
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to decrypt client secret: {e}, falling back to client_id in body"
+                    )
+                    # Fallback to including client_id and secret in the body
+                    token_data["client_id"] = self._settings.client_id
+                    # Note: client_secret_post would require the secret in the body too
+            else:
+                # No secret, just include client_id in body (public client)
+                token_data["client_id"] = self._settings.client_id
+                logger.info(
+                    "No client secret configured, using client_id in body (public client)"
+                )
 
             # Exchange code for token
+            logger.debug(f"Token request data: {list(token_data.keys())}")
             async with httpx.AsyncClient() as http_client:
                 response = await http_client.post(
                     token_endpoint,
                     data=token_data,
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    auth=cast(Any, auth),  # Cast to Any to satisfy mypy
                 )
                 response.raise_for_status()
                 token = response.json()
