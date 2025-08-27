@@ -62,16 +62,35 @@ const OIDCCallback: React.FC = () => {
         // Exchange authorization code for token
         const response = await handleOIDCCallback(code, state);
 
-        console.log('OIDC callback successful, received token');
+        console.log('OIDC callback successful, received response:', response);
+        console.log(
+          'Access token:',
+          response.access_token ? 'Present' : 'Missing'
+        );
+        console.log('User info:', response.user);
+
+        if (!response.access_token) {
+          throw new Error('No access token received from server');
+        }
 
         // Store the access token
         setAccessToken(response.access_token);
 
+        // Verify the token was stored
+        const storedState = useStore.getState();
+        console.log(
+          'Token stored in state:',
+          storedState.auth.accessToken ? 'Yes' : 'No'
+        );
+
         // Show success message
         toast.success(`Welcome, ${response.user.username}!`);
 
-        // Navigate to dashboard
-        navigate('/dashboard');
+        // Small delay to ensure state is persisted
+        setTimeout(() => {
+          console.log('Navigating to dashboard...');
+          navigate('/dashboard');
+        }, 100);
       } catch (error) {
         console.error('Failed to handle OIDC callback:', error);
 
