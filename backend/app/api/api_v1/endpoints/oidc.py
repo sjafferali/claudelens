@@ -3,7 +3,7 @@
 import logging
 from typing import Any, Dict
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Query, Request
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.dependencies import get_db
@@ -63,9 +63,11 @@ async def oidc_login(
 @router.post("/callback")
 async def oidc_callback(
     request: Request,
-    code: str,
-    state: str,
-    redirect_uri: str,
+    code: str = Query(..., description="Authorization code from OIDC provider"),
+    state: str = Query(..., description="State parameter for CSRF protection"),
+    redirect_uri: str = Query(
+        ..., description="Redirect URI used in authorization request"
+    ),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ) -> Dict[str, Any]:
     """Handle OIDC callback - exchange authorization code for token.
