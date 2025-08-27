@@ -258,6 +258,131 @@ class OIDCService:
                 status_code=500, detail=f"Failed to initiate OIDC login: {str(e)}"
             )
 
+    async def exchange_code_for_token_direct(
+        self,
+        code: str,
+        state: str,
+        redirect_uri: str,
+        request: Request,
+        db: AsyncIOMotorDatabase,
+    ) -> UserInDB:
+        """Direct token exchange without authlib - more reliable for Authelia."""
+        if not self._configured:
+            logger.error("OIDC not configured when exchanging code")
+            raise HTTPException(status_code=503, detail="OIDC not configured")
+
+        logger.info("Using direct token exchange method")
+
+        try:
+            # Get metadata
+            metadata = await self._get_cached_metadata()
+            if not metadata:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Failed to get OIDC provider metadata",
+                )
+
+            token_endpoint = metadata.get("token_endpoint")
+            if not token_endpoint:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Token endpoint not found in provider metadata",
+                )
+
+            # Prepare token request
+            token_data = {
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+            }
+
+            # Prepare auth for client_secret_basic
+            auth: Optional[httpx.BasicAuth] = None
+            if self._settings and self._settings.client_secret_encrypted:
+                try:
+                    client_secret = ai_settings.decrypt_api_key(
+                        self._settings.client_secret_encrypted
+                    )
+                    auth = httpx.BasicAuth(self._settings.client_id, client_secret)
+                    logger.info("Using client_secret_basic authentication")
+                except Exception as e:
+                    logger.warning(f"Failed to decrypt client secret: {e}")
+                    token_data["client_id"] = self._settings.client_id
+            elif self._settings:
+                token_data["client_id"] = self._settings.client_id
+
+            # Exchange code for token with short timeout
+            timeout = httpx.Timeout(10.0, connect=5.0)
+            async with httpx.AsyncClient(timeout=timeout) as http_client:
+                logger.info(f"Posting to token endpoint: {token_endpoint}")
+                response = await http_client.post(
+                    token_endpoint,
+                    data=token_data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    auth=cast(Any, auth),
+                )
+
+                if response.status_code != 200:
+                    logger.error(
+                        f"Token exchange failed: {response.status_code} - {response.text}"
+                    )
+                    raise HTTPException(
+                        status_code=response.status_code,
+                        detail=f"Token exchange failed: {response.text}",
+                    )
+
+                token = response.json()
+
+            # Get user info
+            user_info = None
+            if "id_token" in token:
+                try:
+                    id_token_data = jwt.decode(
+                        token["id_token"], options={"verify_signature": False}
+                    )
+                    user_info = id_token_data
+                except Exception as e:
+                    logger.warning(f"Failed to parse ID token: {e}")
+
+            if not user_info and "access_token" in token:
+                userinfo_endpoint = metadata.get("userinfo_endpoint")
+                if userinfo_endpoint:
+                    async with httpx.AsyncClient(timeout=timeout) as http_client:
+                        userinfo_response = await http_client.get(
+                            userinfo_endpoint,
+                            headers={
+                                "Authorization": f"Bearer {token['access_token']}"
+                            },
+                        )
+                        if userinfo_response.status_code == 200:
+                            user_info = userinfo_response.json()
+
+            if not user_info:
+                raise HTTPException(
+                    status_code=500, detail="Failed to get user information"
+                )
+
+            # Convert to OIDCUserInfo and get/create user
+            oidc_user_info = OIDCUserInfo(**user_info)
+            user = await self.get_or_create_user(db, oidc_user_info)
+
+            # Store in session
+            user_dict = self._serialize_user_for_session(user)
+            request.session["user"] = user_dict
+            request.session["oidc_token"] = token
+
+            return user
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error in direct token exchange: {e}", exc_info=True
+            )
+            raise HTTPException(
+                status_code=500, detail=f"Authentication failed: {str(e)}"
+            )
+
     async def exchange_code_for_token(
         self,
         code: str,
@@ -270,198 +395,11 @@ class OIDCService:
 
         This is called by the frontend after receiving the authorization code.
         """
-        if not self._configured:
-            logger.error("OIDC not configured when exchanging code")
-            raise HTTPException(status_code=503, detail="OIDC not configured")
-
-        logger.info("Exchanging authorization code for token")
-        logger.debug(
-            f"Code: {code[:8]}..., State: {state[:8]}..., Redirect URI: {redirect_uri}"
+        # Use the direct method which is more reliable for Authelia
+        logger.info("Using direct token exchange for better reliability")
+        return await self.exchange_code_for_token_direct(
+            code=code, state=state, redirect_uri=redirect_uri, request=request, db=db
         )
-
-        # Note: State validation should be done by the frontend since it manages the session
-        # The frontend should store the state before redirecting and validate it when handling callback
-
-        try:
-            # Get the token endpoint from cached metadata or load it
-            metadata = await self._get_cached_metadata()
-            if not metadata:
-                logger.error("Failed to get OIDC provider metadata")
-                raise HTTPException(
-                    status_code=503,
-                    detail="Failed to get OIDC provider metadata",
-                )
-
-            token_endpoint = metadata.get("token_endpoint")
-
-            if not token_endpoint:
-                logger.error("Token endpoint not found in provider metadata")
-                raise HTTPException(
-                    status_code=500,
-                    detail="Token endpoint not found in provider metadata",
-                )
-
-            logger.info(f"Exchanging code at token endpoint: {token_endpoint}")
-
-            # Check settings is not None
-            if not self._settings:
-                logger.error("Settings not loaded")
-                raise HTTPException(status_code=503, detail="OIDC settings not loaded")
-
-            # Prepare token request
-            token_data = {
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": redirect_uri,
-            }
-
-            # Prepare auth for client_secret_basic
-            auth: Optional[httpx.BasicAuth] = None
-            if self._settings.client_secret_encrypted:
-                try:
-                    client_secret = ai_settings.decrypt_api_key(
-                        self._settings.client_secret_encrypted
-                    )
-                    # Use HTTP Basic Authentication for client_secret_basic
-                    auth = httpx.BasicAuth(self._settings.client_id, client_secret)
-                    logger.info("Using client_secret_basic authentication")
-                    # DO NOT include client_id in body when using Basic Auth
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to decrypt client secret: {e}, falling back to client_id in body"
-                    )
-                    # Fallback to including client_id and secret in the body
-                    token_data["client_id"] = self._settings.client_id
-                    # Note: client_secret_post would require the secret in the body too
-            else:
-                # No secret, just include client_id in body (public client)
-                token_data["client_id"] = self._settings.client_id
-                logger.info(
-                    "No client secret configured, using client_id in body (public client)"
-                )
-
-            # Exchange code for token
-            logger.debug(f"Token request data: {list(token_data.keys())}")
-            # Add timeout and better error handling
-            timeout = httpx.Timeout(30.0, connect=10.0)
-            async with httpx.AsyncClient(
-                timeout=timeout, follow_redirects=True
-            ) as http_client:
-                try:
-                    response = await http_client.post(
-                        token_endpoint,
-                        data=token_data,
-                        headers={"Content-Type": "application/x-www-form-urlencoded"},
-                        auth=cast(Any, auth),  # Cast to Any to satisfy mypy
-                    )
-                    response.raise_for_status()
-                    token = response.json()
-                except httpx.TimeoutException as e:
-                    logger.error(f"Timeout during token exchange: {e}")
-                    raise HTTPException(
-                        status_code=504,
-                        detail="Token exchange timeout - the OIDC provider took too long to respond",
-                    )
-                except httpx.ConnectError as e:
-                    logger.error(f"Connection error during token exchange: {e}")
-                    raise HTTPException(
-                        status_code=503, detail="Could not connect to OIDC provider"
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"Unexpected error during token exchange: {e}", exc_info=True
-                    )
-                    raise
-
-            logger.info("Successfully obtained access token")
-            logger.debug(f"Token response keys: {list(token.keys())}")
-
-            # Parse ID token or fetch user info
-            user_info = None
-
-            # First try to decode the ID token if present
-            if "id_token" in token:
-                try:
-                    # Parse ID token (note: in production, this should verify the signature)
-                    id_token_data = jwt.decode(
-                        token["id_token"], options={"verify_signature": False}
-                    )
-                    user_info = id_token_data
-                    logger.info("Parsed user info from ID token")
-                except Exception as e:
-                    logger.warning(f"Failed to parse ID token: {e}")
-
-            # If no user info from ID token, fetch from userinfo endpoint
-            if not user_info and "access_token" in token:
-                # Re-use the metadata we already have
-                userinfo_endpoint = (
-                    metadata.get("userinfo_endpoint") if metadata else None
-                )
-                if userinfo_endpoint:
-                    logger.info(
-                        f"Fetching user info from endpoint: {userinfo_endpoint}"
-                    )
-                    timeout = httpx.Timeout(30.0, connect=10.0)
-                    async with httpx.AsyncClient(
-                        timeout=timeout, follow_redirects=True
-                    ) as http_client:
-                        try:
-                            userinfo_response = await http_client.get(
-                                userinfo_endpoint,
-                                headers={
-                                    "Authorization": f"Bearer {token['access_token']}"
-                                },
-                            )
-                            userinfo_response.raise_for_status()
-                            user_info = userinfo_response.json()
-                            logger.info("Successfully fetched user info")
-                        except httpx.TimeoutException as e:
-                            logger.error(f"Timeout fetching user info: {e}")
-                            raise HTTPException(
-                                status_code=504,
-                                detail="Timeout fetching user information from OIDC provider",
-                            )
-                        except Exception as e:
-                            logger.error(
-                                f"Error fetching user info: {e}", exc_info=True
-                            )
-                            raise
-
-            if not user_info:
-                logger.error("No user info available from token or userinfo endpoint")
-                raise HTTPException(
-                    status_code=500, detail="Failed to get user information"
-                )
-
-            logger.info(f"Got user info for sub: {user_info.get('sub')}")
-
-            # Convert to OIDCUserInfo
-            oidc_user_info = OIDCUserInfo(**user_info)
-
-            # Get or create user
-            user = await self.get_or_create_user(db, oidc_user_info)
-
-            # Store token in session if needed
-            request.session["oidc_token"] = token
-            # Convert user to JSON-serializable dict for session storage
-            user_dict = self._serialize_user_for_session(user)
-            request.session["user"] = user_dict
-
-            return user
-
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                f"HTTP error during token exchange: {e.response.status_code} - {e.response.text}"
-            )
-            raise HTTPException(
-                status_code=400,
-                detail=f"Failed to exchange authorization code: {e.response.text}",
-            )
-        except Exception as e:
-            logger.error(f"Unexpected error during token exchange: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=500, detail=f"Authentication failed: {str(e)}"
-            )
 
     async def handle_callback(
         self, request: Request, db: AsyncIOMotorDatabase
