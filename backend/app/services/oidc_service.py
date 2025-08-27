@@ -277,8 +277,9 @@ class OIDCService:
         db: AsyncIOMotorDatabase,
     ) -> UserInDB:
         """Direct token exchange without authlib - more reliable for Authelia."""
-        if not self._configured:
-            logger.error("OIDC not configured when exchanging code")
+        # Check if settings are loaded (we don't need OAuth provider configured for direct exchange)
+        if not self._settings or not self._settings.enabled:
+            logger.error("OIDC settings not loaded or not enabled when exchanging code")
             raise HTTPException(status_code=503, detail="OIDC not configured")
 
         logger.info("Using direct token exchange method")
@@ -596,8 +597,12 @@ class OIDCService:
 
     def is_configured(self) -> bool:
         """Check if OIDC is configured and enabled."""
+        # We consider OIDC configured if we have valid settings, even if OAuth provider isn't registered
+        # This is needed for direct token exchange which doesn't use the OAuth provider
         return (
-            self._configured and self._settings is not None and self._settings.enabled
+            self._settings is not None
+            and self._settings.enabled
+            and self._settings.client_id
         )
 
 
