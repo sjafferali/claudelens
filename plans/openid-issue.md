@@ -173,5 +173,41 @@ mongodb://admin:PASSWORD@c-rat.local.samir.systems:27017/claudelens?authSource=a
 - Username: sjafferali
 - Password: sj555555
 
+## SOLUTION FOUND ✅
+
+### Actual Root Cause
+The nginx error log revealed the true cause:
+```
+upstream sent too big header while reading response header from upstream
+```
+
+The backend was storing both the OIDC token (containing access_token, id_token, potentially refresh_token) and the serialized user object in session cookies. This created massive Set-Cookie headers that exceeded nginx's default proxy buffer limit of 8KB.
+
+### Final Fix
+Removed unnecessary session storage:
+```python
+# OLD CODE - Storing large objects in session
+request.session["user"] = user_dict        # Large serialized user object
+request.session["oidc_token"] = token      # Large token object with JWTs
+
+# NEW CODE - Only keep minimal session data
+# The frontend uses the JWT token for auth, no need for session storage
+request.session.pop("oidc_state", None)    # Clear CSRF state after use
+```
+
+### Why This Works
+1. The JWT token returned in the response body contains all necessary auth info
+2. The frontend stores the JWT and includes it in API requests
+3. No need for server-side session storage of user/token data
+4. Session cookies stay small (only temporary state tokens)
+5. Response headers stay well under nginx buffer limits
+
+### Verification Steps
+1. User creation in database ✅
+2. JWT token generation ✅
+3. Response headers under 8KB ✅
+4. No 502 errors ✅
+5. Successful authentication flow ✅
+
 ## Status
-🔴 **ACTIVE INVESTIGATION** - User creation works but response fails with 502
+🟢 **RESOLVED** - Fixed by removing large session data that caused nginx header buffer overflow
