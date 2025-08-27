@@ -32,9 +32,16 @@ export const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
       setConfirmPassword('');
       setErrors([]);
     },
-    onError: (error: any) => {
-      const message =
-        error?.response?.data?.detail || 'Failed to reset password';
+    onError: (error: unknown) => {
+      let message = 'Failed to reset password';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as {
+          response?: {
+            data?: { detail?: string };
+          };
+        };
+        message = axiosError.response?.data?.detail || message;
+      }
       toast.error(message);
     },
   });
