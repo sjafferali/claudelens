@@ -92,3 +92,8 @@ class OIDCUserInfo(BaseModel):
     family_name: Optional[str] = None
     picture: Optional[str] = None
     groups: Optional[List[str]] = Field(default_factory=list)
+    # Standard OIDC claims that might contain username
+    preferred_username: Optional[str] = None
+    nickname: Optional[str] = None
+    # Authelia might provide username in profile
+    username: Optional[str] = None

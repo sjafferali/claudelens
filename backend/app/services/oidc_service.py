@@ -339,6 +339,12 @@ class OIDCService:
                 )
 
             # Convert to OIDCUserInfo and get/create user
+            # Log all available fields from Authelia
+            logger.info(
+                f"OIDC user info fields from Authelia: {list(user_info.keys())}"
+            )
+            logger.debug(f"OIDC user info data: {user_info}")
+
             oidc_user_info = OIDCUserInfo(**user_info)
             user = await self.get_or_create_user(db, oidc_user_info)
 
@@ -461,12 +467,43 @@ class OIDCService:
 
             logger.info(f"Creating new user for sub: {user_info.sub}")
 
-            # Create new user from OIDC claims
-            username = (
-                user_info.email.split("@")[0]
-                if user_info.email
-                else f"user_{user_info.sub[:8]}"
-            )
+            # Create username from OIDC claims - priority order:
+            # 1. preferred_username (standard OIDC claim)
+            # 2. username (Authelia might provide this)
+            # 3. nickname (standard OIDC claim)
+            # 4. name (if it looks like a username - no spaces)
+            # 5. email prefix (current fallback)
+            # 6. sub-based username (last resort)
+
+            username = None
+
+            # Try preferred_username first (standard OIDC claim)
+            if (
+                hasattr(user_info, "preferred_username")
+                and user_info.preferred_username
+            ):
+                username = user_info.preferred_username
+                logger.info(f"Using preferred_username: {username}")
+            # Try username field (Authelia specific)
+            elif hasattr(user_info, "username") and user_info.username:
+                username = user_info.username
+                logger.info(f"Using username field: {username}")
+            # Try nickname
+            elif hasattr(user_info, "nickname") and user_info.nickname:
+                username = user_info.nickname
+                logger.info(f"Using nickname: {username}")
+            # Try name if it has no spaces (likely a username)
+            elif user_info.name and " " not in user_info.name:
+                username = user_info.name
+                logger.info(f"Using name as username: {username}")
+            # Fall back to email prefix
+            elif user_info.email:
+                username = user_info.email.split("@")[0]
+                logger.info(f"Using email prefix as username: {username}")
+            # Last resort - use sub
+            else:
+                username = f"user_{user_info.sub[:8]}"
+                logger.info(f"Using sub-based username: {username}")
 
             # Check if username already exists and make it unique
             existing = await db.users.find_one({"username": username})
