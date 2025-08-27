@@ -329,12 +329,12 @@ class OIDCService:
 
             # Store token in session if needed
             request.session["oidc_token"] = token
-            # Convert user to dict and handle ObjectId serialization
-            user_dict = user.model_dump(by_alias=True)
-            # Convert ObjectId to string for JSON serialization
-            if "_id" in user_dict:
+            # Convert user to dict and handle ObjectId and datetime serialization
+            user_dict = user.model_dump(by_alias=True, mode="json")
+            # Ensure ObjectId fields are converted to strings
+            if "_id" in user_dict and user_dict["_id"] is not None:
                 user_dict["_id"] = str(user_dict["_id"])
-            if "id" in user_dict:
+            if "id" in user_dict and user_dict["id"] is not None:
                 user_dict["id"] = str(user_dict["id"])
             request.session["user"] = user_dict
 
@@ -405,12 +405,12 @@ class OIDCService:
             user = await self.get_or_create_user(db, oidc_user_info)
 
             # Store user in session
-            # Convert user to dict and handle ObjectId serialization
-            user_dict = user.model_dump(by_alias=True)
-            # Convert ObjectId to string for JSON serialization
-            if "_id" in user_dict:
+            # Convert user to dict and handle ObjectId and datetime serialization
+            user_dict = user.model_dump(by_alias=True, mode="json")
+            # Ensure ObjectId fields are converted to strings
+            if "_id" in user_dict and user_dict["_id"] is not None:
                 user_dict["_id"] = str(user_dict["_id"])
-            if "id" in user_dict:
+            if "id" in user_dict and user_dict["id"] is not None:
                 user_dict["id"] = str(user_dict["id"])
             request.session["user"] = user_dict
             request.session["oidc_token"] = token
