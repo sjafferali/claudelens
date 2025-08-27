@@ -602,7 +602,7 @@ class OIDCService:
         return (
             self._settings is not None
             and self._settings.enabled
-            and self._settings.client_id
+            and bool(self._settings.client_id)
         )
 
 
