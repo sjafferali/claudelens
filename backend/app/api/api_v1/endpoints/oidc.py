@@ -80,8 +80,15 @@ async def oidc_callback(
         f"Code: {code[:8]}..., State: {state[:8]}..., Redirect URI: {redirect_uri}"
     )
 
+    import time
+
+    start_time = time.time()
+
     # Load OIDC configuration
+    logger.info("Loading OIDC settings")
     await oidc_service.load_settings(db)
+    logger.info(f"Settings loaded, time elapsed: {time.time() - start_time:.2f}s")
+
     if not oidc_service.is_configured():
         logger.error("OIDC authentication is not configured during callback")
         raise HTTPException(
@@ -90,10 +97,13 @@ async def oidc_callback(
 
     # Handle callback and get or create user
     logger.info("Processing OIDC callback - exchanging code for token")
+    exchange_start = time.time()
     user: UserInDB = await oidc_service.exchange_code_for_token(
         code=code, state=state, redirect_uri=redirect_uri, request=request, db=db
     )
-    logger.info(f"User authenticated: {user.username}")
+    logger.info(
+        f"User authenticated: {user.username}, exchange took: {time.time() - exchange_start:.2f}s"
+    )
 
     # Create JWT token for the authenticated user
     token_data = {
@@ -116,7 +126,9 @@ async def oidc_callback(
             "auth_method": user.auth_method,
         },
     }
-    logger.info(f"OIDC callback successful for user: {user.username}")
+    logger.info(
+        f"OIDC callback successful for user: {user.username}, total time: {time.time() - start_time:.2f}s"
+    )
     return result
 
 
@@ -138,4 +150,29 @@ async def oidc_status(db: AsyncIOMotorDatabase = Depends(get_db)) -> Dict[str, A
         "provider": oidc_service._settings.discovery_endpoint
         if oidc_service._settings
         else None,
+    }
+
+
+@router.get("/test-metadata")
+async def test_metadata(db: AsyncIOMotorDatabase = Depends(get_db)) -> Dict[str, Any]:
+    """Test OIDC metadata fetching."""
+    import time
+
+    await oidc_service.load_settings(db)
+    if not oidc_service._settings:
+        raise HTTPException(status_code=503, detail="OIDC not configured")
+
+    start_time = time.time()
+    metadata = await oidc_service._get_cached_metadata()
+    elapsed = time.time() - start_time
+
+    if not metadata:
+        raise HTTPException(status_code=503, detail="Failed to fetch metadata")
+
+    return {
+        "success": True,
+        "fetch_time": elapsed,
+        "token_endpoint": metadata.get("token_endpoint"),
+        "userinfo_endpoint": metadata.get("userinfo_endpoint"),
+        "issuer": metadata.get("issuer"),
     }

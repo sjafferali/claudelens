@@ -32,6 +32,8 @@ class OIDCService:
         self.oauth = OAuth()
         self._configured = False
         self._settings: Optional[OIDCSettingsInDB] = None
+        self._cached_metadata: Optional[Dict[str, Any]] = None
+        self._metadata_cache_time: Optional[datetime] = None
 
     def _serialize_user_for_session(self, user: UserInDB) -> Dict[str, Any]:
         """Convert user model to JSON-serializable dict for session storage."""
@@ -123,11 +125,20 @@ class OIDCService:
                 # If decryption fails, treat as empty
                 client_secret = ""
 
-        # Register OIDC provider with discovery
+        # Pre-fetch and cache metadata before registering
         try:
             logger.info(
                 f"Configuring OIDC provider with discovery endpoint: {settings.discovery_endpoint}"
             )
+
+            # Pre-cache the metadata
+            self._settings = (
+                settings  # Set settings first so _get_cached_metadata can use it
+            )
+            metadata = await self._get_cached_metadata()
+            if not metadata:
+                raise Exception("Failed to fetch OIDC provider metadata")
+
             # Register with custom httpx client for better timeout handling
             self.oauth.register(
                 name="oidc_provider",
@@ -272,20 +283,13 @@ class OIDCService:
         # The frontend should store the state before redirecting and validate it when handling callback
 
         try:
-            # Exchange authorization code for tokens directly
-            client = self.oauth.oidc_provider
-            logger.debug("Getting OIDC client from oauth registry")
-
-            # Get the token endpoint from the provider metadata
-            logger.info("Loading server metadata from OIDC provider")
-            try:
-                metadata = await client.load_server_metadata()
-                logger.debug(f"Loaded metadata keys: {list(metadata.keys())}")
-            except Exception as e:
-                logger.error(f"Failed to load server metadata: {e}", exc_info=True)
+            # Get the token endpoint from cached metadata or load it
+            metadata = await self._get_cached_metadata()
+            if not metadata:
+                logger.error("Failed to get OIDC provider metadata")
                 raise HTTPException(
                     status_code=503,
-                    detail=f"Failed to load OIDC provider metadata: {str(e)}",
+                    detail="Failed to get OIDC provider metadata",
                 )
 
             token_endpoint = metadata.get("token_endpoint")
@@ -389,7 +393,10 @@ class OIDCService:
 
             # If no user info from ID token, fetch from userinfo endpoint
             if not user_info and "access_token" in token:
-                userinfo_endpoint = metadata.get("userinfo_endpoint")
+                # Re-use the metadata we already have
+                userinfo_endpoint = (
+                    metadata.get("userinfo_endpoint") if metadata else None
+                )
                 if userinfo_endpoint:
                     logger.info(
                         f"Fetching user info from endpoint: {userinfo_endpoint}"
@@ -595,6 +602,44 @@ class OIDCService:
         """Logout user from OIDC session."""
         # Clear session data
         request.session.clear()
+
+    async def _get_cached_metadata(self) -> Optional[Dict[str, Any]]:
+        """Get cached metadata or fetch if expired."""
+        # Cache metadata for 1 hour
+        if (
+            self._cached_metadata
+            and self._metadata_cache_time
+            and (datetime.utcnow() - self._metadata_cache_time).total_seconds() < 3600
+        ):
+            logger.debug("Using cached OIDC metadata")
+            return self._cached_metadata
+
+        # Fetch fresh metadata
+        if not self._settings:
+            logger.error("Settings not configured")
+            return None
+
+        try:
+            logger.info(
+                f"Fetching fresh OIDC metadata from {self._settings.discovery_endpoint}"
+            )
+            timeout = httpx.Timeout(10.0, connect=5.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(self._settings.discovery_endpoint)
+                response.raise_for_status()
+                self._cached_metadata = response.json()
+                self._metadata_cache_time = datetime.utcnow()
+                logger.debug(
+                    f"Cached metadata keys: {list(self._cached_metadata.keys())}"
+                )
+                return self._cached_metadata
+        except Exception as e:
+            logger.error(f"Failed to fetch OIDC metadata: {e}", exc_info=True)
+            # If we have stale cache, use it
+            if self._cached_metadata:
+                logger.warning("Using stale cached metadata due to fetch failure")
+                return self._cached_metadata
+            return None
 
     async def cleanup(self) -> None:
         """Cleanup resources."""

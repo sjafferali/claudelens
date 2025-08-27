@@ -26,7 +26,7 @@ class AISettings(BaseSettings):
     gpt35_cost_per_1k_completion: float = 0.002
 
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=False, env_prefix=""
+        env_file=".env", case_sensitive=False, env_prefix="", extra="ignore"
     )
 
     @field_validator("claudelens_encryption_key")
