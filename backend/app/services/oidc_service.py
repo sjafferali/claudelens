@@ -343,7 +343,14 @@ class OIDCService:
             logger.info(
                 f"OIDC user info fields from Authelia: {list(user_info.keys())}"
             )
-            logger.debug(f"OIDC user info data: {user_info}")
+            # Log the actual values to see what Authelia is sending
+            logger.info(
+                f"OIDC preferred_username: {user_info.get('preferred_username')}"
+            )
+            logger.info(f"OIDC name: {user_info.get('name')}")
+            logger.info(f"OIDC email: {user_info.get('email')}")
+            logger.info(f"OIDC sub: {user_info.get('sub')}")
+            logger.debug(f"OIDC full user info data: {user_info}")
 
             oidc_user_info = OIDCUserInfo(**user_info)
             user = await self.get_or_create_user(db, oidc_user_info)
