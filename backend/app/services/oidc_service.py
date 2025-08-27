@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 from authlib.integrations.starlette_client import OAuth, OAuthError  # type: ignore
+from bson import ObjectId
 from fastapi import HTTPException, Request
 from jose import jwt  # type: ignore
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -27,6 +28,40 @@ class OIDCService:
         self.oauth = OAuth()
         self._configured = False
         self._settings: Optional[OIDCSettingsInDB] = None
+
+    def _serialize_user_for_session(self, user: UserInDB) -> Dict[str, Any]:
+        """Convert user model to JSON-serializable dict for session storage."""
+        user_dict: Dict[str, Any] = {}
+
+        # Manually convert each field to ensure proper serialization
+        for field_name, field_value in user.__dict__.items():
+            if isinstance(field_value, ObjectId):
+                user_dict[field_name] = str(field_value)
+            elif isinstance(field_value, datetime):
+                user_dict[field_name] = field_value.isoformat()
+            elif isinstance(field_value, list):
+                # Handle list structures - convert datetime/ObjectId in nested objects
+                serialized_list = []
+                for item in field_value:
+                    if hasattr(item, "model_dump"):
+                        serialized_list.append(item.model_dump(mode="json"))
+                    else:
+                        serialized_list.append(item)
+                user_dict[field_name] = serialized_list
+            elif isinstance(field_value, dict):
+                # Handle dict structures
+                user_dict[field_name] = field_value
+            elif hasattr(field_value, "value"):  # Handle Enums
+                user_dict[field_name] = field_value.value
+            else:
+                user_dict[field_name] = field_value
+
+        # Handle the _id field specifically
+        if hasattr(user, "id"):
+            user_dict["_id"] = str(user.id)
+            user_dict["id"] = str(user.id)
+
+        return user_dict
 
     async def load_settings(
         self, db: AsyncIOMotorDatabase
@@ -329,13 +364,8 @@ class OIDCService:
 
             # Store token in session if needed
             request.session["oidc_token"] = token
-            # Convert user to dict and handle ObjectId and datetime serialization
-            user_dict = user.model_dump(by_alias=True, mode="json")
-            # Ensure ObjectId fields are converted to strings
-            if "_id" in user_dict and user_dict["_id"] is not None:
-                user_dict["_id"] = str(user_dict["_id"])
-            if "id" in user_dict and user_dict["id"] is not None:
-                user_dict["id"] = str(user_dict["id"])
+            # Convert user to JSON-serializable dict for session storage
+            user_dict = self._serialize_user_for_session(user)
             request.session["user"] = user_dict
 
             return user
@@ -405,13 +435,8 @@ class OIDCService:
             user = await self.get_or_create_user(db, oidc_user_info)
 
             # Store user in session
-            # Convert user to dict and handle ObjectId and datetime serialization
-            user_dict = user.model_dump(by_alias=True, mode="json")
-            # Ensure ObjectId fields are converted to strings
-            if "_id" in user_dict and user_dict["_id"] is not None:
-                user_dict["_id"] = str(user_dict["_id"])
-            if "id" in user_dict and user_dict["id"] is not None:
-                user_dict["id"] = str(user_dict["id"])
+            # Convert user to JSON-serializable dict for session storage
+            user_dict = self._serialize_user_for_session(user)
             request.session["user"] = user_dict
             request.session["oidc_token"] = token
 
