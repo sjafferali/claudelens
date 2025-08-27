@@ -25,6 +25,10 @@ class OIDCService:
 
     def __init__(self) -> None:
         """Initialize OIDC service."""
+        # Create httpx client with proper timeout for authlib to use
+        self._http_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(30.0, connect=10.0), follow_redirects=True
+        )
         self.oauth = OAuth()
         self._configured = False
         self._settings: Optional[OIDCSettingsInDB] = None
@@ -124,12 +128,16 @@ class OIDCService:
             logger.info(
                 f"Configuring OIDC provider with discovery endpoint: {settings.discovery_endpoint}"
             )
+            # Register with custom httpx client for better timeout handling
             self.oauth.register(
                 name="oidc_provider",
                 server_metadata_url=settings.discovery_endpoint,
                 client_id=settings.client_id,
                 client_secret=client_secret,
-                client_kwargs={"scope": " ".join(settings.scopes)},
+                client_kwargs={
+                    "scope": " ".join(settings.scopes),
+                    "timeout": 30.0,  # Add timeout to client kwargs
+                },
             )
             self._configured = True
             logger.info("OIDC provider configured successfully")
@@ -163,7 +171,8 @@ class OIDCService:
 
         try:
             # Fetch discovery document
-            async with httpx.AsyncClient() as client:
+            timeout = httpx.Timeout(10.0, connect=5.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.get(endpoint)
                 response.raise_for_status()
                 discovery = response.json()
@@ -265,9 +274,20 @@ class OIDCService:
         try:
             # Exchange authorization code for tokens directly
             client = self.oauth.oidc_provider
+            logger.debug("Getting OIDC client from oauth registry")
 
             # Get the token endpoint from the provider metadata
-            metadata = await client.load_server_metadata()
+            logger.info("Loading server metadata from OIDC provider")
+            try:
+                metadata = await client.load_server_metadata()
+                logger.debug(f"Loaded metadata keys: {list(metadata.keys())}")
+            except Exception as e:
+                logger.error(f"Failed to load server metadata: {e}", exc_info=True)
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Failed to load OIDC provider metadata: {str(e)}",
+                )
+
             token_endpoint = metadata.get("token_endpoint")
 
             if not token_endpoint:
@@ -318,15 +338,36 @@ class OIDCService:
 
             # Exchange code for token
             logger.debug(f"Token request data: {list(token_data.keys())}")
-            async with httpx.AsyncClient() as http_client:
-                response = await http_client.post(
-                    token_endpoint,
-                    data=token_data,
-                    headers={"Content-Type": "application/x-www-form-urlencoded"},
-                    auth=cast(Any, auth),  # Cast to Any to satisfy mypy
-                )
-                response.raise_for_status()
-                token = response.json()
+            # Add timeout and better error handling
+            timeout = httpx.Timeout(30.0, connect=10.0)
+            async with httpx.AsyncClient(
+                timeout=timeout, follow_redirects=True
+            ) as http_client:
+                try:
+                    response = await http_client.post(
+                        token_endpoint,
+                        data=token_data,
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                        auth=cast(Any, auth),  # Cast to Any to satisfy mypy
+                    )
+                    response.raise_for_status()
+                    token = response.json()
+                except httpx.TimeoutException as e:
+                    logger.error(f"Timeout during token exchange: {e}")
+                    raise HTTPException(
+                        status_code=504,
+                        detail="Token exchange timeout - the OIDC provider took too long to respond",
+                    )
+                except httpx.ConnectError as e:
+                    logger.error(f"Connection error during token exchange: {e}")
+                    raise HTTPException(
+                        status_code=503, detail="Could not connect to OIDC provider"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected error during token exchange: {e}", exc_info=True
+                    )
+                    raise
 
             logger.info("Successfully obtained access token")
             logger.debug(f"Token response keys: {list(token.keys())}")
@@ -353,16 +394,31 @@ class OIDCService:
                     logger.info(
                         f"Fetching user info from endpoint: {userinfo_endpoint}"
                     )
-                    async with httpx.AsyncClient() as http_client:
-                        userinfo_response = await http_client.get(
-                            userinfo_endpoint,
-                            headers={
-                                "Authorization": f"Bearer {token['access_token']}"
-                            },
-                        )
-                        userinfo_response.raise_for_status()
-                        user_info = userinfo_response.json()
-                        logger.info("Successfully fetched user info")
+                    timeout = httpx.Timeout(30.0, connect=10.0)
+                    async with httpx.AsyncClient(
+                        timeout=timeout, follow_redirects=True
+                    ) as http_client:
+                        try:
+                            userinfo_response = await http_client.get(
+                                userinfo_endpoint,
+                                headers={
+                                    "Authorization": f"Bearer {token['access_token']}"
+                                },
+                            )
+                            userinfo_response.raise_for_status()
+                            user_info = userinfo_response.json()
+                            logger.info("Successfully fetched user info")
+                        except httpx.TimeoutException as e:
+                            logger.error(f"Timeout fetching user info: {e}")
+                            raise HTTPException(
+                                status_code=504,
+                                detail="Timeout fetching user information from OIDC provider",
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"Error fetching user info: {e}", exc_info=True
+                            )
+                            raise
 
             if not user_info:
                 logger.error("No user info available from token or userinfo endpoint")
@@ -539,6 +595,11 @@ class OIDCService:
         """Logout user from OIDC session."""
         # Clear session data
         request.session.clear()
+
+    async def cleanup(self) -> None:
+        """Cleanup resources."""
+        if hasattr(self, "_http_client"):
+            await self._http_client.aclose()
 
     def is_configured(self) -> bool:
         """Check if OIDC is configured and enabled."""
