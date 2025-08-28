@@ -235,6 +235,7 @@ test-results.xml
 test-results.json
 playwright-report/
 playwright/.cache/
+.playwright-mcp/
 
 # Frontend build outputs
 dist/

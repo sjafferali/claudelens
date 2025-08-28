@@ -29,15 +29,13 @@ class RateLimitUsageService:
 
         # In-memory cache for current period metrics
         self._current_metrics: Dict[str, Dict] = defaultdict(
-            lambda: defaultdict(
-                lambda: {
-                    "requests": 0,
-                    "allowed": 0,
-                    "blocked": 0,
-                    "response_times": [],
-                    "bytes": 0,
-                }
-            )
+            lambda: {
+                "requests": 0,
+                "allowed": 0,
+                "blocked": 0,
+                "response_times": [],
+                "bytes": 0,
+            }
         )
         self._last_flush = datetime.now(UTC)
         self._flush_interval = 60  # Flush to database every 60 seconds
@@ -328,6 +326,25 @@ class RateLimitUsageService:
             "websocket": "websocket_usage",
         }
 
+        # Initialize all usage fields with default values
+        for limit_type in RateLimitType:
+            field_name = usage_map.get(limit_type.value, f"{limit_type.value}_usage")
+            limit_value = self._get_limit_value(settings, limit_type.value)
+
+            # Set default usage structure
+            setattr(
+                snapshot,
+                field_name,
+                {
+                    "current": 0,
+                    "limit": limit_value if limit_value > 0 else "unlimited",
+                    "remaining": limit_value if limit_value > 0 else "unlimited",
+                    "blocked": 0,
+                    "percentage_used": 0,
+                    "reset_in_seconds": None,
+                },
+            )
+
         # Add current usage from in-memory metrics
         for limit_type in RateLimitType:
             key = f"{user_id}:{limit_type.value}"
@@ -345,8 +362,10 @@ class RateLimitUsageService:
                     field_name,
                     {
                         "current": metrics["requests"],
-                        "limit": limit_value,
-                        "remaining": max(0, limit_value - metrics["requests"]),
+                        "limit": limit_value if limit_value > 0 else "unlimited",
+                        "remaining": max(0, limit_value - metrics["requests"])
+                        if limit_value > 0
+                        else "unlimited",
                         "blocked": metrics["blocked"],
                         "percentage_used": (metrics["requests"] / limit_value * 100)
                         if limit_value > 0

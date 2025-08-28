@@ -122,19 +122,31 @@
 
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
-    height: 8px;
+    height: 6px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-track {
-    @apply bg-background;
+    @apply bg-transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-border rounded;
+    @apply bg-gray-400 dark:bg-gray-600 rounded-full;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--text-dim));
+    @apply bg-gray-500 dark:bg-gray-500;
+  }
+
+  /* Hide scrollbar on mobile for cleaner look */
+  @media (max-width: 640px) {
+    .scrollbar-thin {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar {
+      display: none;
+    }
   }
 
   /* Background utilities for new design */

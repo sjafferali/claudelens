@@ -212,22 +212,39 @@ export default function Admin() {
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex gap-1 mt-6">
-            {tabs.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
-                  activeTab === id
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </button>
-            ))}
+          <div className="relative mt-6">
+            <div className="flex gap-1 overflow-x-auto scrollbar-thin pb-2">
+              {tabs.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={cn(
+                    'flex items-center gap-2 px-3 md:px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0',
+                    activeTab === id
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                      : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  )}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="hidden lg:inline">{label}</span>
+                  <span className="lg:hidden">
+                    {id === 'overview'
+                      ? 'Overview'
+                      : id === 'users'
+                        ? 'Users'
+                        : id === 'projects'
+                          ? 'Projects'
+                          : id === 'storage'
+                            ? 'Storage'
+                            : id === 'rate-limits'
+                              ? 'Limits'
+                              : id === 'rate-monitor'
+                                ? 'Monitor'
+                                : 'Auth'}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
