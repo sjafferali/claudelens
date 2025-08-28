@@ -56,15 +56,13 @@ export const ProjectOwnershipManager: React.FC = () => {
     setLoading(true);
     try {
       const response = await apiClient.get<{
-        data: {
-          items: ProjectWithOwner[];
-          total: number;
-        };
+        items: ProjectWithOwner[];
+        total: number;
       }>(
         `/admin/projects/with-owners?skip=${(currentPage - 1) * itemsPerPage}&limit=${itemsPerPage}`
       );
-      setProjects(response.data.items);
-      setTotalPages(Math.ceil(response.data.total / itemsPerPage));
+      setProjects(response.items);
+      setTotalPages(Math.ceil(response.total / itemsPerPage));
     } catch (error) {
       toast.error('Failed to load projects');
     } finally {
@@ -80,11 +78,9 @@ export const ProjectOwnershipManager: React.FC = () => {
   const loadUsers = async () => {
     try {
       const response = await apiClient.get<{
-        data: {
-          items: User[];
-        };
+        items: User[];
       }>('/users');
-      setUsers(response.data.items);
+      setUsers(response.items);
     } catch (error) {
       toast.error('Failed to load users');
     }
