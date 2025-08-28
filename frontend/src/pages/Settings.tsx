@@ -7,15 +7,12 @@ import {
   Zap,
   FolderOpen,
   Save,
-  Shield,
 } from 'lucide-react';
 import { AISettingsPanel } from '@/components/settings/AISettingsPanel';
-import { RateLimitSettingsPanel } from '@/components/settings/RateLimitSettings';
 import AccountSettings from '@/components/settings/AccountSettings';
 
 const SETTINGS_TABS = [
   { id: 'ai', label: 'AI Assistant', icon: Zap },
-  { id: 'rate-limits', label: 'Rate Limits', icon: Shield },
   { id: 'account', label: 'Account', icon: User },
   { id: 'privacy', label: 'Privacy', icon: Lock },
   { id: 'data', label: 'Data', icon: Database },
@@ -30,8 +27,6 @@ export default function Settings() {
     switch (activeTab) {
       case 'ai':
         return <AISettingsPanel />;
-      case 'rate-limits':
-        return <RateLimitSettingsPanel />;
       case 'account':
         return <AccountSettings />;
       case 'privacy':

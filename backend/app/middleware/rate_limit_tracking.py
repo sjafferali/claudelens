@@ -38,6 +38,12 @@ class RateLimitTrackingMiddleware(RateLimitMiddleware):
 
     def _get_user_id(self, request: Request) -> Optional[str]:
         """Extract user ID from request if available."""
+        # Try to get from tenant context (set by auth middleware)
+        if hasattr(request.state, "tenant_context"):
+            tenant_context = request.state.tenant_context
+            if hasattr(tenant_context, "user_id") and tenant_context.user_id:
+                return str(tenant_context.user_id)
+
         # Try to get from request state (set by auth middleware)
         if hasattr(request.state, "user_id"):
             user_id_value: Any = request.state.user_id

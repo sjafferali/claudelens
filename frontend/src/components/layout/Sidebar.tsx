@@ -13,6 +13,7 @@ import {
   Shield,
   LogOut,
   Users,
+  Gauge,
 } from 'lucide-react';
 import { useStore } from '@/store';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +26,7 @@ const navItems = [
   { path: '/prompts', label: 'Prompts', icon: FileText },
   { path: '/search', label: 'Search', icon: Search },
   { path: '/analytics', label: 'Analytics', icon: Activity },
+  { path: '/rate-limits', label: 'Rate Limits', icon: Gauge },
   { path: '/import-export', label: 'Import/Export', icon: Download },
   { path: '/backup', label: 'Backup & Restore', icon: Shield },
 ];

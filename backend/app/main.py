@@ -18,6 +18,7 @@ from app.core.database import close_mongodb_connection, connect_to_mongodb, get_
 from app.core.db_init import initialize_database
 from app.core.exceptions import AuthenticationError, NotFoundError, ValidationError
 from app.core.logging import get_logger, setup_logging
+from app.middleware.auth import AuthenticationMiddleware
 from app.middleware.forwarded_headers import ForwardedHeadersMiddleware
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit_tracking import RateLimitTrackingMiddleware
@@ -105,6 +106,8 @@ app.add_middleware(
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(LoggingMiddleware)
+# Authentication middleware must run before rate limiting to populate user context
+app.add_middleware(AuthenticationMiddleware)
 app.add_middleware(RateLimitTrackingMiddleware, calls=500, period=60)
 
 
