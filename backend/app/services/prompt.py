@@ -44,6 +44,7 @@ class PromptService:
     # Prompt CRUD operations
     async def list_prompts(
         self,
+        user_id: str,
         filter_dict: dict[str, Any],
         skip: int,
         limit: int,
@@ -51,6 +52,9 @@ class PromptService:
         sort_order: str,
     ) -> tuple[list[Prompt], int]:
         """List prompts with pagination."""
+        # Add user filtering to ensure users only see their own prompts
+        filter_dict["createdBy"] = user_id
+
         # Count total
         total = await self.db.prompts.count_documents(filter_dict)
 
@@ -81,9 +85,11 @@ class PromptService:
 
         return prompts, total
 
-    async def get_prompt(self, prompt_id: ObjectId) -> Optional[PromptDetail]:
+    async def get_prompt(
+        self, user_id: str, prompt_id: ObjectId
+    ) -> Optional[PromptDetail]:
         """Get a single prompt with full details."""
-        doc = await self.db.prompts.find_one({"_id": prompt_id})
+        doc = await self.db.prompts.find_one({"_id": prompt_id, "createdBy": user_id})
         if not doc:
             return None
 
@@ -94,7 +100,7 @@ class PromptService:
 
         return PromptDetail(**doc)
 
-    async def create_prompt(self, prompt: PromptCreate) -> PromptInDB:
+    async def create_prompt(self, user_id: str, prompt: PromptCreate) -> PromptInDB:
         """Create a new prompt."""
         # Extract variables from content
         variables = extract_variables(prompt.content)
@@ -118,7 +124,7 @@ class PromptService:
             "successRate": None,
             "createdAt": datetime.now(UTC),
             "updatedAt": datetime.now(UTC),
-            "createdBy": "system",  # TODO: Get from auth context
+            "createdBy": user_id,
             "isStarred": False,
         }
 
@@ -149,9 +155,16 @@ class PromptService:
         )
 
     async def update_prompt(
-        self, prompt_id: ObjectId, update: PromptUpdate
+        self, user_id: str, prompt_id: ObjectId, update: PromptUpdate
     ) -> Optional[PromptInDB]:
-        """Update a prompt."""
+        """Update a prompt - only if user owns it."""
+        # First verify the user owns this prompt
+        existing = await self.db.prompts.find_one(
+            {"_id": prompt_id, "createdBy": user_id}
+        )
+        if not existing:
+            return None
+
         update_dict = update.model_dump(exclude_unset=True)
 
         if update_dict:
@@ -175,7 +188,7 @@ class PromptService:
 
             # Save current version if content changed
             if "content" in update_dict:
-                current = await self.db.prompts.find_one({"_id": prompt_id})
+                current = existing
                 if current:
                     # Increment version
                     version_parts = current["version"].split(".")
@@ -188,12 +201,12 @@ class PromptService:
                         "variables": current.get("variables", []),
                         "change_log": "Content updated",
                         "createdAt": datetime.now(UTC),
-                        "createdBy": "system",  # TODO: Get from auth context
+                        "createdBy": user_id,
                     }
 
                     # Keep only last 10 versions
                     result = await self.db.prompts.find_one_and_update(
-                        {"_id": prompt_id},
+                        {"_id": prompt_id, "createdBy": user_id},
                         {
                             "$set": {**update_dict, "version": new_version},
                             "$push": {
@@ -209,7 +222,9 @@ class PromptService:
                     result = None
             else:
                 result = await self.db.prompts.find_one_and_update(
-                    {"_id": prompt_id}, {"$set": update_dict}, return_document=True
+                    {"_id": prompt_id, "createdBy": user_id},
+                    {"$set": update_dict},
+                    return_document=True,
                 )
 
             if result:
@@ -219,8 +234,7 @@ class PromptService:
                 return PromptInDB(**result)
             return None
 
-        # If no update provided, return existing prompt
-        existing = await self.db.prompts.find_one({"_id": prompt_id})
+        # If no update provided, return existing prompt (already fetched above)
         if existing:
             existing["_id"] = str(existing["_id"])
             if existing.get("folderId"):
@@ -228,24 +242,27 @@ class PromptService:
             return PromptInDB(**existing)
         return None
 
-    async def delete_prompt(self, prompt_id: ObjectId) -> bool:
-        """Delete a prompt."""
-        result = await self.db.prompts.delete_one({"_id": prompt_id})
+    async def delete_prompt(self, user_id: str, prompt_id: ObjectId) -> bool:
+        """Delete a prompt - only if user owns it."""
+        result = await self.db.prompts.delete_one(
+            {"_id": prompt_id, "createdBy": user_id}
+        )
         return result.deleted_count > 0
 
-    async def increment_use_count(self, prompt_id: ObjectId) -> None:
+    async def increment_use_count(self, user_id: str, prompt_id: ObjectId) -> None:
         """Increment the use count for a prompt."""
         await self.db.prompts.update_one(
-            {"_id": prompt_id},
+            {"_id": prompt_id, "createdBy": user_id},
             {
                 "$inc": {"useCount": 1},
                 "$set": {"lastUsedAt": datetime.now(UTC)},
             },
         )
 
-    async def get_unique_tags(self) -> list[dict[str, Any]]:
-        """Get all unique tags with their usage counts."""
+    async def get_unique_tags(self, user_id: str) -> list[dict[str, Any]]:
+        """Get all unique tags with their usage counts for user's prompts."""
         pipeline: list[dict[str, Any]] = [
+            {"$match": {"createdBy": user_id}},
             {"$unwind": "$tags"},
             {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
             {"$sort": {"count": -1, "_id": 1}},
@@ -257,9 +274,9 @@ class PromptService:
         return tags
 
     # Folder CRUD operations
-    async def list_folders(self) -> list[FolderInDB]:
-        """List all folders."""
-        cursor = self.db.prompt_folders.find().sort("name", 1)
+    async def list_folders(self, user_id: str) -> list[FolderInDB]:
+        """List all folders for a user."""
+        cursor = self.db.prompt_folders.find({"createdBy": user_id}).sort("name", 1)
         folders = []
         async for doc in cursor:
             doc["_id"] = str(doc["_id"])
@@ -268,7 +285,7 @@ class PromptService:
             folders.append(FolderInDB(**doc))
         return folders
 
-    async def create_folder(self, folder: FolderCreate) -> FolderInDB:
+    async def create_folder(self, user_id: str, folder: FolderCreate) -> FolderInDB:
         """Create a new folder."""
         doc = {
             "_id": ObjectId(),
@@ -276,7 +293,7 @@ class PromptService:
             "parentId": ObjectId(folder.parent_id) if folder.parent_id else None,
             "createdAt": datetime.now(UTC),
             "updatedAt": datetime.now(UTC),
-            "createdBy": "system",  # TODO: Get from auth context
+            "createdBy": user_id,
         }
 
         await self.db.prompt_folders.insert_one(doc)
@@ -292,9 +309,9 @@ class PromptService:
         )
 
     async def update_folder(
-        self, folder_id: ObjectId, update: FolderUpdate
+        self, user_id: str, folder_id: ObjectId, update: FolderUpdate
     ) -> Optional[FolderInDB]:
-        """Update a folder."""
+        """Update a folder - only if user owns it."""
         update_dict = update.model_dump(exclude_unset=True)
 
         if update_dict:
@@ -308,7 +325,9 @@ class PromptService:
             update_dict["updatedAt"] = datetime.now(UTC)
 
             result = await self.db.prompt_folders.find_one_and_update(
-                {"_id": folder_id}, {"$set": update_dict}, return_document=True
+                {"_id": folder_id, "createdBy": user_id},
+                {"$set": update_dict},
+                return_document=True,
             )
 
             if result:
@@ -319,7 +338,9 @@ class PromptService:
             return None
 
         # If no update provided, return existing folder
-        existing = await self.db.prompt_folders.find_one({"_id": folder_id})
+        existing = await self.db.prompt_folders.find_one(
+            {"_id": folder_id, "createdBy": user_id}
+        )
         if existing:
             existing["_id"] = str(existing["_id"])
             if existing.get("parentId"):
@@ -327,25 +348,34 @@ class PromptService:
             return FolderInDB(**existing)
         return None
 
-    async def delete_folder(self, folder_id: ObjectId) -> bool:
-        """Delete a folder and move prompts to root."""
-        # Move all prompts in this folder to root
+    async def delete_folder(self, user_id: str, folder_id: ObjectId) -> bool:
+        """Delete a folder and move prompts to root - only if user owns it."""
+        # Verify user owns the folder
+        folder = await self.db.prompt_folders.find_one(
+            {"_id": folder_id, "createdBy": user_id}
+        )
+        if not folder:
+            return False
+
+        # Move all prompts in this folder to root (only user's prompts)
         await self.db.prompts.update_many(
-            {"folderId": folder_id}, {"$set": {"folderId": None}}
+            {"folderId": folder_id, "createdBy": user_id}, {"$set": {"folderId": None}}
         )
 
-        # Move all child folders to root
+        # Move all child folders to root (only user's folders)
         await self.db.prompt_folders.update_many(
-            {"parentId": folder_id}, {"$set": {"parentId": None}}
+            {"parentId": folder_id, "createdBy": user_id}, {"$set": {"parentId": None}}
         )
 
         # Delete the folder
-        result = await self.db.prompt_folders.delete_one({"_id": folder_id})
+        result = await self.db.prompt_folders.delete_one(
+            {"_id": folder_id, "createdBy": user_id}
+        )
         return result.deleted_count > 0
 
     # Search and filtering
     async def search_prompts(
-        self, query: str, skip: int = 0, limit: int = 20
+        self, user_id: str, query: str, skip: int = 0, limit: int = 20
     ) -> tuple[list[Prompt], int]:
         """Search prompts by name, description, content, or tags."""
         filter_dict = {
@@ -357,18 +387,26 @@ class PromptService:
             ]
         }
 
-        return await self.list_prompts(filter_dict, skip, limit, "updatedAt", "desc")
+        return await self.list_prompts(
+            user_id, filter_dict, skip, limit, "updatedAt", "desc"
+        )
 
     async def get_prompts_by_folder(
-        self, folder_id: Optional[ObjectId], skip: int = 0, limit: int = 20
+        self,
+        user_id: str,
+        folder_id: Optional[ObjectId],
+        skip: int = 0,
+        limit: int = 20,
     ) -> tuple[list[Prompt], int]:
         """Get prompts in a specific folder."""
         filter_dict = {"folderId": folder_id}
-        return await self.list_prompts(filter_dict, skip, limit, "name", "asc")
+        return await self.list_prompts(user_id, filter_dict, skip, limit, "name", "asc")
 
     async def get_starred_prompts(
-        self, skip: int = 0, limit: int = 20
+        self, user_id: str, skip: int = 0, limit: int = 20
     ) -> tuple[list[Prompt], int]:
         """Get starred prompts."""
         filter_dict = {"isStarred": True}
-        return await self.list_prompts(filter_dict, skip, limit, "updatedAt", "desc")
+        return await self.list_prompts(
+            user_id, filter_dict, skip, limit, "updatedAt", "desc"
+        )

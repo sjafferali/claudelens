@@ -3,10 +3,11 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.dependencies import get_db, require_admin
+from app.core.custom_router import APIRouter
 from app.models.user import UserCreate, UserInDB, UserResponse, UserRole, UserUpdate
 from app.schemas.common import PaginatedResponse
 from app.services.user import UserService

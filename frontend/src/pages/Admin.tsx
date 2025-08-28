@@ -25,6 +25,7 @@ import { UserTable } from '@/components/admin/UserTable';
 import { DiskUsageChart } from '@/components/admin/DiskUsageChart';
 import { ProjectOwnershipManager } from '@/components/admin/ProjectOwnershipManager';
 import { OIDCSettingsPanel } from '@/components/settings/OIDCSettingsPanel';
+import { RateLimitSettingsPanel } from '@/components/admin/RateLimitSettings';
 import { cn } from '@/utils/cn';
 
 const formatBytes = (bytes: number): string => {
@@ -108,7 +109,7 @@ const StatCard = ({
 export default function Admin() {
   const { isAdmin, isLoading: authLoading, currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'users' | 'projects' | 'storage' | 'settings'
+    'overview' | 'users' | 'projects' | 'storage' | 'settings' | 'rate-limits'
   >('overview');
 
   // Redirect if not admin
@@ -176,6 +177,7 @@ export default function Admin() {
     { id: 'users', label: 'User Management', icon: Users },
     { id: 'projects', label: 'Project Ownership', icon: Folder },
     { id: 'storage', label: 'Storage Analysis', icon: HardDrive },
+    { id: 'rate-limits', label: 'Rate Limits', icon: Shield },
     { id: 'settings', label: 'Authentication', icon: Settings },
   ] as const;
 
@@ -400,6 +402,12 @@ export default function Admin() {
               data={storageData || null}
               isLoading={storageLoading}
             />
+          </div>
+        )}
+
+        {activeTab === 'rate-limits' && (
+          <div className="max-w-6xl">
+            <RateLimitSettingsPanel />
           </div>
         )}
 

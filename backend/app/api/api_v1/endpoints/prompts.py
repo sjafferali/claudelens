@@ -85,6 +85,7 @@ async def list_prompts(
 
     # Get prompts with combined filters
     prompts, total = await service.list_prompts(
+        user_id,
         filter_dict,
         skip=skip,
         limit=limit,
@@ -112,7 +113,7 @@ async def create_prompt(
     if prompt.folder_id and not ObjectId.is_valid(prompt.folder_id):
         raise HTTPException(status_code=400, detail="Invalid folder ID")
 
-    created_prompt = await service.create_prompt(prompt)
+    created_prompt = await service.create_prompt(user_id, prompt)
 
     # Convert to response schema
     prompt_dict = created_prompt.model_dump(by_alias=True)
@@ -138,7 +139,7 @@ async def create_prompt(
 async def get_unique_tags(db: CommonDeps, user_id: AuthDeps) -> list[dict]:
     """Get all unique tags with their usage counts."""
     service = PromptService(db)
-    tags = await service.get_unique_tags()
+    tags = await service.get_unique_tags(user_id)
     return tags
 
 
@@ -147,7 +148,7 @@ async def get_unique_tags(db: CommonDeps, user_id: AuthDeps) -> list[dict]:
 async def list_folders(db: CommonDeps, user_id: AuthDeps) -> list[Folder]:
     """List all folders."""
     service = PromptService(db)
-    folders = await service.list_folders()
+    folders = await service.list_folders(user_id)
 
     # Convert to response schema and add prompt counts
     folder_list = []
@@ -159,7 +160,7 @@ async def list_folders(db: CommonDeps, user_id: AuthDeps) -> list[Folder]:
             del folder_dict["parentId"]
 
         # Get prompt count for this folder
-        prompts, count = await service.get_prompts_by_folder(folder.id, 1)
+        prompts, count = await service.get_prompts_by_folder(user_id, folder.id, 1)
         folder_dict["prompt_count"] = count
 
         folder_list.append(Folder(**folder_dict))
@@ -178,7 +179,7 @@ async def create_folder(
     if folder.parent_id and not ObjectId.is_valid(folder.parent_id):
         raise HTTPException(status_code=400, detail="Invalid parent folder ID")
 
-    created_folder = await service.create_folder(folder)
+    created_folder = await service.create_folder(user_id, folder)
 
     # Convert to response schema
     folder_dict = created_folder.model_dump(by_alias=True)
@@ -204,7 +205,7 @@ async def update_folder(
         raise HTTPException(status_code=400, detail="Invalid parent folder ID")
 
     service = PromptService(db)
-    updated_folder = await service.update_folder(ObjectId(folder_id), update)
+    updated_folder = await service.update_folder(user_id, ObjectId(folder_id), update)
 
     if not updated_folder:
         raise NotFoundError("Folder", folder_id)
@@ -217,7 +218,7 @@ async def update_folder(
         del folder_dict["parentId"]
 
     # Get prompt count for this folder
-    prompts, count = await service.get_prompts_by_folder(updated_folder.id, 1)
+    prompts, count = await service.get_prompts_by_folder(user_id, updated_folder.id, 1)
     folder_dict["prompt_count"] = count
 
     return Folder(**folder_dict)
@@ -230,7 +231,7 @@ async def delete_folder(folder_id: str, db: CommonDeps, user_id: AuthDeps) -> di
         raise HTTPException(status_code=400, detail="Invalid folder ID")
 
     service = PromptService(db)
-    deleted = await service.delete_folder(ObjectId(folder_id))
+    deleted = await service.delete_folder(user_id, ObjectId(folder_id))
 
     if not deleted:
         raise NotFoundError("Folder", folder_id)
@@ -252,12 +253,14 @@ async def export_prompts(
         prompts = []
         for prompt_id in request.prompt_ids:
             if ObjectId.is_valid(prompt_id):
-                prompt = await service.get_prompt(ObjectId(prompt_id))
+                prompt = await service.get_prompt(user_id, ObjectId(prompt_id))
                 if prompt:
                     prompts.append(prompt)
     else:
         # Export all prompts
-        prompts_result, _ = await service.list_prompts({}, 0, 1000, "name", "asc")
+        prompts_result, _ = await service.list_prompts(
+            user_id, {}, 0, 1000, "name", "asc"
+        )
         prompts = prompts_result
 
     # Format based on request
@@ -407,7 +410,7 @@ async def import_prompts(
     # Create all prompts
     created_count = 0
     for prompt_create in prompts_to_create:
-        await service.create_prompt(prompt_create)
+        await service.create_prompt(user_id, prompt_create)
         created_count += 1
 
     return {"message": f"Successfully imported {created_count} prompts"}
@@ -535,7 +538,7 @@ async def get_prompt(prompt_id: str, db: CommonDeps, user_id: AuthDeps) -> Promp
         raise HTTPException(status_code=400, detail="Invalid prompt ID")
 
     service = PromptService(db)
-    prompt = await service.get_prompt(ObjectId(prompt_id))
+    prompt = await service.get_prompt(user_id, ObjectId(prompt_id))
 
     if not prompt:
         raise NotFoundError("Prompt", prompt_id)
@@ -556,7 +559,7 @@ async def update_prompt(
         raise HTTPException(status_code=400, detail="Invalid folder ID")
 
     service = PromptService(db)
-    updated_prompt = await service.update_prompt(ObjectId(prompt_id), update)
+    updated_prompt = await service.update_prompt(user_id, ObjectId(prompt_id), update)
 
     if not updated_prompt:
         raise NotFoundError("Prompt", prompt_id)
@@ -587,7 +590,7 @@ async def delete_prompt(prompt_id: str, db: CommonDeps, user_id: AuthDeps) -> di
         raise HTTPException(status_code=400, detail="Invalid prompt ID")
 
     service = PromptService(db)
-    deleted = await service.delete_prompt(ObjectId(prompt_id))
+    deleted = await service.delete_prompt(user_id, ObjectId(prompt_id))
 
     if not deleted:
         raise NotFoundError("Prompt", prompt_id)
@@ -605,7 +608,7 @@ async def test_prompt(
         raise HTTPException(status_code=400, detail="Invalid prompt ID")
 
     service = PromptService(db)
-    prompt = await service.get_prompt(ObjectId(prompt_id))
+    prompt = await service.get_prompt(user_id, ObjectId(prompt_id))
 
     if not prompt:
         raise NotFoundError("Prompt", prompt_id)
@@ -655,7 +658,7 @@ async def test_prompt(
             execution_time_ms = (time.time() - start_time) * 1000
 
             # Track usage
-            await service.increment_use_count(ObjectId(prompt_id))
+            await service.increment_use_count(user_id, ObjectId(prompt_id))
 
             # Prepare token usage data
             tokens_used = None
@@ -684,7 +687,7 @@ async def test_prompt(
         else:
             # AI not enabled, just return the substituted prompt
             execution_time_ms = (time.time() - start_time) * 1000
-            await service.increment_use_count(ObjectId(prompt_id))
+            await service.increment_use_count(user_id, ObjectId(prompt_id))
 
             return PromptTestResponse(
                 result=prompt_content,
@@ -716,14 +719,14 @@ async def share_prompt(
 
     # Update prompt sharing settings
     update = PromptUpdate(visibility=request.visibility)
-    updated_prompt = await service.update_prompt(ObjectId(prompt_id), update)
+    updated_prompt = await service.update_prompt(user_id, ObjectId(prompt_id), update)
 
     if not updated_prompt:
         raise NotFoundError("Prompt", prompt_id)
 
-    # Update shared_with list
+    # Update shared_with list - only if user owns the prompt
     await db.prompts.update_one(
-        {"_id": ObjectId(prompt_id)},
+        {"_id": ObjectId(prompt_id), "createdBy": user_id},
         {"$addToSet": {"sharedWith": {"$each": request.user_ids}}},
     )
 

@@ -32,7 +32,10 @@ def mock_response():
 @pytest.fixture
 def rate_limit_middleware():
     """Create rate limit middleware instance with small limits for testing."""
-    return RateLimitMiddleware(app=MagicMock(), calls=3, period=60)
+    middleware = RateLimitMiddleware(app=MagicMock(), calls=3, period=60)
+    # Mock the _get_settings method to always return our test values
+    middleware._get_settings = AsyncMock(return_value=(3, 60, True))
+    return middleware
 
 
 class TestRateLimitMiddleware:
@@ -314,8 +317,8 @@ class TestRateLimitMiddleware:
         # Create middleware with custom limits
         middleware = RateLimitMiddleware(app=MagicMock(), calls=5, period=30)
 
-        assert middleware.calls == 5
-        assert middleware.period == 30
+        assert middleware.default_calls == 5
+        assert middleware.default_period == 30
 
         request = MagicMock(spec=Request)
         request.url.path = "/api/test"
@@ -327,27 +330,29 @@ class TestRateLimitMiddleware:
 
         call_next = AsyncMock(return_value=response)
 
-        # Mock asyncio.create_task to prevent actual background task creation
-        with patch("asyncio.create_task") as mock_create_task:
-            mock_task = MagicMock()
-            mock_task.cancel = MagicMock()
-            mock_task.done = MagicMock(return_value=False)
+        # Mock the _get_settings method to return the custom values
+        with patch.object(middleware, "_get_settings", return_value=(5, 30, True)):
+            # Mock asyncio.create_task to prevent actual background task creation
+            with patch("asyncio.create_task") as mock_create_task:
+                mock_task = MagicMock()
+                mock_task.cancel = MagicMock()
+                mock_task.done = MagicMock(return_value=False)
 
-            # Wrap the coroutine to consume it without running
-            def create_task_wrapper(coro):
-                # Close the coroutine to prevent the warning
-                coro.close()
-                return mock_task
+                # Wrap the coroutine to consume it without running
+                def create_task_wrapper(coro):
+                    # Close the coroutine to prevent the warning
+                    coro.close()
+                    return mock_task
 
-            mock_create_task.side_effect = create_task_wrapper
+                mock_create_task.side_effect = create_task_wrapper
 
-            with patch("time.time", return_value=1000.0):
-                await middleware.dispatch(request, call_next)
+                with patch("time.time", return_value=1000.0):
+                    await middleware.dispatch(request, call_next)
 
-        # Verify custom limits are reflected in headers
-        assert response.headers["X-RateLimit-Limit"] == "5"
-        assert response.headers["X-RateLimit-Remaining"] == "4"
-        assert response.headers["X-RateLimit-Reset"] == "1030"  # 1000 + 30
+            # Verify custom limits are reflected in headers
+            assert response.headers["X-RateLimit-Limit"] == "5"
+            assert response.headers["X-RateLimit-Remaining"] == "4"
+            assert response.headers["X-RateLimit-Reset"] == "1030"  # 1000 + 30
 
     @pytest.mark.asyncio
     async def test_rate_limit_response_content(
@@ -406,7 +411,7 @@ class TestRateLimitMiddlewarePeriodicCleanup:
                 middleware.clients[client_id] = [
                     timestamp
                     for timestamp in middleware.clients[client_id]
-                    if timestamp > now - middleware.period
+                    if timestamp > now - middleware.default_period
                 ]
                 if not middleware.clients[client_id]:
                     del middleware.clients[client_id]
@@ -433,7 +438,7 @@ class TestRateLimitMiddlewarePeriodicCleanup:
                 middleware.clients[client_id] = [
                     timestamp
                     for timestamp in middleware.clients[client_id]
-                    if timestamp > now - middleware.period
+                    if timestamp > now - middleware.default_period
                 ]
                 if not middleware.clients[client_id]:
                     del middleware.clients[client_id]

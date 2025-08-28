@@ -4,7 +4,7 @@ import asyncio
 import time
 from collections import defaultdict
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -12,14 +12,54 @@ from starlette.responses import JSONResponse
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Simple in-memory rate limiting middleware."""
+    """Dynamic rate limiting middleware that uses database settings."""
 
     def __init__(self, app: Any, calls: int = 100, period: int = 60) -> None:
         super().__init__(app)
-        self.calls = calls
-        self.period = period
+        # Default values (will be overridden by database settings)
+        self.default_calls = calls
+        self.default_period = period
         self.clients: dict[str, list] = defaultdict(list)
         self._cleanup_task: asyncio.Task[Any] | None = None
+        self._settings_cache: Optional[Any] = None
+        self._cache_timestamp: Optional[float] = None
+        self._cache_ttl = 60  # Cache settings for 60 seconds
+
+    async def _get_settings(self, request: Optional[Request]) -> tuple[int, int, bool]:
+        """Get rate limit settings from cache or database."""
+        now = time.time()
+
+        # Check cache
+        if self._settings_cache and self._cache_timestamp:
+            if now - self._cache_timestamp < self._cache_ttl:
+                return (
+                    self._settings_cache.http_calls_per_minute,
+                    self._settings_cache.http_rate_limit_window_seconds,
+                    self._settings_cache.http_rate_limit_enabled
+                    and self._settings_cache.rate_limiting_enabled,
+                )
+
+        # Try to get from database
+        try:
+            # Import here to avoid circular dependency
+            from app.core.database import get_database
+            from app.services.rate_limit_service import RateLimitService
+
+            db = await get_database()
+            service = RateLimitService(db)
+            settings = await service.get_settings()
+
+            self._settings_cache = settings
+            self._cache_timestamp = now
+
+            return (
+                settings.http_calls_per_minute,
+                settings.http_rate_limit_window_seconds,
+                settings.http_rate_limit_enabled and settings.rate_limiting_enabled,
+            )
+        except Exception:
+            # Fall back to defaults if database is unavailable
+            return (self.default_calls, self.default_period, True)
 
     async def dispatch(
         self, request: Request, call_next: Callable[..., Any]
@@ -31,9 +71,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             "/api/v1/health",
             "/api/v1/messages/calculate-costs",  # Cost calculation should not be rate limited
             "/api/v1/projects",  # Project creation from sync should not be rate limited
+            "/api/v1/admin/rate-limits",  # Allow admin to update rate limits
         ]
 
         if request.url.path in excluded_paths:
+            return cast(Response, await call_next(request))
+
+        # Get current settings
+        calls_limit, period_seconds, enabled = await self._get_settings(request)
+
+        # If rate limiting is disabled, pass through
+        if not enabled:
             return cast(Response, await call_next(request))
 
         # Get client identifier (IP or API key)
@@ -46,19 +94,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.clients[client_id] = [
             timestamp
             for timestamp in self.clients[client_id]
-            if timestamp > now - self.period
+            if timestamp > now - period_seconds
         ]
 
         # Check if limit exceeded
-        if len(self.clients[client_id]) >= self.calls:
+        if len(self.clients[client_id]) >= calls_limit:
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Rate limit exceeded"},
                 headers={
-                    "Retry-After": str(self.period),
-                    "X-RateLimit-Limit": str(self.calls),
+                    "Retry-After": str(period_seconds),
+                    "X-RateLimit-Limit": str(calls_limit),
                     "X-RateLimit-Remaining": "0",
-                    "X-RateLimit-Reset": str(int(now + self.period)),
+                    "X-RateLimit-Reset": str(int(now + period_seconds)),
                 },
             )
 
@@ -69,11 +117,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response: Response = await call_next(request)
 
         # Add rate limit headers
-        response.headers["X-RateLimit-Limit"] = str(self.calls)
+        response.headers["X-RateLimit-Limit"] = str(calls_limit)
         response.headers["X-RateLimit-Remaining"] = str(
-            self.calls - len(self.clients[client_id])
+            calls_limit - len(self.clients[client_id])
         )
-        response.headers["X-RateLimit-Reset"] = str(int(now + self.period))
+        response.headers["X-RateLimit-Reset"] = str(int(now + period_seconds))
 
         # Start cleanup task if not running
         if not self._cleanup_task:
@@ -97,7 +145,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def _periodic_cleanup(self) -> None:
         """Periodically clean up old entries."""
         while True:
-            await asyncio.sleep(self.period)
+            # Get current period from settings
+            _, period_seconds, _ = await self._get_settings(None)
+            await asyncio.sleep(period_seconds)
             now = time.time()
 
             # Clean up old entries
@@ -105,7 +155,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 self.clients[client_id] = [
                     timestamp
                     for timestamp in self.clients[client_id]
-                    if timestamp > now - self.period
+                    if timestamp > now - period_seconds
                 ]
 
                 # Remove empty entries

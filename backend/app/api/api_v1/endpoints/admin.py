@@ -11,6 +11,7 @@ from pydantic import BaseModel as PydanticBaseModel
 
 from app.api.dependencies import get_db, require_admin
 from app.models.oidc_settings import OIDCSettingsInDB
+from app.models.rate_limit_settings import RateLimitSettings
 from app.models.user import UserInDB, UserRole
 from app.schemas.oidc import (
     OIDCSettingsResponse,
@@ -19,6 +20,7 @@ from app.schemas.oidc import (
     OIDCTestConnectionResponse,
 )
 from app.services.oidc_service import oidc_service
+from app.services.rate_limit_service import RateLimitService
 from app.services.rolling_message_service import RollingMessageService
 from app.services.storage_metrics import StorageMetricsService
 from app.services.user import UserService
@@ -595,6 +597,113 @@ async def delete_oidc_settings(
     oidc_service._settings = None
 
     return {"message": f"Deleted {result.deleted_count} OIDC settings"}
+
+
+@router.get("/rate-limits")
+async def get_rate_limit_settings(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> RateLimitSettings:
+    """Get current rate limit settings."""
+    service = RateLimitService(db)
+    return await service.get_settings()
+
+
+@router.put("/rate-limits")
+async def update_rate_limit_settings(
+    settings: RateLimitSettings,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> RateLimitSettings:
+    """Update rate limit settings."""
+    service = RateLimitService(db)
+
+    # Convert settings to dict and remove metadata fields
+    updates = settings.dict(exclude={"updated_at", "updated_by"})
+
+    # Update settings with admin user info
+    updated_settings = await service.update_settings(
+        updates, updated_by=admin_user.username
+    )
+
+    return updated_settings
+
+
+@router.post("/rate-limits/reset")
+async def reset_rate_limit_settings(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, str]:
+    """Reset rate limit settings to defaults."""
+    # Delete existing settings
+    await db.settings.delete_one({"key": "rate_limits"})
+
+    # Get fresh defaults
+    service = RateLimitService(db)
+    await service.get_settings()  # This will create defaults
+
+    return {"message": "Rate limit settings reset to defaults"}
+
+
+@router.get("/rate-limits/usage")
+async def get_rate_limit_usage(
+    user_id: str | None = None,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, Any]:
+    """Get rate limit usage statistics for all users or a specific user."""
+    service = RateLimitService(db)
+
+    if user_id:
+        # Get usage for specific user
+        stats = await service.get_usage_stats(user_id)
+        return {"user_id": user_id, "usage": stats}
+
+    # Get usage for all users with recent activity
+    users = await db.users.find({}).to_list(100)
+    all_stats = []
+
+    for user in users:
+        user_id = str(user["_id"])
+        stats = await service.get_usage_stats(user_id)
+
+        # Only include users with some activity
+        if any(stat["current"] > 0 for stat in stats.values()):
+            all_stats.append(
+                {
+                    "user_id": user_id,
+                    "username": user.get("username", "Unknown"),
+                    "usage": stats,
+                }
+            )
+
+    return {"users": all_stats}
+
+
+@router.post("/rate-limits/reset-user/{user_id}")
+async def reset_user_rate_limits(
+    user_id: str,
+    limit_type: str | None = None,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, str]:
+    """Reset rate limits for a specific user."""
+    service = RateLimitService(db)
+
+    if limit_type:
+        # Validate limit type
+        valid_types = ["export", "import", "backup", "restore"]
+        if limit_type not in valid_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid limit type. Must be one of: {', '.join(valid_types)}",
+            )
+
+    await service.reset_user_limits(user_id, limit_type)
+
+    if limit_type:
+        return {"message": f"Reset {limit_type} rate limits for user {user_id}"}
+    return {"message": f"Reset all rate limits for user {user_id}"}
 
 
 class ProjectOwnershipTransfer(PydanticBaseModel):

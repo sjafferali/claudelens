@@ -18,6 +18,7 @@ from app.core.database import close_mongodb_connection, connect_to_mongodb, get_
 from app.core.db_init import initialize_database
 from app.core.exceptions import AuthenticationError, NotFoundError, ValidationError
 from app.core.logging import get_logger, setup_logging
+from app.middleware.forwarded_headers import ForwardedHeadersMiddleware
 from app.middleware.logging import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
@@ -63,6 +64,9 @@ app = FastAPI(
 )
 
 # Add middleware
+# IMPORTANT: ForwardedHeadersMiddleware must be added first to handle proxy headers
+app.add_middleware(ForwardedHeadersMiddleware)
+
 # IMPORTANT: SessionMiddleware must be added before OAuth initialization
 app.add_middleware(
     SessionMiddleware,

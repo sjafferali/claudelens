@@ -42,18 +42,48 @@ class RateLimitService:
         else:
             # Use defaults from config
             self._cached_settings = RateLimitSettings(
+                # HTTP rate limits
+                http_rate_limit_enabled=True,
+                http_calls_per_minute=500,
+                http_rate_limit_window_seconds=60,
+                # Ingestion limits
+                ingest_enabled=True,
+                ingest_rate_limit_per_hour=1000,
+                ingest_max_batch_size=1000,
+                ingest_max_file_size_mb=50,
+                # AI limits
+                ai_rate_limit_enabled=True,
+                ai_rate_limit_per_minute=getattr(
+                    settings, "AI_RATE_LIMIT_PER_MINUTE", 10
+                ),
+                ai_max_tokens=getattr(settings, "AI_MAX_TOKENS", 2000),
+                # Export/Import limits
                 export_limit_per_hour=settings.EXPORT_RATE_LIMIT_PER_HOUR,
                 import_limit_per_hour=settings.IMPORT_RATE_LIMIT_PER_HOUR,
+                # Backup/Restore limits
                 backup_limit_per_hour=settings.BACKUP_RATE_LIMIT_PER_HOUR,
                 restore_limit_per_hour=settings.RESTORE_RATE_LIMIT_PER_HOUR,
                 max_backup_size_gb=settings.BACKUP_MAX_SIZE_GB,
+                # File sizes
+                max_upload_size_mb=100,
+                max_export_size_mb=500,
+                # Pagination
+                max_page_size=100,
+                default_page_size=20,
+                # WebSocket limits
+                websocket_enabled=True,
+                websocket_max_connections_per_user=5,
+                websocket_message_rate_per_second=10,
+                # Search limits
+                search_rate_limit_per_minute=60,
+                search_max_results=1000,
+                # Analytics limits
+                analytics_rate_limit_per_minute=30,
+                analytics_max_date_range_days=365,
+                # Windows
                 rate_limit_window_hours=settings.RATE_LIMIT_WINDOW_HOURS,
-                max_upload_size_mb=100,  # Default 100 MB
-                max_export_size_mb=500,  # Default 500 MB
-                max_page_size=100,  # Default max 100 items per page
-                default_page_size=20,  # Default 20 items per page
-                rate_limiting_enabled=True,  # Enabled by default
-                updated_by="system",  # System initialization
+                rate_limiting_enabled=True,
+                updated_by="system",
             )
 
             # Save defaults to database
