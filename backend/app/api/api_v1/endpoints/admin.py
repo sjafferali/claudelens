@@ -903,8 +903,9 @@ async def list_projects_with_owners(
 ) -> Dict[str, Any]:
     """List all projects with their owner information (admin only)."""
 
-    # Aggregation pipeline to join projects with users
+    # Aggregation pipeline to join projects with users and calculate stats
     pipeline: List[Dict[str, Any]] = [
+        # Join with users to get owner info
         {
             "$lookup": {
                 "from": "users",
@@ -914,6 +915,19 @@ async def list_projects_with_owners(
             }
         },
         {"$unwind": {"path": "$owner", "preserveNullAndEmptyArrays": True}},
+        # Join with sessions to count sessions for this project
+        {
+            "$lookup": {
+                "from": "sessions",
+                "let": {"project_id": "$_id"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": ["$project_id", "$$project_id"]}}},
+                    {"$count": "count"},
+                ],
+                "as": "session_stats",
+            }
+        },
+        # Format the final output
         {
             "$project": {
                 "_id": 1,
@@ -921,7 +935,12 @@ async def list_projects_with_owners(
                 "path": 1,
                 "createdAt": 1,
                 "updatedAt": 1,
-                "stats": 1,
+                "stats": {
+                    "session_count": {
+                        "$ifNull": [{"$arrayElemAt": ["$session_stats.count", 0]}, 0]
+                    },
+                    "message_count": 0,  # Will be calculated separately due to rolling collections
+                },
                 "owner": {
                     "_id": "$owner._id",
                     "username": "$owner.username",
@@ -934,8 +953,30 @@ async def list_projects_with_owners(
         {"$limit": limit},
     ]
 
-    # Get projects with owners
+    # Get projects with owners and session counts
     projects = await db.projects.aggregate(pipeline).to_list(None)
+
+    # Now calculate message counts for each project
+    # We need to check all rolling message collections
+    all_collections = await db.list_collection_names()
+    message_collections = [c for c in all_collections if c.startswith("messages_")]
+
+    # Also check if there's a non-rolling messages collection
+    if "messages" in all_collections:
+        message_collections.append("messages")
+
+    # Calculate message counts per project
+    for project in projects:
+        project_id = project["_id"]
+        total_messages = 0
+
+        # Count messages across all message collections
+        for coll_name in message_collections:
+            count = await db[coll_name].count_documents({"project_id": project_id})
+            total_messages += count
+
+        # Update the message count in stats
+        project["stats"]["message_count"] = total_messages
 
     # Convert BSON types for JSON serialization
     projects = convert_bson_types(projects)
