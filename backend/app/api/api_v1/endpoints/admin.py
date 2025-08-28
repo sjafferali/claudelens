@@ -972,10 +972,21 @@ async def list_projects_with_owners(
         project_id = project["_id"]
         total_messages = 0
 
-        # Count messages across all message collections
-        for coll_name in message_collections:
-            count = await db[coll_name].count_documents({"project_id": project_id})
-            total_messages += count
+        # First get all session IDs for this project
+        # Note: Sessions have 'projectId' field (capital I)
+        sessions = await db.sessions.find(
+            {"projectId": project_id}, {"sessionId": 1}
+        ).to_list(None)
+
+        if sessions:
+            session_ids = [s["sessionId"] for s in sessions]
+
+            # Count messages across all message collections for these sessions
+            for coll_name in message_collections:
+                count = await db[coll_name].count_documents(
+                    {"sessionId": {"$in": session_ids}}
+                )
+                total_messages += count
 
         # Update the message count in stats
         project["stats"]["message_count"] = total_messages
