@@ -939,7 +939,9 @@ async def list_projects_with_owners(
                     "session_count": {
                         "$ifNull": [{"$arrayElemAt": ["$session_stats.count", 0]}, 0]
                     },
-                    "message_count": 0,  # Will be calculated separately due to rolling collections
+                    "message_count": {
+                        "$literal": 0
+                    },  # Will be calculated separately due to rolling collections
                 },
                 "owner": {
                     "_id": "$owner._id",
