@@ -1,7 +1,7 @@
 """Tests for the project service."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from bson import ObjectId
@@ -36,7 +36,17 @@ def mock_db():
 @pytest.fixture
 def project_service(mock_db):
     """Create a project service with mock database."""
-    return ProjectService(mock_db)
+    with patch("app.services.project.RollingMessageService") as mock_rolling:
+        # Create a mock instance for the rolling service
+        mock_rolling_instance = MagicMock()
+        mock_rolling_instance.count_documents = AsyncMock(return_value=0)
+        mock_rolling_instance.aggregate_across_collections = AsyncMock(return_value=[])
+        mock_rolling.return_value = mock_rolling_instance
+
+        service = ProjectService(mock_db)
+        # Make the mock instance accessible for tests
+        service.rolling_service = mock_rolling_instance
+        return service
 
 
 @pytest.fixture
@@ -95,7 +105,7 @@ class TestProjectService:
         # Mock stats
         mock_db.sessions.count_documents = AsyncMock(return_value=5)
         mock_db.sessions.distinct = AsyncMock(return_value=["session-1", "session-2"])
-        project_service.db.messages.count_documents = AsyncMock(return_value=20)
+        project_service.rolling_service.count_documents = AsyncMock(return_value=20)
 
         # Execute
         user_id = str(ObjectId())
@@ -139,7 +149,7 @@ class TestProjectService:
         mock_db.projects.find_one = AsyncMock(return_value=sample_project_data)
         mock_db.sessions.count_documents = AsyncMock(return_value=3)
         mock_db.sessions.distinct = AsyncMock(return_value=["session-1"])
-        project_service.db.messages.count_documents = AsyncMock(return_value=10)
+        project_service.rolling_service.count_documents = AsyncMock(return_value=10)
 
         # Execute
         user_id = str(ObjectId())
@@ -507,7 +517,7 @@ class TestProjectService:
         # Mock various counts
         mock_db.sessions.count_documents = AsyncMock(return_value=10)
         mock_db.sessions.distinct = AsyncMock(return_value=["s1", "s2", "s3"])
-        project_service.db.messages.count_documents = AsyncMock(return_value=50)
+        project_service.rolling_service.count_documents = AsyncMock(return_value=50)
 
         # Execute
         stats = await project_service._get_project_stats(user_id, project_id)
@@ -521,7 +531,7 @@ class TestProjectService:
         mock_db.sessions.distinct.assert_called_once_with(
             "sessionId", {"projectId": project_id}
         )
-        mock_db.messages.count_documents.assert_called_once_with(
+        project_service.rolling_service.count_documents.assert_called_once_with(
             {"sessionId": {"$in": ["s1", "s2", "s3"]}}
         )
 
@@ -596,7 +606,7 @@ class TestProjectService:
         # Mock session IDs
         mock_db.sessions.distinct = AsyncMock(return_value=session_ids)
 
-        # Mock aggregation result
+        # Mock aggregation result for rolling service
         agg_result = [
             {
                 "_id": None,
@@ -610,9 +620,9 @@ class TestProjectService:
             }
         ]
 
-        mock_agg = MagicMock()
-        mock_agg.to_list = AsyncMock(return_value=agg_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_agg)
+        project_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=agg_result
+        )
 
         # Execute
         stats = await project_service.get_project_statistics(user_id, project_id)
@@ -629,10 +639,12 @@ class TestProjectService:
         assert stats["first_message"] == datetime(2024, 1, 1, tzinfo=UTC)
         assert stats["last_message"] == datetime(2024, 1, 31, tzinfo=UTC)
 
-        # Verify aggregation pipeline
-        pipeline_call = mock_db.messages.aggregate.call_args[0][0]
+        # Verify aggregation was called on rolling service
+        project_service.rolling_service.aggregate_across_collections.assert_called_once()
+        pipeline_call = (
+            project_service.rolling_service.aggregate_across_collections.call_args[0][0]
+        )
         assert pipeline_call[0]["$match"]["sessionId"]["$in"] == session_ids
-        # No longer filtering by user_id in messages
 
     @pytest.mark.asyncio
     async def test_get_project_statistics_no_messages(self, project_service, mock_db):
@@ -647,10 +659,10 @@ class TestProjectService:
         # Mock no session IDs
         mock_db.sessions.distinct = AsyncMock(return_value=[])
 
-        # Mock empty aggregation result
-        mock_agg = MagicMock()
-        mock_agg.to_list = AsyncMock(return_value=[])
-        mock_db.messages.aggregate = MagicMock(return_value=mock_agg)
+        # Mock empty aggregation result from rolling service
+        project_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         # Execute
         stats = await project_service.get_project_statistics(user_id, project_id)
@@ -684,7 +696,7 @@ class TestProjectService:
         assert stats is None
         # Should not proceed to query sessions or messages
         mock_db.sessions.distinct.assert_not_called()
-        mock_db.messages.aggregate.assert_not_called()
+        project_service.rolling_service.aggregate_across_collections.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_get_project_statistics_with_decimal128_cost(
@@ -704,7 +716,7 @@ class TestProjectService:
         # Mock session IDs
         mock_db.sessions.distinct = AsyncMock(return_value=session_ids)
 
-        # Mock aggregation result with Decimal128
+        # Mock aggregation result with Decimal128 from rolling service
         agg_result = [
             {
                 "_id": None,
@@ -718,9 +730,9 @@ class TestProjectService:
             }
         ]
 
-        mock_agg = MagicMock()
-        mock_agg.to_list = AsyncMock(return_value=agg_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_agg)
+        project_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=agg_result
+        )
 
         # Execute
         stats = await project_service.get_project_statistics(user_id, project_id)
@@ -747,20 +759,22 @@ class TestProjectService:
         # Mock session IDs
         mock_db.sessions.distinct = AsyncMock(return_value=session_ids)
 
-        # Mock aggregation
-        mock_agg = MagicMock()
-        mock_agg.to_list = AsyncMock(return_value=[])
-        mock_db.messages.aggregate = MagicMock(return_value=mock_agg)
+        # Mock aggregation from rolling service
+        project_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         # Execute
         await project_service.get_project_statistics(user_id, project_id)
 
         # Assert pipeline structure
-        pipeline = mock_db.messages.aggregate.call_args[0][0]
+        project_service.rolling_service.aggregate_across_collections.assert_called_once()
+        pipeline = (
+            project_service.rolling_service.aggregate_across_collections.call_args[0][0]
+        )
 
         # Check $match stage
         assert pipeline[0]["$match"]["sessionId"]["$in"] == session_ids
-        # No longer filtering by user_id in messages
 
         # Check $group stage
         group_stage = pipeline[1]["$group"]

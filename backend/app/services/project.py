@@ -8,6 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.models.project import ProjectInDB, ProjectStats, PyObjectId
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectWithStats
+from app.services.rolling_message_service import RollingMessageService
 
 
 class ProjectService:
@@ -15,6 +16,7 @@ class ProjectService:
 
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
+        self.rolling_service = RollingMessageService(db)
 
     async def list_projects(
         self,
@@ -207,7 +209,7 @@ class ProjectService:
             if total_sessions == 0:
                 message_count = 0
             else:
-                message_count = await self.db.messages.count_documents(
+                message_count = await self.rolling_service.count_documents(
                     {"sessionId": {"$in": session_ids}}
                 )
 
@@ -293,7 +295,7 @@ class ProjectService:
             "sessionId", {"projectId": project_id}
         )
 
-        # Aggregate statistics
+        # Aggregate statistics across rolling collections
         pipeline: list[dict[str, Any]] = [
             {"$match": {"sessionId": {"$in": session_ids}}},
             {
@@ -314,7 +316,16 @@ class ProjectService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        # Use rolling service to aggregate across collections
+        # Need to determine date range - use last 2 years as reasonable default
+        from datetime import timedelta
+
+        end_date = datetime.now(UTC)
+        start_date = end_date - timedelta(days=730)  # 2 years
+
+        result = await self.rolling_service.aggregate_across_collections(
+            pipeline, start_date, end_date
+        )
 
         if result:
             stats: dict[str, Any] = result[0]
@@ -346,8 +357,8 @@ class ProjectService:
 
         message_count = 0
         if session_ids:
-            # Messages may or may not have user_id field
-            message_count = await self.db.messages.count_documents(
+            # Use rolling service to count messages across all monthly collections
+            message_count = await self.rolling_service.count_documents(
                 {"sessionId": {"$in": session_ids}}
             )
 
