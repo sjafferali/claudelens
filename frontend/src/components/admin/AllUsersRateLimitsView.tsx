@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Users,
@@ -44,6 +44,24 @@ const UserUsageRow: React.FC<{
   onViewDetails: (userId: string) => void;
   onResetLimits: (userId: string) => void;
 }> = ({ user, onViewDetails, onResetLimits }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Handle click outside to close menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () =>
+        document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMenu]);
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'critical':
@@ -150,24 +168,37 @@ const UserUsageRow: React.FC<{
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
-          <div className="relative group">
-            <Button variant="ghost" size="sm" className="px-2">
+          <div className="relative" ref={menuRef}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2"
+              onClick={() => setShowMenu(!showMenu)}
+            >
               <MoreVertical className="w-4 h-4" />
             </Button>
-            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 z-10 hidden group-hover:block">
-              <button
-                onClick={() => onViewDetails(user.user_id)}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                View Details
-              </button>
-              <button
-                onClick={() => onResetLimits(user.user_id)}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Reset Limits
-              </button>
-            </div>
+            {showMenu && (
+              <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 z-10">
+                <button
+                  onClick={() => {
+                    onViewDetails(user.user_id);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  View Details
+                </button>
+                <button
+                  onClick={() => {
+                    onResetLimits(user.user_id);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Reset Limits
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </td>

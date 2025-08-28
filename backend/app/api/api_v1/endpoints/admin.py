@@ -748,7 +748,17 @@ async def get_top_users_by_usage(
     # Enhance with user details
     enhanced_users = []
     for user_data in top_users:
-        user = await db.users.find_one({"_id": user_data["_id"]})
+        # Try to convert _id to ObjectId if it's a valid ObjectId string
+        try:
+            user_id = ObjectId(user_data["_id"])
+            user = await db.users.find_one({"_id": user_id})
+        except Exception:
+            # If conversion fails, try as string (e.g., for API key users)
+            user = await db.users.find_one({"_id": user_data["_id"]})
+            if not user:
+                # Also try to find by username if _id is actually a username
+                user = await db.users.find_one({"username": user_data["_id"]})
+
         enhanced_users.append(
             {
                 "user_id": str(user_data["_id"]),

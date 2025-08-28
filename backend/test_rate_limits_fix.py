@@ -38,7 +38,12 @@ async def test_rate_limits():
 
     # Record some test requests
     print("\n1. Recording test requests...")
-    for limit_type in [RateLimitType.HTTP, RateLimitType.AI, RateLimitType.SEARCH]:
+    for limit_type in [
+        RateLimitType.HTTP,
+        RateLimitType.INGESTION,
+        RateLimitType.AI,
+        RateLimitType.SEARCH,
+    ]:
         for i in range(10):
             allowed = i < 8  # 80% success rate
             await service.record_request(
@@ -68,6 +73,7 @@ async def test_rate_limits():
     # Check each usage type
     usage_fields = [
         "http_usage",
+        "ingestion_usage",
         "ai_usage",
         "search_usage",
         "analytics_usage",

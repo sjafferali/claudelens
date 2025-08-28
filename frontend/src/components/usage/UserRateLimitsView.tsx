@@ -399,6 +399,16 @@ export const UserRateLimitsView: React.FC = () => {
           icon={icons.http}
         />
         <RateLimitCard
+          type="ingestion"
+          current={snapshot.ingestion_usage?.current || 0}
+          limit={snapshot.ingestion_usage?.limit || 'unlimited'}
+          remaining={snapshot.ingestion_usage?.remaining || 0}
+          percentage={snapshot.ingestion_usage?.percentage_used || 0}
+          resetInSeconds={snapshot.ingestion_usage?.reset_in_seconds}
+          blocked={snapshot.ingestion_usage?.blocked}
+          icon={icons.ingestion}
+        />
+        <RateLimitCard
           type="ai"
           current={snapshot.ai_usage?.current || 0}
           limit={snapshot.ai_usage?.limit || 'unlimited'}
