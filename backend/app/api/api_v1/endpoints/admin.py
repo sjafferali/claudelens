@@ -274,10 +274,16 @@ async def delete_user_cascade(
     }
 
 
+class ChangeRoleRequest(PydanticBaseModel):
+    """Request model for changing user role."""
+
+    new_role: UserRole
+
+
 @router.post("/users/{user_id}/change-role")
 async def change_user_role(
     user_id: str,
-    new_role: UserRole,
+    request: ChangeRoleRequest,
     db: AsyncIOMotorDatabase = Depends(get_db),
     admin_user: UserInDB = Depends(require_admin),
 ) -> Dict[str, Any]:
@@ -285,7 +291,7 @@ async def change_user_role(
     user_service = UserService(db)
     from app.models.user import UserUpdate
 
-    user = await user_service.update_user(user_id, UserUpdate(role=new_role))
+    user = await user_service.update_user(user_id, UserUpdate(role=request.new_role))
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
