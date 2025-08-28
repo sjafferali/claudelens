@@ -32,8 +32,17 @@ class SessionService:
         ).to_list(None)
         project_ids = [p["_id"] for p in user_projects]
 
-        # Filter sessions by user's projects
-        filter_dict["projectId"] = {"$in": project_ids}
+        # If no specific project filter is provided, filter by all user's projects
+        # If a specific project is provided, ensure it belongs to the user
+        if "projectId" in filter_dict:
+            # Verify the specified project belongs to the user
+            specified_project = filter_dict["projectId"]
+            if specified_project not in project_ids:
+                # Project doesn't belong to user, return empty result
+                return [], 0
+        else:
+            # No specific project filter, show all user's projects
+            filter_dict["projectId"] = {"$in": project_ids}
 
         # Remove any user_id filter that might have been passed
         filter_dict.pop("user_id", None)
@@ -275,9 +284,7 @@ class SessionService:
         try:
             if not ObjectId.is_valid(session_id):
                 return None
-            session_doc = await self.db.sessions.find_one(
-                {"_id": ObjectId(session_id), "user_id": ObjectId(user_id)}
-            )
+            session_doc = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
             if not session_doc:
                 return None
             actual_session_id = session_doc["sessionId"]
@@ -289,7 +296,6 @@ class SessionService:
             {
                 "sessionId": actual_session_id,
                 "uuid": message_uuid,
-                "user_id": ObjectId(user_id),
             }
         )
 
@@ -320,7 +326,6 @@ class SessionService:
                 {
                     "sessionId": actual_session_id,
                     "uuid": current_uuid,
-                    "user_id": ObjectId(user_id),
                 }
             )
             if not parent:

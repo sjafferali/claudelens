@@ -213,9 +213,15 @@ class AnalyticsService:
         if self.user_id:
             from bson import ObjectId
 
-            # Get user's session IDs
+            # Get user's projects first
+            user_projects = await self.db.projects.find(
+                {"user_id": ObjectId(self.user_id)}, {"_id": 1}
+            ).to_list(None)
+            project_ids = [p["_id"] for p in user_projects]
+
+            # Get sessions belonging to user's projects
             user_sessions = await self.db.sessions.find(
-                {"user_id": ObjectId(self.user_id)}, {"sessionId": 1}
+                {"projectId": {"$in": project_ids}}, {"sessionId": 1}
             ).to_list(None)
             session_ids = [s["sessionId"] for s in user_sessions]
             if session_ids:
@@ -2579,14 +2585,6 @@ class AnalyticsService:
 
         results = await self._aggregate_messages(pipeline)
 
-        # Get total count for percentage calculation
-        total_pipeline: list[dict[str, Any]] = [
-            {"$match": base_filter},
-            {"$count": "total"},
-        ]
-        total_result = await self._aggregate_messages(total_pipeline)
-        total_count = total_result[0]["total"] if total_result else 0
-
         bucket_labels = {
             0: "0-100",
             100: "100-500",
@@ -2598,11 +2596,18 @@ class AnalyticsService:
             "50000+": "50k+",
         }
 
+        # Calculate total from the actual bucket results to ensure consistency
+        total_count = sum(result["count"] for result in results)
+
         distribution = []
         for result in results:
             bucket_id = result["_id"]
             count = result["count"]
-            percentage = (count / total_count * 100) if total_count > 0 else 0
+            # Calculate percentage and ensure it's within valid range [0, 100]
+            if total_count > 0:
+                percentage = min(100.0, (count / total_count * 100))
+            else:
+                percentage = 0.0
 
             bucket_label = bucket_labels.get(bucket_id, str(bucket_id))
 
