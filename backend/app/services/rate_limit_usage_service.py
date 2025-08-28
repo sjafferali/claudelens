@@ -330,6 +330,12 @@ class RateLimitUsageService:
         # Different limit types have different time windows
         now = datetime.now(UTC)
 
+        # Get the settings updated_at timestamp to only count requests after settings changed
+        settings_updated_at = getattr(settings, "updated_at", None)
+        if settings_updated_at and settings_updated_at.tzinfo is None:
+            # Make sure settings_updated_at is timezone-aware
+            settings_updated_at = settings_updated_at.replace(tzinfo=UTC)
+
         # Calculate per-type usage from database
         per_type_usage = {}
         for limit_type in RateLimitType:
@@ -339,6 +345,18 @@ class RateLimitUsageService:
             # Calculate window start time
             window_start = now - timedelta(seconds=limit_window)
 
+            # Only count requests made after the rate limit was last changed
+            # Use the later of window_start or settings_updated_at
+            if settings_updated_at:
+                effective_start = max(window_start, settings_updated_at)
+                if effective_start != window_start:
+                    logger.debug(
+                        f"Rate limit for {limit_type.value} was updated at {settings_updated_at}. "
+                        f"Using effective start: {effective_start} instead of window start: {window_start}"
+                    )
+            else:
+                effective_start = window_start
+
             # Query database for usage in this window
             type_stats = await self.db.rate_limit_usage.aggregate(
                 [
@@ -346,7 +364,7 @@ class RateLimitUsageService:
                         "$match": {
                             "user_id": user_id,
                             "limit_type": limit_type.value,
-                            "timestamp": {"$gte": window_start},
+                            "timestamp": {"$gte": effective_start},
                         }
                     },
                     {
