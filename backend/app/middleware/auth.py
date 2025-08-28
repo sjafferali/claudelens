@@ -57,13 +57,22 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
             # Check for API key
             api_key = request.headers.get("X-API-Key")
+            print(
+                f"DEBUG: API Key present: {bool(api_key)}, Context user_id: {context.user_id}"
+            )
             if api_key and not context.user_id:
+                print(
+                    f"DEBUG: Processing API key authentication for key: {api_key[:12]}..."
+                )
                 db = await get_database()
                 user_id = await verify_tenant_from_api_key(api_key, db, request)
+                print(f"DEBUG: API key auth returned user_id: {user_id}")
                 # Re-get context to ensure it's properly set
                 context = await get_tenant_context(request)
+                print(f"DEBUG: After re-get, context.user_id: {context.user_id}")
                 # Also set user_id directly on request.state for other middleware
                 request.state.user_id = user_id
+                print(f"DEBUG: Set request.state.user_id: {request.state.user_id}")
 
             # Check for localhost access (development mode)
             if not context.user_id:
@@ -90,9 +99,14 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                         # Also set on request.state for other middleware
                         request.state.user_id = context.user_id
 
-        except Exception:
+        except Exception as e:
             # Don't block requests if authentication fails
             # The actual endpoints will handle authentication requirements
+            # Log the error for debugging
+            import traceback
+
+            print(f"AUTH ERROR: {e}")
+            print(f"Traceback: {traceback.format_exc()}")
             pass
 
         # Continue processing the request
