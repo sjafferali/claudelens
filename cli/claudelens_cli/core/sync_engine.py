@@ -1,15 +1,25 @@
 """Core sync engine for ClaudeLens CLI."""
 import asyncio
 import json
+import re
 from collections import defaultdict
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 import aiofiles
 import httpx
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
 from watchdog.events import DirModifiedEvent, FileModifiedEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
@@ -21,6 +31,16 @@ if TYPE_CHECKING:
     from watchdog.observers.api import BaseObserver
 
 console = Console()
+
+
+class ProjectInfo(TypedDict):
+    """Type definition for project information."""
+
+    path: Path
+    name: str
+    files: list[Path]
+    file_count: int
+    message_estimate: int
 
 
 class SyncStats:
@@ -79,6 +99,7 @@ class SyncEngine:
         debug: bool = False,
         overwrite_mode: bool = False,
         force: bool = False,
+        show_progress: bool = False,
     ):
         self.config = config
         self.state = state
@@ -88,6 +109,7 @@ class SyncEngine:
         self.debug = debug
         self.overwrite_mode = overwrite_mode
         self.force = force
+        self.show_progress = show_progress
 
     async def _get_http_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client."""
@@ -124,6 +146,14 @@ class SyncEngine:
             self._async_sync_once(project_filter, dry_run, progress_callback)
         )
 
+    def sync_once_with_progress(
+        self,
+        project_filter: Path | None = None,
+        dry_run: bool = False,
+    ) -> dict:
+        """Perform a one-time sync with detailed progress bars."""
+        return asyncio.run(self._async_sync_once_with_progress(project_filter, dry_run))
+
     async def _async_sync_once(
         self,
         project_filter: Path | None = None,
@@ -155,6 +185,203 @@ class SyncEngine:
 
         finally:
             await self._close_http_client()
+
+    async def _async_sync_once_with_progress(
+        self,
+        project_filter: Path | None = None,
+        dry_run: bool = False,
+    ) -> dict:
+        """Async implementation of one-time sync with detailed progress tracking."""
+        stats = SyncStats()
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            console=console,
+            refresh_per_second=2,
+        ) as progress:
+            try:
+                # Phase 1: Discovery - Calculate what needs to be synced
+                discovery_task = progress.add_task(
+                    "[cyan]Discovering projects...", total=None
+                )
+
+                # Find all projects
+                projects = await self._find_projects(project_filter)
+                stats.projects_scanned = len(projects)
+                progress.update(
+                    discovery_task,
+                    description=f"[green]Found {len(projects)} project(s)",
+                    completed=True,
+                )
+
+                if not projects:
+                    console.print("[yellow]No projects found to sync[/yellow]")
+                    return stats.to_dict()
+
+                # Phase 2: Pre-scan - Count files and estimate work
+                prescan_task = progress.add_task(
+                    "[cyan]Calculating changes...", total=len(projects)
+                )
+
+                project_info: list[ProjectInfo] = []
+                total_files = 0
+                total_messages_estimate = 0
+
+                for i, project_path in enumerate(projects):
+                    project_name = self._extract_project_name(project_path)
+                    jsonl_files = sorted(project_path.glob("*.jsonl"))
+
+                    # Quick estimate: count lines in files for message estimate
+                    message_count_estimate = 0
+                    for jsonl_file in jsonl_files:
+                        try:
+                            with open(jsonl_file, "rb") as f:
+                                # Count newlines for quick estimate
+                                message_count_estimate += sum(1 for _ in f)
+                        except Exception:
+                            pass
+
+                    info: ProjectInfo = {
+                        "path": project_path,
+                        "name": project_name,
+                        "files": list(jsonl_files),
+                        "file_count": len(jsonl_files),
+                        "message_estimate": message_count_estimate,
+                    }
+                    project_info.append(info)
+
+                    total_files += len(jsonl_files)
+                    total_messages_estimate += message_count_estimate
+
+                    progress.update(
+                        prescan_task,
+                        advance=1,
+                        description=f"[cyan]Scanning: {project_name}",
+                    )
+
+                progress.update(
+                    prescan_task,
+                    description=f"[green]Found {total_files} files with ~{total_messages_estimate} messages",
+                    completed=True,
+                )
+
+                # Phase 3: Processing - Actually sync the data
+                if total_files > 0:
+                    # Create main sync task
+                    sync_task = progress.add_task(
+                        f"[cyan]Syncing {total_files} file(s)...", total=total_files
+                    )
+
+                    # Create message processing task
+                    message_task = progress.add_task(
+                        "[cyan]Processing messages...",
+                        total=total_messages_estimate
+                        if total_messages_estimate > 0
+                        else None,
+                    )
+
+                    # Process each project with progress tracking
+                    for proj_info in project_info:
+                        project_path = proj_info["path"]
+                        project_name = proj_info["name"]
+
+                        # Update main task description
+                        progress.update(
+                            sync_task,
+                            description=f"[cyan]Syncing project: {project_name}",
+                        )
+
+                        # Custom progress callback for detailed tracking
+                        def create_progress_callback(
+                            file_count: int, msg_estimate: int
+                        ):
+                            files_processed = [0]
+                            messages_processed = [0]
+
+                            def callback(msg: str):
+                                # Parse progress messages to update bars
+                                if "Reading" in msg and "conversation files" in msg:
+                                    # Starting to read files
+                                    pass
+                                elif "Found" in msg and "unique messages" in msg:
+                                    # Finished reading, found messages
+                                    # Update file progress
+                                    if files_processed[0] < file_count:
+                                        progress.update(
+                                            sync_task,
+                                            advance=file_count - files_processed[0],
+                                        )
+                                        files_processed[0] = file_count
+                                elif "Processing" in msg and "sessions" in msg:
+                                    # Processing sessions
+                                    progress.update(
+                                        message_task, description=f"[cyan]{msg}"
+                                    )
+                                elif "Synced" in msg and "messages" in msg:
+                                    # Extract message count from "Synced X messages"
+                                    try:
+                                        match = re.search(r"Synced (\d+) messages", msg)
+                                        if match:
+                                            new_count = int(match.group(1))
+                                            advance = new_count - messages_processed[0]
+                                            if advance > 0:
+                                                progress.update(
+                                                    message_task, advance=advance
+                                                )
+                                                messages_processed[0] = new_count
+                                    except Exception:
+                                        pass
+
+                            return callback
+
+                        # Sync this project with progress tracking
+                        await self._sync_project_with_progress(
+                            project_path,
+                            stats,
+                            dry_run,
+                            create_progress_callback(
+                                proj_info["file_count"], proj_info["message_estimate"]
+                            ),
+                        )
+
+                        # Ensure files are marked as processed
+                        current = progress.tasks[sync_task].completed or 0
+                        target = current + proj_info["file_count"]
+                        if target > current:
+                            progress.update(sync_task, completed=target)
+
+                    # Complete the tasks
+                    progress.update(
+                        sync_task,
+                        description=f"[green]Synced {total_files} file(s)",
+                        completed=total_files,
+                    )
+                    progress.update(
+                        message_task,
+                        description=f"[green]Processed {stats.messages_synced + stats.messages_updated + stats.messages_skipped} messages",
+                        completed=True,
+                    )
+
+                return stats.to_dict()
+
+            finally:
+                await self._close_http_client()
+
+    async def _sync_project_with_progress(
+        self,
+        project_path: Path,
+        stats: SyncStats,
+        dry_run: bool,
+        progress_callback: Callable[[str], None] | None = None,
+    ):
+        """Sync a single project with progress tracking."""
+        # This is essentially the same as _sync_project but ensures we use the callback
+        await self._sync_project(project_path, stats, dry_run, progress_callback)
 
     async def _find_projects(self, project_filter: Path | None = None) -> list[Path]:
         """Find all Claude projects across all configured directories."""

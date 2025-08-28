@@ -86,8 +86,9 @@ from app.services.rolling_message_service import RollingMessageService
 class AnalyticsService:
     """Service for analytics operations."""
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncIOMotorDatabase, user_id: str | None = None):
         self.db = db
+        self.user_id = user_id
         self.rolling_service = RollingMessageService(db)
 
     def _safe_float(self, value: Any) -> float:
@@ -98,6 +99,14 @@ class AnalyticsService:
             # It's a Decimal128 object
             return float(str(value))
         return float(value)
+
+    def _add_user_filter(self, query: dict[str, Any]) -> dict[str, Any]:
+        """Add user_id filter to a query if user_id is set."""
+        if self.user_id:
+            from bson import ObjectId
+
+            query["user_id"] = ObjectId(self.user_id)
+        return query
 
     def _get_time_filter(self, time_range: TimeRange) -> dict[str, Any]:
         """Convert time range to MongoDB filter."""
@@ -199,6 +208,31 @@ class AnalyticsService:
     async def get_summary(self, time_range: TimeRange) -> AnalyticsSummary:
         """Get analytics summary optimized for dashboard performance."""
         time_filter = self._get_time_filter(time_range)
+
+        # Add user filter for messages by filtering to user's sessions
+        if self.user_id:
+            from bson import ObjectId
+
+            # Get user's session IDs
+            user_sessions = await self.db.sessions.find(
+                {"user_id": ObjectId(self.user_id)}, {"sessionId": 1}
+            ).to_list(None)
+            session_ids = [s["sessionId"] for s in user_sessions]
+            if session_ids:
+                time_filter["sessionId"] = {"$in": session_ids}
+            else:
+                # No sessions for this user, return empty stats
+                return AnalyticsSummary(
+                    total_messages=0,
+                    total_sessions=0,
+                    total_projects=0,
+                    total_cost=0.0,
+                    messages_trend=0,
+                    cost_trend=0,
+                    most_active_project=None,
+                    most_used_model=None,
+                    time_range=time_range,
+                )
 
         # Get current period stats and most active project in a single optimized query
         current_stats = await self._get_period_stats_with_project(time_filter)

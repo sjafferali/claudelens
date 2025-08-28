@@ -501,9 +501,7 @@ async def execute_import(
     user_id: AuthDeps,
 ) -> ExecuteImportResponse:
     """Execute the import with specified conflict resolution."""
-    # For now, allow anonymous imports similar to exports
-    # In production, this should be controlled by configuration
-    user_id = "anonymous"
+    # User ID comes from authentication
 
     # Check rate limit using the new service
     rate_limit_service = RateLimitService(db)
@@ -572,6 +570,7 @@ async def execute_import(
                 request.conflict_resolution,
                 request.options,
                 broadcast_import_progress,
+                user_id,
             )
         except Exception as e:
             logger.error(f"Error processing import job {job_id}: {e}")

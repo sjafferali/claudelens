@@ -27,7 +27,7 @@ async def search(
     message type, and model. Returns results with relevance scoring
     and optional highlighting.
     """
-    service = SearchService(db)
+    service = SearchService(db, user_id=user_id)
 
     # Validate request
     if not request.query.strip():
@@ -59,7 +59,7 @@ async def search_suggestions(
     Returns autocomplete suggestions from recent searches and
     common terms in the database.
     """
-    service = SearchService(db)
+    service = SearchService(db, user_id=user_id)
     return await service.get_suggestions(query, limit)
 
 
@@ -72,7 +72,7 @@ async def recent_searches(
     Returns the most recent searches performed, useful for
     quick access to common searches.
     """
-    service = SearchService(db)
+    service = SearchService(db, user_id=user_id)
     return await service.get_recent_searches(limit)
 
 
@@ -87,7 +87,7 @@ async def search_code(
 
     Optimized for searching code blocks with language-specific filtering.
     """
-    service = SearchService(db)
+    service = SearchService(db, user_id=user_id)
 
     # Add code-specific filtering
     if request.filters is None:
@@ -123,5 +123,5 @@ async def search_stats(db: CommonDeps, user_id: AuthDeps) -> dict[str, Any]:
     Returns information about search usage, popular queries,
     and search performance metrics.
     """
-    service = SearchService(db)
+    service = SearchService(db, user_id=user_id)
     return await service.get_search_stats()

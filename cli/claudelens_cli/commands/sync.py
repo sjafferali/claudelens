@@ -49,6 +49,11 @@ console = Console()
     "--api-url",
     help="ClaudeLens API URL (overrides environment variable and config file)",
 )
+@click.option(
+    "--progress",
+    is_flag=True,
+    help="Show detailed progress bars during sync",
+)
 def sync(
     watch: bool,
     project: Path,
@@ -59,6 +64,7 @@ def sync(
     overwrite: bool,
     api_key: str,
     api_url: str,
+    progress: bool,
 ):
     """Sync Claude conversations to ClaudeLens server.
 
@@ -94,6 +100,7 @@ def sync(
         debug=debug,
         overwrite_mode=overwrite,
         force=force,
+        show_progress=progress,
     )
 
     # Show current configuration
@@ -143,22 +150,32 @@ def sync(
             sync_engine.watch(project_filter=project, dry_run=dry_run)
         else:
             # One-time sync
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                console=console,
-            ) as progress:
-                task = progress.add_task("Syncing conversations...", total=None)
-
-                stats = sync_engine.sync_once(
+            if progress:
+                # Use detailed progress mode
+                stats = sync_engine.sync_once_with_progress(
                     project_filter=project,
                     dry_run=dry_run,
-                    progress_callback=lambda msg: progress.update(
-                        task, description=msg
-                    ),
                 )
+            else:
+                # Use simple spinner mode
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    console=console,
+                ) as progress_bar:
+                    task = progress_bar.add_task("Syncing conversations...", total=None)
 
-                progress.update(task, completed=True, description="Sync completed!")
+                    stats = sync_engine.sync_once(
+                        project_filter=project,
+                        dry_run=dry_run,
+                        progress_callback=lambda msg: progress_bar.update(
+                            task, description=msg
+                        ),
+                    )
+
+                    progress_bar.update(
+                        task, completed=True, description="Sync completed!"
+                    )
 
             # Show statistics
             _show_sync_stats(stats)

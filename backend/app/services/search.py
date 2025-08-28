@@ -22,8 +22,9 @@ logger = logging.getLogger(__name__)
 class SearchService:
     """Service for search operations."""
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncIOMotorDatabase, user_id: str | None = None):
         self.db = db
+        self.user_id = user_id
 
     async def search_messages(
         self,
@@ -142,6 +143,21 @@ class SearchService:
             ]
         )
 
+        # Add user filtering if user_id is provided
+        if self.user_id:
+            from bson import ObjectId
+
+            pipeline.append(
+                {
+                    "$match": {
+                        "$or": [
+                            {"session.user_id": ObjectId(self.user_id)},
+                            {"project.user_id": ObjectId(self.user_id)},
+                        ]
+                    }
+                }
+            )
+
         # Add filters AFTER joins
         if filters:
             filter_stage = self._build_filter_stage(filters)
@@ -166,26 +182,63 @@ class SearchService:
         # Text search
         pipeline.append({"$match": {"$text": {"$search": query}}})
 
-        # Need to join if we have project filters
-        if filters and filters.project_ids:
-            pipeline.extend(
-                [
+        # Need to join to filter by user or project
+        pipeline.extend(
+            [
+                {
+                    "$lookup": {
+                        "from": "sessions",
+                        "localField": "sessionId",
+                        "foreignField": "sessionId",
+                        "as": "session",
+                    }
+                },
+                {
+                    "$unwind": {
+                        "path": "$session",
+                        "preserveNullAndEmptyArrays": True,
+                    }
+                },
+            ]
+        )
+
+        # Add user filtering if user_id is provided
+        if self.user_id:
+            from bson import ObjectId
+
+            if filters and filters.project_ids:
+                # Also need to join with projects
+                pipeline.extend(
+                    [
+                        {
+                            "$lookup": {
+                                "from": "projects",
+                                "localField": "session.projectId",
+                                "foreignField": "_id",
+                                "as": "project",
+                            }
+                        },
+                        {
+                            "$unwind": {
+                                "path": "$project",
+                                "preserveNullAndEmptyArrays": True,
+                            }
+                        },
+                    ]
+                )
+                pipeline.append(
                     {
-                        "$lookup": {
-                            "from": "sessions",
-                            "localField": "sessionId",
-                            "foreignField": "sessionId",
-                            "as": "session",
+                        "$match": {
+                            "$or": [
+                                {"session.user_id": ObjectId(self.user_id)},
+                                {"project.user_id": ObjectId(self.user_id)},
+                            ]
                         }
-                    },
-                    {
-                        "$unwind": {
-                            "path": "$session",
-                            "preserveNullAndEmptyArrays": True,
-                        }
-                    },
-                ]
-            )
+                    }
+                )
+            else:
+                # Just filter by session user_id
+                pipeline.append({"$match": {"session.user_id": ObjectId(self.user_id)}})
 
         # Add filters
         if filters:
@@ -296,6 +349,21 @@ class SearchService:
             ]
         )
 
+        # Add user filtering if user_id is provided
+        if self.user_id:
+            from bson import ObjectId
+
+            pipeline.append(
+                {
+                    "$match": {
+                        "$or": [
+                            {"session.user_id": ObjectId(self.user_id)},
+                            {"project.user_id": ObjectId(self.user_id)},
+                        ]
+                    }
+                }
+            )
+
         # Add filters AFTER joins
         if filters:
             filter_stage = self._build_filter_stage(filters)
@@ -330,26 +398,63 @@ class SearchService:
             }
         )
 
-        # Need to join if we have project filters
-        if filters and filters.project_ids:
-            pipeline.extend(
-                [
+        # Need to join to filter by user or project
+        pipeline.extend(
+            [
+                {
+                    "$lookup": {
+                        "from": "sessions",
+                        "localField": "sessionId",
+                        "foreignField": "sessionId",
+                        "as": "session",
+                    }
+                },
+                {
+                    "$unwind": {
+                        "path": "$session",
+                        "preserveNullAndEmptyArrays": True,
+                    }
+                },
+            ]
+        )
+
+        # Add user filtering if user_id is provided
+        if self.user_id:
+            from bson import ObjectId
+
+            if filters and filters.project_ids:
+                # Also need to join with projects
+                pipeline.extend(
+                    [
+                        {
+                            "$lookup": {
+                                "from": "projects",
+                                "localField": "session.projectId",
+                                "foreignField": "_id",
+                                "as": "project",
+                            }
+                        },
+                        {
+                            "$unwind": {
+                                "path": "$project",
+                                "preserveNullAndEmptyArrays": True,
+                            }
+                        },
+                    ]
+                )
+                pipeline.append(
                     {
-                        "$lookup": {
-                            "from": "sessions",
-                            "localField": "sessionId",
-                            "foreignField": "sessionId",
-                            "as": "session",
+                        "$match": {
+                            "$or": [
+                                {"session.user_id": ObjectId(self.user_id)},
+                                {"project.user_id": ObjectId(self.user_id)},
+                            ]
                         }
-                    },
-                    {
-                        "$unwind": {
-                            "path": "$session",
-                            "preserveNullAndEmptyArrays": True,
-                        }
-                    },
-                ]
-            )
+                    }
+                )
+            else:
+                # Just filter by session user_id
+                pipeline.append({"$match": {"session.user_id": ObjectId(self.user_id)}})
 
         # Add filters
         if filters:
@@ -652,7 +757,7 @@ class SearchService:
         """Get search suggestions."""
         suggestions = []
 
-        # Get from recent searches
+        # Get from recent searches (TODO: filter by user when search_logs includes user_id)
         recent_searches = (
             await self.db.search_logs.find(
                 {"query": {"$regex": f"^{re.escape(partial_query)}", "$options": "i"}},
@@ -670,10 +775,16 @@ class SearchService:
                 )
             )
 
-        # Get project names
+        # Get project names filtered by user
+        project_query: dict[str, Any] = {
+            "name": {"$regex": f"^{re.escape(partial_query)}", "$options": "i"}
+        }
+        if self.user_id:
+            project_query["user_id"] = ObjectId(self.user_id)
+
         project_names = (
             await self.db.projects.find(
-                {"name": {"$regex": f"^{re.escape(partial_query)}", "$options": "i"}},
+                project_query,
                 {"name": 1},
             )
             .limit(limit // 4)
@@ -685,8 +796,24 @@ class SearchService:
                 SearchSuggestion(text=project["name"], type="project", count=None)
             )
 
-        # Get models
-        models = await self.db.messages.distinct("model")
+        # Get models - need to filter by user's sessions
+        if self.user_id:
+            # Get user's session IDs first
+            user_sessions = await self.db.sessions.find(
+                {"user_id": ObjectId(self.user_id)}, {"sessionId": 1}
+            ).to_list(None)
+            session_ids = [s["sessionId"] for s in user_sessions]
+
+            # Get distinct models from user's messages
+            if session_ids:
+                models = await self.db.messages.distinct(
+                    "model", {"sessionId": {"$in": session_ids}}
+                )
+            else:
+                models = []
+        else:
+            models = await self.db.messages.distinct("model")
+
         for model in models:
             if model and partial_query.lower() in model.lower():
                 suggestions.append(

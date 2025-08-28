@@ -115,7 +115,7 @@ class ExportService:
             Created export job
         """
         # Estimate size and duration based on filters
-        estimated_count = await self._estimate_conversation_count(filters)
+        estimated_count = await self._estimate_conversation_count(filters, user_id)
         estimated_size = self._estimate_file_size(format, estimated_count)
         estimated_duration = self._estimate_duration(estimated_count)
 
@@ -178,8 +178,10 @@ class ExportService:
         )
 
         try:
-            # Get session IDs based on filters
-            session_ids = await self._get_filtered_session_ids(export_job["filters"])
+            # Get session IDs based on filters and user_id from the job
+            session_ids = await self._get_filtered_session_ids(
+                export_job["filters"], export_job.get("user_id")
+            )
 
             # Initialize progress tracking in database
             initial_progress = {
@@ -758,10 +760,10 @@ class ExportService:
         return ""
 
     async def _estimate_conversation_count(
-        self, filters: Optional[Dict[str, Any]]
+        self, filters: Optional[Dict[str, Any]], user_id: Optional[str] = None
     ) -> int:
         """Estimate the number of conversations based on filters."""
-        query = self._build_filter_query(filters)
+        query = self._build_filter_query(filters, user_id)
         count = await self.db.sessions.count_documents(query)
         return count
 
@@ -783,12 +785,18 @@ class ExportService:
         # Roughly 100 conversations per second
         return max(1, count // 100)
 
-    def _build_filter_query(self, filters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    def _build_filter_query(
+        self, filters: Optional[Dict[str, Any]], user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Build MongoDB query from filters."""
-        if not filters:
-            return {}
-
         query: Dict[str, Any] = {}
+
+        # ALWAYS filter by user_id if provided
+        if user_id:
+            query["user_id"] = ObjectId(user_id)
+
+        if not filters:
+            return query
 
         # Date range filter
         if filters.get("dateRange"):
@@ -829,9 +837,9 @@ class ExportService:
         return query
 
     async def _get_filtered_session_ids(
-        self, filters: Optional[Dict[str, Any]]
+        self, filters: Optional[Dict[str, Any]], user_id: Optional[str] = None
     ) -> List[str]:
         """Get session IDs based on filters."""
-        query = self._build_filter_query(filters)
+        query = self._build_filter_query(filters, user_id)
         sessions = await self.db.sessions.find(query, {"_id": 1}).to_list(None)
         return [str(s["_id"]) for s in sessions]

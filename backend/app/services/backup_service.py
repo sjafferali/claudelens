@@ -221,7 +221,9 @@ class BackupService:
             )
 
             # Generate backup content
-            content_generator = self._stream_collections(request.filters)
+            # Get user_id from the job
+            user_id = job_doc.get("user_id")
+            content_generator = self._stream_collections(request.filters, user_id)
 
             # Set up compression if enabled
             options = request.options or BackupOptions(split_size_mb=100)
@@ -263,7 +265,7 @@ class BackupService:
                     f.write(chunk)
 
             # Get actual content counts
-            contents = await self._count_backup_contents(request.filters)
+            contents = await self._count_backup_contents(request.filters, user_id)
             checksum = checksum_calculator.hexdigest()
 
             # Update backup metadata with final info
@@ -356,7 +358,7 @@ class BackupService:
                 )
 
     async def _stream_collections(
-        self, filters: Optional[BackupFilters]
+        self, filters: Optional[BackupFilters], user_id: Optional[str] = None
     ) -> AsyncGenerator[bytes, None]:
         """
         Stream database collections as backup data.
@@ -382,8 +384,10 @@ class BackupService:
         for collection_name in collections:
             yield f'{{"collection":"{collection_name}","documents":['.encode("utf-8")
 
-            # Build query based on filters
-            query = await self._build_collection_query(collection_name, filters)
+            # Build query based on filters and user_id
+            query = await self._build_collection_query(
+                collection_name, filters, user_id
+            )
 
             # Stream documents in batches
             first_doc = True
@@ -401,13 +405,34 @@ class BackupService:
             yield b"]}\n"
 
     async def _build_collection_query(
-        self, collection_name: str, filters: Optional[BackupFilters]
+        self,
+        collection_name: str,
+        filters: Optional[BackupFilters],
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Build MongoDB query for collection based on filters."""
-        if not filters:
-            return {}
-
         query: Dict[str, Any] = {}
+
+        # ALWAYS filter by user_id if provided
+        if user_id:
+            # For collections that have user_id directly
+            if collection_name in ["projects", "sessions", "prompts", "ai_settings"]:
+                query["user_id"] = ObjectId(user_id)
+            # For messages, need to filter by sessions belonging to user
+            elif collection_name == "messages":
+                # Get user's session IDs
+                user_sessions = await self.db.sessions.find(
+                    {"user_id": ObjectId(user_id)}, {"sessionId": 1}
+                ).to_list(None)
+                session_ids = [s["sessionId"] for s in user_sessions]
+                if session_ids:
+                    query["sessionId"] = {"$in": session_ids}
+                else:
+                    # No sessions for this user, return impossible query
+                    query["_id"] = {"$exists": False}
+
+        if not filters:
+            return query
 
         # Date range filters
         if filters.date_range:
@@ -485,7 +510,7 @@ class BackupService:
         return serialized
 
     async def _count_backup_contents(
-        self, filters: Optional[BackupFilters]
+        self, filters: Optional[BackupFilters], user_id: Optional[str] = None
     ) -> Dict[str, int]:
         """Count documents that will be included in backup."""
         contents = {
@@ -506,7 +531,9 @@ class BackupService:
         }
 
         for collection_name, count_field in collections.items():
-            query = await self._build_collection_query(collection_name, filters)
+            query = await self._build_collection_query(
+                collection_name, filters, user_id
+            )
             count = await self.db[collection_name].count_documents(query)
             contents[count_field] = count
             contents["total_documents"] += count
@@ -731,7 +758,7 @@ class BackupService:
             return total_docs * 2048
 
         # For filtered backups, count specific documents
-        contents = await self._count_backup_contents(filters)
+        contents = await self._count_backup_contents(filters, user_id=None)
         return contents["total_documents"] * 2048
 
     def _estimate_duration(self, estimated_size: int) -> int:

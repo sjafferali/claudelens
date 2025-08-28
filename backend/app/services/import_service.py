@@ -457,6 +457,7 @@ class ImportService:
         conflict_resolution: Dict[str, Any],
         options: Optional[Dict[str, Any]] = None,
         progress_callback: Optional[Any] = None,
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Execute the import with conflict resolution.
@@ -468,6 +469,7 @@ class ImportService:
             conflict_resolution: Conflict resolution strategy
             options: Import options
             progress_callback: Optional callback for progress updates
+            user_id: Optional user ID for filtering
 
         Returns:
             Import statistics
@@ -515,6 +517,7 @@ class ImportService:
                         field_mapping,
                         conflict_resolution,
                         transaction,
+                        user_id,
                     )
 
                     statistics[result] += 1
@@ -614,6 +617,7 @@ class ImportService:
         field_mapping: Dict[str, str],
         conflict_resolution: Dict[str, Any],
         transaction: Optional[ImportTransaction],
+        user_id: Optional[str] = None,
     ) -> Literal["imported", "skipped", "replaced", "merged", "failed"]:
         """Import a single conversation."""
         # Map fields
@@ -656,7 +660,7 @@ class ImportService:
         else:
             # Import new conversation
             session_data = self._map_conversation_to_session(
-                conversation, field_mapping
+                conversation, field_mapping, user_id
             )
             result = await self.db.sessions.insert_one(session_data)
 
@@ -671,7 +675,9 @@ class ImportService:
 
         return "failed"
 
-    def _map_conversation_to_session(self, conv: Dict, field_mapping: Dict) -> Dict:
+    def _map_conversation_to_session(
+        self, conv: Dict, field_mapping: Dict, user_id: Optional[str] = None
+    ) -> Dict:
         """Map imported conversation to session model."""
         # Get summary and ensure it's a string (required by schema)
         summary = conv.get(field_mapping.get("summary", "summary"))
@@ -682,7 +688,7 @@ class ImportService:
         cost_value = conv.get("costUsd", conv.get("cost_usd", 0.0))
         total_cost = Decimal128(str(cost_value))
 
-        return {
+        session_data = {
             "sessionId": conv.get(field_mapping.get("id", "id"), str(ObjectId())),
             "projectId": ObjectId(conv.get("projectId"))
             if conv.get("projectId")
@@ -704,6 +710,12 @@ class ImportService:
             "createdAt": datetime.now(UTC),
             "updatedAt": datetime.now(UTC),
         }
+
+        # Add user_id if provided
+        if user_id:
+            session_data["user_id"] = ObjectId(user_id)
+
+        return session_data
 
     async def _import_messages(
         self, conv: Dict, session_id: str, field_mapping: Dict

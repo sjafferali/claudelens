@@ -51,7 +51,7 @@ async def get_analytics_summary(
     Returns high-level metrics including total messages, costs,
     active projects, and usage trends.
     """
-    service = AnalyticsService(db)
+    service = AnalyticsService(db, user_id=user_id)
     return await service.get_summary(time_range)
 
 
@@ -67,7 +67,7 @@ async def get_activity_heatmap(
     Returns message counts aggregated by hour and day of week,
     useful for visualizing usage patterns.
     """
-    service = AnalyticsService(db)
+    service = AnalyticsService(db, user_id=user_id)
     return await service.get_activity_heatmap(time_range, timezone)
 
 
@@ -84,7 +84,7 @@ async def get_cost_analytics(
     Returns cost data grouped by the specified time period,
     optionally filtered by project.
     """
-    service = AnalyticsService(db)
+    service = AnalyticsService(db, user_id=user_id)
     return await service.get_cost_analytics(time_range, group_by, project_id)
 
 
@@ -100,7 +100,7 @@ async def get_model_usage(
     Returns usage data for each Claude model including message counts,
     costs, and average response times.
     """
-    service = AnalyticsService(db)
+    service = AnalyticsService(db, user_id=user_id)
     return await service.get_model_usage(time_range, project_id)
 
 
@@ -115,7 +115,7 @@ async def get_token_usage(
 
     Returns input and output token counts over time.
     """
-    service = AnalyticsService(db)
+    service = AnalyticsService(db, user_id=user_id)
     return await service.get_token_usage(time_range, group_by)
 
 
@@ -135,7 +135,7 @@ async def compare_projects(
             status_code=400, detail="Please provide between 2 and 10 project IDs"
         )
 
-    service = AnalyticsService(db)
+    service = AnalyticsService(db, user_id=user_id)
     return await service.compare_projects(project_ids, time_range)
 
 
@@ -150,7 +150,7 @@ async def get_usage_trends(
 
     Analyzes trends and provides insights on usage patterns.
     """
-    service = AnalyticsService(db)
+    service = AnalyticsService(db, user_id=user_id)
     return await service.analyze_trends(time_range, metric)
 
 
@@ -166,7 +166,7 @@ async def get_tool_usage_summary(
 
     Returns total tool calls, unique tools count, and most used tool.
     """
-    service = AnalyticsService(db)
+    service = AnalyticsService(db, user_id=user_id)
     return await service.get_tool_usage_summary(session_id, project_id, time_range)
 
 
@@ -182,7 +182,7 @@ async def get_tool_usage_detailed(
 
     Returns individual tools with counts, percentages, categories, and last used timestamps.
     """
-    service = AnalyticsService(db)
+    service = AnalyticsService(db, user_id=user_id)
     return await service.get_tool_usage_detailed(session_id, project_id, time_range)
 
 
