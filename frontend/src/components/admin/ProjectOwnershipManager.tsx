@@ -229,8 +229,8 @@ export const ProjectOwnershipManager: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-center">
                       <div className="text-sm text-gray-600 dark:text-gray-400">
-                        <p>{project.stats.session_count} sessions</p>
-                        <p>{project.stats.message_count} messages</p>
+                        <p>{project.stats?.session_count || 0} sessions</p>
+                        <p>{project.stats?.message_count || 0} messages</p>
                       </div>
                     </td>
                     <td className="py-3 px-4 text-center">
