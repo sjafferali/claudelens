@@ -19,6 +19,7 @@ from app.schemas.oidc import (
     OIDCTestConnectionResponse,
 )
 from app.services.oidc_service import oidc_service
+from app.services.rolling_message_service import RollingMessageService
 from app.services.storage_metrics import StorageMetricsService
 from app.services.user import UserService
 
@@ -710,3 +711,161 @@ async def list_projects_with_owners(
     total = await db.projects.count_documents({})
 
     return {"items": projects, "total": total, "skip": skip, "limit": limit}
+
+
+# Rolling Collections Monitoring Endpoints
+
+
+@router.get("/collections/stats")
+async def get_collections_statistics(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, Any]:
+    """Get statistics about rolling message collections."""
+    rolling_service = RollingMessageService(db)
+    metrics = await rolling_service.get_storage_metrics()
+
+    # Add additional insights
+    collection_names = list(metrics["collections"].keys())
+
+    # Calculate growth trends if we have multiple collections
+    monthly_growth = []
+    if len(collection_names) > 1:
+        sorted_collections = sorted(collection_names)
+        for i in range(1, len(sorted_collections)):
+            prev_docs = metrics["collections"][sorted_collections[i - 1]]["documents"]
+            curr_docs = metrics["collections"][sorted_collections[i]]["documents"]
+            if prev_docs > 0:
+                growth_rate = ((curr_docs - prev_docs) / prev_docs) * 100
+            else:
+                growth_rate = 100 if curr_docs > 0 else 0
+
+            monthly_growth.append(
+                {
+                    "month": sorted_collections[i],
+                    "growth_rate": round(growth_rate, 2),
+                    "documents": curr_docs,
+                }
+            )
+
+    return {
+        "metrics": metrics,
+        "collection_count": len(collection_names),
+        "monthly_growth": monthly_growth,
+        "average_collection_size_mb": (
+            round(metrics["total_size_mb"] / len(collection_names), 2)
+            if collection_names
+            else 0
+        ),
+        "status": "healthy" if metrics["total_documents"] > 0 else "empty",
+    }
+
+
+@router.post("/collections/cleanup")
+async def cleanup_empty_collections(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, Any]:
+    """Remove empty message collections."""
+    rolling_service = RollingMessageService(db)
+    dropped_collections = await rolling_service.cleanup_empty_collections()
+
+    return {
+        "message": f"Cleaned up {len(dropped_collections)} empty collections",
+        "dropped_collections": dropped_collections,
+    }
+
+
+@router.get("/collections/list")
+async def list_message_collections(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, Any]:
+    """List all message collections with detailed information."""
+    collections = await db.list_collection_names()
+    message_collections = [c for c in collections if c.startswith("messages_")]
+
+    collection_details = []
+    for coll_name in sorted(message_collections):
+        stats = await db.command("collStats", coll_name)
+
+        # Get date range for collection
+        sample = await db[coll_name].find_one({}, {"timestamp": 1})
+
+        collection_details.append(
+            {
+                "name": coll_name,
+                "document_count": stats.get("count", 0),
+                "size_mb": round(stats.get("size", 0) / 1024 / 1024, 2),
+                "avg_doc_size": stats.get("avgObjSize", 0),
+                "index_count": len(stats.get("indexDetails", {})),
+                "index_size_mb": round(stats.get("totalIndexSize", 0) / 1024 / 1024, 2),
+                "oldest_message": sample.get("timestamp") if sample else None,
+            }
+        )
+
+    return {
+        "collections": collection_details,
+        "total_collections": len(collection_details),
+        "total_documents": sum(c["document_count"] for c in collection_details),
+        "total_size_mb": sum(c["size_mb"] for c in collection_details),
+    }
+
+
+@router.post("/collections/migrate")
+async def migrate_messages_to_rolling_collections(
+    limit: int = Query(1000, description="Number of messages to migrate per batch"),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, Any]:
+    """
+    Migrate existing messages from single collection to rolling collections.
+    This endpoint helps with the transition to the new rolling collections architecture.
+    """
+    rolling_service = RollingMessageService(db)
+
+    # Check if old messages collection exists
+    collections = await db.list_collection_names()
+    if "messages" not in collections:
+        return {"message": "No legacy messages collection found", "migrated": 0}
+
+    # Get a batch of messages from the old collection
+    old_messages = await db.messages.find({}).limit(limit).to_list(limit)
+
+    if not old_messages:
+        return {"message": "No messages to migrate", "migrated": 0}
+
+    # Migrate messages
+    migrated_count = 0
+    failed_count = 0
+
+    for msg in old_messages:
+        try:
+            # Remove _id to let MongoDB generate new one
+            msg_copy = msg.copy()
+            original_id = msg_copy.pop("_id")
+
+            # Insert into rolling collection
+            await rolling_service.insert_message(msg_copy)
+
+            # Delete from old collection
+            await db.messages.delete_one({"_id": original_id})
+
+            migrated_count += 1
+        except Exception as e:
+            failed_count += 1
+            # Log error but continue migration
+            import logging
+
+            logging.error(f"Failed to migrate message {msg.get('uuid')}: {e}")
+
+    # Check remaining messages
+    remaining = await db.messages.count_documents({})
+
+    return {
+        "message": "Migration batch completed",
+        "migrated": migrated_count,
+        "failed": failed_count,
+        "remaining_in_old_collection": remaining,
+        "migration_complete": remaining == 0,
+    }

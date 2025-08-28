@@ -205,9 +205,9 @@ class TestAnalyticsTimeSeriesBasic:
             {"_id": "2024-01-01 13:00:00", "tokens": [250, 180, 220], "count": 3},
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_results)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_results
+        )
 
         base_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
 
@@ -230,9 +230,9 @@ class TestAnalyticsTimeSeriesBasic:
         """Test token usage time series aggregation by day."""
         mock_results = [{"_id": "2024-01-01", "tokens": [500, 750, 600], "count": 3}]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_results)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_results
+        )
 
         base_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
 
@@ -253,9 +253,9 @@ class TestAnalyticsTimeSeriesBasic:
             {"_id": "claude-3-haiku", "tokens": [400, 500, 450], "count": 3},
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_results)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_results
+        )
 
         base_filter = {}
 
@@ -272,9 +272,9 @@ class TestAnalyticsTimeSeriesBasic:
     @pytest.mark.asyncio
     async def test_time_series_empty_results(self, analytics_service, mock_db):
         """Test time series functions with empty results."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=[])
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         base_filter = {}
 
@@ -290,9 +290,9 @@ class TestAnalyticsTimeSeriesBasic:
             {"_id": "2024-01-01 13:00:00", "tokens": [100, 200], "count": 2},
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_results)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_results
+        )
 
         base_filter = {}
 
@@ -314,9 +314,9 @@ class TestAnalyticsTimeSeriesBasic:
             }
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_results)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_results
+        )
 
         base_filter = {}
 
@@ -403,9 +403,9 @@ class TestAnalyticsAggregationBasic:
             }
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         time_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
 
@@ -419,9 +419,9 @@ class TestAnalyticsAggregationBasic:
     @pytest.mark.asyncio
     async def test_get_period_stats_empty_result(self, analytics_service, mock_db):
         """Test period statistics with empty results."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=[])
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         time_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
 
@@ -438,9 +438,9 @@ class TestAnalyticsAggregationBasic:
         # Mock result with missing facets
         mock_result = [{"messageCostStats": [], "sessionStats": [], "projectStats": []}]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         time_filter = {}
 
@@ -467,9 +467,9 @@ class TestAnalyticsAggregationBasic:
             }
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         time_filter = {}
 
@@ -513,9 +513,9 @@ class TestAnalyticsPerformanceMetrics:
             {"total_cost": 10.0, "total_messages": 100, "successful_operations": 95}
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         message_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
 
@@ -533,9 +533,9 @@ class TestAnalyticsPerformanceMetrics:
             {"total_cost": 0.0, "total_messages": 100, "successful_operations": 95}
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         message_filter = {}
 
@@ -548,9 +548,9 @@ class TestAnalyticsPerformanceMetrics:
         self, analytics_service, mock_db
     ):
         """Test cost efficiency with empty result."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=[])
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         message_filter = {}
 
@@ -564,9 +564,9 @@ class TestAnalyticsPerformanceMetrics:
         # Mock aggregation result - 1 second average response time
         mock_result = [{"avg_duration": 1000.0, "count": 50}]  # 1000ms = 1 second
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         message_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
 
@@ -583,9 +583,9 @@ class TestAnalyticsPerformanceMetrics:
         # Mock aggregation result - 10 seconds average response time
         mock_result = [{"avg_duration": 10000.0, "count": 50}]  # 10000ms = 10 seconds
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         message_filter = {}
 
@@ -597,9 +597,9 @@ class TestAnalyticsPerformanceMetrics:
     @pytest.mark.asyncio
     async def test_calculate_speed_score_empty_result(self, analytics_service, mock_db):
         """Test speed score with empty result."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=[])
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         message_filter = {}
 
@@ -612,9 +612,9 @@ class TestAnalyticsPerformanceMetrics:
         """Test speed score with zero count."""
         mock_result = [{"count": 0}]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         message_filter = {}
 
@@ -627,9 +627,9 @@ class TestAnalyticsPerformanceMetrics:
         """Test quality score with no errors."""
         mock_result = [{"total_messages": 100, "error_messages": 0}]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         message_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
 
@@ -644,9 +644,9 @@ class TestAnalyticsPerformanceMetrics:
         """Test quality score with some errors."""
         mock_result = [{"total_messages": 100, "error_messages": 5}]  # 5% error rate
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         message_filter = {}
 
@@ -660,9 +660,9 @@ class TestAnalyticsPerformanceMetrics:
         self, analytics_service, mock_db
     ):
         """Test quality score with empty result."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=[])
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         message_filter = {}
 
@@ -681,9 +681,9 @@ class TestAnalyticsPerformanceMetrics:
             }
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         message_filter = {"timestamp": {"$gte": datetime(2024, 1, 1)}}
 
@@ -707,9 +707,9 @@ class TestAnalyticsPerformanceMetrics:
             }
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         message_filter = {}
 
@@ -724,9 +724,9 @@ class TestAnalyticsPerformanceMetrics:
         self, analytics_service, mock_db
     ):
         """Test productivity score with empty result."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=[])
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         message_filter = {}
 
@@ -741,9 +741,9 @@ class TestAnalyticsPerformanceMetrics:
         """Test productivity score with zero sessions."""
         mock_result = [{"session_count": 0}]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=mock_result)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mock_result
+        )
 
         message_filter = {}
 

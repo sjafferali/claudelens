@@ -28,7 +28,27 @@ class TestAnalyticsServiceConversationFlow:
     @pytest.fixture
     def analytics_service(self, mock_db):
         """Create analytics service with mock database."""
-        return AnalyticsService(mock_db)
+        from unittest.mock import AsyncMock
+
+        from app.services.rolling_message_service import RollingMessageService
+
+        # Create rolling service with properly mocked methods
+        rolling_service = RollingMessageService(mock_db)
+
+        # Mock the database list_collection_names method
+        mock_db.list_collection_names = AsyncMock(return_value=["messages_2024_01"])
+
+        # Mock rolling service methods
+        rolling_service.get_collections_for_range = AsyncMock(
+            return_value=["messages_2024_01"]
+        )
+        rolling_service.find_messages = AsyncMock()
+        rolling_service.aggregate_across_collections = AsyncMock()
+
+        # Create analytics service with mocked rolling service
+        service = AnalyticsService(mock_db)
+        service.rolling_service = rolling_service
+        return service
 
     @pytest.fixture
     def sample_messages(self):
@@ -114,6 +134,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(sample_messages, len(sample_messages))
+        )
         result = await analytics_service.get_conversation_flow(session_id)
 
         # Verify result structure
@@ -196,6 +220,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=([], len([]))
+        )
         result = await analytics_service.get_conversation_flow(session_id)
 
         # Should return empty result with valid session_id
@@ -230,6 +258,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(non_sidechain_messages, len(non_sidechain_messages))
+        )
         result = await analytics_service.get_conversation_flow(
             session_id, include_sidechains=False
         )
@@ -294,6 +326,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(messages_with_tools, len(messages_with_tools))
+        )
         result = await analytics_service.get_conversation_flow(session_id)
 
         # Verify tool count is properly calculated
@@ -357,6 +393,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(messages_with_timing, len(messages_with_timing))
+        )
         result = await analytics_service.get_conversation_flow(session_id)
 
         # Verify average response time calculation: (1000 + 2000 + 3000) / 3 = 2000
@@ -450,6 +490,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(complex_messages, len(complex_messages))
+        )
         result = await analytics_service.get_conversation_flow(session_id)
 
         # Verify complex metrics
@@ -484,6 +528,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(sample_messages, len(sample_messages))
+        )
         result = await analytics_service.get_conversation_flow(str(object_id))
 
         # Should resolve ObjectId to sessionId and process normally
@@ -532,6 +580,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(edge_case_messages, len(edge_case_messages))
+        )
         result = await analytics_service.get_conversation_flow(session_id)
 
         # Should handle missing fields gracefully
@@ -616,6 +668,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(summary_messages, len(summary_messages))
+        )
         result = await analytics_service.get_conversation_flow(session_id)
 
         # Check summary generation
@@ -678,6 +734,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(cost_messages, len(cost_messages))
+        )
         result = await analytics_service.get_conversation_flow(session_id)
 
         # Verify cost is properly rounded to 2 decimal places
@@ -735,6 +795,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(orphan_messages, len(orphan_messages))
+        )
         result = await analytics_service.get_conversation_flow(session_id)
 
         # Should include both nodes but only valid edges
@@ -846,6 +910,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find_error
 
+        # Mock rolling service to raise error
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            side_effect=Exception("Database connection error")
+        )
         # Should raise the exception
         with pytest.raises(Exception, match="Database connection error"):
             await analytics_service.get_conversation_flow(session_id)
@@ -857,6 +925,10 @@ class TestAnalyticsServiceConversationFlow:
         """Test session resolution edge cases."""
         # Test with empty string
         mock_db.sessions.find_one = AsyncMock(return_value=None)
+        # Mock rolling service for edge case
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=([], 0)
+        )
         result = await analytics_service.get_conversation_flow("")
         assert result.session_id == ""
         assert len(result.nodes) == 0
@@ -898,6 +970,10 @@ class TestAnalyticsServiceConversationFlow:
 
         mock_db.messages.find = mock_find
 
+        # Mock rolling service to return messages
+        analytics_service.rolling_service.find_messages = AsyncMock(
+            return_value=(large_messages, len(large_messages))
+        )
         result = await analytics_service.get_conversation_flow(session_id)
 
         # Verify large conversation handling

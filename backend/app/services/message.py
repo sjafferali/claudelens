@@ -6,6 +6,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.schemas.message import Message, MessageDetail
+from app.services.rolling_message_service import RollingMessageService
 
 
 class MessageService:
@@ -13,6 +14,7 @@ class MessageService:
 
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
+        self.rolling_service = RollingMessageService(db)
 
     async def list_messages(
         self,
@@ -41,22 +43,13 @@ class MessageService:
         # Remove any user_id filter that might have been passed
         filter_dict.pop("user_id", None)
 
-        # Count total
-        total = await self.db.messages.count_documents(filter_dict)
-
-        # Build sort
-        sort_direction = 1 if sort_order == "asc" else -1
-
-        # Get messages
-        cursor = (
-            self.db.messages.find(filter_dict)
-            .sort("timestamp", sort_direction)
-            .skip(skip)
-            .limit(limit)
+        # Use rolling service for queries
+        docs, total = await self.rolling_service.find_messages(
+            filter_dict, skip, limit, sort_order
         )
 
         messages = []
-        async for doc in cursor:
+        for doc in docs:
             message_data = {
                 "_id": str(doc["_id"]),
                 "uuid": doc["uuid"],
@@ -77,7 +70,7 @@ class MessageService:
         if not ObjectId.is_valid(message_id):
             return None
 
-        doc = await self.db.messages.find_one({"_id": ObjectId(message_id)})
+        doc = await self.rolling_service.find_one({"_id": ObjectId(message_id)})
         if not doc:
             return None
 
@@ -98,7 +91,7 @@ class MessageService:
         self, user_id: str, uuid: str
     ) -> MessageDetail | None:
         """Get a message by its Claude UUID."""
-        doc = await self.db.messages.find_one({"uuid": uuid})
+        doc = await self.rolling_service.find_one({"uuid": uuid})
         if not doc:
             return None
 
@@ -123,9 +116,7 @@ class MessageService:
             return None
 
         # Get the target message
-        target = await self.db.messages.find_one(
-            {"_id": ObjectId(message_id), "user_id": ObjectId(user_id)}
-        )
+        target = await self.rolling_service.find_one({"_id": ObjectId(message_id)})
         if not target:
             return None
 
@@ -133,20 +124,18 @@ class MessageService:
         timestamp = target["timestamp"]
 
         # Get messages before
-        before_cursor = (
-            self.db.messages.find(
-                {
-                    "sessionId": session_id,
-                    "timestamp": {"$lt": timestamp},
-                    "user_id": ObjectId(user_id),
-                }
-            )
-            .sort("timestamp", -1)
-            .limit(before)
+        before_messages_docs, _ = await self.rolling_service.find_messages(
+            {
+                "sessionId": session_id,
+                "timestamp": {"$lt": timestamp},
+            },
+            skip=0,
+            limit=before,
+            sort_order="desc",
         )
 
         before_messages = []
-        async for doc in before_cursor:
+        for doc in before_messages_docs:
             before_messages.append(
                 Message(
                     _id=str(doc["_id"]),
@@ -165,20 +154,18 @@ class MessageService:
         before_messages.reverse()
 
         # Get messages after
-        after_cursor = (
-            self.db.messages.find(
-                {
-                    "sessionId": session_id,
-                    "timestamp": {"$gt": timestamp},
-                    "user_id": ObjectId(user_id),
-                }
-            )
-            .sort("timestamp", 1)
-            .limit(after)
+        after_messages_docs, _ = await self.rolling_service.find_messages(
+            {
+                "sessionId": session_id,
+                "timestamp": {"$gt": timestamp},
+            },
+            skip=0,
+            limit=after,
+            sort_order="asc",
         )
 
         after_messages = []
-        async for doc in after_cursor:
+        for doc in after_messages_docs:
             after_messages.append(
                 Message(
                     _id=str(doc["_id"]),
@@ -244,11 +231,11 @@ class MessageService:
                 return False
 
             # Now update without user_id filter
-            result = await self.db.messages.update_one(
+            result = await self.rolling_service.update_one(
                 {"_id": ObjectId(message_id)},
                 {"$set": {"costUsd": Decimal128(str(cost_usd))}},
             )
-            return result.modified_count > 0
+            return result  # rolling_service.update_one returns bool
         except Exception:
             return False
 
@@ -265,21 +252,18 @@ class MessageService:
             if not msg:
                 continue
 
-            result = await self.db.messages.update_one(
-                {"uuid": uuid},
-                {"$set": {"costUsd": Decimal128(str(cost))}},
+            result = await self.rolling_service.update_one(
+                {"uuid": uuid}, {"$set": {"costUsd": Decimal128(str(cost))}}
             )
-            if result.modified_count > 0:
+            if result:  # rolling_service.update_one returns bool
                 updated_count += 1
 
         # Update session total costs
         session_ids = set()
-        cursor = self.db.messages.find(
-            {"uuid": {"$in": list(cost_updates.keys())}},
-            {"sessionId": 1},
-        )
-        async for doc in cursor:
-            session_ids.add(doc["sessionId"])
+        for uuid in cost_updates.keys():
+            doc = await self.rolling_service.find_one({"uuid": uuid})
+            if doc:
+                session_ids.add(doc["sessionId"])
 
         # Update each session's total cost
         for session_id in session_ids:
@@ -300,6 +284,8 @@ class MessageService:
         if not project:
             return
 
+        from datetime import UTC, datetime, timedelta
+
         pipeline: list[dict[str, Any]] = [
             {"$match": {"sessionId": session_id}},
             {
@@ -310,7 +296,13 @@ class MessageService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        # Use a reasonable date range for aggregation
+        end_date = datetime.now(UTC)
+        start_date = end_date - timedelta(days=365)  # Look back 1 year
+
+        result = await self.rolling_service.aggregate_across_collections(
+            pipeline, start_date, end_date
+        )
         if result:
             # Handle Decimal128 from MongoDB aggregation
             total_cost_value = result[0]["totalCost"]

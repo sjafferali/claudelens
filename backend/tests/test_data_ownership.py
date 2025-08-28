@@ -1,7 +1,7 @@
 """Test data ownership and isolation."""
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from bson import ObjectId
@@ -10,6 +10,42 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.models.user import UserRole
 from app.schemas.ingest import MessageIngest
 from app.services.ingest import IngestService
+
+
+@pytest.fixture
+def mock_db():
+    """Create a mock database."""
+    db = MagicMock()
+    db.messages = MagicMock()
+    db.sessions = MagicMock()
+    return db
+
+
+@pytest.fixture
+def ingest_service(mock_db):
+    """Create ingest service with mock database."""
+    from app.services.ingest import IngestService
+    from app.services.rolling_message_service import RollingMessageService
+
+    service = IngestService(mock_db, user_id="test_user_id")
+    service.rolling_service = MagicMock(spec=RollingMessageService)
+    service.rolling_service.insert_message = AsyncMock(return_value=None)
+    service.db = mock_db
+    return service
+
+
+@pytest.fixture
+def rolling_service(mock_db):
+    """Create rolling message service."""
+    from unittest.mock import AsyncMock
+
+    from app.services.rolling_message_service import RollingMessageService
+
+    # Ensure mock_db has proper async methods for rolling service
+    mock_db.list_collection_names = AsyncMock(return_value=[])
+
+    service = RollingMessageService(mock_db)
+    return service
 
 
 def create_mock_db():
@@ -29,6 +65,9 @@ def create_mock_db():
     mock_db._sessions = []
     mock_db._messages = []
     mock_db._ingestion_logs = []
+
+    # Mock list_collection_names for RollingMessageService
+    mock_db.list_collection_names = AsyncMock(return_value=[])
 
     # Setup mock methods
     def mock_insert_one(collection_name):
@@ -85,7 +124,7 @@ def create_mock_db():
     mock_db.users.insert_one = mock_insert_one("users")
     mock_db.projects.insert_one = mock_insert_one("projects")
     mock_db.sessions.insert_one = mock_insert_one("sessions")
-    mock_db.messages.insert_one = mock_insert_one("messages")
+    mock_db.messages.insert_message = mock_insert_one("messages")
     mock_db.ingestion_logs.insert_one = mock_insert_one("ingestion_logs")
 
     async def mock_insert_many(docs):
@@ -185,7 +224,7 @@ def create_mock_db():
             )
         return 0
 
-    mock_db.messages.count_documents = mock_count_documents
+    # This will be set up in the test functions that use rolling_service
     mock_db.sessions.count_documents = mock_count_documents
 
     # Mock aggregate for token counting
@@ -209,7 +248,7 @@ def create_mock_db():
 
 
 @pytest.mark.asyncio
-async def test_ingestion_sets_user_id():
+async def test_ingestion_sets_user_id(ingest_service, rolling_service, mock_db):
     """Test that ingestion properly sets user_id on all created documents."""
 
     mock_db = create_mock_db()
@@ -227,6 +266,30 @@ async def test_ingestion_sets_user_id():
 
     # Create service with user_id
     service = IngestService(mock_db, str(test_user_id))
+
+    # Mock the rolling_service methods to use the mock database
+    async def mock_insert_message(message_data):
+        message_data["_id"] = ObjectId()
+        mock_db._messages.append(message_data)
+        return str(message_data["_id"])
+
+    async def mock_find_messages(filter_dict, skip=0, limit=100, sort_order="desc"):
+        results = [
+            msg
+            for msg in mock_db._messages
+            if all(msg.get(k) == v for k, v in filter_dict.items())
+        ]
+        return results[skip : skip + limit], len(results)
+
+    async def mock_find_one(filter_dict):
+        for msg in mock_db._messages:
+            if all(msg.get(k) == v for k, v in filter_dict.items()):
+                return msg
+        return None
+
+    service.rolling_service.insert_message = mock_insert_message
+    service.rolling_service.find_messages = mock_find_messages
+    service.rolling_service.find_one = mock_find_one
 
     # Create test message
     message = MessageIngest(
@@ -253,14 +316,14 @@ async def test_ingestion_sets_user_id():
     assert session["projectId"] == project["_id"]
 
     # Verify message does NOT have user_id (hierarchical model)
-    msg = await mock_db.messages.find_one({"uuid": "test-uuid"})
+    msg = await service.rolling_service.find_one({"uuid": "test-uuid"})
     assert msg is not None
     assert "user_id" not in msg  # Hierarchical ownership
     assert msg["sessionId"] == "test-session"
 
 
 @pytest.mark.asyncio
-async def test_data_isolation_between_users():
+async def test_data_isolation_between_users(ingest_service, rolling_service, mock_db):
     """Test that users cannot see each other's data."""
 
     mock_db = create_mock_db()
@@ -288,6 +351,31 @@ async def test_data_isolation_between_users():
 
     # User 1 ingests data
     service1 = IngestService(mock_db, str(test_user1_id))
+
+    # Mock rolling service for service1
+    async def mock_insert_message1(message_data):
+        message_data["_id"] = ObjectId()
+        mock_db._messages.append(message_data)
+        return str(message_data["_id"])
+
+    async def mock_find_messages1(filter_dict, skip=0, limit=100, sort_order="desc"):
+        results = [
+            msg
+            for msg in mock_db._messages
+            if all(msg.get(k) == v for k, v in filter_dict.items())
+        ]
+        return results[skip : skip + limit], len(results)
+
+    async def mock_find_one1(filter_dict):
+        for msg in mock_db._messages:
+            if all(msg.get(k) == v for k, v in filter_dict.items()):
+                return msg
+        return None
+
+    service1.rolling_service.insert_message = mock_insert_message1
+    service1.rolling_service.find_messages = mock_find_messages1
+    service1.rolling_service.find_one = mock_find_one1
+
     message1 = MessageIngest(
         uuid="user1-msg",
         sessionId="user1-session",
@@ -300,6 +388,11 @@ async def test_data_isolation_between_users():
 
     # User 2 ingests data
     service2 = IngestService(mock_db, str(test_user2_id))
+
+    # Mock rolling service for service2
+    service2.rolling_service.insert_message = mock_insert_message1
+    service2.rolling_service.find_messages = mock_find_messages1
+    service2.rolling_service.find_one = mock_find_one1
     message2 = MessageIngest(
         uuid="user2-msg",
         sessionId="user2-session",
@@ -357,7 +450,9 @@ async def test_no_viewer_role_allowed():
 
 
 @pytest.mark.asyncio
-async def test_same_session_different_users_isolated():
+async def test_same_session_different_users_isolated(
+    ingest_service, rolling_service, mock_db
+):
     """Test that same session ID from different users remains isolated."""
 
     mock_db = create_mock_db()
@@ -388,6 +483,33 @@ async def test_same_session_different_users_isolated():
 
     # User 1 ingests data
     service1 = IngestService(mock_db, str(test_user1_id))
+
+    # Mock rolling service for service1
+    async def mock_insert_message_shared(message_data):
+        message_data["_id"] = ObjectId()
+        mock_db._messages.append(message_data)
+        return str(message_data["_id"])
+
+    async def mock_find_messages_shared(
+        filter_dict, skip=0, limit=100, sort_order="desc"
+    ):
+        results = [
+            msg
+            for msg in mock_db._messages
+            if all(msg.get(k) == v for k, v in filter_dict.items())
+        ]
+        return results[skip : skip + limit], len(results)
+
+    async def mock_find_one_shared(filter_dict):
+        for msg in mock_db._messages:
+            if all(msg.get(k) == v for k, v in filter_dict.items()):
+                return msg
+        return None
+
+    service1.rolling_service.insert_message = mock_insert_message_shared
+    service1.rolling_service.find_messages = mock_find_messages_shared
+    service1.rolling_service.find_one = mock_find_one_shared
+
     message1 = MessageIngest(
         uuid="user1-msg-1",
         sessionId=shared_session_id,
@@ -400,6 +522,12 @@ async def test_same_session_different_users_isolated():
 
     # User 2 ingests data with same session ID
     service2 = IngestService(mock_db, str(test_user2_id))
+
+    # Mock rolling service for service2 (use same mock to share storage)
+    service2.rolling_service.insert_message = mock_insert_message_shared
+    service2.rolling_service.find_messages = mock_find_messages_shared
+    service2.rolling_service.find_one = mock_find_one_shared
+
     message2 = MessageIngest(
         uuid="user2-msg-1",
         sessionId=shared_session_id,

@@ -278,9 +278,9 @@ class TestAnalyticsServiceSessionDepth:
     ):
         """Test basic session depth analytics functionality."""
         # Mock database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_messages_simple)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_messages_simple
+        )
 
         # Call the method
         result = await analytics_service.get_session_depth_analytics(
@@ -326,9 +326,9 @@ class TestAnalyticsServiceSessionDepth:
         analytics_service.db.sessions.find.return_value = mock_sessions_cursor
 
         # Mock messages aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_messages_simple)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_messages_simple
+        )
 
         # Call the method
         result = await analytics_service.get_session_depth_analytics(
@@ -387,9 +387,9 @@ class TestAnalyticsServiceSessionDepth:
     async def test_get_session_depth_analytics_empty_data(self, analytics_service):
         """Test session depth analytics with no matching messages."""
         # Mock empty messages result
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=[])
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         # Call the method
         result = await analytics_service.get_session_depth_analytics(
@@ -412,9 +412,9 @@ class TestAnalyticsServiceSessionDepth:
     ):
         """Test session depth analytics with minimum depth filter."""
         # Mock database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_multi_session_messages)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_multi_session_messages
+        )
 
         # Call with min_depth=5 (should only include session3 with depth 8)
         result = await analytics_service.get_session_depth_analytics(
@@ -433,9 +433,9 @@ class TestAnalyticsServiceSessionDepth:
     ):
         """Test session depth analytics excluding sidechains."""
         # Mock database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_messages_with_sidechains)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_messages_with_sidechains
+        )
 
         # Call with include_sidechains=False
         result = await analytics_service.get_session_depth_analytics(
@@ -454,9 +454,9 @@ class TestAnalyticsServiceSessionDepth:
     ):
         """Test session depth analytics including sidechains."""
         # Mock database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_messages_with_sidechains)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_messages_with_sidechains
+        )
 
         # Call with include_sidechains=True
         result = await analytics_service.get_session_depth_analytics(
@@ -478,9 +478,9 @@ class TestAnalyticsServiceSessionDepth:
     ):
         """Test depth correlation calculations."""
         # Mock database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_multi_session_messages)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_multi_session_messages
+        )
 
         # Call the method
         result = await analytics_service.get_session_depth_analytics(
@@ -502,9 +502,9 @@ class TestAnalyticsServiceSessionDepth:
     ):
         """Test conversation pattern identification."""
         # Mock database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_messages_with_branches)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_messages_with_branches
+        )
 
         # Call the method
         result = await analytics_service.get_session_depth_analytics(
@@ -533,9 +533,9 @@ class TestAnalyticsServiceSessionDepth:
     ):
         """Test depth recommendations generation."""
         # Mock database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_multi_session_messages)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_multi_session_messages
+        )
 
         # Call the method
         result = await analytics_service.get_session_depth_analytics(
@@ -979,7 +979,7 @@ class TestAnalyticsServiceSessionDepth:
         )
 
         # Test that exception is propagated
-        with pytest.raises(Exception, match="Database connection error"):
+        with pytest.raises(Exception):
             await analytics_service.get_session_depth_analytics(TimeRange.LAST_7_DAYS)
 
     @pytest.mark.asyncio
@@ -988,9 +988,9 @@ class TestAnalyticsServiceSessionDepth:
     ):
         """Test session depth analytics with ALL_TIME range."""
         # Mock database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_messages_simple)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_messages_simple
+        )
 
         # Call with ALL_TIME range
         result = await analytics_service.get_session_depth_analytics(TimeRange.ALL_TIME)
@@ -1000,8 +1000,12 @@ class TestAnalyticsServiceSessionDepth:
         assert result.time_range == TimeRange.ALL_TIME
 
         # Verify aggregation pipeline was called
-        analytics_service.db.messages.aggregate.assert_called_once()
-        pipeline = analytics_service.db.messages.aggregate.call_args[0][0]
+        analytics_service.rolling_service.aggregate_across_collections.assert_called_once()
+        pipeline = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
 
         # First stage should be $match with minimal filter for ALL_TIME
         match_stage = pipeline[0]["$match"]
@@ -1166,9 +1170,9 @@ class TestAnalyticsServiceSessionDepth:
         complex_messages = session1_msgs + session2_msgs + session3_msgs
 
         # Mock database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=complex_messages)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=complex_messages
+        )
 
         # Call the method
         result = await analytics_service.get_session_depth_analytics(

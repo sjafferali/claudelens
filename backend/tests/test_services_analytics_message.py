@@ -26,8 +26,29 @@ class TestAnalyticsServiceMessageSimple:
 
     @pytest.fixture
     def analytics_service(self, mock_db):
-        """Create analytics service with mock database."""
-        return AnalyticsService(mock_db)
+        """Create analytics service with mock database and mocked rolling service."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        # Create a mock rolling service
+        mock_rolling = MagicMock()
+
+        # Set default mock behaviors
+        mock_rolling.find_messages = AsyncMock(return_value=([], 0))
+        mock_rolling.find_one = AsyncMock(return_value=None)
+        mock_rolling.aggregate_across_collections = AsyncMock(return_value=[])
+        mock_rolling.count_documents = AsyncMock(return_value=0)
+
+        # Patch the RollingMessageService import in analytics.py
+        with patch(
+            "app.services.analytics.RollingMessageService", return_value=mock_rolling
+        ):
+            # Create service (this will use the mocked RollingMessageService)
+            service = AnalyticsService(mock_db)
+
+            # Ensure rolling_service is our mock
+            service.rolling_service = mock_rolling
+
+            return service
 
     def test_analytics_service_initialization(self, mock_db):
         """Test that the analytics service initializes correctly."""
@@ -224,8 +245,29 @@ class TestAnalyticsServiceToolUsage:
 
     @pytest.fixture
     def analytics_service(self, mock_db):
-        """Create analytics service with mock database."""
-        return AnalyticsService(mock_db)
+        """Create analytics service with mock database and mocked rolling service."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        # Create a mock rolling service
+        mock_rolling = MagicMock()
+
+        # Set default mock behaviors
+        mock_rolling.find_messages = AsyncMock(return_value=([], 0))
+        mock_rolling.find_one = AsyncMock(return_value=None)
+        mock_rolling.aggregate_across_collections = AsyncMock(return_value=[])
+        mock_rolling.count_documents = AsyncMock(return_value=0)
+
+        # Patch the RollingMessageService import in analytics.py
+        with patch(
+            "app.services.analytics.RollingMessageService", return_value=mock_rolling
+        ):
+            # Create service (this will use the mocked RollingMessageService)
+            service = AnalyticsService(mock_db)
+
+            # Ensure rolling_service is our mock
+            service.rolling_service = mock_rolling
+
+            return service
 
     @pytest.fixture
     def sample_tool_usage_data(self):
@@ -260,9 +302,11 @@ class TestAnalyticsServiceToolUsage:
     ):
         """Test basic functionality of get_tool_usage_summary."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Mock the aggregation to return sample data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_tool_usage_data
+        )
 
         # Call the method
         result = await analytics_service.get_tool_usage_summary()
@@ -274,8 +318,12 @@ class TestAnalyticsServiceToolUsage:
         assert result.most_used_tool == "read_file"
 
         # Verify database was called correctly
-        analytics_service.db.messages.aggregate.assert_called_once()
-        call_args = analytics_service.db.messages.aggregate.call_args[0][0]
+        analytics_service.rolling_service.aggregate_across_collections.assert_called_once()
+        call_args = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
 
         # Verify pipeline structure
         assert isinstance(call_args, list)
@@ -295,9 +343,11 @@ class TestAnalyticsServiceToolUsage:
         )
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Mock the aggregation to return sample data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_tool_usage_data
+        )
 
         # Call the method
         result = await analytics_service.get_tool_usage_summary(
@@ -327,9 +377,11 @@ class TestAnalyticsServiceToolUsage:
         )
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Mock the aggregation to return sample data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_tool_usage_data
+        )
 
         # Call the method
         result = await analytics_service.get_tool_usage_summary(
@@ -369,7 +421,7 @@ class TestAnalyticsServiceToolUsage:
         assert result.most_used_tool is None
 
         # Verify database aggregation was not called
-        analytics_service.db.messages.aggregate.assert_not_called()
+        analytics_service.rolling_service.aggregate_across_collections.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_get_tool_usage_summary_empty_data(
@@ -379,7 +431,9 @@ class TestAnalyticsServiceToolUsage:
         # Mock the database aggregation to return empty results
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(return_value=empty_tool_usage_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=empty_tool_usage_data
+        )
 
         # Call the method
         result = await analytics_service.get_tool_usage_summary()
@@ -396,9 +450,11 @@ class TestAnalyticsServiceToolUsage:
     ):
         """Test basic functionality of get_tool_usage_detailed."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Mock the aggregation to return sample data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_tool_usage_data
+        )
 
         # Call the method
         result = await analytics_service.get_tool_usage_detailed()
@@ -437,9 +493,11 @@ class TestAnalyticsServiceToolUsage:
         )
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Mock the aggregation to return sample data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_tool_usage_data
+        )
 
         # Call the method
         result = await analytics_service.get_tool_usage_detailed(
@@ -470,9 +528,11 @@ class TestAnalyticsServiceToolUsage:
         )
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+
+        # Mock the aggregation to return sample data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_tool_usage_data
+        )
 
         # Call the method
         result = await analytics_service.get_tool_usage_detailed(
@@ -512,7 +572,7 @@ class TestAnalyticsServiceToolUsage:
         assert result.time_range == TimeRange.LAST_30_DAYS
 
         # Verify database aggregation was not called
-        analytics_service.db.messages.aggregate.assert_not_called()
+        analytics_service.rolling_service.aggregate_across_collections.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_get_tool_usage_detailed_empty_data(
@@ -520,9 +580,9 @@ class TestAnalyticsServiceToolUsage:
     ):
         """Test get_tool_usage_detailed with empty data."""
         # Mock the database aggregation to return empty results
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=empty_tool_usage_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=empty_tool_usage_data
+        )
 
         # Call the method
         result = await analytics_service.get_tool_usage_detailed()
@@ -547,9 +607,9 @@ class TestAnalyticsServiceToolUsage:
         ]
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_data
+        )
 
         # Call the method
         result = await analytics_service.get_tool_usage_detailed()
@@ -573,9 +633,9 @@ class TestAnalyticsServiceToolUsage:
         ]
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_data
+        )
 
         # Call the method
         result = await analytics_service.get_tool_usage_detailed()
@@ -592,19 +652,23 @@ class TestAnalyticsServiceToolUsage:
     ):
         """Test that aggregation pipeline has expected structure."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_tool_usage_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
 
         # Call both methods to test pipeline structure
         await analytics_service.get_tool_usage_summary()
         await analytics_service.get_tool_usage_detailed()
 
         # Verify aggregation was called twice
-        assert analytics_service.db.messages.aggregate.call_count == 2
+        assert (
+            analytics_service.rolling_service.aggregate_across_collections.call_count
+            == 2
+        )
 
         # Check pipeline structure for both calls
-        for call in analytics_service.db.messages.aggregate.call_args_list:
+        for (
+            call
+        ) in (
+            analytics_service.rolling_service.aggregate_across_collections.call_args_list
+        ):
             pipeline = call[0][0]
             assert isinstance(pipeline, list)
             assert len(pipeline) > 0
@@ -628,6 +692,12 @@ class TestAnalyticsServiceToolUsage:
         )
 
         # Test that exceptions are propagated (or handled gracefully if that's the design)
+
+        # Mock aggregation error
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            side_effect=Exception("Database error")
+        )
+
         with pytest.raises(Exception, match="Database error"):
             await analytics_service.get_tool_usage_summary()
 
@@ -647,7 +717,9 @@ class TestAnalyticsServiceToolUsage:
         # Mock the database aggregation
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(return_value=sample_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_data
+        )
 
         # Test summary (should include all counts in total)
         summary_result = await analytics_service.get_tool_usage_summary()
@@ -656,7 +728,9 @@ class TestAnalyticsServiceToolUsage:
 
         # Reset mock for detailed test
         analytics_service.db.messages.aggregate.reset_mock()
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_data
+        )
 
         # Test detailed (should only include valid tool names in tools list)
         detailed_result = await analytics_service.get_tool_usage_detailed()

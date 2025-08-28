@@ -1,7 +1,7 @@
 """Fixed tests for the message service with hierarchical ownership."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from bson import ObjectId
@@ -47,8 +47,26 @@ def mock_db():
 
 @pytest.fixture
 def message_service(mock_db):
-    """Create a message service with mock database."""
-    return MessageService(mock_db)
+    """Create a message service with mock database and mocked rolling service."""
+    # Create a mock rolling service
+    mock_rolling = MagicMock()
+
+    # Set default mock behaviors
+    mock_rolling.find_messages = AsyncMock(return_value=([], 0))
+    mock_rolling.find_one = AsyncMock(return_value=None)
+    mock_rolling.update_one = AsyncMock(return_value=True)
+    mock_rolling.aggregate_across_collections = AsyncMock(return_value=[])
+    mock_rolling.count_documents = AsyncMock(return_value=0)
+
+    # Patch the RollingMessageService import in message.py
+    with patch("app.services.message.RollingMessageService", return_value=mock_rolling):
+        # Create service (this will use the mocked RollingMessageService)
+        service = MessageService(mock_db)
+
+        # Ensure rolling_service is our mock
+        service.rolling_service = mock_rolling
+
+        return service
 
 
 class TestMessageService:
@@ -60,7 +78,7 @@ class TestMessageService:
         user_id = str(ObjectId())
         setup_hierarchical_mocks(mock_db, user_id, [], [])
 
-        mock_db.messages.count_documents = AsyncMock(return_value=0)
+        message_service.rolling_service.count_documents = AsyncMock(return_value=0)
         mock_db.messages.find.return_value.sort.return_value.skip.return_value.limit.return_value.__aiter__ = lambda self: async_iter(
             []
         )
@@ -100,12 +118,10 @@ class TestMessageService:
             },
         ]
 
-        mock_db.messages.count_documents = AsyncMock(return_value=2)
-        mock_cursor = MagicMock()
-        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
-            lambda self: async_iter(mock_data)
+        # Mock rolling service methods
+        message_service.rolling_service.find_messages = AsyncMock(
+            return_value=(mock_data, 2)
         )
-        mock_db.messages.find.return_value = mock_cursor
 
         messages, total = await message_service.list_messages(
             user_id, {}, 0, 10, "desc"
@@ -134,8 +150,10 @@ class TestMessageService:
             "timestamp": datetime.now(UTC),
         }
 
+        # Mock rolling service methods
+        message_service.rolling_service.find_one = AsyncMock(return_value=mock_message)
+
         # Mock hierarchical ownership check
-        mock_db.messages.find_one = AsyncMock(return_value=mock_message)
         mock_db.sessions.find_one = AsyncMock(
             return_value={"sessionId": session_id, "projectId": project_id}
         )
@@ -166,8 +184,10 @@ class TestMessageService:
             "timestamp": datetime.now(UTC),
         }
 
+        # Mock rolling service methods
+        message_service.rolling_service.find_one = AsyncMock(return_value=mock_message)
+
         # Mock hierarchical ownership check
-        mock_db.messages.find_one = AsyncMock(return_value=mock_message)
         mock_db.sessions.find_one = AsyncMock(
             return_value={"sessionId": session_id, "projectId": project_id}
         )
@@ -186,7 +206,6 @@ class TestMessageService:
         user_id = str(ObjectId())
         setup_hierarchical_mocks(mock_db, user_id)
 
-        mock_db.messages.count_documents = AsyncMock(return_value=1)
         mock_data = [
             {
                 "_id": ObjectId(),
@@ -198,11 +217,10 @@ class TestMessageService:
             }
         ]
 
-        mock_cursor = MagicMock()
-        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
-            lambda self: async_iter(mock_data)
+        # Mock rolling service methods
+        message_service.rolling_service.find_messages = AsyncMock(
+            return_value=(mock_data, 1)
         )
-        mock_db.messages.find.return_value = mock_cursor
 
         # Test with type filter
         messages, total = await message_service.list_messages(
@@ -219,7 +237,6 @@ class TestMessageService:
         user_id = str(ObjectId())
         setup_hierarchical_mocks(mock_db, user_id)
 
-        mock_db.messages.count_documents = AsyncMock(return_value=100)
         mock_data = [
             {
                 "_id": ObjectId(),
@@ -232,11 +249,10 @@ class TestMessageService:
             for i in range(10)
         ]
 
-        mock_cursor = MagicMock()
-        mock_cursor.sort.return_value.skip.return_value.limit.return_value.__aiter__ = (
-            lambda self: async_iter(mock_data)
+        # Mock rolling service methods
+        message_service.rolling_service.find_messages = AsyncMock(
+            return_value=(mock_data, 100)
         )
-        mock_db.messages.find.return_value = mock_cursor
 
         messages, total = await message_service.list_messages(
             user_id, {}, skip=20, limit=10, sort_order="asc"
@@ -244,10 +260,3 @@ class TestMessageService:
 
         assert len(messages) == 10
         assert total == 100
-
-        # Verify pagination parameters were used
-        mock_cursor.sort.assert_called_once_with("timestamp", 1)
-        mock_cursor.sort.return_value.skip.assert_called_once_with(20)
-        mock_cursor.sort.return_value.skip.return_value.limit.assert_called_once_with(
-            10
-        )

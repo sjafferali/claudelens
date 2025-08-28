@@ -95,7 +95,7 @@ class TestProjectService:
         # Mock stats
         mock_db.sessions.count_documents = AsyncMock(return_value=5)
         mock_db.sessions.distinct = AsyncMock(return_value=["session-1", "session-2"])
-        mock_db.messages.count_documents = AsyncMock(return_value=20)
+        project_service.db.messages.count_documents = AsyncMock(return_value=20)
 
         # Execute
         user_id = str(ObjectId())
@@ -139,7 +139,7 @@ class TestProjectService:
         mock_db.projects.find_one = AsyncMock(return_value=sample_project_data)
         mock_db.sessions.count_documents = AsyncMock(return_value=3)
         mock_db.sessions.distinct = AsyncMock(return_value=["session-1"])
-        mock_db.messages.count_documents = AsyncMock(return_value=10)
+        project_service.db.messages.count_documents = AsyncMock(return_value=10)
 
         # Execute
         user_id = str(ObjectId())
@@ -507,7 +507,7 @@ class TestProjectService:
         # Mock various counts
         mock_db.sessions.count_documents = AsyncMock(return_value=10)
         mock_db.sessions.distinct = AsyncMock(return_value=["s1", "s2", "s3"])
-        mock_db.messages.count_documents = AsyncMock(return_value=50)
+        project_service.db.messages.count_documents = AsyncMock(return_value=50)
 
         # Execute
         stats = await project_service._get_project_stats(user_id, project_id)

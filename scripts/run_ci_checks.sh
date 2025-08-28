@@ -99,6 +99,8 @@ SKIP_SECURITY=false
 SKIP_DOCKER=true  # Skip Docker build by default
 QUICK=false
 AUTO_FIX=true  # Auto-fix is enabled by default
+FRONTEND_ONLY=false
+BACKEND_ONLY=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -134,6 +136,14 @@ while [[ $# -gt 0 ]]; do
       AUTO_FIX=false
       shift
       ;;
+    --frontend-only)
+      FRONTEND_ONLY=true
+      shift
+      ;;
+    --backend-only)
+      BACKEND_ONLY=true
+      shift
+      ;;
     -h|--help)
       echo "Usage: $0 [OPTIONS]"
       echo ""
@@ -146,6 +156,8 @@ while [[ $# -gt 0 ]]; do
       echo "  --quick           Run quick tests only (similar to PR checks)"
       echo "  --auto-fix        Automatically fix common issues (default: enabled)"
       echo "  --no-auto-fix     Disable automatic fixes"
+      echo "  --frontend-only   Run only frontend-related tests and checks"
+      echo "  --backend-only    Run only backend-related tests and checks (includes CLI)"
       echo "  -h, --help        Show this help message"
       exit 0
       ;;
@@ -157,9 +169,21 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Validate flags
+if [ "$FRONTEND_ONLY" = true ] && [ "$BACKEND_ONLY" = true ]; then
+    print_error "Cannot use both --frontend-only and --backend-only flags together"
+    exit 1
+fi
+
 # Main script
 print_section "ClaudeLens CI Checks"
-echo "This script runs all CI checks locally"
+if [ "$FRONTEND_ONLY" = true ]; then
+    echo "This script runs frontend CI checks locally"
+elif [ "$BACKEND_ONLY" = true ]; then
+    echo "This script runs backend CI checks locally"
+else
+    echo "This script runs all CI checks locally"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Check prerequisites
@@ -214,7 +238,7 @@ echo -e "${YELLOW}Ensuring pip is up to date...${NC}"
 python -m pip install --upgrade pip --quiet
 
 # Python Tests
-if [ "$SKIP_TESTS" = false ]; then
+if [ "$SKIP_TESTS" = false ] && [ "$FRONTEND_ONLY" = false ]; then
     print_section "Python Tests"
 
     # Backend tests
@@ -249,7 +273,7 @@ if [ "$SKIP_TESTS" = false ]; then
 fi
 
 # Frontend Tests
-if [ "$SKIP_TESTS" = false ]; then
+if [ "$SKIP_TESTS" = false ] && [ "$BACKEND_ONLY" = false ]; then
     print_section "Frontend Tests"
 
     cd "$PROJECT_ROOT/frontend"
@@ -267,7 +291,7 @@ if [ "$SKIP_TESTS" = false ]; then
 fi
 
 # Python Linting
-if [ "$SKIP_LINT" = false ]; then
+if [ "$SKIP_LINT" = false ] && [ "$FRONTEND_ONLY" = false ]; then
     print_section "Python Linting"
 
     # Install linting tools in CI virtual environment
@@ -328,7 +352,7 @@ if [ "$SKIP_LINT" = false ]; then
 fi
 
 # Frontend Linting
-if [ "$SKIP_LINT" = false ]; then
+if [ "$SKIP_LINT" = false ] && [ "$BACKEND_ONLY" = false ]; then
     print_section "Frontend Linting"
 
     cd "$PROJECT_ROOT/frontend"
@@ -391,8 +415,8 @@ if [ "$SKIP_SECURITY" = false ]; then
         echo "Install with: brew install trivy (macOS) or see https://github.com/aquasecurity/trivy"
     fi
 
-    # Python dependency check (only if not quick mode)
-    if [ "$QUICK" = false ]; then
+    # Python dependency check (only if not quick mode and not frontend-only)
+    if [ "$QUICK" = false ] && [ "$FRONTEND_ONLY" = false ]; then
         echo -e "\n${YELLOW}Python Dependency Security${NC}"
         python -m pip install --quiet pip-audit
 
@@ -405,8 +429,8 @@ if [ "$SKIP_SECURITY" = false ]; then
         cd "$PROJECT_ROOT"
     fi
 
-    # npm audit (only if not quick mode)
-    if [ "$QUICK" = false ]; then
+    # npm audit (only if not quick mode and not backend-only)
+    if [ "$QUICK" = false ] && [ "$BACKEND_ONLY" = false ]; then
         echo -e "\n${YELLOW}npm Dependency Audit${NC}"
         cd "$PROJECT_ROOT/frontend"
         run_check "npm audit" "npm audit --json > npm-audit.json && ([ ! -s npm-audit.json ] || (cat npm-audit.json | jq -e '.vulnerabilities | length == 0'))"

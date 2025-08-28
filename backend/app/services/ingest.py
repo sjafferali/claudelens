@@ -14,6 +14,7 @@ from pymongo import ReplaceOne
 from app.schemas.ingest import IngestStats, MessageIngest
 from app.services.cost_calculation import CostCalculationService
 from app.services.realtime_integration import get_integration_service
+from app.services.rolling_message_service import RollingMessageService
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class IngestService:
         self.user_id = user_id
         self._project_cache: dict[str, ObjectId] = {}
         self._session_cache: dict[str, ObjectId] = {}
+        self.rolling_service = RollingMessageService(db)
 
     async def ingest_messages(
         self, messages: list[MessageIngest], overwrite_mode: bool = False
@@ -158,16 +160,22 @@ class IngestService:
                         )
 
                     try:
-                        bulk_result = await self.db.messages.bulk_write(operations)
-                        # Track inserts and updates separately
-                        stats.messages_processed += bulk_result.inserted_count
-                        stats.messages_updated += bulk_result.modified_count
+                        # Process operations one by one for rolling collections
+                        for op in operations:
+                            if hasattr(op, "_doc"):
+                                doc = op._doc
+                                if hasattr(op, "_filter"):  # ReplaceOne
+                                    success = await self.rolling_service.update_one(
+                                        dict(op._filter), {"$set": doc}
+                                    )
+                                    if success:
+                                        stats.messages_updated += 1
+                                else:  # InsertOne
+                                    await self.rolling_service.insert_message(dict(doc))
+                                    stats.messages_processed += 1
 
                         # Trigger real-time updates for new/updated messages
-                        if (
-                            bulk_result.inserted_count > 0
-                            or bulk_result.modified_count > 0
-                        ):
+                        if stats.messages_processed > 0 or stats.messages_updated > 0:
                             integration_service = get_integration_service(self.db)
                             for message in messages:
                                 if message.sessionId == session_id:
@@ -191,11 +199,15 @@ class IngestService:
                 else:
                     # Original insert behavior
                     try:
-                        insert_result = await self.db.messages.insert_many(new_messages)
-                        stats.messages_processed += len(insert_result.inserted_ids)
+                        # Insert messages one by one into rolling collections
+                        inserted_count = 0
+                        for msg in new_messages:
+                            await self.rolling_service.insert_message(msg)
+                            stats.messages_processed += 1
+                            inserted_count += 1
 
                         # Trigger real-time updates for new messages
-                        if len(insert_result.inserted_ids) > 0:
+                        if inserted_count > 0:
                             integration_service = get_integration_service(self.db)
                             for message in messages:
                                 if message.sessionId == session_id:
@@ -335,13 +347,16 @@ class IngestService:
 
     async def _get_existing_hashes(self, session_id: str) -> set[str]:
         """Get existing message hashes for a session."""
-        cursor = self.db.messages.find({"sessionId": session_id}, {"contentHash": 1})
-
+        # Get existing message hashes from rolling collections
+        docs, _ = await self.rolling_service.find_messages(
+            {"sessionId": session_id},
+            skip=0,
+            limit=10000,  # Reasonable limit for hash checking
+        )
         hashes = set()
-        async for doc in cursor:
-            if "contentHash" in doc:
+        for doc in docs:
+            if "contentHash" in doc and doc["contentHash"]:
                 hashes.add(doc["contentHash"])
-
         return hashes
 
     def _hash_message(self, message: MessageIngest) -> str:
@@ -862,7 +877,14 @@ class IngestService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        # Use rolling service for aggregation
+        from datetime import timedelta
+
+        end_date = datetime.now(UTC)
+        start_date = end_date - timedelta(days=365)  # Look back 1 year
+        result = await self.rolling_service.aggregate_across_collections(
+            pipeline, start_date, end_date
+        )
 
         if result:
             stats = result[0]
@@ -897,7 +919,7 @@ class IngestService:
                 session = await self.db.sessions.find_one({"sessionId": session_id})
                 if session and not session.get("summary"):
                     # First, try to find a summary in the messages
-                    message_with_summary = await self.db.messages.find_one(
+                    message_with_summary = await self.rolling_service.find_one(
                         {
                             "sessionId": session_id,
                             "summary": {"$exists": True, "$ne": None},

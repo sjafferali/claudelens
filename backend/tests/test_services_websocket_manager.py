@@ -388,7 +388,7 @@ class TestRealtimeStatsService:
         session_id = "test-session-123"
 
         # Mock database count
-        mock_db.messages.count_documents = AsyncMock(return_value=42)
+        stats_service.db.messages.count_documents = AsyncMock(return_value=42)
 
         await stats_service.update_message_count(session_id)
 
@@ -414,7 +414,7 @@ class TestRealtimeStatsService:
         session_id = "test-session-123"
 
         # Mock large count
-        mock_db.messages.count_documents = AsyncMock(return_value=1500)
+        stats_service.db.messages.count_documents = AsyncMock(return_value=1500)
 
         await stats_service.update_message_count(session_id)
 

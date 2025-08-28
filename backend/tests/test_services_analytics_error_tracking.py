@@ -100,7 +100,9 @@ class TestAnalyticsServiceErrorTracking:
     ):
         """Test basic functionality of get_detailed_errors."""
         # Mock database responses
-        mock_db.messages.aggregate.return_value.to_list.return_value = sample_error_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_error_data
+        )
 
         result = await analytics_service.get_detailed_errors()
 
@@ -109,7 +111,7 @@ class TestAnalyticsServiceErrorTracking:
         assert isinstance(result.error_summary, ErrorSummary)
 
         # Verify database was queried
-        mock_db.messages.aggregate.assert_called()
+        analytics_service.rolling_service.aggregate_across_collections.assert_called()
 
     @pytest.mark.asyncio
     async def test_get_detailed_errors_with_session_id(
@@ -120,7 +122,9 @@ class TestAnalyticsServiceErrorTracking:
 
         # Mock session resolution
         analytics_service._resolve_session_id = AsyncMock(return_value=session_id)
-        mock_db.messages.aggregate.return_value.to_list.return_value = sample_error_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_error_data
+        )
 
         result = await analytics_service.get_detailed_errors(session_id=session_id)
 
@@ -150,7 +154,9 @@ class TestAnalyticsServiceErrorTracking:
     ):
         """Test get_detailed_errors when no errors are found."""
         # Mock empty results
-        mock_db.messages.aggregate.return_value.to_list.return_value = []
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         result = await analytics_service.get_detailed_errors()
 
@@ -163,7 +169,9 @@ class TestAnalyticsServiceErrorTracking:
         self, analytics_service, mock_db, sample_error_data
     ):
         """Test get_detailed_errors with different time ranges."""
-        mock_db.messages.aggregate.return_value.to_list.return_value = sample_error_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_error_data
+        )
 
         time_ranges = [
             TimeRange.LAST_24_HOURS,
@@ -182,7 +190,9 @@ class TestAnalyticsServiceErrorTracking:
         self, analytics_service, mock_db, sample_error_data
     ):
         """Test get_detailed_errors with error severity filter."""
-        mock_db.messages.aggregate.return_value.to_list.return_value = sample_error_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_error_data
+        )
 
         result = await analytics_service.get_detailed_errors(error_severity="critical")
 
@@ -215,8 +225,8 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = (
-            error_data_no_tool_info
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=error_data_no_tool_info
         )
 
         result = await analytics_service.get_detailed_errors()
@@ -229,8 +239,8 @@ class TestAnalyticsServiceErrorTracking:
         self, analytics_service, mock_db, sample_aggregation_data
     ):
         """Test basic functionality of get_success_rate."""
-        mock_db.messages.aggregate.return_value.to_list.return_value = (
-            sample_aggregation_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_aggregation_data
         )
 
         result = await analytics_service.get_success_rate()
@@ -248,8 +258,8 @@ class TestAnalyticsServiceErrorTracking:
     ):
         """Test get_success_rate with specific session ID."""
         session_id = "test-session-123"
-        mock_db.messages.aggregate.return_value.to_list.return_value = (
-            sample_aggregation_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_aggregation_data
         )
 
         result = await analytics_service.get_success_rate(session_id=session_id)
@@ -259,7 +269,9 @@ class TestAnalyticsServiceErrorTracking:
     @pytest.mark.asyncio
     async def test_get_success_rate_no_operations(self, analytics_service, mock_db):
         """Test get_success_rate when no operations exist."""
-        mock_db.messages.aggregate.return_value.to_list.return_value = []
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         result = await analytics_service.get_success_rate()
 
@@ -280,8 +292,8 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = (
-            all_successful_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=all_successful_data
         )
 
         result = await analytics_service.get_success_rate()
@@ -302,7 +314,9 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = all_failed_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=all_failed_data
+        )
 
         result = await analytics_service.get_success_rate()
 
@@ -316,8 +330,8 @@ class TestAnalyticsServiceErrorTracking:
         self, analytics_service, mock_db, sample_aggregation_data
     ):
         """Test get_success_rate with different time ranges."""
-        mock_db.messages.aggregate.return_value.to_list.return_value = (
-            sample_aggregation_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_aggregation_data
         )
 
         time_ranges = [
@@ -347,7 +361,9 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = fractional_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=fractional_data
+        )
 
         result = await analytics_service.get_success_rate()
 
@@ -371,8 +387,8 @@ class TestAnalyticsServiceErrorTracking:
         self, analytics_service, mock_db, sample_session_health_data
     ):
         """Test basic functionality of get_session_health."""
-        mock_db.messages.aggregate.return_value.to_list.return_value = (
-            sample_session_health_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_session_health_data
         )
 
         result = await analytics_service.get_session_health()
@@ -389,8 +405,8 @@ class TestAnalyticsServiceErrorTracking:
     ):
         """Test get_session_health with specific session ID."""
         session_id = "test-session-123"
-        mock_db.messages.aggregate.return_value.to_list.return_value = (
-            sample_session_health_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_session_health_data
         )
 
         result = await analytics_service.get_session_health(session_id=session_id)
@@ -400,7 +416,9 @@ class TestAnalyticsServiceErrorTracking:
     @pytest.mark.asyncio
     async def test_get_session_health_no_operations(self, analytics_service, mock_db):
         """Test get_session_health when no operations exist."""
-        mock_db.messages.aggregate.return_value.to_list.return_value = []
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         result = await analytics_service.get_session_health()
 
@@ -423,7 +441,9 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = excellent_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=excellent_data
+        )
 
         result = await analytics_service.get_session_health()
 
@@ -441,7 +461,9 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = good_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=good_data
+        )
 
         result = await analytics_service.get_session_health()
 
@@ -459,7 +481,9 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = fair_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=fair_data
+        )
 
         result = await analytics_service.get_session_health()
 
@@ -477,7 +501,9 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = poor_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=poor_data
+        )
 
         result = await analytics_service.get_session_health()
 
@@ -498,7 +524,9 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = boundary_95_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=boundary_95_data
+        )
 
         result = await analytics_service.get_session_health()
 
@@ -511,8 +539,8 @@ class TestAnalyticsServiceErrorTracking:
         self, analytics_service, mock_db, sample_session_health_data
     ):
         """Test get_session_health with different time ranges."""
-        mock_db.messages.aggregate.return_value.to_list.return_value = (
-            sample_session_health_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_session_health_data
         )
 
         time_ranges = [
@@ -550,7 +578,9 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = zero_ops_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=zero_ops_data
+        )
 
         result = await analytics_service.get_session_health()
 
@@ -572,7 +602,9 @@ class TestAnalyticsServiceErrorTracking:
             }
         )
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = []
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         # Test each method calls _get_time_filter
         await analytics_service.get_detailed_errors(time_range=TimeRange.LAST_7_DAYS)
@@ -594,7 +626,9 @@ class TestAnalyticsServiceErrorTracking:
             }
         ]
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = sample_data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_data
+        )
 
         # Test success rate and session health consistency
         success_rate_result = await analytics_service.get_success_rate()
@@ -677,8 +711,8 @@ class TestAnalyticsServiceErrorTracking:
                 }
             )
 
-        mock_db.messages.aggregate.return_value.to_list.return_value = (
-            large_error_dataset
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=large_error_dataset
         )
 
         result = await analytics_service.get_detailed_errors()

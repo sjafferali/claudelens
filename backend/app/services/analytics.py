@@ -80,6 +80,7 @@ from app.schemas.analytics import (
     TopicExtractionResponse,
     TopicSuggestionResponse,
 )
+from app.services.rolling_message_service import RollingMessageService
 
 
 class AnalyticsService:
@@ -87,6 +88,7 @@ class AnalyticsService:
 
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
+        self.rolling_service = RollingMessageService(db)
 
     def _safe_float(self, value: Any) -> float:
         """Safely convert a value to float, handling Decimal128."""
@@ -115,6 +117,58 @@ class AnalyticsService:
             return {}
 
         return {"timestamp": {"$gte": start}}
+
+    def _get_time_range_bounds(
+        self, time_range: TimeRange
+    ) -> tuple[datetime, datetime]:
+        """Get start and end dates for time range."""
+        now = datetime.now(UTC)
+
+        if time_range == TimeRange.LAST_24_HOURS:
+            start = now - timedelta(hours=24)
+        elif time_range == TimeRange.LAST_7_DAYS:
+            start = now - timedelta(days=7)
+        elif time_range == TimeRange.LAST_30_DAYS:
+            start = now - timedelta(days=30)
+        elif time_range == TimeRange.LAST_90_DAYS:
+            start = now - timedelta(days=90)
+        elif time_range == TimeRange.LAST_YEAR:
+            start = now - timedelta(days=365)
+        else:  # ALL_TIME
+            start = datetime(2020, 1, 1, tzinfo=UTC)  # Reasonable default
+
+        return start, now
+
+    async def _aggregate_messages(
+        self, pipeline: List[Dict], time_range: Optional[TimeRange] = None
+    ) -> List[Dict]:
+        """Helper to run aggregations across rolling collections."""
+        if time_range:
+            start_date, end_date = self._get_time_range_bounds(time_range)
+        else:
+            # Extract dates from first $match stage if present
+            start_date, end_date = self._extract_dates_from_pipeline(pipeline)
+
+        return await self.rolling_service.aggregate_across_collections(
+            pipeline, start_date, end_date
+        )
+
+    def _extract_dates_from_pipeline(
+        self, pipeline: List[Dict]
+    ) -> tuple[datetime, datetime]:
+        """Extract date range from aggregation pipeline."""
+        for stage in pipeline:
+            if "$match" in stage and "timestamp" in stage["$match"]:
+                ts_filter = stage["$match"]["timestamp"]
+                if isinstance(ts_filter, dict):
+                    start = ts_filter.get("$gte", datetime(2020, 1, 1, tzinfo=UTC))
+                    end = ts_filter.get("$lte", datetime.now(UTC))
+                    return start, end
+
+        # Default to last 90 days if no timestamp filter found
+        end = datetime.now(UTC)
+        start = end - timedelta(days=90)
+        return start, end
 
     async def _resolve_session_id(self, session_id: str) -> str | None:
         """Resolve session ID from either MongoDB _id or sessionId UUID format."""
@@ -214,7 +268,7 @@ class AnalyticsService:
             },
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         # Convert to heatmap cells
         cells = []
@@ -304,7 +358,7 @@ class AnalyticsService:
             {"$sort": {"_id": 1}},
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         # Process results
         data_points = []
@@ -377,7 +431,7 @@ class AnalyticsService:
             {"$sort": {"count": -1}},
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         # Process results
         models = []
@@ -447,7 +501,7 @@ class AnalyticsService:
             {"$sort": {"_id": 1}},
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         # Process results
         data_points = []
@@ -536,7 +590,7 @@ class AnalyticsService:
             },
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         # Process results
         comparison: dict[str, Any] = {
@@ -642,7 +696,7 @@ class AnalyticsService:
             ]
         )
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         # Calculate trend statistics
         values = [r["value"] or 0 for r in results]
@@ -767,7 +821,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
 
         if not result:
             return {
@@ -880,7 +934,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
 
         if not result:
             return {
@@ -1043,7 +1097,7 @@ class AnalyticsService:
             {"$sort": {"count": -1}},
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         total_tool_calls = sum(result["count"] for result in results)
         unique_tools = len(results)
@@ -1152,7 +1206,7 @@ class AnalyticsService:
             {"$sort": {"count": -1}},
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         # Calculate total calls and process results
         total_calls = sum(result["count"] for result in results)
@@ -1241,24 +1295,27 @@ class AnalyticsService:
             match_filter["isSidechain"] = {"$ne": True}
 
         # Get all messages for the session
-        messages = (
-            await self.db.messages.find(
-                match_filter,
-                {
-                    "uuid": 1,
-                    "parentUuid": 1,
-                    "type": 1,
-                    "isSidechain": 1,
-                    "costUsd": 1,
-                    "durationMs": 1,
-                    "timestamp": 1,
-                    "message": 1,
-                    "toolUseResult": 1,
-                },
-            )
-            .sort("timestamp", 1)
-            .to_list(None)
+        messages_docs, _ = await self.rolling_service.find_messages(
+            match_filter,
+            skip=0,
+            limit=10000,  # Reasonable limit for conversation flow
+            sort_order="asc",
         )
+        # Filter to only required fields
+        messages = [
+            {
+                "uuid": doc.get("uuid"),
+                "parentUuid": doc.get("parentUuid"),
+                "type": doc.get("type"),
+                "isSidechain": doc.get("isSidechain"),
+                "costUsd": doc.get("costUsd"),
+                "durationMs": doc.get("durationMs"),
+                "timestamp": doc.get("timestamp"),
+                "message": doc.get("message"),
+                "toolUseResult": doc.get("toolUseResult"),
+            }
+            for doc in messages_docs
+        ]
 
         if not messages:
             return ConversationFlowAnalytics(
@@ -1283,10 +1340,17 @@ class AnalyticsService:
         response_times = []
 
         for msg in messages:
+            if not msg:
+                continue
             # Calculate tool count
             tool_count = 0
-            if msg.get("message") and msg["message"].get("tool_calls"):
-                tool_count = len(msg["message"]["tool_calls"])
+            message_field = msg.get("message")
+            if (
+                message_field
+                and isinstance(message_field, dict)
+                and message_field.get("tool_calls")
+            ):
+                tool_count = len(message_field["tool_calls"])
             elif msg.get("toolUseResult"):
                 tool_count = 1
 
@@ -1300,16 +1364,24 @@ class AnalyticsService:
             if duration_ms:
                 response_times.append(duration_ms)
 
+            # Ensure required fields exist
+            msg_uuid = msg.get("uuid")
+            msg_type = msg.get("type")
+            msg_timestamp = msg.get("timestamp")
+
+            if not msg_uuid or not msg_type or not msg_timestamp:
+                continue
+
             node = ConversationFlowNode(
-                id=msg["uuid"],
+                id=msg_uuid,
                 parent_id=msg.get("parentUuid"),
-                type=msg["type"],
-                is_sidechain=msg.get("isSidechain", False),
+                type=msg_type,
+                is_sidechain=msg.get("isSidechain") or False,
                 cost=cost,
                 duration_ms=duration_ms,
                 tool_count=tool_count,
                 summary=summary,
-                timestamp=msg["timestamp"],
+                timestamp=msg_timestamp,
             )
 
             nodes.append(node)
@@ -1426,7 +1498,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
 
         if not result:
             return SessionHealth(
@@ -1511,9 +1583,7 @@ class AnalyticsService:
             {"$limit": 100},
         ]
 
-        tool_results = await self.db.messages.aggregate(tool_error_pipeline).to_list(
-            100
-        )
+        tool_results = await self._aggregate_messages(tool_error_pipeline)
 
         for doc in tool_results:
             tool_result = doc.get("toolUseResult", {})
@@ -1626,7 +1696,7 @@ class AnalyticsService:
             {"$limit": 50},
         ]
 
-        api_errors = await self.db.messages.aggregate(api_error_pipeline).to_list(50)
+        api_errors = await self._aggregate_messages(api_error_pipeline)
 
         for doc in api_errors:
             content = str(doc.get("content", ""))
@@ -1679,9 +1749,7 @@ class AnalyticsService:
             {"$limit": 50},
         ]
 
-        tool_mentions = await self.db.messages.aggregate(tool_mention_pipeline).to_list(
-            50
-        )
+        tool_mentions = await self._aggregate_messages(tool_mention_pipeline)
 
         for doc in tool_mentions:
             content = str(doc.get("content", ""))
@@ -1827,7 +1895,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
 
         if not result:
             return SuccessRateMetrics(
@@ -2019,7 +2087,7 @@ class AnalyticsService:
             },
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         if not results:
             # Return empty tree structure
@@ -2346,7 +2414,7 @@ class AnalyticsService:
             {"$project": {"_id": 0, "count": 1, **percentile_exprs}},
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
         if not result or result[0]["count"] == 0:
             return TokenPercentiles(p50=0, p90=0, p95=0, p99=0)
 
@@ -2407,7 +2475,7 @@ class AnalyticsService:
             {"$sort": {"_id": 1}},
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         time_series = []
         for result in results:
@@ -2475,14 +2543,14 @@ class AnalyticsService:
             },
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         # Get total count for percentage calculation
         total_pipeline: list[dict[str, Any]] = [
             {"$match": base_filter},
             {"$count": "total"},
         ]
-        total_result = await self.db.messages.aggregate(total_pipeline).to_list(1)
+        total_result = await self._aggregate_messages(total_pipeline)
         total_count = total_result[0]["total"] if total_result else 0
 
         bucket_labels = {
@@ -2577,7 +2645,7 @@ class AnalyticsService:
             },
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         # Get tool usage counts separately for each branch
         tool_usage_by_branch = await self._get_tool_usage_by_branch(time_filter)
@@ -2701,7 +2769,7 @@ class AnalyticsService:
             },
         ]
 
-        results = await self.db.messages.aggregate(pipeline).to_list(None)
+        results = await self._aggregate_messages(pipeline)
 
         # Convert to dictionary format
         tool_usage_by_branch: dict[str, dict[str, int]] = {}
@@ -2869,7 +2937,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
 
         if not result:
             return TokenEfficiencySummary(
@@ -2983,7 +3051,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
 
         if not result:
             # Return empty result structure
@@ -3136,7 +3204,7 @@ class AnalyticsService:
             {"$sort": {"sessionId": 1, "timestamp": 1}},
         ]
 
-        messages = await self.db.messages.aggregate(messages_pipeline).to_list(None)
+        messages = await self._aggregate_messages(messages_pipeline)
 
         # Build conversation trees per session and calculate depths
         session_data: dict[str, list[dict[str, Any]]] = {}
@@ -3546,12 +3614,12 @@ class AnalyticsService:
                 base_filter["sessionId"] = {"$in": session_ids}
 
         # Get current period cost
-        current_cost = await self.db.messages.aggregate(
+        current_cost = await self._aggregate_messages(
             [
                 {"$match": base_filter},
                 {"$group": {"_id": None, "total_cost": {"$sum": "$costUsd"}}},
             ]
-        ).to_list(None)
+        )
 
         total_cost = (
             self._safe_float(current_cost[0]["total_cost"]) if current_cost else 0.0
@@ -3567,12 +3635,12 @@ class AnalyticsService:
                 prev_filter["sessionId"] = {"$in": session_ids}
             prev_filter["costUsd"] = {"$exists": True, "$ne": None}
 
-            prev_cost = await self.db.messages.aggregate(
+            prev_cost = await self._aggregate_messages(
                 [
                     {"$match": prev_filter},
                     {"$group": {"_id": None, "total_cost": {"$sum": "$costUsd"}}},
                 ]
-            ).to_list(None)
+            )
 
             prev_total = (
                 self._safe_float(prev_cost[0]["total_cost"]) if prev_cost else 0.0
@@ -3644,7 +3712,7 @@ class AnalyticsService:
                 base_filter["sessionId"] = {"$in": session_ids}
 
         # Get cost breakdown by model
-        model_breakdown = await self.db.messages.aggregate(
+        model_breakdown = await self._aggregate_messages(
             [
                 {"$match": base_filter},
                 {
@@ -3656,7 +3724,7 @@ class AnalyticsService:
                 },
                 {"$sort": {"cost": -1}},
             ]
-        ).to_list(None)
+        )
 
         total_cost = sum(self._safe_float(item["cost"]) for item in model_breakdown)
 
@@ -3677,7 +3745,7 @@ class AnalyticsService:
             )
 
         # Get cost breakdown over time (daily)
-        daily_costs = await self.db.messages.aggregate(
+        daily_costs = await self._aggregate_messages(
             [
                 {"$match": base_filter},
                 {
@@ -3693,7 +3761,7 @@ class AnalyticsService:
                 },
                 {"$sort": {"_id": 1}},
             ]
-        ).to_list(None)
+        )
 
         by_time = []
         cumulative_cost = 0.0
@@ -3716,7 +3784,7 @@ class AnalyticsService:
             )
 
         # Calculate metrics
-        message_count = await self.db.messages.count_documents(base_filter)
+        message_count = await self.rolling_service.count_documents(base_filter)
         avg_cost_per_message = total_cost / message_count if message_count > 0 else 0
 
         # Calculate avg cost per hour (rough estimate based on time range)
@@ -3775,7 +3843,7 @@ class AnalyticsService:
                 base_filter["sessionId"] = {"$in": session_ids}
 
         # Get daily costs for the last 30 days
-        daily_costs = await self.db.messages.aggregate(
+        daily_costs = await self._aggregate_messages(
             [
                 {"$match": base_filter},
                 {
@@ -3791,7 +3859,7 @@ class AnalyticsService:
                 },
                 {"$sort": {"_id": 1}},
             ]
-        ).to_list(None)
+        )
 
         if not daily_costs:
             # No historical data, return zero predictions
@@ -4156,7 +4224,9 @@ class AnalyticsService:
             )
 
         # Get session messages
-        messages = await self.db.messages.find({"sessionId": resolved_id}).to_list(None)
+        messages, _ = await self.rolling_service.find_messages(
+            {"sessionId": resolved_id}, skip=0, limit=10000  # Reasonable limit
+        )
 
         if not messages:
             return TopicExtractionResponse(
@@ -4495,7 +4565,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
         if not result:
             return 0.0
 
@@ -4521,7 +4591,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
         if not result or result[0]["count"] == 0:
             return 50.0  # Neutral score
 
@@ -4562,7 +4632,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
         if not result or result[0]["total_messages"] == 0:
             return 100.0  # Perfect score if no data
 
@@ -4609,7 +4679,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(session_pipeline).to_list(1)
+        result = await self._aggregate_messages(session_pipeline)
         if not result or result[0]["session_count"] == 0:
             return 50.0  # Neutral score
 
@@ -4649,7 +4719,7 @@ class AnalyticsService:
             },
         ]
 
-        result = await self.db.messages.aggregate(pipeline).to_list(1)
+        result = await self._aggregate_messages(pipeline)
         if not result:
             return 50.0  # Neutral score
 

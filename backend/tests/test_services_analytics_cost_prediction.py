@@ -28,7 +28,15 @@ class TestAnalyticsServiceCostPrediction:
     @pytest.fixture
     def analytics_service(self, mock_db):
         """Create analytics service with mock database."""
-        return AnalyticsService(mock_db)
+        service = AnalyticsService(mock_db)
+        from unittest.mock import AsyncMock, MagicMock
+
+        from app.services.rolling_message_service import RollingMessageService
+
+        service.rolling_service = MagicMock(spec=RollingMessageService)
+        service.rolling_service.aggregate_across_collections = AsyncMock()
+        service.rolling_service.count_documents = AsyncMock()
+        return service
 
     @pytest.fixture
     def sample_cost_data(self):
@@ -67,16 +75,10 @@ class TestAnalyticsServiceCostPrediction:
         current_cost = [{"_id": None, "total_cost": 15.75}]
         previous_cost = [{"_id": None, "total_cost": 15.0}]  # Small change, within 5%
 
-        mock_cursor_current = AsyncMock()
-        mock_cursor_current.to_list = AsyncMock(return_value=current_cost)
-
-        mock_cursor_previous = AsyncMock()
-        mock_cursor_previous.to_list = AsyncMock(return_value=previous_cost)
-
-        # Mock aggregation to return different results for current vs previous period
-        analytics_service.db.messages.aggregate.side_effect = [
-            mock_cursor_current,
-            mock_cursor_previous,
+        # Mock aggregation for current and previous periods
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = [
+            current_cost,
+            previous_cost,
         ]
 
         # Call the method
@@ -93,7 +95,10 @@ class TestAnalyticsServiceCostPrediction:
         assert result.period == "30d"
 
         # Verify database was called twice (current + previous period)
-        assert analytics_service.db.messages.aggregate.call_count == 2
+        assert (
+            analytics_service.rolling_service.aggregate_across_collections.call_count
+            == 2
+        )
 
     @pytest.mark.asyncio
     async def test_get_cost_summary_with_trend_up(self, analytics_service):
@@ -101,16 +106,10 @@ class TestAnalyticsServiceCostPrediction:
         current_cost = [{"_id": None, "total_cost": 100.0}]
         previous_cost = [{"_id": None, "total_cost": 80.0}]  # 25% increase
 
-        mock_cursor_current = AsyncMock()
-        mock_cursor_current.to_list = AsyncMock(return_value=current_cost)
-
-        mock_cursor_previous = AsyncMock()
-        mock_cursor_previous.to_list = AsyncMock(return_value=previous_cost)
-
-        # Mock aggregation to return different results for current vs previous period
-        analytics_service.db.messages.aggregate.side_effect = [
-            mock_cursor_current,
-            mock_cursor_previous,
+        # Mock aggregation for current and previous periods
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = [
+            current_cost,
+            previous_cost,
         ]
 
         result = await analytics_service.get_cost_summary(
@@ -129,12 +128,9 @@ class TestAnalyticsServiceCostPrediction:
         mock_cursor_current = AsyncMock()
         mock_cursor_current.to_list = AsyncMock(return_value=current_cost)
 
-        mock_cursor_previous = AsyncMock()
-        mock_cursor_previous.to_list = AsyncMock(return_value=previous_cost)
-
-        analytics_service.db.messages.aggregate.side_effect = [
-            mock_cursor_current,
-            mock_cursor_previous,
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = [
+            current_cost,
+            previous_cost,
         ]
 
         result = await analytics_service.get_cost_summary(
@@ -148,12 +144,13 @@ class TestAnalyticsServiceCostPrediction:
     async def test_get_cost_summary_with_session_id(self, analytics_service):
         """Test get_cost_summary with session filter."""
         test_session_id = "test-session-123"
-
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[{"_id": None, "total_cost": 5.25}]
+        )
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(
             return_value=[{"_id": None, "total_cost": 5.25}]
         )
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
 
         result = await analytics_service.get_cost_summary(
             test_session_id, None, TimeRange.LAST_24_HOURS
@@ -163,7 +160,11 @@ class TestAnalyticsServiceCostPrediction:
         assert result.period == "24h"
 
         # Verify session filter was applied
-        call_args = analytics_service.db.messages.aggregate.call_args[0][0]
+        call_args = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
         match_stage = call_args[0]
         assert match_stage["$match"]["sessionId"] == test_session_id
 
@@ -177,12 +178,13 @@ class TestAnalyticsServiceCostPrediction:
         analytics_service.db.sessions.distinct = AsyncMock(
             return_value=test_session_ids
         )
-
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[{"_id": None, "total_cost": 12.34}]
+        )
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(
             return_value=[{"_id": None, "total_cost": 12.34}]
         )
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
 
         result = await analytics_service.get_cost_summary(
             None, test_project_id, TimeRange.LAST_90_DAYS
@@ -202,12 +204,9 @@ class TestAnalyticsServiceCostPrediction:
         mock_cursor_current = AsyncMock()
         mock_cursor_current.to_list = AsyncMock(return_value=empty_cost_data)
 
-        mock_cursor_previous = AsyncMock()
-        mock_cursor_previous.to_list = AsyncMock(return_value=empty_cost_data)
-
-        analytics_service.db.messages.aggregate.side_effect = [
-            mock_cursor_current,
-            mock_cursor_previous,
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = [
+            empty_cost_data,
+            empty_cost_data,
         ]
 
         result = await analytics_service.get_cost_summary(
@@ -220,12 +219,13 @@ class TestAnalyticsServiceCostPrediction:
 
     @pytest.mark.asyncio
     async def test_get_cost_summary_all_time_no_trend(self, analytics_service):
-        """Test get_cost_summary with ALL_TIME (no trend calculation)."""
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[{"_id": None, "total_cost": 50.0}]
+        )
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(
             return_value=[{"_id": None, "total_cost": 50.0}]
         )
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
 
         result = await analytics_service.get_cost_summary(
             None, None, TimeRange.ALL_TIME
@@ -236,7 +236,7 @@ class TestAnalyticsServiceCostPrediction:
         assert result.trend == "stable"  # No trend calculation for ALL_TIME
 
         # Should only call aggregate once (no previous period query)
-        analytics_service.db.messages.aggregate.assert_called_once()
+        analytics_service.rolling_service.aggregate_across_collections.assert_called_once()
 
     # Test get_cost_breakdown
 
@@ -251,18 +251,14 @@ class TestAnalyticsServiceCostPrediction:
         ]
 
         # Mock multiple aggregation calls
-        mock_cursor_model = AsyncMock()
-        mock_cursor_model.to_list = AsyncMock(return_value=model_breakdown)
-
-        mock_cursor_daily = AsyncMock()
-        mock_cursor_daily.to_list = AsyncMock(return_value=sample_daily_costs)
+        # Setup mocks for model and daily breakdown
 
         # Mock count_documents for message count
-        analytics_service.db.messages.count_documents = AsyncMock(return_value=37)
+        analytics_service.rolling_service.count_documents = AsyncMock(return_value=37)
 
-        analytics_service.db.messages.aggregate.side_effect = [
-            mock_cursor_model,
-            mock_cursor_daily,
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = [
+            model_breakdown,
+            sample_daily_costs,
         ]
 
         result = await analytics_service.get_cost_breakdown(
@@ -330,7 +326,7 @@ class TestAnalyticsServiceCostPrediction:
         assert result.session_id == test_session_id
 
         # Verify database aggregation was not called
-        analytics_service.db.messages.aggregate.assert_not_called()
+        analytics_service.rolling_service.aggregate_across_collections.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_get_cost_breakdown_empty_data(
@@ -338,10 +334,10 @@ class TestAnalyticsServiceCostPrediction:
     ):
         """Test get_cost_breakdown with empty data."""
         # Mock empty aggregation results
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=empty_cost_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
-        analytics_service.db.messages.count_documents = AsyncMock(return_value=0)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=empty_cost_data
+        )
+        analytics_service.rolling_service.count_documents = AsyncMock(return_value=0)
 
         result = await analytics_service.get_cost_breakdown(
             None, None, TimeRange.LAST_30_DAYS
@@ -365,16 +361,10 @@ class TestAnalyticsServiceCostPrediction:
             {"_id": "2024-01-16", "cost": 7.0},  # Valid date
         ]
 
-        mock_cursor_model = AsyncMock()
-        mock_cursor_model.to_list = AsyncMock(return_value=model_breakdown)
-
-        mock_cursor_daily = AsyncMock()
-        mock_cursor_daily.to_list = AsyncMock(return_value=daily_costs_with_invalid)
-
-        analytics_service.db.messages.count_documents = AsyncMock(return_value=20)
-        analytics_service.db.messages.aggregate.side_effect = [
-            mock_cursor_model,
-            mock_cursor_daily,
+        analytics_service.rolling_service.count_documents = AsyncMock(return_value=20)
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = [
+            model_breakdown,
+            daily_costs_with_invalid,
         ]
 
         result = await analytics_service.get_cost_breakdown(
@@ -395,9 +385,9 @@ class TestAnalyticsServiceCostPrediction:
         self, analytics_service, sample_daily_costs
     ):
         """Test basic functionality of get_cost_prediction."""
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_daily_costs)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_daily_costs
+        )
 
         result = await analytics_service.get_cost_prediction(None, None, 7)
 
@@ -432,9 +422,9 @@ class TestAnalyticsServiceCostPrediction:
     @pytest.mark.asyncio
     async def test_get_cost_prediction_no_historical_data(self, analytics_service):
         """Test get_cost_prediction with no historical data."""
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=[])
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         result = await analytics_service.get_cost_prediction(None, None, 14)
 
@@ -455,9 +445,9 @@ class TestAnalyticsServiceCostPrediction:
         """Test get_cost_prediction with session filter."""
         test_session_id = "test-session-456"
 
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_daily_costs)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_daily_costs
+        )
 
         result = await analytics_service.get_cost_prediction(test_session_id, None, 5)
 
@@ -465,7 +455,11 @@ class TestAnalyticsServiceCostPrediction:
         assert len(result.predictions) == 5
 
         # Verify session filter was applied
-        call_args = analytics_service.db.messages.aggregate.call_args[0][0]
+        call_args = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
         match_stage = call_args[0]
         assert match_stage["$match"]["sessionId"] == test_session_id
 
@@ -482,9 +476,9 @@ class TestAnalyticsServiceCostPrediction:
             return_value=test_session_ids
         )
 
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_daily_costs)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_daily_costs
+        )
 
         result = await analytics_service.get_cost_prediction(None, test_project_id, 10)
 
@@ -503,9 +497,9 @@ class TestAnalyticsServiceCostPrediction:
             {"_id": "2024-01-15", "cost": 5.0},
         ]
 
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=single_day_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=single_day_data
+        )
 
         result = await analytics_service.get_cost_prediction(None, None, 3)
 
@@ -525,9 +519,9 @@ class TestAnalyticsServiceCostPrediction:
         self, analytics_service, sample_daily_costs
     ):
         """Test that cost prediction applies decay factor for longer periods."""
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_daily_costs)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_daily_costs
+        )
 
         result = await analytics_service.get_cost_prediction(None, None, 30)
 
@@ -549,9 +543,9 @@ class TestAnalyticsServiceCostPrediction:
             {"_id": f"2024-01-{i:02d}", "cost": 10.0} for i in range(1, 8)
         ]
 
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=consistent_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=consistent_data
+        )
 
         result = await analytics_service.get_cost_prediction(None, None, 5)
 
@@ -577,9 +571,9 @@ class TestAnalyticsServiceCostPrediction:
             {"_id": "2024-01-19", "cost": 3.0},
         ]
 
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=high_variance_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=high_variance_data
+        )
 
         result = await analytics_service.get_cost_prediction(None, None, 3)
 
@@ -597,8 +591,8 @@ class TestAnalyticsServiceCostPrediction:
     async def test_cost_functions_database_error(self, analytics_service):
         """Test error handling when database operations fail."""
         # Mock database aggregation to raise an exception
-        analytics_service.db.messages.aggregate.side_effect = Exception(
-            "Database connection error"
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = (
+            Exception("Database connection error")
         )
 
         # Test that exceptions are propagated for all cost functions
@@ -630,12 +624,9 @@ class TestAnalyticsServiceCostPrediction:
         mock_cursor_current = AsyncMock()
         mock_cursor_current.to_list = AsyncMock(return_value=[])
 
-        mock_cursor_previous = AsyncMock()
-        mock_cursor_previous.to_list = AsyncMock(return_value=[])
-
-        analytics_service.db.messages.aggregate.side_effect = [
-            mock_cursor_current,
-            mock_cursor_previous,
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = [
+            [],
+            [],
         ]
 
         result = await analytics_service.get_cost_summary(
@@ -646,7 +637,13 @@ class TestAnalyticsServiceCostPrediction:
         assert result.total_cost == 0.0
 
         # Verify the filter was set to exclude all results since session not in project
-        call_args = analytics_service.db.messages.aggregate.call_args_list[0][0][0]
+        call_args = analytics_service.rolling_service.aggregate_across_collections.call_args_list[
+            0
+        ][
+            0
+        ][
+            0
+        ]
         match_stage = call_args[0]
         assert match_stage["$match"]["sessionId"] == {"$in": []}
 
@@ -661,12 +658,9 @@ class TestAnalyticsServiceCostPrediction:
             return_value=[{"_id": None, "total_cost": 0.0001}]
         )
 
-        mock_cursor_previous = AsyncMock()
-        mock_cursor_previous.to_list = AsyncMock(return_value=[])
-
-        analytics_service.db.messages.aggregate.side_effect = [
-            mock_cursor_current,
-            mock_cursor_previous,
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = [
+            [{"_id": None, "total_cost": 0.0001}],
+            [{"_id": None, "total_cost": 0.0001}],
         ]
 
         result = await analytics_service.get_cost_summary(
@@ -690,11 +684,11 @@ class TestAnalyticsServiceCostPrediction:
         mock_cursor_daily.to_list = AsyncMock(return_value=[])
 
         # Mock zero message count
-        analytics_service.db.messages.count_documents = AsyncMock(return_value=0)
+        analytics_service.rolling_service.count_documents = AsyncMock(return_value=0)
 
-        analytics_service.db.messages.aggregate.side_effect = [
-            mock_cursor_model,
-            mock_cursor_daily,
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = [
+            model_breakdown,
+            [],
         ]
 
         result = await analytics_service.get_cost_breakdown(
@@ -709,9 +703,9 @@ class TestAnalyticsServiceCostPrediction:
         self, analytics_service, sample_daily_costs
     ):
         """Test cost prediction with extreme prediction periods."""
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_daily_costs)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_daily_costs
+        )
 
         # Test very short prediction period
         result_short = await analytics_service.get_cost_prediction(None, None, 1)
@@ -751,26 +745,25 @@ class TestAnalyticsServiceCostPrediction:
                 return_value=[{"_id": None, "total_cost": 10.0}]
             )
 
-            analytics_service.db.messages.aggregate.side_effect = [
-                mock_cursor_current,
-                mock_cursor_previous,
+            analytics_service.rolling_service.aggregate_across_collections.side_effect = [
+                [{"_id": None, "total_cost": 10.0}],
+                [{"_id": None, "total_cost": 10.0}],
             ]
 
             summary = await analytics_service.get_cost_summary(None, None, time_range)
             assert isinstance(summary, CostSummary)
 
             # Reset for next iteration
-            analytics_service.db.messages.aggregate.reset_mock()
+            analytics_service.rolling_service.aggregate_across_collections.reset_mock()
 
         # Test ALL_TIME separately (only calls aggregate once)
-        analytics_service.db.messages.aggregate.reset_mock()
-        analytics_service.db.messages.aggregate.side_effect = None  # Clear side_effect
-
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(
-            return_value=[{"_id": None, "total_cost": 10.0}]
+        analytics_service.rolling_service.aggregate_across_collections.reset_mock()
+        analytics_service.rolling_service.aggregate_across_collections.side_effect = (
+            None  # Clear side_effect
         )
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections.return_value = [
+            {"_id": None, "total_cost": 10.0}
+        ]
 
         summary = await analytics_service.get_cost_summary(
             None, None, TimeRange.ALL_TIME

@@ -29,7 +29,26 @@ class TestAnalyticsServiceDirectory:
     @pytest.fixture
     def analytics_service(self, mock_db):
         """Create analytics service with mock database."""
-        return AnalyticsService(mock_db)
+        from unittest.mock import AsyncMock
+
+        from app.services.rolling_message_service import RollingMessageService
+
+        # Create rolling service with properly mocked methods
+        rolling_service = RollingMessageService(mock_db)
+
+        # Mock the database list_collection_names method
+        mock_db.list_collection_names = AsyncMock(return_value=["messages_2024_01"])
+
+        # Mock rolling service methods
+        rolling_service.get_collections_for_range = AsyncMock(
+            return_value=["messages_2024_01"]
+        )
+        rolling_service.aggregate_across_collections = AsyncMock()
+
+        # Create analytics service with mocked rolling service
+        service = AnalyticsService(mock_db)
+        service.rolling_service = rolling_service
+        return service
 
     @pytest.fixture
     def sample_directory_data(self):
@@ -101,6 +120,9 @@ class TestAnalyticsServiceDirectory:
         mock_cursor = MagicMock()
         mock_cursor.to_list = AsyncMock(return_value=sample_directory_data)
         mock_db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_directory_data
+        )
 
         result = await analytics_service.get_directory_usage(
             time_range=TimeRange.LAST_30_DAYS, depth=3, min_cost=0.0
@@ -126,9 +148,13 @@ class TestAnalyticsServiceDirectory:
         assert result.root.name == "root"
         assert len(result.root.children) > 0
 
-        # Verify aggregation pipeline was called correctly
-        mock_db.messages.aggregate.assert_called_once()
-        pipeline = mock_db.messages.aggregate.call_args[0][0]
+        # Verify rolling service aggregation was called correctly
+        analytics_service.rolling_service.aggregate_across_collections.assert_called_once()
+        pipeline = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
 
         # Check key pipeline stages
         assert any("$match" in stage for stage in pipeline)
@@ -143,6 +169,9 @@ class TestAnalyticsServiceDirectory:
         mock_cursor = MagicMock()
         mock_cursor.to_list = AsyncMock(return_value=empty_directory_data)
         mock_db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=empty_directory_data
+        )
 
         result = await analytics_service.get_directory_usage()
 
@@ -169,6 +198,9 @@ class TestAnalyticsServiceDirectory:
         mock_cursor = MagicMock()
         mock_cursor.to_list = AsyncMock(return_value=sample_directory_data)
         mock_db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_directory_data
+        )
 
         # Test different time ranges
         time_ranges = [
@@ -184,7 +216,11 @@ class TestAnalyticsServiceDirectory:
             assert result.time_range == time_range
 
             # Verify the aggregation pipeline includes proper time filters
-            pipeline = mock_db.messages.aggregate.call_args[0][0]
+            pipeline = analytics_service.rolling_service.aggregate_across_collections.call_args[
+                0
+            ][
+                0
+            ]
             match_stage = next(
                 stage["$match"] for stage in pipeline if "$match" in stage
             )
@@ -206,11 +242,18 @@ class TestAnalyticsServiceDirectory:
         filtered_data = [d for d in sample_directory_data if d["total_cost"] >= 5.0]
         mock_cursor.to_list = AsyncMock(return_value=filtered_data)
         mock_db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=filtered_data
+        )
 
         await analytics_service.get_directory_usage(min_cost=5.0)
 
         # Verify aggregation pipeline includes cost filter
-        pipeline = mock_db.messages.aggregate.call_args[0][0]
+        pipeline = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
         cost_match_stages = [
             stage
             for stage in pipeline
@@ -229,6 +272,9 @@ class TestAnalyticsServiceDirectory:
         mock_cursor = MagicMock()
         mock_cursor.to_list = AsyncMock(return_value=sample_directory_data)
         mock_db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_directory_data
+        )
 
         # Test with depth limit of 2
         result = await analytics_service.get_directory_usage(depth=2)
@@ -252,6 +298,9 @@ class TestAnalyticsServiceDirectory:
         """Test get_directory_usage handles database errors gracefully."""
         # Mock a database error
         mock_db.messages.aggregate.side_effect = Exception("Database connection error")
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            side_effect=Exception("Database connection error")
+        )
 
         with pytest.raises(Exception) as exc_info:
             await analytics_service.get_directory_usage()
@@ -537,6 +586,9 @@ class TestAnalyticsServiceDirectory:
         mock_cursor = MagicMock()
         mock_cursor.to_list = AsyncMock(return_value=windows_directory_data)
         mock_db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=windows_directory_data
+        )
 
         result = await analytics_service.get_directory_usage()
 
@@ -571,6 +623,9 @@ class TestAnalyticsServiceDirectory:
         mock_cursor = MagicMock()
         mock_cursor.to_list = AsyncMock(return_value=directory_data)
         mock_db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=directory_data
+        )
 
         result = await analytics_service.get_directory_usage()
 
@@ -608,6 +663,9 @@ class TestAnalyticsServiceDirectory:
         mock_cursor = MagicMock()
         mock_cursor.to_list = AsyncMock(return_value=directory_data)
         mock_db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=directory_data
+        )
 
         result = await analytics_service.get_directory_usage()
 
@@ -654,14 +712,21 @@ class TestAnalyticsServiceDirectory:
         mock_cursor = MagicMock()
         mock_cursor.to_list = AsyncMock(return_value=sample_directory_data)
         mock_db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_directory_data
+        )
 
         await analytics_service.get_directory_usage(
             time_range=TimeRange.LAST_7_DAYS, depth=3, min_cost=1.0
         )
 
         # Verify aggregation was called
-        mock_db.messages.aggregate.assert_called_once()
-        pipeline = mock_db.messages.aggregate.call_args[0][0]
+        analytics_service.rolling_service.aggregate_across_collections.assert_called_once()
+        pipeline = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
 
         # Verify pipeline structure
         assert isinstance(pipeline, list)
@@ -710,6 +775,9 @@ class TestAnalyticsServiceDirectory:
         mock_cursor = MagicMock()
         mock_cursor.to_list = AsyncMock(return_value=sample_directory_data)
         mock_db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_directory_data
+        )
 
         result = await analytics_service.get_directory_usage()
 

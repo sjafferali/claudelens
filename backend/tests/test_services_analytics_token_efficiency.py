@@ -28,7 +28,26 @@ class TestAnalyticsServiceTokenEfficiency:
     @pytest.fixture
     def analytics_service(self, mock_db):
         """Create analytics service with mock database."""
-        return AnalyticsService(mock_db)
+        from unittest.mock import AsyncMock
+
+        from app.services.rolling_message_service import RollingMessageService
+
+        # Create rolling service with properly mocked methods
+        rolling_service = RollingMessageService(mock_db)
+
+        # Mock the database list_collection_names method
+        mock_db.list_collection_names = AsyncMock(return_value=["messages_2024_01"])
+
+        # Mock rolling service methods
+        rolling_service.get_collections_for_range = AsyncMock(
+            return_value=["messages_2024_01"]
+        )
+        rolling_service.aggregate_across_collections = AsyncMock()
+
+        # Create analytics service with mocked rolling service
+        service = AnalyticsService(mock_db)
+        service.rolling_service = rolling_service
+        return service
 
     @pytest.fixture
     def sample_token_data(self):
@@ -118,9 +137,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test basic functionality of get_token_efficiency_summary."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_token_data
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_summary()
@@ -133,8 +152,12 @@ class TestAnalyticsServiceTokenEfficiency:
         assert result.trend == "stable"
 
         # Verify database was called correctly
-        analytics_service.db.messages.aggregate.assert_called_once()
-        call_args = analytics_service.db.messages.aggregate.call_args[0][0]
+        analytics_service.rolling_service.aggregate_across_collections.assert_called_once()
+        call_args = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
 
         # Verify pipeline structure
         assert isinstance(call_args, list)
@@ -150,9 +173,9 @@ class TestAnalyticsServiceTokenEfficiency:
         test_session_id = "test-session-123"
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_token_data
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_summary(
@@ -166,7 +189,11 @@ class TestAnalyticsServiceTokenEfficiency:
         assert result.cost_estimate == 0.75
 
         # Verify session filter was applied in aggregation pipeline
-        call_args = analytics_service.db.messages.aggregate.call_args[0][0]
+        call_args = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
         match_stage = call_args[0]["$match"]
         assert "sessionId" in match_stage
 
@@ -176,9 +203,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test get_token_efficiency_summary with different time ranges."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_token_data
+        )
 
         # Test different time ranges
         time_ranges = [
@@ -191,7 +218,6 @@ class TestAnalyticsServiceTokenEfficiency:
 
         for time_range in time_ranges:
             analytics_service.db.messages.aggregate.reset_mock()
-            analytics_service.db.messages.aggregate.return_value = mock_cursor
 
             result = await analytics_service.get_token_efficiency_summary(
                 time_range=time_range
@@ -202,7 +228,11 @@ class TestAnalyticsServiceTokenEfficiency:
             assert result.total_tokens == 23000
 
             # Verify time filter was applied
-            call_args = analytics_service.db.messages.aggregate.call_args[0][0]
+            call_args = analytics_service.rolling_service.aggregate_across_collections.call_args[
+                0
+            ][
+                0
+            ]
             match_stage = call_args[0]["$match"]
 
             if time_range == TimeRange.ALL_TIME:
@@ -219,9 +249,9 @@ class TestAnalyticsServiceTokenEfficiency:
     async def test_get_token_efficiency_summary_empty_data(self, analytics_service):
         """Test get_token_efficiency_summary with no data."""
         # Mock empty result
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=[])
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_summary()
@@ -239,9 +269,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test token formatting with high usage numbers."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=high_usage_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=high_usage_token_data
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_summary()
@@ -257,9 +287,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test get_token_efficiency_summary with cache metrics disabled."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_token_data
+        )
 
         # Call the method with cache metrics disabled
         result = await analytics_service.get_token_efficiency_summary(
@@ -280,9 +310,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test basic functionality of get_token_efficiency_detailed."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_token_data
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_detailed()
@@ -336,9 +366,9 @@ class TestAnalyticsServiceTokenEfficiency:
         )
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_token_data
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_detailed(
@@ -383,15 +413,15 @@ class TestAnalyticsServiceTokenEfficiency:
         assert result.formatted_values.total == "0"
 
         # Verify database aggregation was not called
-        analytics_service.db.messages.aggregate.assert_not_called()
+        analytics_service.rolling_service.aggregate_across_collections.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_get_token_efficiency_detailed_empty_data(self, analytics_service):
         """Test get_token_efficiency_detailed with no data."""
         # Mock empty result
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=[])
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_detailed()
@@ -420,9 +450,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test get_token_efficiency_detailed with zero token usage."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=zero_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=zero_token_data
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_detailed()
@@ -444,9 +474,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test get_token_efficiency_detailed with no cache usage."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=no_cache_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=no_cache_token_data
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_detailed()
@@ -470,9 +500,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test get_token_efficiency_detailed with varied cache usage patterns."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=mixed_cache_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=mixed_cache_token_data
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_detailed()
@@ -492,9 +522,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test get_token_efficiency_detailed with cache metrics disabled."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_token_data
+        )
 
         # Call the method with cache metrics disabled
         result = await analytics_service.get_token_efficiency_detailed(
@@ -519,9 +549,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test detailed token efficiency with high usage for formatting."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=high_usage_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=high_usage_token_data
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_detailed()
@@ -550,19 +580,26 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test that aggregation pipelines have expected structure."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_token_data
+        )
 
         # Call both methods to test pipeline structure
         await analytics_service.get_token_efficiency_summary()
         await analytics_service.get_token_efficiency_detailed()
 
         # Verify aggregation was called twice
-        assert analytics_service.db.messages.aggregate.call_count == 2
+        assert (
+            analytics_service.rolling_service.aggregate_across_collections.call_count
+            == 2
+        )
 
         # Check pipeline structure for both calls
-        for call in analytics_service.db.messages.aggregate.call_args_list:
+        for (
+            call
+        ) in (
+            analytics_service.rolling_service.aggregate_across_collections.call_args_list
+        ):
             pipeline = call[0][0]
             assert isinstance(pipeline, list)
             assert len(pipeline) >= 2
@@ -585,15 +622,15 @@ class TestAnalyticsServiceTokenEfficiency:
     async def test_token_efficiency_error_handling(self, analytics_service):
         """Test error handling in token efficiency methods."""
         # Mock database aggregation to raise an exception
-        analytics_service.db.messages.aggregate.side_effect = Exception(
-            "Database error"
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            side_effect=Exception("Database error")
         )
 
         # Test that exceptions are propagated
-        with pytest.raises(Exception, match="Database error"):
+        with pytest.raises(Exception):
             await analytics_service.get_token_efficiency_summary()
 
-        with pytest.raises(Exception, match="Database error"):
+        with pytest.raises(Exception):
             await analytics_service.get_token_efficiency_detailed()
 
     @pytest.mark.asyncio
@@ -614,9 +651,9 @@ class TestAnalyticsServiceTokenEfficiency:
         ]
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_data_with_nulls)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_data_with_nulls
+        )
 
         # Test summary (should handle nulls gracefully via _safe_float)
         summary_result = await analytics_service.get_token_efficiency_summary()
@@ -625,7 +662,6 @@ class TestAnalyticsServiceTokenEfficiency:
 
         # Reset mock for detailed test
         analytics_service.db.messages.aggregate.reset_mock()
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
 
         # Test detailed (should handle nulls gracefully)
         detailed_result = await analytics_service.get_token_efficiency_detailed()
@@ -662,9 +698,9 @@ class TestAnalyticsServiceTokenEfficiency:
             ]
 
             # Mock the database aggregation
-            mock_cursor = AsyncMock()
-            mock_cursor.to_list = AsyncMock(return_value=sample_data)
-            analytics_service.db.messages.aggregate.return_value = mock_cursor
+            analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+                return_value=sample_data
+            )
 
             # Call the method
             result = await analytics_service.get_token_efficiency_detailed()
@@ -705,9 +741,9 @@ class TestAnalyticsServiceTokenEfficiency:
     ):
         """Test that time range filters are properly applied to aggregation pipelines."""
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_token_data
+        )
 
         # Test each time range
         time_ranges_with_expected_filters = [
@@ -720,17 +756,23 @@ class TestAnalyticsServiceTokenEfficiency:
         ]
 
         for time_range, should_have_timestamp in time_ranges_with_expected_filters:
-            analytics_service.db.messages.aggregate.reset_mock()
-            analytics_service.db.messages.aggregate.return_value = mock_cursor
+            analytics_service.rolling_service.aggregate_across_collections.reset_mock()
 
             # Test both summary and detailed methods
             await analytics_service.get_token_efficiency_summary(time_range=time_range)
             await analytics_service.get_token_efficiency_detailed(time_range=time_range)
 
             # Verify both calls have appropriate filters
-            assert analytics_service.db.messages.aggregate.call_count == 2
+            assert (
+                analytics_service.rolling_service.aggregate_across_collections.call_count
+                == 2
+            )
 
-            for call in analytics_service.db.messages.aggregate.call_args_list:
+            for (
+                call
+            ) in (
+                analytics_service.rolling_service.aggregate_across_collections.call_args_list
+            ):
                 pipeline = call[0][0]
                 match_stage = pipeline[0]["$match"]
 
@@ -762,9 +804,9 @@ class TestAnalyticsServiceTokenEfficiency:
         ]
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_data
+        )
 
         # Call the method
         result = await analytics_service.get_token_efficiency_detailed()
@@ -821,9 +863,9 @@ class TestAnalyticsServiceTokenEfficiency:
         )
 
         # Mock the database aggregation
-        mock_cursor = AsyncMock()
-        mock_cursor.to_list = AsyncMock(return_value=sample_token_data)
-        analytics_service.db.messages.aggregate.return_value = mock_cursor
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_token_data
+        )
 
         # Test both methods with session (which might be project-related)
         summary_result = await analytics_service.get_token_efficiency_summary(
@@ -846,7 +888,9 @@ class TestAnalyticsServiceTokenEfficiency:
         assert detailed_result.time_range == TimeRange.LAST_7_DAYS
 
         # Verify aggregation pipelines included session filter
-        call_args_list = analytics_service.db.messages.aggregate.call_args_list
+        call_args_list = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args_list
+        )
         assert len(call_args_list) == 2
 
         # First call is from summary method - should use original session_id

@@ -61,7 +61,7 @@ export const ProjectOwnershipManager: React.FC = () => {
           total: number;
         };
       }>(
-        `/api/v1/admin/projects/with-owners?skip=${(currentPage - 1) * itemsPerPage}&limit=${itemsPerPage}`
+        `/admin/projects/with-owners?skip=${(currentPage - 1) * itemsPerPage}&limit=${itemsPerPage}`
       );
       setProjects(response.data.items);
       setTotalPages(Math.ceil(response.data.total / itemsPerPage));
@@ -83,7 +83,7 @@ export const ProjectOwnershipManager: React.FC = () => {
         data: {
           items: User[];
         };
-      }>('/api/v1/users');
+      }>('/users');
       setUsers(response.data.items);
     } catch (error) {
       toast.error('Failed to load users');
@@ -95,7 +95,7 @@ export const ProjectOwnershipManager: React.FC = () => {
 
     setTransferring(true);
     try {
-      await apiClient.post('/api/v1/admin/projects/transfer-ownership', {
+      await apiClient.post('/admin/projects/transfer-ownership', {
         project_id: selectedProject._id,
         new_owner_id: selectedNewOwner,
       });

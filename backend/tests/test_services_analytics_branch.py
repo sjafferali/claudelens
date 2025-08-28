@@ -26,12 +26,25 @@ class TestAnalyticsServiceBranchAnalytics:
         db = MagicMock()
         db.messages = AsyncMock()
         db.sessions = AsyncMock()
+        # Mock list_collection_names for RollingMessageService
+        db.list_collection_names = AsyncMock(return_value=["messages_2025_01"])
         return db
 
     @pytest.fixture
     def analytics_service(self, mock_db):
         """Create analytics service with mock database."""
-        return AnalyticsService(mock_db)
+        service = AnalyticsService(mock_db)
+
+        # Mock the rolling service's aggregate method
+        async def mock_aggregate_across_collections(pipeline, start_date, end_date):
+            # Return empty list by default
+            return []
+
+        service.rolling_service.aggregate_across_collections = (
+            mock_aggregate_across_collections
+        )
+
+        return service
 
     @pytest.fixture
     def sample_branch_data(self):
@@ -91,10 +104,10 @@ class TestAnalyticsServiceBranchAnalytics:
         self, analytics_service, mock_db, sample_branch_data, sample_tool_usage
     ):
         """Test basic git branch analytics functionality."""
-        # Mock the aggregation pipeline properly
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=sample_branch_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_branch_data
+        )
 
         # Mock the tool usage method
         analytics_service._get_tool_usage_by_branch = AsyncMock(
@@ -124,9 +137,10 @@ class TestAnalyticsServiceBranchAnalytics:
         self, analytics_service, mock_db, sample_branch_data, sample_tool_usage
     ):
         """Test git branch analytics with include/exclude patterns."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=sample_branch_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_branch_data
+        )
         analytics_service._get_tool_usage_by_branch = AsyncMock(
             return_value=sample_tool_usage
         )
@@ -145,9 +159,9 @@ class TestAnalyticsServiceBranchAnalytics:
         self, analytics_service, mock_db
     ):
         """Test git branch analytics with no data."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=[])
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=[]
+        )
         analytics_service._get_tool_usage_by_branch = AsyncMock(return_value={})
 
         result = await analytics_service.get_git_branch_analytics(
@@ -180,9 +194,10 @@ class TestAnalyticsServiceBranchAnalytics:
             },
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=tool_usage_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation with tool usage data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=tool_usage_data
+        )
 
         time_filter = {"timestamp": {"$gte": datetime.now(UTC) - timedelta(days=7)}}
         result = await analytics_service._get_tool_usage_by_branch(time_filter)
@@ -381,9 +396,10 @@ class TestAnalyticsServiceBranchAnalytics:
         self, analytics_service, mock_db, sample_branch_data, sample_tool_usage
     ):
         """Test that top operations are correctly calculated and limited."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=sample_branch_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_branch_data
+        )
         analytics_service._get_tool_usage_by_branch = AsyncMock(
             return_value=sample_tool_usage
         )
@@ -426,9 +442,10 @@ class TestAnalyticsServiceBranchAnalytics:
         mock_db.sessions.find = MagicMock(return_value=mock_sessions_cursor)
 
         # Mock the main aggregation
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=sample_branch_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_branch_data
+        )
 
         analytics_service._get_tool_usage_by_branch = AsyncMock(
             return_value=sample_tool_usage
@@ -444,8 +461,12 @@ class TestAnalyticsServiceBranchAnalytics:
         assert sessions_call_args[0]["projectId"] == ObjectId(project_id)
 
         # Verify the aggregation was called with session filter
-        mock_db.messages.aggregate.assert_called_once()
-        pipeline = mock_db.messages.aggregate.call_args[0][0]
+        analytics_service.rolling_service.aggregate_across_collections.assert_called_once()
+        pipeline = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
         match_stage = pipeline[0]["$match"]
         assert "sessionId" in match_stage
         assert match_stage["sessionId"]["$in"] == ["session1", "session2"]
@@ -458,19 +479,16 @@ class TestAnalyticsServiceBranchAnalytics:
         self, analytics_service, mock_db
     ):
         """Test git branch analytics handles database errors gracefully."""
-        # Mock database error - the error should occur when calling to_list
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(
-            side_effect=Exception("Database connection error")
+        # Mock database error - the error should occur when calling aggregate
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            side_effect=Exception("Database error")
         )
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
-
         with pytest.raises(Exception) as exc_info:
             await analytics_service.get_git_branch_analytics(
                 time_range=TimeRange.LAST_7_DAYS
             )
 
-        assert "Database connection error" in str(exc_info.value)
+        assert "Database error" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_get_git_branch_analytics_aggregation_timeout(
@@ -479,12 +497,10 @@ class TestAnalyticsServiceBranchAnalytics:
         """Test git branch analytics handles aggregation timeout."""
         from pymongo.errors import ExecutionTimeout
 
-        # Mock aggregation timeout - the error should occur when calling to_list
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(
+        # Mock aggregation timeout in rolling service
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
             side_effect=ExecutionTimeout("Aggregation timeout")
         )
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
 
         with pytest.raises(ExecutionTimeout):
             await analytics_service.get_git_branch_analytics(
@@ -496,9 +512,10 @@ class TestAnalyticsServiceBranchAnalytics:
         self, analytics_service, mock_db, sample_branch_data, sample_tool_usage
     ):
         """Test git branch analytics with exclude pattern."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=sample_branch_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_branch_data
+        )
         analytics_service._get_tool_usage_by_branch = AsyncMock(
             return_value=sample_tool_usage
         )
@@ -542,9 +559,10 @@ class TestAnalyticsServiceBranchAnalytics:
             },
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=extended_branch_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation with extended data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=extended_branch_data
+        )
 
         extended_tool_usage = {
             **sample_tool_usage,
@@ -594,9 +612,10 @@ class TestAnalyticsServiceBranchAnalytics:
             },
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=null_branch_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation with null branch data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=null_branch_data
+        )
 
         tool_usage_with_nulls = {
             None: {"edit": 10, "read": 8},
@@ -654,9 +673,10 @@ class TestAnalyticsServiceBranchAnalytics:
             },
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=remote_branch_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation with remote branch data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=remote_branch_data
+        )
 
         normalized_tool_usage = {
             "main": {"bash": 40, "edit": 30},
@@ -719,9 +739,10 @@ class TestAnalyticsServiceBranchAnalytics:
             },
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=zero_cost_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation with zero cost data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=zero_cost_data
+        )
 
         zero_cost_tool_usage = {
             "experimental/test": {"read": 5, "edit": 3},
@@ -761,9 +782,10 @@ class TestAnalyticsServiceBranchAnalytics:
             }
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=single_session_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation with single session data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=single_session_data
+        )
 
         analytics_service._get_tool_usage_by_branch = AsyncMock(
             return_value={"feature/quick-fix": {"edit": 8, "read": 2}}
@@ -786,9 +808,10 @@ class TestAnalyticsServiceBranchAnalytics:
         """Test _get_tool_usage_by_branch with empty or missing tool results."""
         empty_tool_data = []
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=empty_tool_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation with empty tool data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=empty_tool_data
+        )
 
         time_filter = {"timestamp": {"$gte": datetime.now(UTC) - timedelta(days=7)}}
         result = await analytics_service._get_tool_usage_by_branch(time_filter)
@@ -796,8 +819,12 @@ class TestAnalyticsServiceBranchAnalytics:
         assert result == {}
 
         # Verify the aggregation pipeline includes proper filters
-        mock_db.messages.aggregate.assert_called_once()
-        pipeline = mock_db.messages.aggregate.call_args[0][0]
+        analytics_service.rolling_service.aggregate_across_collections.assert_called_once()
+        pipeline = (
+            analytics_service.rolling_service.aggregate_across_collections.call_args[0][
+                0
+            ]
+        )
         match_stage = pipeline[0]["$match"]
         assert "toolUseResult" in match_stage
         assert match_stage["toolUseResult"]["$exists"] is True
@@ -819,9 +846,10 @@ class TestAnalyticsServiceBranchAnalytics:
             }
         ]
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=malformed_tool_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation with malformed tool data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=malformed_tool_data
+        )
 
         time_filter = {"timestamp": {"$gte": datetime.now(UTC) - timedelta(days=7)}}
         result = await analytics_service._get_tool_usage_by_branch(time_filter)
@@ -969,9 +997,10 @@ class TestAnalyticsServiceBranchAnalytics:
         self, analytics_service, mock_db, sample_branch_data, sample_tool_usage
     ):
         """Test git branch analytics with different time ranges."""
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=sample_branch_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=sample_branch_data
+        )
         analytics_service._get_tool_usage_by_branch = AsyncMock(
             return_value=sample_tool_usage
         )
@@ -993,8 +1022,12 @@ class TestAnalyticsServiceBranchAnalytics:
             assert isinstance(result, GitBranchAnalyticsResponse)
 
             # Verify the aggregation was called with time filter
-            mock_db.messages.aggregate.assert_called()
-            pipeline = mock_db.messages.aggregate.call_args[0][0]
+            analytics_service.rolling_service.aggregate_across_collections.assert_called()
+            pipeline = analytics_service.rolling_service.aggregate_across_collections.call_args[
+                0
+            ][
+                0
+            ]
             match_stage = pipeline[0]["$match"]
             assert "timestamp" in match_stage
 
@@ -1024,9 +1057,10 @@ class TestAnalyticsServiceBranchAnalytics:
                 f"tool_{j}": i + j for j in range(5)  # 5 tools per branch
             }
 
-        mock_aggregate = MagicMock()
-        mock_aggregate.to_list = AsyncMock(return_value=large_branch_data)
-        mock_db.messages.aggregate = MagicMock(return_value=mock_aggregate)
+        # Mock the rolling service aggregation with large branch data
+        analytics_service.rolling_service.aggregate_across_collections = AsyncMock(
+            return_value=large_branch_data
+        )
         analytics_service._get_tool_usage_by_branch = AsyncMock(
             return_value=large_tool_usage
         )
