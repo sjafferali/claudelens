@@ -40,13 +40,17 @@ async def verify_tenant_from_api_key(
     # Look up the key in the database
     from datetime import UTC, datetime
 
+    # MongoDB stores datetimes as UTC but returns them as naive datetimes
+    # So we need to use a naive UTC datetime for comparison
+    now_utc = datetime.now(UTC).replace(tzinfo=None)
+
     user = await db.users.find_one(
         {
             "api_keys": {
                 "$elemMatch": {
                     "key_hash": key_hash,
                     "active": True,
-                    "expires_at": {"$gt": datetime.now(UTC)},
+                    "expires_at": {"$gt": now_utc},
                 }
             }
         }
@@ -56,10 +60,10 @@ async def verify_tenant_from_api_key(
         logger.warning(f"Invalid API key attempt: {api_key[:10]}...")
         raise HTTPException(status_code=401, detail="Invalid or expired API key")
 
-    # Update last_used timestamp
+    # Update last_used timestamp (use naive UTC for MongoDB)
     await db.users.update_one(
         {"_id": user["_id"], "api_keys.key_hash": key_hash},
-        {"$set": {"api_keys.$.last_used": datetime.now(UTC)}},
+        {"$set": {"api_keys.$.last_used": datetime.now(UTC).replace(tzinfo=None)}},
     )
 
     # Inject tenant context into request
