@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Users,
   AlertTriangle,
@@ -14,6 +14,7 @@ import {
   Ban,
   MoreVertical,
   BarChart3,
+  Save,
 } from 'lucide-react';
 import { adminRateLimitsApi } from '@/api/admin/rateLimits';
 import { rateLimitUsageApi } from '@/api/rateLimitUsage';
@@ -216,6 +217,8 @@ export const AllUsersRateLimitsView: React.FC = () => {
   );
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState(24);
+  const [isFlushingMetrics, setIsFlushingMetrics] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch top users
   const {
@@ -226,6 +229,25 @@ export const AllUsersRateLimitsView: React.FC = () => {
     queryKey: ['admin', 'rate-limits', 'top-users', timeRange],
     queryFn: () => adminRateLimitsApi.getTopUsers(50, timeRange),
     refetchInterval: 60000,
+  });
+
+  // Flush metrics mutation
+  const flushMetricsMutation = useMutation({
+    mutationFn: adminRateLimitsApi.flushMetrics,
+    onMutate: () => {
+      setIsFlushingMetrics(true);
+    },
+    onSuccess: () => {
+      // Wait a moment for the flush to complete, then refetch data
+      setTimeout(() => {
+        refetch();
+        setIsFlushingMetrics(false);
+      }, 1000);
+    },
+    onError: (error) => {
+      console.error('Failed to flush metrics:', error);
+      setIsFlushingMetrics(false);
+    },
   });
 
   // Fetch usage stats for all users (commented out if not currently used)
@@ -407,8 +429,34 @@ export const AllUsersRateLimitsView: React.FC = () => {
                 <option value={72}>Last 3 Days</option>
                 <option value={168}>Last Week</option>
               </select>
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                <RefreshCw className="w-4 h-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => flushMetricsMutation.mutate()}
+                disabled={isFlushingMetrics}
+                title="Flush metrics to database"
+              >
+                <Save
+                  className={cn(
+                    'w-4 h-4',
+                    isFlushingMetrics && 'animate-pulse'
+                  )}
+                />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setIsRefreshing(true);
+                  await refetch();
+                  setTimeout(() => setIsRefreshing(false), 500);
+                }}
+                disabled={isRefreshing}
+                title="Refresh data"
+              >
+                <RefreshCw
+                  className={cn('w-4 h-4', isRefreshing && 'animate-spin')}
+                />
               </Button>
               <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="w-4 h-4" />

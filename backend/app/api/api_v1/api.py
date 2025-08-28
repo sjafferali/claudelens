@@ -5,6 +5,7 @@ from app.api.api_v1.endpoints import (
     analytics,
     auth,
     backup,
+    debug,
     export,
     import_export,
     ingest,
@@ -74,6 +75,9 @@ api_router.include_router(
 api_router.include_router(
     rate_limits.router, prefix="/rate-limits", tags=["rate-limits"]
 )
+
+# Debug endpoints (should be disabled in production)
+api_router.include_router(debug.router, prefix="/debug", tags=["debug"])
 
 
 @api_router.get("/health")

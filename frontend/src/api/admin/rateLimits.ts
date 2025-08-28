@@ -165,4 +165,10 @@ export const adminRateLimitsApi = {
       params: { retention_days: retentionDays },
     });
   },
+
+  flushMetrics: async (): Promise<{ message: string }> => {
+    return await apiClient.post<{ message: string }>(
+      '/admin/rate-limits/flush'
+    );
+  },
 };

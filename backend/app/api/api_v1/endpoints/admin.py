@@ -795,6 +795,29 @@ async def get_top_users_by_usage(
     return {"time_range_hours": hours, "top_users": enhanced_users}
 
 
+@router.post("/rate-limits/flush")
+async def flush_rate_limit_metrics(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, str]:
+    """Manually flush rate limit metrics from memory to database.
+
+    This forces an immediate write of any accumulated rate limit usage data
+    that is normally buffered in memory for performance.
+    """
+    from app.services.rate_limit_usage_service import RateLimitUsageService
+
+    service = RateLimitUsageService(db)
+
+    try:
+        await service._flush_metrics()
+        return {"message": "Rate limit metrics flushed successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to flush metrics: {str(e)}"
+        )
+
+
 class ProjectOwnershipTransfer(PydanticBaseModel):
     """Request model for transferring project ownership."""
 

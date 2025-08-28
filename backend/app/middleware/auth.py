@@ -41,6 +41,8 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 if user_data:
                     context.user_id = str(user_data.get("id"))
                     context.user_role = UserRole(user_data.get("role", "user"))
+                    # Also set on request.state for other middleware
+                    request.state.user_id = context.user_id
 
             # Check for JWT Bearer token
             auth_header = request.headers.get("Authorization", "")
@@ -50,13 +52,18 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 if token_data:
                     context.user_id = token_data.user_id
                     context.user_role = UserRole(token_data.role)
+                    # Also set on request.state for other middleware
+                    request.state.user_id = context.user_id
 
             # Check for API key
             api_key = request.headers.get("X-API-Key")
             if api_key and not context.user_id:
                 db = await get_database()
-                await verify_tenant_from_api_key(api_key, db, request)
-                # Context is already populated by verify_tenant_from_api_key
+                user_id = await verify_tenant_from_api_key(api_key, db, request)
+                # Re-get context to ensure it's properly set
+                context = await get_tenant_context(request)
+                # Also set user_id directly on request.state for other middleware
+                request.state.user_id = user_id
 
             # Check for localhost access (development mode)
             if not context.user_id:
@@ -80,6 +87,8 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                     if default_user:
                         context.user_id = str(default_user["_id"])
                         context.user_role = UserRole(default_user.get("role", "admin"))
+                        # Also set on request.state for other middleware
+                        request.state.user_id = context.user_id
 
         except Exception:
             # Don't block requests if authentication fails
