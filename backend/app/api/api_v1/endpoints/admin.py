@@ -123,18 +123,24 @@ async def get_admin_statistics(
         }
         total_storage_bytes += stat["total_storage"]
 
-    # Format top users
+    # Format top users and calculate actual counts
     formatted_top_users = []
     for user in top_users:
+        # Calculate actual session count for this user
+        user_session_count = await db.sessions.count_documents({"user_id": user["_id"]})
+
+        # Calculate actual project count for this user
+        user_project_count = await db.projects.count_documents({"user_id": user["_id"]})
+
         formatted_top_users.append(
             {
                 "id": str(user["_id"]),
                 "username": user.get("username", "N/A"),
                 "email": user.get("email", "N/A"),
                 "total_disk_usage": user.get("total_disk_usage", 0),
-                "session_count": user.get("session_count", 0),
+                "session_count": user_session_count,
                 "message_count": user.get("message_count", 0),
-                "project_count": user.get("project_count", 0),
+                "project_count": user_project_count,
             }
         )
 
@@ -184,6 +190,12 @@ async def get_admin_users(
 
     users = []
     async for user in cursor:
+        # Calculate actual session count for this user
+        user_session_count = await db.sessions.count_documents({"user_id": user["_id"]})
+
+        # Calculate actual project count for this user
+        user_project_count = await db.projects.count_documents({"user_id": user["_id"]})
+
         users.append(
             {
                 "id": str(user["_id"]),
@@ -192,8 +204,8 @@ async def get_admin_users(
                 "role": user.get("role"),
                 "created_at": user.get("created_at"),
                 "updated_at": user.get("updated_at"),
-                "project_count": user.get("project_count", 0),
-                "session_count": user.get("session_count", 0),
+                "project_count": user_project_count,
+                "session_count": user_session_count,
                 "message_count": user.get("message_count", 0),
                 "total_disk_usage": user.get("total_disk_usage", 0),
                 "api_key_count": len(user.get("api_keys", [])),
@@ -414,17 +426,23 @@ async def get_storage_breakdown(
         "by_user": [],  # This would require additional aggregation if needed
     }
 
-    # Format top users
+    # Format top users and calculate actual counts
     formatted_top_users = []
     for user in top_users:
+        # Calculate actual session count for this user
+        user_session_count = await db.sessions.count_documents({"user_id": user["_id"]})
+
+        # Calculate actual project count for this user
+        user_project_count = await db.projects.count_documents({"user_id": user["_id"]})
+
         formatted_top_users.append(
             {
                 "user_id": str(user.get("_id", "")),
                 "username": user.get("username", "Unknown"),
                 "total_disk_usage": user.get("total_disk_usage", 0),
-                "session_count": user.get("session_count", 0),
+                "session_count": user_session_count,
                 "message_count": user.get("message_count", 0),
-                "project_count": user.get("project_count", 0),
+                "project_count": user_project_count,
             }
         )
 

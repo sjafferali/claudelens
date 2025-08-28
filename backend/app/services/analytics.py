@@ -2238,8 +2238,15 @@ class AnalyticsService:
                 # Since we only have session_count (not the actual IDs), we'll track it differently
                 if is_last_part:
                     node_data["sessions"] = data.get("session_count", 0)
-                if data["last_active"] > node_data["last_active"]:
-                    node_data["last_active"] = data["last_active"]
+
+                # Ensure last_active is timezone-aware before comparison
+                data_last_active = data["last_active"]
+                if data_last_active.tzinfo is None:
+                    # If offset-naive, assume UTC
+                    data_last_active = data_last_active.replace(tzinfo=UTC)
+
+                if data_last_active > node_data["last_active"]:
+                    node_data["last_active"] = data_last_active
 
                 current = current[part]["_children"]
 
