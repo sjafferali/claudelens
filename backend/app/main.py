@@ -106,9 +106,10 @@ app.add_middleware(
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(LoggingMiddleware)
-# Authentication middleware must run before rate limiting to populate user context
-app.add_middleware(AuthenticationMiddleware)
+# IMPORTANT: In FastAPI/Starlette, middleware added LAST runs FIRST
+# So we add RateLimitTracking first (runs last) and Authentication last (runs first)
 app.add_middleware(RateLimitTrackingMiddleware, calls=500, period=60)
+app.add_middleware(AuthenticationMiddleware)  # This runs FIRST, before rate limiting
 
 
 # Exception handlers
