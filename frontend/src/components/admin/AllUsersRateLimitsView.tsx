@@ -16,8 +16,10 @@ import {
   BarChart3,
   Save,
 } from 'lucide-react';
-import { adminRateLimitsApi } from '@/api/admin/rateLimits';
-import { rateLimitUsageApi } from '@/api/rateLimitUsage';
+import {
+  adminRateLimitsApi,
+  RateLimitUsageStats,
+} from '@/api/admin/rateLimits';
 import {
   Card,
   CardContent,
@@ -259,9 +261,16 @@ export const AllUsersRateLimitsView: React.FC = () => {
 
   // Fetch selected user's detailed usage
   const { data: selectedUserUsage } = useQuery({
-    queryKey: ['rate-limit-usage', 'user', selectedUserId],
-    queryFn: () =>
-      selectedUserId ? rateLimitUsageApi.getCurrentUsage() : null,
+    queryKey: ['admin', 'rate-limit-usage', 'user', selectedUserId],
+    queryFn: async () => {
+      if (!selectedUserId) return null;
+      const result = await adminRateLimitsApi.getUsageStats(selectedUserId);
+      // The API returns { user_id: string; usage: UserUsageData } for a specific user
+      if ('user_id' in result) {
+        return result.usage;
+      }
+      return null;
+    },
     enabled: !!selectedUserId,
   });
 
@@ -642,26 +651,106 @@ export const AllUsersRateLimitsView: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* User Detail Modal/Drawer would go here */}
-      {selectedUserId && selectedUserUsage && (
-        <Card>
+      {/* User Detail Modal/Drawer */}
+      {selectedUserId && (
+        <Card className="mt-6 border-2 border-blue-200 dark:border-blue-800">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>User Details: {selectedUserId}</CardTitle>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  User Rate Limit Details
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  {processedUsers.find((u) => u.user_id === selectedUserId)
+                    ?.username || selectedUserId}
+                </CardDescription>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedUserId(null)}
               >
-                Close
+                <XCircle className="w-4 h-4" />
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            {/* Detailed user usage would be displayed here */}
-            <p className="text-sm text-gray-600">
-              Detailed usage information for selected user would appear here.
-            </p>
+            {selectedUserUsage ? (
+              <div className="space-y-4">
+                {Object.entries(selectedUserUsage).map(([limitType, stats]) => {
+                  const usageStats = stats as RateLimitUsageStats;
+                  const isUnlimited = usageStats.limit === 'unlimited';
+                  const percentage = isUnlimited
+                    ? 0
+                    : (usageStats.current / (usageStats.limit as number)) * 100;
+                  const isNearLimit = percentage >= 80;
+                  const isOverLimit = percentage >= 100;
+
+                  return (
+                    <div key={limitType} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-medium capitalize">
+                          {limitType.replace(/_/g, ' ')}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          {isOverLimit && (
+                            <Ban className="w-4 h-4 text-red-500" />
+                          )}
+                          {!isOverLimit && isNearLimit && (
+                            <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                          )}
+                          <span className="text-sm text-gray-600">
+                            {usageStats.current} /{' '}
+                            {isUnlimited ? '∞' : usageStats.limit}
+                          </span>
+                        </div>
+                      </div>
+
+                      {!isUnlimited && (
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div
+                            className={cn(
+                              'h-2 rounded-full transition-all',
+                              isOverLimit
+                                ? 'bg-red-500'
+                                : isNearLimit
+                                  ? 'bg-yellow-500'
+                                  : 'bg-green-500'
+                            )}
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          />
+                        </div>
+                      )}
+
+                      <div className="mt-2 flex justify-between text-xs text-gray-600">
+                        <span>
+                          {isUnlimited
+                            ? 'No limit'
+                            : `${usageStats.remaining} remaining`}
+                        </span>
+                        {usageStats.reset_in_seconds && (
+                          <span>
+                            Resets in{' '}
+                            {Math.floor(usageStats.reset_in_seconds / 60)} min
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {Object.keys(selectedUserUsage).length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    No usage data available for this user
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex justify-center py-8">
+                <Loading />
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

@@ -326,71 +326,111 @@ class RateLimitUsageService:
             "websocket": "websocket_usage",
         }
 
-        # Initialize all usage fields with default values
+        # Get usage from database for the current time window
+        # Different limit types have different time windows
+        now = datetime.now(UTC)
+
+        # Calculate per-type usage from database
+        per_type_usage = {}
+        for limit_type in RateLimitType:
+            limit_value = self._get_limit_value(settings, limit_type.value)
+            limit_window = self._get_limit_window(settings, limit_type.value)
+
+            # Calculate window start time
+            window_start = now - timedelta(seconds=limit_window)
+
+            # Query database for usage in this window
+            type_stats = await self.db.rate_limit_usage.aggregate(
+                [
+                    {
+                        "$match": {
+                            "user_id": user_id,
+                            "limit_type": limit_type.value,
+                            "timestamp": {"$gte": window_start},
+                        }
+                    },
+                    {
+                        "$group": {
+                            "_id": None,
+                            "total_requests": {"$sum": "$requests_made"},
+                            "total_blocked": {"$sum": "$requests_blocked"},
+                        }
+                    },
+                ]
+            ).to_list(1)
+
+            if type_stats:
+                per_type_usage[limit_type.value] = {
+                    "requests": type_stats[0]["total_requests"],
+                    "blocked": type_stats[0]["total_blocked"],
+                }
+            else:
+                per_type_usage[limit_type.value] = {"requests": 0, "blocked": 0}
+
+        # Initialize all usage fields with values from database
         for limit_type in RateLimitType:
             field_name = usage_map.get(limit_type.value, f"{limit_type.value}_usage")
             limit_value = self._get_limit_value(settings, limit_type.value)
+            limit_window = self._get_limit_window(settings, limit_type.value)
 
-            # Set default usage structure
+            # Get database usage
+            db_usage = per_type_usage.get(
+                limit_type.value, {"requests": 0, "blocked": 0}
+            )
+
+            # Add any in-memory metrics
+            key = f"{user_id}:{limit_type.value}"
+            if key in self._current_metrics:
+                metrics = self._current_metrics[key]
+                db_usage["requests"] += metrics["requests"]
+                db_usage["blocked"] += metrics["blocked"]
+
+            # Calculate reset time (seconds until the window resets)
+            reset_in_seconds = limit_window - (now.timestamp() % limit_window)
+
+            # Set usage structure
             setattr(
                 snapshot,
                 field_name,
                 {
-                    "current": 0,
+                    "current": db_usage["requests"],
                     "limit": limit_value if limit_value > 0 else "unlimited",
-                    "remaining": limit_value if limit_value > 0 else "unlimited",
-                    "blocked": 0,
-                    "percentage_used": 0,
-                    "reset_in_seconds": None,
+                    "remaining": max(0, limit_value - db_usage["requests"])
+                    if limit_value > 0
+                    else "unlimited",
+                    "blocked": db_usage["blocked"],
+                    "percentage_used": (db_usage["requests"] / limit_value * 100)
+                    if limit_value > 0
+                    else 0,
+                    "reset_in_seconds": reset_in_seconds if limit_value > 0 else None,
                 },
             )
 
-        # Add current usage from in-memory metrics
-        for limit_type in RateLimitType:
-            key = f"{user_id}:{limit_type.value}"
-            if key in self._current_metrics:
-                metrics = self._current_metrics[key]
-                field_name = usage_map.get(
-                    limit_type.value, f"{limit_type.value}_usage"
-                )
-
-                # Get limit value
-                limit_value = self._get_limit_value(settings, limit_type.value)
-
-                setattr(
-                    snapshot,
-                    field_name,
-                    {
-                        "current": metrics["requests"],
-                        "limit": limit_value if limit_value > 0 else "unlimited",
-                        "remaining": max(0, limit_value - metrics["requests"])
-                        if limit_value > 0
-                        else "unlimited",
-                        "blocked": metrics["blocked"],
-                        "percentage_used": (metrics["requests"] / limit_value * 100)
-                        if limit_value > 0
-                        else 0,
-                    },
-                )
-
-        # Add rate limit service stats for operations
+        # Add rate limit service stats for operations (these are tracked separately)
         for op_type in ["export", "import", "backup", "restore"]:
             if op_type in usage_stats:
                 field_name = f"{op_type}_usage"
                 stats = usage_stats[op_type]
-                setattr(
-                    snapshot,
-                    field_name,
-                    {
-                        "current": stats["current"],
-                        "limit": stats["limit"],
-                        "remaining": stats["remaining"],
-                        "reset_in_seconds": stats.get("reset_in_seconds"),
-                        "percentage_used": (stats["current"] / stats["limit"] * 100)
-                        if stats["limit"] != "unlimited" and stats["limit"] > 0
-                        else 0,
-                    },
-                )
+
+                # Override with actual usage data if we have it
+                current_usage = getattr(snapshot, field_name)
+                if current_usage["current"] == 0 and stats["current"] > 0:
+                    setattr(
+                        snapshot,
+                        field_name,
+                        {
+                            "current": stats["current"],
+                            "limit": stats["limit"],
+                            "remaining": stats["remaining"],
+                            "reset_in_seconds": stats.get("reset_in_seconds"),
+                            "percentage_used": (stats["current"] / stats["limit"] * 100)
+                            if stats["limit"] != "unlimited" and stats["limit"] > 0
+                            else 0,
+                            "blocked": current_usage[
+                                "blocked"
+                            ],  # Keep blocked count from db
+                        },
+                    )
 
         # Calculate daily totals
         today_start = datetime.now(UTC).replace(
