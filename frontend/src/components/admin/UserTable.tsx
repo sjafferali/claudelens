@@ -8,7 +8,6 @@ import {
   Plus,
   UserPlus,
   ShieldCheck,
-  Eye,
   Key,
   Lock,
 } from 'lucide-react';
@@ -66,8 +65,6 @@ const getRoleIcon = (role: UserRole) => {
       return <ShieldCheck className="w-4 h-4 text-red-500" />;
     case UserRole.USER:
       return <UserPlus className="w-4 h-4 text-blue-500" />;
-    case UserRole.VIEWER:
-      return <Eye className="w-4 h-4 text-green-500" />;
     default:
       return null;
   }
@@ -79,8 +76,6 @@ const getRoleColor = (role: UserRole) => {
       return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
     case UserRole.USER:
       return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-    case UserRole.VIEWER:
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
   }
@@ -277,7 +272,6 @@ export const UserTable: React.FC<UserTableProps> = ({ className }) => {
             <option value="">All Roles</option>
             <option value={UserRole.ADMIN}>Admin</option>
             <option value={UserRole.USER}>User</option>
-            <option value={UserRole.VIEWER}>Viewer</option>
           </select>
         </div>
       </CardHeader>
@@ -363,7 +357,6 @@ export const UserTable: React.FC<UserTableProps> = ({ className }) => {
                         >
                           <option value={UserRole.ADMIN}>Admin</option>
                           <option value={UserRole.USER}>User</option>
-                          <option value={UserRole.VIEWER}>Viewer</option>
                         </select>
                         <Button
                           variant="outline"

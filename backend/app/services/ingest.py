@@ -21,8 +21,9 @@ logger = logging.getLogger(__name__)
 class IngestService:
     """Service for ingesting Claude messages."""
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncIOMotorDatabase, user_id: str):
         self.db = db
+        self.user_id = user_id
         self._project_cache: dict[str, ObjectId] = {}
         self._session_cache: dict[str, ObjectId] = {}
 
@@ -225,15 +226,24 @@ class IngestService:
         self, session_id: str, first_message: MessageIngest
     ) -> ObjectId | None:
         """Ensure session exists, create if needed."""
-        # Check cache first
-        if session_id in self._session_cache:
+        # Check cache first - include user_id in cache key
+        cache_key = f"{self.user_id}:{session_id}"
+        if cache_key in self._session_cache:
             return None
 
-        # Check database
+        # Check database - find session by ID and verify project ownership
         existing = await self.db.sessions.find_one({"sessionId": session_id})
         if existing:
-            self._session_cache[session_id] = existing["_id"]
-            return None
+            # Verify the project belongs to this user
+            project = await self.db.projects.find_one(
+                {"_id": existing["projectId"], "user_id": ObjectId(self.user_id)}
+            )
+            if project:
+                # Session exists and belongs to this user's project
+                self._session_cache[cache_key] = existing["_id"]
+                return None
+            # Session exists but belongs to another user's project
+            # Continue to create a new session for this user
 
         # Extract project info from path
         project_path = None
@@ -267,9 +277,10 @@ class IngestService:
         effective_path = project_path or first_message.cwd or "unknown"
         project_id = await self._ensure_project(effective_path, project_name)
 
-        # Create session
+        # Create session (without user_id - ownership through project)
         session_doc = {
             "_id": ObjectId(),
+            # No user_id - ownership inherited from project
             "sessionId": session_id,
             "projectId": project_id,
             "startedAt": first_message.timestamp,
@@ -283,27 +294,31 @@ class IngestService:
         await self.db.sessions.insert_one(session_doc)
         session_id_obj = session_doc["_id"]
         assert isinstance(session_id_obj, ObjectId)
-        self._session_cache[session_id] = session_id_obj
+        self._session_cache[cache_key] = session_id_obj
 
         return session_id_obj
 
     async def _ensure_project(self, project_path: str, project_name: str) -> ObjectId:
         """Ensure project exists, create if needed."""
-        # Check cache first
-        if project_path in self._project_cache:
-            return self._project_cache[project_path]
+        # Check cache first - include user_id in cache key
+        cache_key = f"{self.user_id}:{project_path}"
+        if cache_key in self._project_cache:
+            return self._project_cache[cache_key]
 
-        # Check database
-        existing = await self.db.projects.find_one({"path": project_path})
+        # Check database - filter by user_id
+        existing = await self.db.projects.find_one(
+            {"path": project_path, "user_id": ObjectId(self.user_id)}
+        )
         if existing:
-            self._project_cache[project_path] = existing["_id"]
+            self._project_cache[cache_key] = existing["_id"]
             project_id = existing["_id"]
             assert isinstance(project_id, ObjectId)
             return project_id
 
-        # Create project
+        # Create project with user_id
         project_doc = {
             "_id": ObjectId(),
+            "user_id": ObjectId(self.user_id),  # Add user_id
             "name": project_name,
             "path": project_path,
             "createdAt": datetime.now(UTC),
@@ -314,7 +329,7 @@ class IngestService:
         await self.db.projects.insert_one(project_doc)
         project_id = project_doc["_id"]
         assert isinstance(project_id, ObjectId)
-        self._project_cache[project_path] = project_id
+        self._project_cache[cache_key] = project_id
 
         return project_id
 
@@ -380,6 +395,7 @@ class IngestService:
                 # Always create the main assistant message, even if it's empty
                 main_doc = {
                     "_id": ObjectId(),
+                    # No user_id - ownership inherited from session's project
                     "uuid": message.uuid,
                     "sessionId": session_id,
                     "type": "assistant",
@@ -485,6 +501,7 @@ class IngestService:
                     tool_uuid = f"{message.uuid}_tool_{i}"
                     tool_doc = {
                         "_id": ObjectId(),
+                        # No user_id - ownership inherited from session's project
                         "uuid": tool_uuid,
                         "sessionId": session_id,
                         "type": "tool_use",
@@ -526,6 +543,7 @@ class IngestService:
                 # Always create main user message
                 main_doc = {
                     "_id": ObjectId(),
+                    # No user_id - ownership inherited from session's project
                     "uuid": message.uuid,
                     "sessionId": session_id,
                     "type": "user",
@@ -563,6 +581,7 @@ class IngestService:
                     parent_tool_uuid = f"{message.parentUuid}_tool_{i}"
                     result_doc = {
                         "_id": ObjectId(),
+                        # No user_id - ownership inherited from session's project
                         "uuid": result_uuid,
                         "sessionId": session_id,
                         "type": "tool_result",
@@ -598,6 +617,7 @@ class IngestService:
         """Create a default document using the original logic."""
         doc = {
             "_id": ObjectId(),
+            # No user_id - ownership inherited from session's project
             "uuid": message.uuid,
             "sessionId": session_id,
             "type": message.type,
@@ -895,10 +915,9 @@ class IngestService:
                         from .session import SessionService
 
                         session_service = SessionService(self.db)
-                        # Get user_id from the session
-                        user_id = str(session.get("user_id", ""))
+                        # Use the user_id from self instead of from session
                         await session_service.generate_summary(
-                            user_id, str(session["_id"])
+                            self.user_id, str(session["_id"])
                         )
 
     async def _log_ingestion(self, stats: IngestStats) -> None:

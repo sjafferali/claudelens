@@ -1,9 +1,9 @@
 """Rate limit settings model."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RateLimitSettings(BaseModel):
@@ -53,15 +53,13 @@ class RateLimitSettings(BaseModel):
     rate_limiting_enabled: bool = Field(True, description="Enable rate limiting")
 
     # Metadata
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = Field(
         None, description="User who last updated settings"
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "export_limit_per_hour": 10,
                 "import_limit_per_hour": 5,
@@ -76,3 +74,4 @@ class RateLimitSettings(BaseModel):
                 "rate_limiting_enabled": True,
             }
         }
+    )

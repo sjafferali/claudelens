@@ -53,7 +53,8 @@ def mock_db():
 @pytest.fixture
 def ingest_service(mock_db):
     """Create IngestService with mock database."""
-    return IngestService(mock_db)
+    test_user_id = "507f1f77bcf86cd799439011"
+    return IngestService(mock_db, test_user_id)
 
 
 @pytest.fixture
@@ -181,6 +182,17 @@ class TestIngestMessageIntegration:
                 mock_db.sessions.insert_one.called
             )  # Sessions are created with insert_one
 
+            # Mock projects and sessions for hierarchical ownership queries
+            mock_db.projects.find.return_value.to_list = AsyncMock(
+                return_value=[{"_id": ObjectId()}]
+            )
+            mock_db.sessions.find.return_value.to_list = AsyncMock(
+                return_value=[
+                    {"sessionId": "test_session_001"},
+                    {"sessionId": "test_session_002"},
+                ]
+            )
+
             # Retrieve all messages
             messages, total = await message_service.list_messages(
                 user_id="507f1f77bcf86cd799439011",
@@ -277,6 +289,14 @@ class TestIngestMessageIntegration:
             mock_integration.return_value = AsyncMock()
             mock_cost_service.return_value = AsyncMock()
 
+            # Mock projects and sessions for hierarchical ownership queries
+            mock_db.projects.find.return_value.to_list = AsyncMock(
+                return_value=[{"_id": ObjectId()}]
+            )
+            mock_db.sessions.find.return_value.to_list = AsyncMock(
+                return_value=[{"sessionId": "test_session_001"}]
+            )
+
             # Test session filtering
             messages, total = await message_service.list_messages(
                 user_id="507f1f77bcf86cd799439011",
@@ -309,6 +329,17 @@ class TestIngestMessageIntegration:
             # Test that both services can be called without errors
             stats = await ingest_service.ingest_messages(sample_messages)
             assert stats.messages_received == 3
+
+            # Mock projects and sessions for hierarchical ownership queries
+            mock_db.projects.find.return_value.to_list = AsyncMock(
+                return_value=[{"_id": ObjectId()}]
+            )
+            mock_db.sessions.find.return_value.to_list = AsyncMock(
+                return_value=[
+                    {"sessionId": "test_session_001"},
+                    {"sessionId": "test_session_002"},
+                ]
+            )
 
             # Test message service operations
             messages, total = await message_service.list_messages(

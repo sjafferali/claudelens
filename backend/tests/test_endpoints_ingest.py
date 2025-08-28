@@ -87,7 +87,8 @@ class TestIngestBatch:
             assert result.stats == stats
             assert "successfully" in result.message
 
-            mock_service_class.assert_called_once_with(mock_db)
+            # IngestService now requires user_id parameter
+            mock_service_class.assert_called_once_with(mock_db, mock_api_key)
             mock_service.ingest_messages.assert_called_once_with(
                 sample_request.messages, overwrite_mode=False
             )

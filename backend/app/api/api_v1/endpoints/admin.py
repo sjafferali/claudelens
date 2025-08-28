@@ -1,7 +1,7 @@
 """Admin dashboard endpoints."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Sequence, cast
 
 from bson import Decimal128, ObjectId
@@ -345,7 +345,7 @@ async def reset_user_password(
         {
             "$set": {
                 "password_hash": password_hash,
-                "updated_at": datetime.utcnow(),
+                "updated_at": datetime.now(timezone.utc),
                 "auth_method": "local",  # Ensure auth method is set to local
             }
         },
@@ -594,3 +594,119 @@ async def delete_oidc_settings(
     oidc_service._settings = None
 
     return {"message": f"Deleted {result.deleted_count} OIDC settings"}
+
+
+class ProjectOwnershipTransfer(PydanticBaseModel):
+    """Request model for transferring project ownership."""
+
+    project_id: str
+    new_owner_id: str
+
+
+class ProjectOwnershipResponse(PydanticBaseModel):
+    """Response model for project ownership operations."""
+
+    success: bool
+    message: str
+    project_id: str
+    previous_owner_id: str
+    new_owner_id: str
+
+
+@router.post("/projects/transfer-ownership")
+async def transfer_project_ownership(
+    request: ProjectOwnershipTransfer,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> ProjectOwnershipResponse:
+    """Transfer ownership of a project to another user (admin only)."""
+
+    # Validate project exists
+    if not ObjectId.is_valid(request.project_id):
+        raise HTTPException(status_code=400, detail="Invalid project ID")
+
+    project = await db.projects.find_one({"_id": ObjectId(request.project_id)})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Validate new owner exists
+    if not ObjectId.is_valid(request.new_owner_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    new_owner = await db.users.find_one({"_id": ObjectId(request.new_owner_id)})
+    if not new_owner:
+        raise HTTPException(status_code=404, detail="New owner user not found")
+
+    # Store previous owner for response
+    previous_owner_id = str(project.get("user_id", "unknown"))
+
+    # Update project ownership
+    result = await db.projects.update_one(
+        {"_id": ObjectId(request.project_id)},
+        {"$set": {"user_id": ObjectId(request.new_owner_id)}},
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(
+            status_code=500, detail="Failed to update project ownership"
+        )
+
+    return ProjectOwnershipResponse(
+        success=True,
+        message=f"Successfully transferred project ownership to {new_owner['username']}",
+        project_id=request.project_id,
+        previous_owner_id=previous_owner_id,
+        new_owner_id=request.new_owner_id,
+    )
+
+
+@router.get("/projects/with-owners")
+async def list_projects_with_owners(
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+) -> Dict[str, Any]:
+    """List all projects with their owner information (admin only)."""
+
+    # Aggregation pipeline to join projects with users
+    pipeline: List[Dict[str, Any]] = [
+        {
+            "$lookup": {
+                "from": "users",
+                "localField": "user_id",
+                "foreignField": "_id",
+                "as": "owner",
+            }
+        },
+        {"$unwind": {"path": "$owner", "preserveNullAndEmptyArrays": True}},
+        {
+            "$project": {
+                "_id": 1,
+                "name": 1,
+                "path": 1,
+                "createdAt": 1,
+                "updatedAt": 1,
+                "stats": 1,
+                "owner": {
+                    "_id": "$owner._id",
+                    "username": "$owner.username",
+                    "email": "$owner.email",
+                },
+            }
+        },
+        {"$sort": {"createdAt": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+    ]
+
+    # Get projects with owners
+    projects = await db.projects.aggregate(pipeline).to_list(None)
+
+    # Convert BSON types for JSON serialization
+    projects = convert_bson_types(projects)
+
+    # Get total count
+    total = await db.projects.count_documents({})
+
+    return {"items": projects, "total": total, "skip": skip, "limit": limit}

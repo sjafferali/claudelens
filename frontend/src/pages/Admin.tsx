@@ -9,6 +9,7 @@ import {
   Shield,
   AlertTriangle,
   Settings,
+  Folder,
 } from 'lucide-react';
 import { adminApi } from '@/api/admin';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,6 +23,7 @@ import {
 import Loading from '@/components/common/Loading';
 import { UserTable } from '@/components/admin/UserTable';
 import { DiskUsageChart } from '@/components/admin/DiskUsageChart';
+import { ProjectOwnershipManager } from '@/components/admin/ProjectOwnershipManager';
 import { OIDCSettingsPanel } from '@/components/settings/OIDCSettingsPanel';
 import { cn } from '@/utils/cn';
 
@@ -106,7 +108,7 @@ const StatCard = ({
 export default function Admin() {
   const { isAdmin, isLoading: authLoading, currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'users' | 'storage' | 'settings'
+    'overview' | 'users' | 'projects' | 'storage' | 'settings'
   >('overview');
 
   // Redirect if not admin
@@ -172,6 +174,7 @@ export default function Admin() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: TrendingUp },
     { id: 'users', label: 'User Management', icon: Users },
+    { id: 'projects', label: 'Project Ownership', icon: Folder },
     { id: 'storage', label: 'Storage Analysis', icon: HardDrive },
     { id: 'settings', label: 'Authentication', icon: Settings },
   ] as const;
@@ -388,6 +391,8 @@ export default function Admin() {
         )}
 
         {activeTab === 'users' && <UserTable />}
+
+        {activeTab === 'projects' && <ProjectOwnershipManager />}
 
         {activeTab === 'storage' && (
           <div className="space-y-6">

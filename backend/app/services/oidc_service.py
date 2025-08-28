@@ -2,7 +2,7 @@
 
 import logging
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, cast
 
 import httpx
@@ -60,7 +60,7 @@ class OIDCService:
         self, db: AsyncIOMotorDatabase, settings: OIDCSettingsInDB
     ) -> OIDCSettingsInDB:
         """Save OIDC settings to database."""
-        settings.updated_at = datetime.utcnow()
+        settings.updated_at = datetime.now(timezone.utc)
 
         # Check if settings exist
         existing = await db.oidc_settings.find_one()
@@ -527,9 +527,9 @@ class OIDCService:
                 or f"{user_info.given_name or ''} {user_info.family_name or ''}".strip(),
                 "role": UserRole(self._settings.default_role),
                 "auth_method": "oidc",
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
-                "last_login": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
+                "last_login": datetime.now(timezone.utc),
                 "is_active": True,
                 "api_keys": [],
                 "project_count": 0,
@@ -545,7 +545,8 @@ class OIDCService:
             # Update last login
             logger.info(f"Updating last login for user: {user.get('username')}")
             await db.users.update_one(
-                {"_id": user["_id"]}, {"$set": {"last_login": datetime.utcnow()}}
+                {"_id": user["_id"]},
+                {"$set": {"last_login": datetime.now(timezone.utc)}},
             )
 
         return UserInDB(**user) if user else UserInDB(**{})  # type: ignore
@@ -561,7 +562,8 @@ class OIDCService:
         if (
             self._cached_metadata
             and self._metadata_cache_time
-            and (datetime.utcnow() - self._metadata_cache_time).total_seconds() < 3600
+            and (datetime.now(timezone.utc) - self._metadata_cache_time).total_seconds()
+            < 3600
         ):
             logger.debug("Using cached OIDC metadata")
             return self._cached_metadata
@@ -580,7 +582,7 @@ class OIDCService:
                 response = await client.get(self._settings.discovery_endpoint)
                 response.raise_for_status()
                 self._cached_metadata = response.json()
-                self._metadata_cache_time = datetime.utcnow()
+                self._metadata_cache_time = datetime.now(timezone.utc)
                 logger.debug(
                     f"Cached metadata keys: {list(self._cached_metadata.keys())}"
                 )

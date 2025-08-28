@@ -36,7 +36,7 @@ interface AuthHook {
 
 // Role hierarchy for permission checking
 const ROLE_HIERARCHY = {
-  [UserRole.VIEWER]: 0,
+  // REMOVED: [UserRole.VIEWER]: 0,
   [UserRole.USER]: 1,
   [UserRole.ADMIN]: 2,
 };

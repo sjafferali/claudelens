@@ -219,7 +219,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 >
                   <option value={UserRole.USER}>User</option>
                   <option value={UserRole.ADMIN}>Admin</option>
-                  <option value={UserRole.VIEWER}>Viewer</option>
                 </select>
               </div>
 

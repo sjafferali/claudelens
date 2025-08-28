@@ -273,7 +273,7 @@ export interface AIUsageStats {
 export enum UserRole {
   ADMIN = 'admin',
   USER = 'user',
-  VIEWER = 'viewer',
+  // REMOVED: VIEWER = 'viewer',
 }
 
 export interface User {

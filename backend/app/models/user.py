@@ -13,7 +13,7 @@ class UserRole(str, Enum):
 
     ADMIN = "admin"
     USER = "user"
-    VIEWER = "viewer"
+    # REMOVED: VIEWER = "viewer"
 
 
 class APIKey(BaseModel):

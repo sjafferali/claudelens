@@ -23,8 +23,23 @@ class MessageService:
         sort_order: str,
     ) -> tuple[list[Message], int]:
         """List messages with pagination."""
-        # Add user_id filtering
-        filter_dict["user_id"] = ObjectId(user_id)
+        # Get user's project IDs first
+        user_projects = await self.db.projects.find(
+            {"user_id": ObjectId(user_id)}, {"_id": 1}
+        ).to_list(None)
+        project_ids = [p["_id"] for p in user_projects]
+
+        # Get sessions belonging to user's projects
+        user_sessions = await self.db.sessions.find(
+            {"projectId": {"$in": project_ids}}, {"sessionId": 1}
+        ).to_list(None)
+        session_ids = [s["sessionId"] for s in user_sessions]
+
+        # Filter messages by user's sessions
+        filter_dict["sessionId"] = {"$in": session_ids}
+
+        # Remove any user_id filter that might have been passed
+        filter_dict.pop("user_id", None)
 
         # Count total
         total = await self.db.messages.count_documents(filter_dict)
@@ -62,10 +77,19 @@ class MessageService:
         if not ObjectId.is_valid(message_id):
             return None
 
-        doc = await self.db.messages.find_one(
-            {"_id": ObjectId(message_id), "user_id": ObjectId(user_id)}
-        )
+        doc = await self.db.messages.find_one({"_id": ObjectId(message_id)})
         if not doc:
+            return None
+
+        # Verify ownership through session -> project chain
+        session = await self.db.sessions.find_one({"sessionId": doc["sessionId"]})
+        if not session:
+            return None
+
+        project = await self.db.projects.find_one(
+            {"_id": session["projectId"], "user_id": ObjectId(user_id)}
+        )
+        if not project:
             return None
 
         return self._doc_to_message_detail(doc)
@@ -74,10 +98,19 @@ class MessageService:
         self, user_id: str, uuid: str
     ) -> MessageDetail | None:
         """Get a message by its Claude UUID."""
-        doc = await self.db.messages.find_one(
-            {"uuid": uuid, "user_id": ObjectId(user_id)}
-        )
+        doc = await self.db.messages.find_one({"uuid": uuid})
         if not doc:
+            return None
+
+        # Verify ownership through session -> project chain
+        session = await self.db.sessions.find_one({"sessionId": doc["sessionId"]})
+        if not session:
+            return None
+
+        project = await self.db.projects.find_one(
+            {"_id": session["projectId"], "user_id": ObjectId(user_id)}
+        )
+        if not project:
             return None
 
         return self._doc_to_message_detail(doc)
@@ -205,8 +238,14 @@ class MessageService:
         from bson import Decimal128
 
         try:
+            # First verify ownership through hierarchy
+            message = await self.get_message(user_id, message_id)
+            if not message:
+                return False
+
+            # Now update without user_id filter
             result = await self.db.messages.update_one(
-                {"_id": ObjectId(message_id), "user_id": ObjectId(user_id)},
+                {"_id": ObjectId(message_id)},
                 {"$set": {"costUsd": Decimal128(str(cost_usd))}},
             )
             return result.modified_count > 0
@@ -221,8 +260,13 @@ class MessageService:
 
         updated_count = 0
         for uuid, cost in cost_updates.items():
+            # Verify ownership through hierarchy
+            msg = await self.get_message_by_uuid(user_id, uuid)
+            if not msg:
+                continue
+
             result = await self.db.messages.update_one(
-                {"uuid": uuid, "user_id": ObjectId(user_id)},
+                {"uuid": uuid},
                 {"$set": {"costUsd": Decimal128(str(cost))}},
             )
             if result.modified_count > 0:
@@ -231,7 +275,7 @@ class MessageService:
         # Update session total costs
         session_ids = set()
         cursor = self.db.messages.find(
-            {"uuid": {"$in": list(cost_updates.keys())}, "user_id": ObjectId(user_id)},
+            {"uuid": {"$in": list(cost_updates.keys())}},
             {"sessionId": 1},
         )
         async for doc in cursor:
@@ -245,8 +289,19 @@ class MessageService:
 
     async def _update_session_total_cost(self, user_id: str, session_id: str) -> None:
         """Update the total cost for a session."""
+        # Verify session ownership through hierarchy
+        session = await self.db.sessions.find_one({"sessionId": session_id})
+        if not session:
+            return
+
+        project = await self.db.projects.find_one(
+            {"_id": session.get("projectId"), "user_id": ObjectId(user_id)}
+        )
+        if not project:
+            return
+
         pipeline: list[dict[str, Any]] = [
-            {"$match": {"sessionId": session_id, "user_id": ObjectId(user_id)}},
+            {"$match": {"sessionId": session_id}},
             {
                 "$group": {
                     "_id": None,
@@ -270,6 +325,6 @@ class MessageService:
             from bson import Decimal128
 
             await self.db.sessions.update_one(
-                {"sessionId": session_id, "user_id": ObjectId(user_id)},
+                {"sessionId": session_id},
                 {"$set": {"totalCost": Decimal128(str(total_cost))}},
             )

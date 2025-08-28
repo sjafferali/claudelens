@@ -20,7 +20,9 @@ def mock_db():
 @pytest.fixture
 def ingest_service(mock_db):
     """Create IngestService instance with mock database."""
-    return IngestService(mock_db)
+    # IngestService now requires user_id
+    test_user_id = "507f1f77bcf86cd799439011"
+    return IngestService(mock_db, test_user_id)
 
 
 @pytest.fixture
@@ -44,8 +46,10 @@ class TestIngestService:
 
     def test_init(self, mock_db):
         """Test IngestService initialization."""
-        service = IngestService(mock_db)
+        test_user_id = "507f1f77bcf86cd799439011"
+        service = IngestService(mock_db, test_user_id)
         assert service.db == mock_db
+        assert service.user_id == test_user_id
         assert service._project_cache == {}
         assert service._session_cache == {}
 

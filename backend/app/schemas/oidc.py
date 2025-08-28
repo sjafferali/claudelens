@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class OIDCSettingsBase(BaseModel):
@@ -54,10 +54,7 @@ class OIDCSettingsResponse(OIDCSettingsBase):
     updated_at: datetime
     updated_by: Optional[str] = None
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class OIDCTestConnectionRequest(BaseModel):

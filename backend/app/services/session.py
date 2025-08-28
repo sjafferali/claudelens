@@ -26,8 +26,17 @@ class SessionService:
         sort_order: str,
     ) -> tuple[list[Session], int]:
         """List sessions with pagination."""
-        # Add user_id filtering
-        filter_dict["user_id"] = ObjectId(user_id)
+        # Get user's project IDs first
+        user_projects = await self.db.projects.find(
+            {"user_id": ObjectId(user_id)}, {"_id": 1}
+        ).to_list(None)
+        project_ids = [p["_id"] for p in user_projects]
+
+        # Filter sessions by user's projects
+        filter_dict["projectId"] = {"$in": project_ids}
+
+        # Remove any user_id filter that might have been passed
+        filter_dict.pop("user_id", None)
 
         # Count total
         total = await self.db.sessions.count_documents(filter_dict)
@@ -84,17 +93,22 @@ class SessionService:
         # First try as MongoDB ObjectId
         try:
             if ObjectId.is_valid(session_id):
-                doc = await self.db.sessions.find_one(
-                    {"_id": ObjectId(session_id), "user_id": ObjectId(user_id)}
-                )
+                doc = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
         except Exception:
             pass
 
         # If not found, try as sessionId field
         if not doc:
-            doc = await self.db.sessions.find_one(
-                {"sessionId": session_id, "user_id": ObjectId(user_id)}
+            doc = await self.db.sessions.find_one({"sessionId": session_id})
+
+        # Verify the session belongs to a project owned by the user
+        if doc:
+            project = await self.db.projects.find_one(
+                {"_id": doc["projectId"], "user_id": ObjectId(user_id)}
             )
+            if not project:
+                # Session's project doesn't belong to this user
+                return None
 
         if not doc:
             return None
@@ -108,17 +122,16 @@ class SessionService:
             {
                 "sessionId": actual_session_id,
                 "model": {"$ne": None},
-                "user_id": ObjectId(user_id),
             },
         )
 
         # Get first and last messages
         first_msg = await self.db.messages.find_one(
-            {"sessionId": actual_session_id, "user_id": ObjectId(user_id)},
+            {"sessionId": actual_session_id},
             sort=[("timestamp", 1)],
         )
         last_msg = await self.db.messages.find_one(
-            {"sessionId": actual_session_id, "user_id": ObjectId(user_id)},
+            {"sessionId": actual_session_id},
             sort=[("timestamp", -1)],
         )
 
@@ -169,17 +182,22 @@ class SessionService:
         # First try as MongoDB ObjectId
         try:
             if ObjectId.is_valid(session_id):
-                doc = await self.db.sessions.find_one(
-                    {"_id": ObjectId(session_id), "user_id": ObjectId(user_id)}
-                )
+                doc = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
         except Exception:
             pass
 
         # If not found, try as sessionId field
         if not doc:
-            doc = await self.db.sessions.find_one(
-                {"sessionId": session_id, "user_id": ObjectId(user_id)}
+            doc = await self.db.sessions.find_one({"sessionId": session_id})
+
+        # Verify the session belongs to a project owned by the user
+        if doc:
+            project = await self.db.projects.find_one(
+                {"_id": doc["projectId"], "user_id": ObjectId(user_id)}
             )
+            if not project:
+                # Session's project doesn't belong to this user
+                return []
 
         if not doc:
             return []
@@ -188,9 +206,7 @@ class SessionService:
         actual_session_id = doc["sessionId"]
 
         cursor = (
-            self.db.messages.find(
-                {"sessionId": actual_session_id, "user_id": ObjectId(user_id)}
-            )
+            self.db.messages.find({"sessionId": actual_session_id})
             .sort("timestamp", 1)
             .skip(skip)
             .limit(limit)
@@ -386,11 +402,17 @@ class SessionService:
         try:
             if not ObjectId.is_valid(session_id):
                 return None
-            session = await self.db.sessions.find_one(
-                {"_id": ObjectId(session_id), "user_id": ObjectId(user_id)}
-            )
+            session = await self.db.sessions.find_one({"_id": ObjectId(session_id)})
             if not session:
                 return None
+
+            # Verify the session belongs to a project owned by the user
+            project = await self.db.projects.find_one(
+                {"_id": session["projectId"], "user_id": ObjectId(user_id)}
+            )
+            if not project:
+                return None
+
             actual_session_id = session["sessionId"]
         except Exception:
             return None

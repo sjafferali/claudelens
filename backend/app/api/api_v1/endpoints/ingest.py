@@ -26,7 +26,7 @@ async def ingest_batch(
     request: BatchIngestRequest,
     background_tasks: BackgroundTasks,
     db: CommonDeps,
-    api_key: AuthDeps,
+    user_id: AuthDeps,
 ) -> BatchIngestResponse:
     """Ingest a batch of messages.
 
@@ -43,8 +43,8 @@ async def ingest_batch(
     if not request.messages:
         raise HTTPException(status_code=400, detail="No messages provided")
 
-    # Initialize service
-    ingest_service = IngestService(db)
+    # Initialize service with user_id
+    ingest_service = IngestService(db, user_id)
 
     try:
         # Process messages with overwrite mode if specified
@@ -72,7 +72,7 @@ async def ingest_batch(
 
 @router.post("/message", response_model=BatchIngestResponse)
 async def ingest_single(
-    message: MessageIngest, db: CommonDeps, api_key: AuthDeps
+    message: MessageIngest, db: CommonDeps, user_id: AuthDeps
 ) -> BatchIngestResponse:
     """Ingest a single message.
 
@@ -84,12 +84,12 @@ async def ingest_single(
         ),
         BackgroundTasks(),
         db,
-        api_key,
+        user_id,
     )
 
 
 @router.get("/status")
-async def ingestion_status(db: CommonDeps, api_key: AuthDeps) -> dict[str, Any]:
+async def ingestion_status(db: CommonDeps, user_id: AuthDeps) -> dict[str, Any]:
     """Get ingestion system status.
 
     Returns current ingestion statistics and system health.
