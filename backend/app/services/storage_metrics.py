@@ -19,9 +19,10 @@ class StorageMetricsService:
         user_oid = ObjectId(user_id)
 
         # Parallel aggregation pipelines for different collections
+        # Note: messages are stored in rolling collections, handled separately
         tasks = [
             self._calculate_collection_metrics("sessions", user_oid),
-            self._calculate_collection_metrics("messages", user_oid),
+            self._calculate_rolling_messages_metrics(user_oid),
             self._calculate_collection_metrics("projects", user_oid),
         ]
 
@@ -74,6 +75,93 @@ class StorageMetricsService:
             "max_size": 0,
         }
 
+    async def _calculate_rolling_messages_metrics(
+        self, user_id: ObjectId
+    ) -> Dict[str, Any]:
+        """Calculate metrics for messages across rolling collections."""
+        # Get all message collections (messages_YYYY_MM format)
+        all_collections = await self.db.list_collection_names()
+        message_collections = [c for c in all_collections if c.startswith("messages_")]
+
+        if not message_collections:
+            # Fallback to single messages collection if it exists
+            if "messages" in all_collections:
+                # Messages might have user_id field (old schema)
+                return await self._calculate_collection_metrics("messages", user_id)
+            return {
+                "total_size": 0,
+                "document_count": 0,
+                "avg_size": 0,
+                "max_size": 0,
+            }
+
+        # Get user's session IDs through projects
+        # First get user's projects
+        user_projects = await self.db.projects.find(
+            {"user_id": user_id}, {"_id": 1}
+        ).to_list(None)
+        project_ids = [p["_id"] for p in user_projects]
+
+        if not project_ids:
+            return {
+                "total_size": 0,
+                "document_count": 0,
+                "avg_size": 0,
+                "max_size": 0,
+            }
+
+        # Get session IDs for user's projects
+        session_ids = await self.db.sessions.distinct(
+            "sessionId", {"projectId": {"$in": project_ids}}
+        )
+
+        if not session_ids:
+            return {
+                "total_size": 0,
+                "document_count": 0,
+                "avg_size": 0,
+                "max_size": 0,
+            }
+
+        # Aggregate metrics across all message collections for these sessions
+        total_size = 0
+        total_count = 0
+        max_size = 0
+        all_sizes = []
+
+        for collection_name in message_collections:
+            pipeline = [
+                {"$match": {"sessionId": {"$in": session_ids}}},
+                {
+                    "$group": {
+                        "_id": None,
+                        "total_size": {"$sum": {"$bsonSize": "$$ROOT"}},
+                        "document_count": {"$sum": 1},
+                        "avg_size": {"$avg": {"$bsonSize": "$$ROOT"}},
+                        "max_size": {"$max": {"$bsonSize": "$$ROOT"}},
+                    }
+                },
+            ]
+
+            pipeline_typed: Sequence[Mapping[str, Any]] = pipeline  # type: ignore
+            result = await self.db[collection_name].aggregate(pipeline_typed).to_list(1)
+
+            if result and result[0]:
+                total_size += result[0].get("total_size", 0)
+                total_count += result[0].get("document_count", 0)
+                max_size = max(max_size, result[0].get("max_size", 0))
+                if result[0].get("document_count", 0) > 0:
+                    all_sizes.append(result[0].get("avg_size", 0))
+
+        avg_size = sum(all_sizes) / len(all_sizes) if all_sizes else 0
+
+        return {
+            "total_size": total_size,
+            "document_count": total_count,
+            "avg_size": avg_size,
+            "max_size": max_size,
+        }
+
     async def update_user_storage_cache(self, user_id: str) -> Dict[str, Any]:
         """Update cached storage metrics for a user."""
         metrics = await self.calculate_user_metrics(user_id)
@@ -97,10 +185,76 @@ class StorageMetricsService:
     async def calculate_system_metrics(self) -> Dict[str, Any]:
         """Calculate system-wide storage metrics."""
         # Get aggregated metrics across all users
-        collections = ["sessions", "messages", "projects"]
-        tasks = []
+        # Note: messages are in rolling collections, handled separately
 
-        for collection in collections:
+        # Calculate sessions and projects normally
+        sessions_task = self._calculate_system_collection_metrics("sessions")
+        projects_task = self._calculate_system_collection_metrics("projects")
+
+        # Calculate messages across rolling collections
+        messages_task = self._calculate_system_rolling_messages_metrics()
+
+        results = await asyncio.gather(sessions_task, messages_task, projects_task)
+
+        total_size = sum(r["total_size"] for r in results)
+        total_docs = sum(r["document_count"] for r in results)
+
+        breakdown = {
+            "sessions_bytes": results[0]["total_size"],
+            "sessions_count": results[0]["document_count"],
+            "messages_bytes": results[1]["total_size"],
+            "messages_count": results[1]["document_count"],
+            "projects_bytes": results[2]["total_size"],
+            "projects_count": results[2]["document_count"],
+        }
+
+        return {
+            "total_disk_usage": total_size,
+            "total_document_count": total_docs,
+            "breakdown": breakdown,
+            "calculated_at": datetime.now(UTC),
+        }
+
+    async def _calculate_system_collection_metrics(
+        self, collection_name: str
+    ) -> Dict[str, Any]:
+        """Calculate system-wide metrics for a specific collection."""
+        pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "total_size": {"$sum": {"$bsonSize": "$$ROOT"}},
+                    "document_count": {"$sum": 1},
+                }
+            }
+        ]
+
+        result = await self.db[collection_name].aggregate(pipeline).to_list(1)
+
+        if result and result[0]:
+            return {
+                "total_size": result[0]["total_size"],
+                "document_count": result[0]["document_count"],
+            }
+        return {"total_size": 0, "document_count": 0}
+
+    async def _calculate_system_rolling_messages_metrics(self) -> Dict[str, Any]:
+        """Calculate system-wide metrics for messages across rolling collections."""
+        # Get all message collections
+        all_collections = await self.db.list_collection_names()
+        message_collections = [c for c in all_collections if c.startswith("messages_")]
+
+        if not message_collections:
+            # Fallback to single messages collection if it exists
+            if "messages" in all_collections:
+                return await self._calculate_system_collection_metrics("messages")
+            return {"total_size": 0, "document_count": 0}
+
+        # Aggregate across all rolling collections
+        total_size = 0
+        total_count = 0
+
+        for collection_name in message_collections:
             pipeline = [
                 {
                     "$group": {
@@ -110,32 +264,16 @@ class StorageMetricsService:
                     }
                 }
             ]
-            tasks.append(self.db[collection].aggregate(pipeline).to_list(1))
 
-        results = await asyncio.gather(*tasks)
+            result = await self.db[collection_name].aggregate(pipeline).to_list(1)
 
-        total_size = 0
-        total_docs = 0
-        breakdown = {}
-
-        for i, collection in enumerate(collections):
-            if results[i]:
-                size = results[i][0]["total_size"]
-                count = results[i][0]["document_count"]
-            else:
-                size = 0
-                count = 0
-
-            total_size += size
-            total_docs += count
-            breakdown[f"{collection}_bytes"] = size
-            breakdown[f"{collection}_count"] = count
+            if result and result[0]:
+                total_size += result[0]["total_size"]
+                total_count += result[0]["document_count"]
 
         return {
-            "total_disk_usage": total_size,
-            "total_document_count": total_docs,
-            "breakdown": breakdown,
-            "calculated_at": datetime.now(UTC),
+            "total_size": total_size,
+            "document_count": total_count,
         }
 
     async def get_top_users_by_storage(self, limit: int = 10) -> list:

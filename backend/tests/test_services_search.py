@@ -19,7 +19,14 @@ def mock_db():
 @pytest.fixture
 def search_service(mock_db):
     """Create SearchService instance with mock database."""
-    return SearchService(mock_db)
+    # Mock rolling_service methods
+    with patch("app.services.search.RollingMessageService"):
+        service = SearchService(mock_db)
+        # Mock the rolling service methods
+        service.rolling_service.get_collections_for_range = AsyncMock(
+            return_value=["messages_2025_01"]
+        )
+        return service
 
 
 @pytest.fixture
@@ -70,16 +77,26 @@ class TestSearchServiceBasicFunctionality:
         skip = 0
         limit = 10
 
-        # Mock aggregation results
+        # Mock collection operations
+        mock_collection = MagicMock()
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(return_value=[sample_search_doc])
-        search_service.db.messages.aggregate = MagicMock(return_value=mock_cursor)
+        mock_collection.aggregate = MagicMock(return_value=mock_cursor)
 
-        # Mock count pipeline result
+        # Mock count result
         count_cursor = AsyncMock()
         count_cursor.to_list = AsyncMock(return_value=[{"total": 1}])
-        search_service.db.messages.aggregate = MagicMock(
-            side_effect=[mock_cursor, count_cursor]
+
+        # Set up side effects for multiple aggregate calls
+        mock_collection.aggregate = MagicMock(side_effect=[mock_cursor, count_cursor])
+
+        # Mock the database collection
+        search_service.db.messages_2025_01 = mock_collection
+        search_service.db.__getitem__ = MagicMock(return_value=mock_collection)
+
+        # Mock rolling service
+        search_service.rolling_service.get_collections_for_range = AsyncMock(
+            return_value=["messages_2025_01"]
         )
 
         # Mock logging
@@ -108,13 +125,20 @@ class TestSearchServiceBasicFunctionality:
         """Test message search with filters applied."""
         query = "test query"
 
-        # Mock aggregation results
+        # Mock collection operations
+        mock_collection = MagicMock()
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(return_value=[])
         count_cursor = AsyncMock()
         count_cursor.to_list = AsyncMock(return_value=[{"total": 0}])
-        search_service.db.messages.aggregate = MagicMock(
-            side_effect=[mock_cursor, count_cursor]
+        mock_collection.aggregate = MagicMock(side_effect=[mock_cursor, count_cursor])
+
+        # Mock the database collection
+        search_service.db.__getitem__ = MagicMock(return_value=mock_collection)
+
+        # Mock rolling service
+        search_service.rolling_service.get_collections_for_range = AsyncMock(
+            return_value=["messages_2025_01"]
         )
 
         # Mock logging
@@ -128,7 +152,7 @@ class TestSearchServiceBasicFunctionality:
         assert result.filters_applied == sample_filters.model_dump(exclude_none=True)
 
         # Verify aggregation was called twice (search + count)
-        assert search_service.db.messages.aggregate.call_count == 2
+        assert mock_collection.aggregate.call_count == 2
 
     @pytest.mark.asyncio
     async def test_search_messages_with_highlighting(
@@ -137,13 +161,20 @@ class TestSearchServiceBasicFunctionality:
         """Test message search with result highlighting."""
         query = "hello"
 
-        # Mock aggregation results
+        # Mock collection operations
+        mock_collection = MagicMock()
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(return_value=[sample_search_doc])
         count_cursor = AsyncMock()
         count_cursor.to_list = AsyncMock(return_value=[{"total": 1}])
-        search_service.db.messages.aggregate = MagicMock(
-            side_effect=[mock_cursor, count_cursor]
+        mock_collection.aggregate = MagicMock(side_effect=[mock_cursor, count_cursor])
+
+        # Mock the database collection
+        search_service.db.__getitem__ = MagicMock(return_value=mock_collection)
+
+        # Mock rolling service
+        search_service.rolling_service.get_collections_for_range = AsyncMock(
+            return_value=["messages_2025_01"]
         )
 
         # Mock logging
@@ -184,13 +215,20 @@ class TestSearchServiceBasicFunctionality:
         """Test search with no results."""
         query = "nonexistent"
 
-        # Mock empty results
+        # Mock collection operations
+        mock_collection = MagicMock()
         mock_cursor = AsyncMock()
         mock_cursor.to_list = AsyncMock(return_value=[])
         count_cursor = AsyncMock()
         count_cursor.to_list = AsyncMock(return_value=[])
-        search_service.db.messages.aggregate = MagicMock(
-            side_effect=[mock_cursor, count_cursor]
+        mock_collection.aggregate = MagicMock(side_effect=[mock_cursor, count_cursor])
+
+        # Mock the database collection
+        search_service.db.__getitem__ = MagicMock(return_value=mock_collection)
+
+        # Mock rolling service
+        search_service.rolling_service.get_collections_for_range = AsyncMock(
+            return_value=["messages_2025_01"]
         )
 
         # Mock logging

@@ -32,6 +32,9 @@ class SearchRequest(BaseModel):
     limit: int = Field(20, ge=1, le=100, description="Number of results to return")
     highlight: bool = Field(True, description="Include highlighted snippets")
     is_regex: bool = Field(False, description="Whether query is a regex pattern")
+    continue_token: str | None = Field(
+        None, description="Token to continue search from previous request"
+    )
 
 
 class SearchHighlight(BaseModel):
@@ -79,6 +82,18 @@ class SearchResponse(BaseModel):
 
     took_ms: int = Field(..., description="Search duration in milliseconds")
     filters_applied: dict[str, Any] = Field(default_factory=dict)
+
+    # Progressive search metadata
+    search_status: str | None = Field(None, description="Current search status")
+    months_searched: list[str] | None = Field(
+        None, description="List of months searched"
+    )
+    has_more_months: bool = Field(
+        False, description="Whether there are more months to search"
+    )
+    continue_token: str | None = Field(
+        None, description="Token to continue searching from"
+    )
 
 
 class SearchSuggestion(BaseModel):

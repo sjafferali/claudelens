@@ -20,6 +20,7 @@ export interface SearchRequest {
   limit?: number;
   highlight?: boolean;
   is_regex?: boolean;
+  continue_token?: string;
 }
 
 export interface SearchHighlight {
@@ -52,6 +53,10 @@ export interface SearchResponse {
   results: SearchResult[];
   took_ms: number;
   filters_applied: SearchFilters;
+  search_status?: string;
+  months_searched?: string[];
+  has_more_months?: boolean;
+  continue_token?: string;
 }
 
 export interface SearchSuggestion {

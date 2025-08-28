@@ -1,8 +1,9 @@
 """Search service implementation."""
 
+import json
 import logging
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from bson import ObjectId
@@ -15,6 +16,7 @@ from app.schemas.search import (
     SearchResult,
     SearchSuggestion,
 )
+from app.services.rolling_message_service import RollingMessageService
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,7 @@ class SearchService:
     def __init__(self, db: AsyncIOMotorDatabase, user_id: str | None = None):
         self.db = db
         self.user_id = user_id
+        self.rolling_service = RollingMessageService(db)
 
     async def search_messages(
         self,
@@ -34,8 +37,9 @@ class SearchService:
         limit: int,
         highlight: bool = True,
         is_regex: bool = False,
+        continue_token: str | None = None,
     ) -> SearchResponse:
-        """Search messages with full-text search or regex."""
+        """Search messages progressively across monthly collections."""
         start_time = datetime.now(UTC)
 
         # Validate regex pattern if regex mode
@@ -55,44 +59,119 @@ class SearchService:
                     filters_applied=filters.model_dump(exclude_none=True)
                     if filters
                     else {},
+                    search_status="Invalid regex pattern",
+                    months_searched=[],
+                    has_more_months=False,
+                    continue_token=None,
                 )
 
-        # Build search pipeline
-        if is_regex:
-            pipeline = self._build_regex_pipeline(query, filters, skip, limit)
-            count_pipeline = self._build_regex_count_pipeline(query, filters)
+        # Parse continuation token
+        search_state = self._parse_continue_token(continue_token)
+
+        # Determine date range for search
+        if filters and filters.start_date:
+            start_date = filters.start_date
         else:
-            pipeline = self._build_search_pipeline(query, filters, skip, limit)
-            count_pipeline = self._build_count_pipeline(query, filters)
+            # Default to 2 years back if no start date specified
+            start_date = datetime.now(UTC) - timedelta(days=730)
 
-        # Execute search
-        cursor = self.db.messages.aggregate(pipeline)
-        results = await cursor.to_list(limit)
+        if filters and filters.end_date:
+            end_date = filters.end_date
+        else:
+            end_date = datetime.now(UTC)
 
-        # Get total count
-        count_result = await self.db.messages.aggregate(count_pipeline).to_list(1)
-        total = count_result[0]["total"] if count_result else 0
+        # Get collections to search
+        all_collections = await self.rolling_service.get_collections_for_range(
+            start_date, end_date
+        )
 
-        # Process results
-        search_results = []
-        for doc in results:
-            result = await self._process_search_result(doc, query, highlight, is_regex)
-            search_results.append(result)
+        # Sort collections in reverse chronological order (most recent first)
+        all_collections.sort(reverse=True)
+
+        # If continuing from previous search, skip already searched collections
+        if search_state and "searched_collections" in search_state:
+            searched = set(search_state["searched_collections"])
+            collections_to_search = [c for c in all_collections if c not in searched]
+            already_searched = list(searched)
+        else:
+            collections_to_search = all_collections
+            already_searched = []
+
+        # Search results
+        all_results = []
+        total_count = 0
+        searched_collections = []
+
+        # Search collections one by one until we have enough results
+        for collection_name in collections_to_search:
+            # Update search status
+            logger.info(f"Searching collection: {collection_name} for query: {query}")
+
+            # Build and execute search pipeline for this collection
+            if is_regex:
+                results, count = await self._search_collection_regex(
+                    collection_name, query, filters, is_regex
+                )
+            else:
+                results, count = await self._search_collection_text(
+                    collection_name, query, filters
+                )
+
+            searched_collections.append(collection_name)
+            total_count += count
+
+            # Process and add results
+            for doc in results:
+                result = await self._process_search_result(
+                    doc, query, highlight, is_regex
+                )
+                all_results.append(result)
+
+            # Stop if we have enough results
+            if len(all_results) >= limit:
+                break
+
+        # Sort all results by score and timestamp
+        all_results.sort(key=lambda x: (-x.score, x.timestamp), reverse=True)
+
+        # Apply pagination
+        paginated_results = all_results[skip : skip + limit]
+
+        # Check if there are more collections to search
+        has_more = len(searched_collections) < len(all_collections)
+
+        # Create continuation token if there are more collections
+        new_continue_token = None
+        if has_more:
+            all_searched = already_searched + searched_collections
+            new_continue_token = self._create_continue_token(
+                {"searched_collections": all_searched, "total_so_far": total_count}
+            )
 
         # Calculate duration
         duration_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
 
         # Log search
-        await self._log_search(query, filters, total, duration_ms)
+        await self._log_search(query, filters, total_count, duration_ms)
+
+        # Format months searched for display
+        months_display = [
+            c.replace("messages_", "").replace("_", "-")
+            for c in (already_searched + searched_collections)
+        ]
 
         return SearchResponse(
             query=query,
-            total=total,
+            total=total_count,
             skip=skip,
             limit=limit,
-            results=search_results,
+            results=paginated_results,
             took_ms=duration_ms,
             filters_applied=filters.model_dump(exclude_none=True) if filters else {},
+            search_status=f"Searched {len(searched_collections)} month(s)",
+            months_searched=months_display,
+            has_more_months=has_more,
+            continue_token=new_continue_token,
         )
 
     async def search_code(
@@ -899,3 +978,317 @@ class SearchService:
         await self.db.search_logs.update_one(
             {"query": query}, {"$inc": {"count": 1}}, upsert=True
         )
+
+    def _parse_continue_token(self, token: str | None) -> dict[str, Any] | None:
+        """Parse continuation token to get search state."""
+        if not token:
+            return None
+        try:
+            import base64
+
+            decoded = base64.b64decode(token)
+            result: dict[str, Any] = json.loads(decoded.decode("utf-8"))
+            return result
+        except Exception as e:
+            logger.warning(f"Failed to parse continue token: {e}")
+            return None
+
+    def _create_continue_token(self, state: dict[str, Any]) -> str:
+        """Create continuation token from search state."""
+        import base64
+
+        json_str = json.dumps(state)
+        return base64.b64encode(json_str.encode()).decode()
+
+    async def _search_collection_text(
+        self,
+        collection_name: str,
+        query: str,
+        filters: SearchFilters | None,
+    ) -> tuple[list[dict], int]:
+        """Search a single collection using text search."""
+        collection = self.db[collection_name]
+
+        # Build match stage for text search
+        match_stage: dict[str, Any] = {"$text": {"$search": query}}
+
+        # Add filters
+        if filters:
+            filter_conditions = self._build_filter_stage(filters)
+            if filter_conditions:
+                match_stage = {"$and": [match_stage, filter_conditions]}
+
+        # Build pipeline
+        pipeline: list[dict[str, Any]] = [
+            {"$match": match_stage},
+            {"$addFields": {"score": {"$meta": "textScore"}}},
+        ]
+
+        # Add joins for user filtering
+        if self.user_id:
+            pipeline.extend(
+                [
+                    {
+                        "$lookup": {
+                            "from": "sessions",
+                            "localField": "sessionId",
+                            "foreignField": "sessionId",
+                            "as": "session",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$session",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                    {
+                        "$lookup": {
+                            "from": "projects",
+                            "localField": "session.projectId",
+                            "foreignField": "_id",
+                            "as": "project",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$project",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                    {
+                        "$match": {
+                            "$or": [
+                                {"session.user_id": ObjectId(self.user_id)},
+                                {"project.user_id": ObjectId(self.user_id)},
+                            ]
+                        }
+                    },
+                ]
+            )
+        else:
+            # Still need joins for project info
+            pipeline.extend(
+                [
+                    {
+                        "$lookup": {
+                            "from": "sessions",
+                            "localField": "sessionId",
+                            "foreignField": "sessionId",
+                            "as": "session",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$session",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                    {
+                        "$lookup": {
+                            "from": "projects",
+                            "localField": "session.projectId",
+                            "foreignField": "_id",
+                            "as": "project",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$project",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                ]
+            )
+
+        # Sort by score
+        pipeline.append({"$sort": {"score": -1, "timestamp": -1}})
+
+        # Execute search
+        results = await collection.aggregate(pipeline).to_list(100)
+
+        # Get count
+        count_pipeline: list[dict[str, Any]] = [
+            {"$match": match_stage},
+        ]
+        if self.user_id:
+            count_pipeline.extend(
+                [
+                    {
+                        "$lookup": {
+                            "from": "sessions",
+                            "localField": "sessionId",
+                            "foreignField": "sessionId",
+                            "as": "session",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$session",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                    {"$match": {"session.user_id": ObjectId(self.user_id)}},
+                ]
+            )
+        count_pipeline.append({"$count": "total"})
+
+        count_result = await collection.aggregate(count_pipeline).to_list(1)
+        count = count_result[0]["total"] if count_result else 0
+
+        return results, count
+
+    async def _search_collection_regex(
+        self,
+        collection_name: str,
+        query: str,
+        filters: SearchFilters | None,
+        is_regex: bool,
+    ) -> tuple[list[dict], int]:
+        """Search a single collection using regex."""
+        collection = self.db[collection_name]
+
+        # Build regex match
+        match_stage: dict[str, Any] = {
+            "$or": [
+                {"content": {"$regex": query, "$options": "i"}},
+                {"message.content": {"$regex": query, "$options": "i"}},
+                {"toolUseResult": {"$regex": query, "$options": "i"}},
+            ]
+        }
+
+        # Add filters
+        if filters:
+            filter_conditions = self._build_filter_stage(filters)
+            if filter_conditions:
+                match_stage = {"$and": [match_stage, filter_conditions]}
+
+        # Build pipeline
+        pipeline: list[dict[str, Any]] = [
+            {"$match": match_stage},
+            # Add simple score based on matches
+            {
+                "$addFields": {
+                    "score": {
+                        "$add": [
+                            {
+                                "$cond": [
+                                    {
+                                        "$regexMatch": {
+                                            "input": {"$ifNull": ["$content", ""]},
+                                            "regex": query,
+                                            "options": "i",
+                                        }
+                                    },
+                                    1,
+                                    0,
+                                ]
+                            },
+                            {
+                                "$cond": [
+                                    {
+                                        "$regexMatch": {
+                                            "input": {
+                                                "$ifNull": ["$message.content", ""]
+                                            },
+                                            "regex": query,
+                                            "options": "i",
+                                        }
+                                    },
+                                    1,
+                                    0,
+                                ]
+                            },
+                        ]
+                    }
+                }
+            },
+        ]
+
+        # Add joins
+        if self.user_id:
+            pipeline.extend(
+                [
+                    {
+                        "$lookup": {
+                            "from": "sessions",
+                            "localField": "sessionId",
+                            "foreignField": "sessionId",
+                            "as": "session",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$session",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                    {
+                        "$lookup": {
+                            "from": "projects",
+                            "localField": "session.projectId",
+                            "foreignField": "_id",
+                            "as": "project",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$project",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                    {
+                        "$match": {
+                            "$or": [
+                                {"session.user_id": ObjectId(self.user_id)},
+                                {"project.user_id": ObjectId(self.user_id)},
+                            ]
+                        }
+                    },
+                ]
+            )
+        else:
+            # Still need joins for project info
+            pipeline.extend(
+                [
+                    {
+                        "$lookup": {
+                            "from": "sessions",
+                            "localField": "sessionId",
+                            "foreignField": "sessionId",
+                            "as": "session",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$session",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                    {
+                        "$lookup": {
+                            "from": "projects",
+                            "localField": "session.projectId",
+                            "foreignField": "_id",
+                            "as": "project",
+                        }
+                    },
+                    {
+                        "$unwind": {
+                            "path": "$project",
+                            "preserveNullAndEmptyArrays": True,
+                        }
+                    },
+                ]
+            )
+
+        # Sort by score
+        pipeline.append({"$sort": {"score": -1, "timestamp": -1}})
+
+        # Execute search
+        results = await collection.aggregate(pipeline).to_list(100)
+
+        # Get count
+        count = len(results)  # Simple count for regex search
+
+        return results, count

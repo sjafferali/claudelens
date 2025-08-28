@@ -44,6 +44,7 @@ async def search(
         request.limit,
         request.highlight,
         request.is_regex,
+        request.continue_token,
     )
 
 

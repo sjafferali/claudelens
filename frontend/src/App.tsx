@@ -14,7 +14,7 @@ import ImportExport from '@/pages/ImportExport';
 import Backup from '@/pages/Backup';
 import Settings from '@/pages/Settings';
 import Admin from '@/pages/Admin';
-import RateLimits from '@/pages/RateLimits';
+import Usage from '@/pages/Usage';
 import Login from '@/pages/Login';
 import OIDCCallback from '@/pages/OIDCCallback';
 import NotFound from '@/pages/NotFound';
@@ -67,7 +67,7 @@ function App() {
                       <Route path="/analytics" element={<Analytics />} />
                       <Route path="/import-export" element={<ImportExport />} />
                       <Route path="/backup" element={<Backup />} />
-                      <Route path="/rate-limits" element={<RateLimits />} />
+                      <Route path="/usage" element={<Usage />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/admin" element={<Admin />} />
                       <Route path="*" element={<NotFound />} />

@@ -96,7 +96,19 @@ async def get_admin_statistics(
 
     # Calculate system totals
     total_sessions = await db.sessions.count_documents({})
-    total_messages = await db.messages.count_documents({})
+
+    # Count messages across rolling collections
+    all_collections = await db.list_collection_names()
+    message_collections = [c for c in all_collections if c.startswith("messages_")]
+    total_messages = 0
+    if message_collections:
+        for coll_name in message_collections:
+            count = await db[coll_name].count_documents({})
+            total_messages += count
+    else:
+        # Fallback to single messages collection if it exists
+        total_messages = await db.messages.count_documents({})
+
     total_projects = await db.projects.count_documents({})
 
     # Format user stats by role

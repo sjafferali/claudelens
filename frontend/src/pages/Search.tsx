@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search as SearchIcon,
   Loader2,
@@ -100,6 +100,12 @@ export default function Search() {
   const [filters, setFilters] = useState<SearchFilters>({});
   const [allResults, setAllResults] = useState<SearchResult[]>([]);
   const [isRegexMode, setIsRegexMode] = useState(false);
+  const [searchMetadata, setSearchMetadata] = useState<{
+    status?: string;
+    monthsSearched?: string[];
+    hasMoreMonths?: boolean;
+    continueToken?: string;
+  }>({});
   const [regexError, setRegexError] = useState<string | null>(null);
   const [showRegexHelper, setShowRegexHelper] = useState(false);
   const [regexHistory, setRegexHistory] = useState<string[]>([]);
@@ -221,16 +227,24 @@ export default function Search() {
     debouncedSetQuery(query);
   }, [query, debouncedSetQuery]);
 
-  // Update allResults when search mutation succeeds
+  // Update allResults and metadata when search mutation succeeds
   useEffect(() => {
     if (searchMutation.data) {
-      if (searchMutation.data.skip === 0) {
+      if (!searchMutation.data.continue_token) {
         // New search, replace all results
         setAllResults(searchMutation.data.results);
       } else {
-        // Loading more, append results
+        // Continuing search, append results
         setAllResults((prev) => [...prev, ...searchMutation.data.results]);
       }
+
+      // Update search metadata
+      setSearchMetadata({
+        status: searchMutation.data.search_status,
+        monthsSearched: searchMutation.data.months_searched,
+        hasMoreMonths: searchMutation.data.has_more_months,
+        continueToken: searchMutation.data.continue_token,
+      });
     }
   }, [searchMutation.data]);
 
@@ -253,6 +267,7 @@ export default function Search() {
 
     setShowSuggestions(false);
     setAllResults([]); // Clear previous results
+    setSearchMetadata({}); // Clear metadata
     searchMutation.mutate({
       query: query.trim(),
       filters,
@@ -266,6 +281,7 @@ export default function Search() {
     setQuery(suggestion);
     setShowSuggestions(false);
     setAllResults([]); // Clear previous results
+    setSearchMetadata({}); // Clear metadata
     searchMutation.mutate({
       query: suggestion,
       filters,
@@ -274,6 +290,20 @@ export default function Search() {
       is_regex: isRegexMode,
     });
   };
+
+  // Handle searching more months
+  const handleSearchMoreMonths = useCallback(() => {
+    if (searchMetadata.continueToken && searchMutation.data) {
+      searchMutation.mutate({
+        query: searchMutation.data.query,
+        filters,
+        limit: 20,
+        highlight: true,
+        is_regex: isRegexMode,
+        continue_token: searchMetadata.continueToken,
+      });
+    }
+  }, [searchMetadata.continueToken, searchMutation, filters, isRegexMode]);
 
   const handleResultClick = (result: SearchResult) => {
     // Navigate to the session detail page using sessionId (UUID format)
@@ -912,6 +942,22 @@ export default function Search() {
               </span>
             )}
           </CardTitle>
+          {searchMetadata.status && (
+            <CardDescription className="mt-2">
+              <div className="flex items-center gap-2">
+                {searchMutation.isPending && (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                )}
+                <span>{searchMetadata.status}</span>
+              </div>
+              {searchMetadata.monthsSearched &&
+                searchMetadata.monthsSearched.length > 0 && (
+                  <div className="mt-1 text-xs">
+                    Searched months: {searchMetadata.monthsSearched.join(', ')}
+                  </div>
+                )}
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent>
           {searchMutation.isIdle && !searchMutation.data && (
@@ -1017,6 +1063,7 @@ export default function Search() {
                 </div>
               ))}
 
+              {/* Show "Load More" button for pagination within searched months */}
               {searchMutation.data &&
                 searchMutation.data.total > allResults.length && (
                   <div className="text-center py-4">
@@ -1037,11 +1084,35 @@ export default function Search() {
                       {searchMutation.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        'Load More'
+                        'Load More Results'
                       )}
                     </Button>
                   </div>
                 )}
+
+              {/* Show "Search More Months" button if there are more months to search */}
+              {searchMetadata.hasMoreMonths && (
+                <div className="text-center py-4 border-t mt-4">
+                  <div className="text-sm text-muted-foreground mb-2">
+                    Found {allResults.length} results so far. Search older
+                    months for more results?
+                  </div>
+                  <Button
+                    variant="default"
+                    onClick={handleSearchMoreMonths}
+                    disabled={searchMutation.isPending}
+                  >
+                    {searchMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Searching...
+                      </>
+                    ) : (
+                      'Search Older Months'
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

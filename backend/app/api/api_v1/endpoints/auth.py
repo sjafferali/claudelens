@@ -1,6 +1,6 @@
 """Authentication endpoints for login/logout."""
 
-from typing import Annotated
+from typing import Annotated, Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app.api.dependencies import get_db
 from app.models.user import UserInDB
 from app.services.auth import AuthService
+from app.services.storage_metrics import StorageMetricsService
 from app.services.user import UserService
 
 router = APIRouter()
@@ -292,3 +293,77 @@ async def revoke_my_api_key(
         )
 
     return {"message": "API key revoked successfully"}
+
+
+@router.get("/me/usage", response_model=Dict[str, Any])
+async def get_my_usage_metrics(
+    current_user: UserInDB = Depends(get_current_user_from_token),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+) -> Dict[str, Any]:
+    """Get current user's usage metrics including storage and resource counts."""
+    storage_service = StorageMetricsService(db)
+
+    # Get storage metrics
+    metrics = await storage_service.calculate_user_metrics(str(current_user.id))
+
+    # Get resource counts directly from database
+    user_projects = await db.projects.find(
+        {"user_id": current_user.id}, {"_id": 1}
+    ).to_list(None)
+    project_ids = [p["_id"] for p in user_projects]
+
+    project_count = len(project_ids)
+
+    # Count sessions for user's projects
+    session_count = 0
+    if project_ids:
+        session_count = await db.sessions.count_documents(
+            {"projectId": {"$in": project_ids}}
+        )
+
+    # Count messages across rolling collections for user's sessions
+    message_count = 0
+    if project_ids:
+        session_ids = await db.sessions.distinct(
+            "sessionId", {"projectId": {"$in": project_ids}}
+        )
+
+        if session_ids:
+            # Count across rolling collections
+            all_collections = await db.list_collection_names()
+            message_collections = [
+                c for c in all_collections if c.startswith("messages_")
+            ]
+
+            if message_collections:
+                for coll_name in message_collections:
+                    count = await db[coll_name].count_documents(
+                        {"sessionId": {"$in": session_ids}}
+                    )
+                    message_count += count
+            else:
+                # Fallback to single messages collection
+                message_count = await db.messages.count_documents(
+                    {"sessionId": {"$in": session_ids}}
+                )
+
+    return {
+        "storage": {
+            "total_bytes": metrics.get("total_disk_usage", 0),
+            "breakdown": {
+                "sessions": metrics.get("sessions", {}).get("total_size", 0),
+                "messages": metrics.get("messages", {}).get("total_size", 0),
+                "projects": metrics.get("projects", {}).get("total_size", 0),
+            },
+        },
+        "counts": {
+            "projects": project_count,
+            "sessions": session_count,
+            "messages": message_count,
+        },
+        "details": {
+            "sessions": metrics.get("sessions", {}),
+            "messages": metrics.get("messages", {}),
+            "projects": metrics.get("projects", {}),
+        },
+    }

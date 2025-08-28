@@ -26,7 +26,7 @@ const navItems = [
   { path: '/prompts', label: 'Prompts', icon: FileText },
   { path: '/search', label: 'Search', icon: Search },
   { path: '/analytics', label: 'Analytics', icon: Activity },
-  { path: '/rate-limits', label: 'Rate Limits', icon: Gauge },
+  { path: '/usage', label: 'Usage', icon: Gauge },
   { path: '/import-export', label: 'Import/Export', icon: Download },
   { path: '/backup', label: 'Backup & Restore', icon: Shield },
 ];
