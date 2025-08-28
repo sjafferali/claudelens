@@ -516,13 +516,13 @@ class TestProjectService:
         assert stats["session_count"] == 10
         assert stats["message_count"] == 50
         mock_db.sessions.count_documents.assert_called_once_with(
-            {"projectId": project_id, "user_id": ObjectId(user_id)}
+            {"projectId": project_id}
         )
         mock_db.sessions.distinct.assert_called_once_with(
-            "sessionId", {"projectId": project_id, "user_id": ObjectId(user_id)}
+            "sessionId", {"projectId": project_id}
         )
         mock_db.messages.count_documents.assert_called_once_with(
-            {"sessionId": {"$in": ["s1", "s2", "s3"]}, "user_id": ObjectId(user_id)}
+            {"sessionId": {"$in": ["s1", "s2", "s3"]}}
         )
 
     @pytest.mark.asyncio
@@ -632,7 +632,7 @@ class TestProjectService:
         # Verify aggregation pipeline
         pipeline_call = mock_db.messages.aggregate.call_args[0][0]
         assert pipeline_call[0]["$match"]["sessionId"]["$in"] == session_ids
-        assert pipeline_call[0]["$match"]["user_id"] == ObjectId(user_id)
+        # No longer filtering by user_id in messages
 
     @pytest.mark.asyncio
     async def test_get_project_statistics_no_messages(self, project_service, mock_db):
@@ -760,7 +760,7 @@ class TestProjectService:
 
         # Check $match stage
         assert pipeline[0]["$match"]["sessionId"]["$in"] == session_ids
-        assert pipeline[0]["$match"]["user_id"] == ObjectId(user_id)
+        # No longer filtering by user_id in messages
 
         # Check $group stage
         group_stage = pipeline[1]["$group"]

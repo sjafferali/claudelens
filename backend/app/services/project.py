@@ -200,7 +200,7 @@ class ProjectService:
             )
 
             session_ids = await self.db.sessions.distinct(
-                "sessionId", {"projectId": project_id, "user_id": ObjectId(user_id)}
+                "sessionId", {"projectId": project_id}
             )
             total_sessions = len(session_ids)
 
@@ -208,7 +208,7 @@ class ProjectService:
                 message_count = 0
             else:
                 message_count = await self.db.messages.count_documents(
-                    {"sessionId": {"$in": session_ids}, "user_id": ObjectId(user_id)}
+                    {"sessionId": {"$in": session_ids}}
                 )
 
             await connection_manager.broadcast_deletion_progress(
@@ -288,19 +288,14 @@ class ProjectService:
         if not project:
             return None
 
-        # Get session IDs
+        # Get session IDs (sessions don't have user_id, rely on project ownership)
         session_ids = await self.db.sessions.distinct(
-            "sessionId", {"projectId": project_id, "user_id": ObjectId(user_id)}
+            "sessionId", {"projectId": project_id}
         )
 
         # Aggregate statistics
         pipeline: list[dict[str, Any]] = [
-            {
-                "$match": {
-                    "sessionId": {"$in": session_ids},
-                    "user_id": ObjectId(user_id),
-                }
-            },
+            {"$match": {"sessionId": {"$in": session_ids}}},
             {
                 "$group": {
                     "_id": None,
@@ -339,18 +334,21 @@ class ProjectService:
 
     async def _get_project_stats(self, user_id: str, project_id: ObjectId) -> dict:
         """Get basic project statistics."""
-        # Count sessions
+        # Count sessions (sessions don't have user_id, rely on project ownership)
         session_count = await self.db.sessions.count_documents(
-            {"projectId": project_id, "user_id": ObjectId(user_id)}
+            {"projectId": project_id}
         )
 
         # Count messages (through sessions)
         session_ids = await self.db.sessions.distinct(
-            "sessionId", {"projectId": project_id, "user_id": ObjectId(user_id)}
+            "sessionId", {"projectId": project_id}
         )
 
-        message_count = await self.db.messages.count_documents(
-            {"sessionId": {"$in": session_ids}, "user_id": ObjectId(user_id)}
-        )
+        message_count = 0
+        if session_ids:
+            # Messages may or may not have user_id field
+            message_count = await self.db.messages.count_documents(
+                {"sessionId": {"$in": session_ids}}
+            )
 
         return {"session_count": session_count, "message_count": message_count}
