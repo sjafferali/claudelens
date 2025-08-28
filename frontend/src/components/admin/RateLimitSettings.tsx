@@ -634,7 +634,7 @@ export const RateLimitSettingsPanel: React.FC = () => {
           </div>
 
           {/* General Settings */}
-          <div className="mb-6">
+          <div>
             <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
               <Clock className="w-5 h-5" />
               General Settings

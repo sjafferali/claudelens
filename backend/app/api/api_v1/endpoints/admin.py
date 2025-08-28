@@ -748,16 +748,39 @@ async def get_top_users_by_usage(
     # Enhance with user details
     enhanced_users = []
     for user_data in top_users:
-        # Try to convert _id to ObjectId if it's a valid ObjectId string
-        try:
-            user_id = ObjectId(user_data["_id"])
-            user = await db.users.find_one({"_id": user_id})
-        except Exception:
-            # If conversion fails, try as string (e.g., for API key users)
-            user = await db.users.find_one({"_id": user_data["_id"]})
-            if not user:
-                # Also try to find by username if _id is actually a username
-                user = await db.users.find_one({"username": user_data["_id"]})
+        user = None
+        user_id_str = str(user_data["_id"])
+
+        # Try to find user by ObjectId if the string is a valid ObjectId
+        if ObjectId.is_valid(user_id_str):
+            try:
+                user = await db.users.find_one({"_id": ObjectId(user_id_str)})
+            except Exception:
+                pass
+
+        # If not found and it looks like a client ID (e.g., "api:xxxxx" or "ip:xxxxx")
+        if not user and ":" in user_id_str:
+            # Extract the type and identifier
+            id_type, id_value = user_id_str.split(":", 1)
+
+            if id_type == "api":
+                # For API keys, search by partial API key hash
+                # Note: This won't find the exact user since we only have the first 8 chars
+                # Instead, let's mark it as an API key user
+                user = {"username": f"API Key User ({id_value})"}
+            elif id_type == "ip":
+                # For IP-based users
+                user = {"username": f"IP User ({id_value})"}
+            else:
+                user = {"username": user_id_str}
+
+        # If still not found, try as username
+        if not user:
+            user = await db.users.find_one({"username": user_id_str})
+
+        # Default to showing the raw ID if no user found
+        if not user:
+            user = {"username": f"Unknown ({user_id_str})"}
 
         enhanced_users.append(
             {

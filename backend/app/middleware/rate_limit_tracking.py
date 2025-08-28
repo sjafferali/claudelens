@@ -54,8 +54,10 @@ class RateLimitTrackingMiddleware(RateLimitMiddleware):
             user_id: Any = request.state.user.id
             return str(user_id)
 
-        # Fall back to client ID as user ID for tracking
-        return self._get_client_id(request)
+        # For unauthenticated requests, use client identifier but ensure no colons
+        client_id = self._get_client_id(request)
+        # Remove colons to prevent issues with metric key splitting
+        return client_id.replace(":", "_") if client_id else None
 
     def _determine_limit_type(self, path: str) -> Optional[RateLimitType]:
         """Determine the rate limit type based on request path."""

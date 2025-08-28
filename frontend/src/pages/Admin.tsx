@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Users,
   Database,
@@ -109,6 +110,39 @@ const StatCard = ({
 
 export default function Admin() {
   const { isAdmin, isLoading: authLoading, currentUser } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Get initial tab from URL hash or default to 'overview'
+  const getInitialTab = ():
+    | 'overview'
+    | 'users'
+    | 'projects'
+    | 'storage'
+    | 'rate-limits'
+    | 'rate-monitor'
+    | 'settings' => {
+    const hash = location.hash.replace('#', '');
+    const validTabs: readonly string[] = [
+      'overview',
+      'users',
+      'projects',
+      'storage',
+      'rate-limits',
+      'rate-monitor',
+      'settings',
+    ];
+    type TabType =
+      | 'overview'
+      | 'users'
+      | 'projects'
+      | 'storage'
+      | 'rate-limits'
+      | 'rate-monitor'
+      | 'settings';
+    return validTabs.includes(hash) ? (hash as TabType) : 'overview';
+  };
+
   const [activeTab, setActiveTab] = useState<
     | 'overview'
     | 'users'
@@ -117,7 +151,7 @@ export default function Admin() {
     | 'rate-limits'
     | 'rate-monitor'
     | 'settings'
-  >('overview');
+  >(getInitialTab());
 
   // Redirect if not admin
   useEffect(() => {
@@ -126,6 +160,29 @@ export default function Admin() {
       console.warn('Unauthorized access to admin panel');
     }
   }, [isAdmin, authLoading]);
+
+  // Update activeTab when hash changes (browser navigation)
+  useEffect(() => {
+    const hash = location.hash.replace('#', '');
+    const validTabs = [
+      'overview',
+      'users',
+      'projects',
+      'storage',
+      'rate-limits',
+      'rate-monitor',
+      'settings',
+    ];
+    if (validTabs.includes(hash)) {
+      setActiveTab(hash as typeof activeTab);
+    }
+  }, [location.hash]);
+
+  // Handle tab change - update both state and URL
+  const handleTabChange = (tabId: typeof activeTab) => {
+    setActiveTab(tabId);
+    navigate(`#${tabId}`, { replace: true });
+  };
 
   // Fetch admin statistics
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -190,7 +247,7 @@ export default function Admin() {
   ] as const;
 
   return (
-    <div className="h-full bg-background">
+    <div className="min-h-full bg-background">
       {/* Header */}
       <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <div className="px-6 py-4">
@@ -217,7 +274,7 @@ export default function Admin() {
               {tabs.map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
-                  onClick={() => setActiveTab(id)}
+                  onClick={() => handleTabChange(id)}
                   className={cn(
                     'flex items-center gap-2 px-3 md:px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex-shrink-0',
                     activeTab === id
@@ -431,7 +488,7 @@ export default function Admin() {
         )}
 
         {activeTab === 'rate-limits' && (
-          <div className="max-w-6xl">
+          <div className="max-w-6xl mx-auto">
             <RateLimitSettingsPanel />
           </div>
         )}
