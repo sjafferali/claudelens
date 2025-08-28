@@ -13,6 +13,7 @@ from app.api.api_v1.endpoints import (
     projects,
     prompts,
     rate_limit_settings,
+    rate_limits,
     restore,
     search,
     sessions,
@@ -67,6 +68,11 @@ api_router.include_router(restore.router, prefix="/restore", tags=["restore"])
 # Rate limit settings endpoints
 api_router.include_router(
     rate_limit_settings.router, prefix="/settings", tags=["settings"]
+)
+
+# Rate limit usage endpoints
+api_router.include_router(
+    rate_limits.router, prefix="/rate-limits", tags=["rate-limits"]
 )
 
 

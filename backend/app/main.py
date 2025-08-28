@@ -20,7 +20,7 @@ from app.core.exceptions import AuthenticationError, NotFoundError, ValidationEr
 from app.core.logging import get_logger, setup_logging
 from app.middleware.forwarded_headers import ForwardedHeadersMiddleware
 from app.middleware.logging import LoggingMiddleware
-from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.rate_limit_tracking import RateLimitTrackingMiddleware
 
 # Configure logging
 setup_logging(
@@ -41,6 +41,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         db = await get_database()
         await initialize_database(db)
+
+        # Start background tasks
+        from app.services.background_tasks import start_background_tasks
+
+        await start_background_tasks(db)
+        logger.info("Started background tasks")
     except Exception:
         logger.exception("Failed to initialize database")
         raise
@@ -49,6 +55,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Shutdown
     logger.info("Shutting down ClaudeLens API...")
+
+    # Stop background tasks
+    from app.services.background_tasks import stop_background_tasks
+
+    await stop_background_tasks()
+    logger.info("Stopped background tasks")
+
     await close_mongodb_connection()
     logger.info("Disconnected from MongoDB")
 
@@ -92,7 +105,7 @@ app.add_middleware(
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(LoggingMiddleware)
-app.add_middleware(RateLimitMiddleware, calls=500, period=60)
+app.add_middleware(RateLimitTrackingMiddleware, calls=500, period=60)
 
 
 # Exception handlers

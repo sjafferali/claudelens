@@ -706,6 +706,56 @@ async def reset_user_rate_limits(
     return {"message": f"Reset all rate limits for user {user_id}"}
 
 
+@router.post("/rate-limits/cleanup-usage-data")
+async def cleanup_usage_data(
+    retention_days: int = Query(30, ge=1, le=365, description="Days of data to retain"),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, Any]:
+    """Clean up old rate limit usage data."""
+    from app.services.rate_limit_usage_service import RateLimitUsageService
+
+    service = RateLimitUsageService(db)
+    deleted_count = await service.cleanup_old_data(retention_days)
+
+    return {
+        "message": f"Cleaned up usage data older than {retention_days} days",
+        "deleted_count": deleted_count,
+    }
+
+
+@router.get("/rate-limits/top-users")
+async def get_top_users_by_usage(
+    limit: int = Query(10, ge=1, le=100, description="Number of users to return"),
+    hours: int = Query(24, ge=1, le=720, description="Time range in hours"),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    admin_user: UserInDB = Depends(require_admin),
+) -> Dict[str, Any]:
+    """Get top users by rate limit usage."""
+    from app.services.rate_limit_usage_service import RateLimitUsageService
+
+    service = RateLimitUsageService(db)
+    top_users = await service.get_top_users_by_usage(
+        limit_type=None, limit=limit, time_range_hours=hours
+    )
+
+    # Enhance with user details
+    enhanced_users = []
+    for user_data in top_users:
+        user = await db.users.find_one({"_id": user_data["_id"]})
+        enhanced_users.append(
+            {
+                "user_id": str(user_data["_id"]),
+                "username": user.get("username", "Unknown") if user else "Unknown",
+                "total_requests": user_data["total_requests"],
+                "total_blocked": user_data["total_blocked"],
+                "avg_usage_rate": user_data["avg_usage_rate"],
+            }
+        )
+
+    return {"time_range_hours": hours, "top_users": enhanced_users}
+
+
 class ProjectOwnershipTransfer(PydanticBaseModel):
     """Request model for transferring project ownership."""
 

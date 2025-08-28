@@ -81,17 +81,22 @@ export interface UserUsageData {
 
 export const adminRateLimitsApi = {
   getSettings: async (): Promise<RateLimitSettings> => {
-    return apiClient.get<RateLimitSettings>('/admin/rate-limits');
+    return await apiClient.get<RateLimitSettings>('/admin/rate-limits');
   },
 
   updateSettings: async (
     settings: RateLimitSettings
   ): Promise<RateLimitSettings> => {
-    return apiClient.put<RateLimitSettings>('/admin/rate-limits', settings);
+    return await apiClient.put<RateLimitSettings>(
+      '/admin/rate-limits',
+      settings
+    );
   },
 
   resetToDefaults: async (): Promise<{ message: string }> => {
-    return apiClient.post<{ message: string }>('/admin/rate-limits/reset');
+    return await apiClient.post<{ message: string }>(
+      '/admin/rate-limits/reset'
+    );
   },
 
   getUsageStats: async (
@@ -100,7 +105,7 @@ export const adminRateLimitsApi = {
     { users: UserRateLimitUsage[] } | { user_id: string; usage: UserUsageData }
   > => {
     const params = userId ? { user_id: userId } : {};
-    return apiClient.get<
+    return await apiClient.get<
       | { users: UserRateLimitUsage[] }
       | { user_id: string; usage: UserUsageData }
     >('/admin/rate-limits/usage', {
@@ -113,10 +118,51 @@ export const adminRateLimitsApi = {
     limitType?: string
   ): Promise<{ message: string }> => {
     const params = limitType ? { limit_type: limitType } : {};
-    return apiClient.post<{ message: string }>(
+    return await apiClient.post<{ message: string }>(
       `/admin/rate-limits/reset-user/${userId}`,
       null,
       { params }
     );
+  },
+
+  getTopUsers: async (
+    limit: number = 10,
+    hours: number = 24
+  ): Promise<{
+    time_range_hours: number;
+    top_users: Array<{
+      user_id: string;
+      username: string;
+      total_requests: number;
+      total_blocked: number;
+      avg_usage_rate: number;
+    }>;
+  }> => {
+    return await apiClient.get<{
+      time_range_hours: number;
+      top_users: Array<{
+        user_id: string;
+        username: string;
+        total_requests: number;
+        total_blocked: number;
+        avg_usage_rate: number;
+      }>;
+    }>('/admin/rate-limits/top-users', {
+      params: { limit, hours },
+    });
+  },
+
+  cleanupUsageData: async (
+    retentionDays: number = 30
+  ): Promise<{
+    message: string;
+    deleted_count: number;
+  }> => {
+    return await apiClient.post<{
+      message: string;
+      deleted_count: number;
+    }>('/admin/rate-limits/cleanup-usage-data', null, {
+      params: { retention_days: retentionDays },
+    });
   },
 };
