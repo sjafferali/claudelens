@@ -88,6 +88,8 @@ async def test_get_user_by_id(user_service, mock_db, mock_user_doc):
     """Test getting user by ID."""
     user_id = str(mock_user_doc["_id"])
     mock_db.users.find_one = AsyncMock(return_value=mock_user_doc)
+    mock_db.sessions.count_documents = AsyncMock(return_value=10)
+    mock_db.projects.count_documents = AsyncMock(return_value=5)
 
     retrieved_user = await user_service.get_user_by_id(user_id)
 
@@ -210,6 +212,8 @@ async def test_list_users(user_service, mock_db):
 
     # Mock count
     mock_db.users.count_documents = AsyncMock(return_value=3)
+    mock_db.sessions.count_documents = AsyncMock(return_value=10)
+    mock_db.projects.count_documents = AsyncMock(return_value=5)
 
     # Mock find with cursor that supports chaining and async iteration
     mock_cursor = MagicMock()

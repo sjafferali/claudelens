@@ -105,6 +105,20 @@ class UserService:
         if not user_doc:
             return None
 
+        # Calculate actual session count for this user
+        session_count = await self.db.sessions.count_documents(
+            {"user_id": user_doc["_id"]}
+        )
+
+        # Calculate actual project count for this user
+        project_count = await self.db.projects.count_documents(
+            {"user_id": user_doc["_id"]}
+        )
+
+        # Update the document with real counts
+        user_doc["session_count"] = session_count
+        user_doc["project_count"] = project_count
+
         return UserInDB(**user_doc)
 
     async def get_user_by_api_key(self, api_key: str) -> Optional[UserInDB]:
@@ -203,6 +217,20 @@ class UserService:
 
         users = []
         async for user_doc in cursor:
+            # Calculate actual session count for this user
+            session_count = await self.db.sessions.count_documents(
+                {"user_id": user_doc["_id"]}
+            )
+
+            # Calculate actual project count for this user
+            project_count = await self.db.projects.count_documents(
+                {"user_id": user_doc["_id"]}
+            )
+
+            # Update the document with real counts
+            user_doc["session_count"] = session_count
+            user_doc["project_count"] = project_count
+
             users.append(UserInDB(**user_doc))
 
         return users, total

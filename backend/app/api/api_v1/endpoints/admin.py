@@ -921,7 +921,7 @@ async def list_projects_with_owners(
                 "from": "sessions",
                 "let": {"project_id": "$_id"},
                 "pipeline": [
-                    {"$match": {"$expr": {"$eq": ["$project_id", "$$project_id"]}}},
+                    {"$match": {"$expr": {"$eq": ["$projectId", "$$project_id"]}}},
                     {"$count": "count"},
                 ],
                 "as": "session_stats",
