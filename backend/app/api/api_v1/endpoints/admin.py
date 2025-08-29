@@ -126,11 +126,20 @@ async def get_admin_statistics(
     # Format top users and calculate actual counts
     formatted_top_users = []
     for user in top_users:
-        # Calculate actual session count for this user
-        user_session_count = await db.sessions.count_documents({"user_id": user["_id"]})
-
         # Calculate actual project count for this user
         user_project_count = await db.projects.count_documents({"user_id": user["_id"]})
+
+        # Calculate actual session count for this user
+        # Sessions don't have user_id directly - they belong to projects which belong to users
+        user_projects = await db.projects.find(
+            {"user_id": user["_id"]}, {"_id": 1}
+        ).to_list(None)
+        project_ids = [p["_id"] for p in user_projects]
+        user_session_count = (
+            await db.sessions.count_documents({"projectId": {"$in": project_ids}})
+            if project_ids
+            else 0
+        )
 
         formatted_top_users.append(
             {
@@ -190,11 +199,20 @@ async def get_admin_users(
 
     users = []
     async for user in cursor:
-        # Calculate actual session count for this user
-        user_session_count = await db.sessions.count_documents({"user_id": user["_id"]})
-
         # Calculate actual project count for this user
         user_project_count = await db.projects.count_documents({"user_id": user["_id"]})
+
+        # Calculate actual session count for this user
+        # Sessions don't have user_id directly - they belong to projects which belong to users
+        user_projects = await db.projects.find(
+            {"user_id": user["_id"]}, {"_id": 1}
+        ).to_list(None)
+        project_ids = [p["_id"] for p in user_projects]
+        user_session_count = (
+            await db.sessions.count_documents({"projectId": {"$in": project_ids}})
+            if project_ids
+            else 0
+        )
 
         users.append(
             {
@@ -429,11 +447,20 @@ async def get_storage_breakdown(
     # Format top users and calculate actual counts
     formatted_top_users = []
     for user in top_users:
-        # Calculate actual session count for this user
-        user_session_count = await db.sessions.count_documents({"user_id": user["_id"]})
-
         # Calculate actual project count for this user
         user_project_count = await db.projects.count_documents({"user_id": user["_id"]})
+
+        # Calculate actual session count for this user
+        # Sessions don't have user_id directly - they belong to projects which belong to users
+        user_projects = await db.projects.find(
+            {"user_id": user["_id"]}, {"_id": 1}
+        ).to_list(None)
+        project_ids = [p["_id"] for p in user_projects]
+        user_session_count = (
+            await db.sessions.count_documents({"projectId": {"$in": project_ids}})
+            if project_ids
+            else 0
+        )
 
         formatted_top_users.append(
             {
